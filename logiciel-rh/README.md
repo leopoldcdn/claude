@@ -73,6 +73,10 @@ Les données de départ (`data.js`, schéma version 7) sont fictives ; vos modif
   signalements des managers, demandes d'échange des salariés avec réponses.
 - **Documents RH** : attestation employeur, avenant, et documents de sortie (certificat de travail, solde de tout
   compte, attestation France Travail) générés au passage à l'étape « Départ ».
+- **Reporting RH** (profil RH, bouton en haut à droite et dans le bandeau) : effectif, entrées, turnover, absentéisme,
+  ancienneté, masse salariale ; graphiques par service, femmes-hommes par catégorie, pyramide des âges, entrées et
+  sorties, absences par motif, masse salariale mensuelle, sources de candidatures, baromètre QVT, formation et égalité
+  salariale. Info-bulle au survol et tableau de données sous chaque graphique.
 - **Profils** : RH (Olivia, 16 étapes), Manager (Thomas, équipe Design, 16 étapes), Salariée (Léa, 8 étapes) ; les étapes ne sont pas numérotées à l’écran — chacun voit ses propres écrans.
 
 Le fichier `index.html` n'a pas de `<!doctype>` : il est conçu pour être publié comme Artifact claude.ai,

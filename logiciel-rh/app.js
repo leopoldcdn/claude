@@ -6,6 +6,7 @@
   const STAGES = window.TEAMORA_STAGES;
   const STAGE_COLORS = ['#6366f1', '#7c3aed', '#a855f7', '#c026d3', '#db2777', '#e11d48', '#ea580c', '#d97706', '#ca8a04', '#65a30d', '#16a34a', '#059669', '#0d9488', '#0891b2', '#0284c7', '#2563eb'];
   const P = {
+    chart: '<path d="M4 20V11M10 20V5M16 20v-8M21 20H3"/>',
     home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
     users: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2c2.6-.4 4.4 1.2 5 4.3"/>',
     calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
@@ -195,7 +196,7 @@
     salarie: [null, null, 'etape-moi', 'etape-moi', 'etape-moi', 'profil', 'absences', 'bulletins', 'entretiens', 'formation', 'mobilite', 'sante', 'relations', 'etape-moi', 'etape-moi', 'etape-moi'],
   };
   const VIEW_LABELS = {
-    rh: { accueil: 'Accueil', besoins: 'Besoins de recrutement', collaborateurs: 'Collaborateurs', absences: 'Absences', paie: 'Paie', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Relations individuelles' },
+    rh: { accueil: 'Accueil', reporting: 'Reporting RH', besoins: 'Besoins de recrutement', collaborateurs: 'Collaborateurs', absences: 'Absences', paie: 'Paie', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Relations individuelles' },
     manager: { accueil: 'Accueil', besoins: 'Besoins de recrutement', collaborateurs: 'Mon équipe', absences: 'Absences', paie: 'Rémunération de l’équipe', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Signalements' },
     salarie: { accueil: 'Mon parcours', profil: 'Mon profil', absences: 'Mes absences', bulletins: 'Mes bulletins', entretiens: 'Mes entretiens', formation: 'Formations', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Échanges RH' },
   };
@@ -204,7 +205,7 @@
     return STAGES.map((s, i) => i).filter((i) => { const v = STAGE_VIEW[ui.profile][i]; return v === 'etape-moi' ? me().stage === i : !!v; });
   }
   const stageView = (i) => (STAGE_VIEW[ui.profile][i] === 'etape-moi' ? 'etape' : STAGE_VIEW[ui.profile][i]);
-  const canView = (v) => v === 'accueil' || (v === 'etape' ? visibleStages().includes(ui.stage) : visibleStages().some((i) => stageView(i) === v));
+  const canView = (v) => v === 'accueil' || (v === 'reporting' && ui.profile === 'rh') || (v === 'etape' ? visibleStages().includes(ui.stage) : visibleStages().some((i) => stageView(i) === v));
   function navCount(v) {
     if (v === 'absences') return pendingForMe().length + pendingSheets().length;
     if (v === 'paie') return ui.profile === 'rh' ? Object.values(db.raises.proposals).filter((x) => x.status === 'Proposée').length : ui.profile === 'manager' && db.raises.status === 'Ouverte' ? scopeEmployees().filter((e) => raiseEligible(e) && !db.raises.proposals[e.id]).length : 0;
@@ -236,6 +237,7 @@
       <div class="top-title"><div class="crumb">${crumb}</div><h1>${title}</h1></div>
       <div class="top-right"><div class="persona" role="group" aria-label="Voir l’application en tant que">${Object.entries(PROFILES).map(([k, p]) => { const e = emp(p.emp);
         return `<button type="button" data-act="persona" data-p="${k}" aria-pressed="${ui.profile === k}">${avatar(e)}<span class="who-name">${esc(e.firstName)} ·</span> ${p.label}</button>`; }).join('')}</div>
+      ${ui.profile === 'rh' ? `<button type="button" class="btn ${ui.view === 'reporting' ? 'primary' : 'ghost'} sm rep-btn" data-act="go" data-v="reporting">${ic('chart')}Reporting RH</button>` : ''}
       <button type="button" class="icon-btn" data-act="notif" aria-label="Notifications (${unread} non lues)" aria-expanded="${ui.notif}">${ic('bell')}${unread ? `<span class="dot num">${unread}</span>` : ''}</button></div>
       ${ui.notif ? `<div class="card notif-pop" data-act="noop"><div class="card-h"><h3>Notifications</h3>${unread ? '<button type="button" class="btn ghost sm" data-act="notif-read">Tout marquer comme lu</button>' : ''}</div>
         ${mine.length ? mine.slice(0, 8).map((n) => `<div class="notif ${n.read ? '' : 'unread'}"><div>${esc(n.text)}<small>${fmtDate(n.date)}</small></div></div>`).join('') : '<div class="empty">Aucune notification.</div>'}</div>` : ''}</header>`;
@@ -243,7 +245,7 @@
   // Outside the home page, the wheel's stages stay reachable as a strip, in the same order and colours.
   function stageRail() {
     if (ui.view === 'accueil') return '';
-    return `<nav class="rail" aria-label="Étapes du parcours"><button type="button" class="rail-home" data-act="go" data-v="accueil" aria-label="Retour à la roue" title="Retour à la roue">${ic('home')}</button>
+    return `<nav class="rail" aria-label="Étapes du parcours"><button type="button" class="rail-home" data-act="go" data-v="accueil" aria-label="Retour à la roue" title="Retour à la roue">${ic('home')}</button>${ui.profile === 'rh' ? `<button type="button" class="rail-home rail-rep" data-act="go" data-v="reporting" aria-label="Reporting RH" title="Reporting RH" ${ui.view === 'reporting' ? 'aria-current="page"' : ''}>${ic('chart')}</button><span class="rail-sep"></span>` : ''}
       ${visibleStages().map((i) => { const v = stageView(i), name = `${STAGES[i].short}${v === 'etape' ? '' : ` — ${VIEW_LABELS[ui.profile][v]}`}`;
         return `<button type="button" data-act="stage" data-i="${i}" style="--c:${STAGE_COLORS[i]}" aria-label="${esc(name)}" title="${esc(name)}" ${ui.stage === i ? 'aria-current="page"' : ''}>${ic(STAGES[i].icon)}${stageBadge(i)}</button>`; }).join('')}</nav>`;
   }
@@ -2491,6 +2493,89 @@
     'exit-int'(v, form) { const e = emp(form.dataset.id); offb(e).exitInterview = { date: TODAY, reason: v.reason, enps: Math.max(0, Math.min(10, Number(v.enps) || 0)), good: v.good.trim(), improve: v.improve.trim(), back: v.back }; toast('Entretien de départ enregistré'); commit(); },
   });
 
+  // ================================================================ Reporting RH (profil RH)
+  // Graphiques en HTML : barres fines (≤ 24 px), extrémité arrondie, espace de 2 px entre segments,
+  // libellés en couleurs de texte, info-bulle au survol et tableau de données sous chaque graphique.
+  const pct1 = (v) => `${(v * 100).toFixed(1).replace('.', ',')} %`;
+  const monthsBack = (n) => Array.from({ length: n }, (_, k) => shiftMonth(monthKey(TODAY), k - n + 1));
+  const dataTable = (head, rows) => `<details class="viz-data"><summary>Voir les données</summary><div class="table-wrap"><table><thead><tr>${head.map((h, k) => `<th class="${k ? 'r' : ''}">${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, k) => `<td class="${k ? 'r num' : ''}">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>`;
+  const legend = (items) => `<div class="viz-legend">${items.map(([l, k]) => `<span><i style="background:var(--viz-${k})"></i>${l}</span>`).join('')}</div>`;
+  function hBars(rows, fmt = (v) => v) {
+    const max = Math.max(1, ...rows.map((r) => r[1]));
+    return `<div class="hbars">${rows.map(([l, v, tip]) => `<div class="hb" data-tip="${esc(tip || `${l} : ${fmt(v)}`)}"><span class="hb-l">${esc(l)}</span><span class="hb-t"><i style="width:calc((100% - 56px) * ${v / max})"></i><b class="num">${fmt(v)}</b></span></div>`).join('')}</div>`;
+  }
+  function stackBars(rows, series) {
+    return `<div class="hbars">${rows.map(([l, vals]) => { const tot = vals.reduce((s, v) => s + v, 0) || 1;
+      return `<div class="hb" data-tip="${esc(`${l} : ${series.map(([n], k) => `${n} ${vals[k]}`).join(' · ')}`)}"><span class="hb-l">${esc(l)}</span><span class="hb-t stack">${vals.map((v, k) => (v ? `<i style="width:${(v / tot) * 100}%;background:var(--viz-${series[k][1]})"></i>` : '')).join('')}</span><b class="num hb-v">${tot}</b></div>`; }).join('')}</div>${legend(series)}`;
+  }
+  function columns(cols, series, fmt = (v) => v, short) {
+    const max = Math.max(1, ...cols.flatMap((c) => c[1]));
+    return `<div class="cols">${cols.map(([l, vals]) => `<div class="col-g" data-tip="${esc(`${l} : ${vals.map((v, k) => `${series[k][0]} ${fmt(v)}`).join(' · ')}`)}"><div class="col-b">${vals.map((v, k) => `<i style="height:${Math.max(v ? 2 : 0, (v / max) * 85)}%;background:var(--viz-${series[k][1]})">${v ? `<b class="num">${short ? short(v) : fmt(v)}</b>` : ''}</i>`).join('')}</div><span>${esc(l)}</span></div>`).join('')}</div>${series.length > 1 ? legend(series) : ''}`;
+  }
+  function lineChart(points, fmt, min, max) {
+    const W = 520, H = 150, pad = 26, x = (k) => pad + (k * (W - 2 * pad)) / Math.max(1, points.length - 1), y = (v) => H - pad - ((v - min) / (max - min)) * (H - 2 * pad);
+    const valid = points.map((p, k) => [k, p[1]]).filter(([, v]) => v !== null);
+    const grid = [min, (min + max) / 2, max].map((g) => `<line x1="${pad}" x2="${W - pad}" y1="${y(g)}" y2="${y(g)}" class="viz-grid"/><text x="${pad - 6}" y="${y(g) + 4}" text-anchor="end" class="viz-tick">${fmt(g)}</text>`).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" class="viz-line" role="img" aria-label="Évolution">${grid}
+      <polyline points="${valid.map(([k, v]) => `${x(k)},${y(v)}`).join(' ')}" class="viz-l1"/>
+      ${valid.map(([k, v]) => `<circle cx="${x(k)}" cy="${y(v)}" r="5" class="viz-dot" data-tip="${esc(`${points[k][0]} : ${fmt(v)}`)}"/>`).join('')}
+      ${points.map((p, k) => `<text x="${x(k)}" y="${H - 6}" text-anchor="middle" class="viz-tick">${esc(p[0])}</text>`).join('')}</svg>`;
+  }
+  const ageBand = (a) => (a === null ? null : a < 25 ? 'Moins de 25 ans' : a < 35 ? '25-34 ans' : a < 45 ? '35-44 ans' : a < 55 ? '45-54 ans' : '55 ans et plus');
+  const AGE_BANDS = ['55 ans et plus', '45-54 ans', '35-44 ans', '25-34 ans', 'Moins de 25 ans'];
+  function viewReporting() {
+    const pop = employed(), n = pop.length, yearAgo = addMonths(TODAY, -12);
+    const avg = (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : 0);
+    const entries = db.employees.filter((e) => e.startDate > yearAgo && e.startDate <= TODAY && e.stage >= 3);
+    const exitsDone = db.employees.filter((e) => e.exit && e.exit.lastDay > yearAgo && e.exit.lastDay <= TODAY);
+    const exitsPlanned = db.employees.filter((e) => e.exit && e.exit.lastDay > TODAY);
+    const sickDays = db.leaves.filter((l) => l.type === 'Maladie' && l.status === 'Approuvée' && l.end >= yearAgo && l.start <= TODAY).reduce((s, l) => s + workDays(l.start < yearAgo ? yearAgo : l.start, l.end > TODAY ? TODAY : l.end), 0);
+    const absRate = sickDays / Math.max(1, n * 218);
+    const tenure = avg(pop.map((e) => dayDiff(e.startDate, TODAY) / 365.25)), age = avg(pop.filter((e) => e.birthDate).map((e) => ageAt(e)));
+    const masse = pop.reduce((s, e) => s + e.salary, 0);
+    const kpi = (l, v, s2, tip) => `<div class="card kpi" ${tip ? `data-tip="${esc(tip)}"` : ''}><span class="l">${l}</span><span class="v num">${v}</span><span class="s">${s2}</span></div>`;
+    // 1. Effectif par service
+    const depts = DEPTS.map((d) => [d, pop.filter((e) => e.dept === d).length]).filter(([, v]) => v).sort((a, b) => b[1] - a[1]);
+    // 2. Répartition femmes-hommes par catégorie
+    const cats = ['Cadre', 'Agent de maîtrise', 'Employé'].map((c) => [c, ['F', 'H'].map((s) => pop.filter((e) => e.category === c && e.sex === s).length)]).filter(([, v]) => v[0] + v[1]);
+    // 3. Pyramide des âges
+    const pyr = AGE_BANDS.map((b) => [b, ['F', 'H'].map((s) => pop.filter((e) => e.sex === s && ageBand(ageAt(e)) === b).length)]);
+    const pmax = Math.max(1, ...pyr.flatMap((r) => r[1]));
+    // 4. Mouvements sur 12 mois
+    const months = monthsBack(12), ml = (m) => new Intl.DateTimeFormat('fr-FR', { month: 'short' }).format(parse(m + '-01')).replace('.', '');
+    const moves = months.map((m) => [ml(m), [db.employees.filter((e) => e.startDate.slice(0, 7) === m && e.stage >= 2).length, db.employees.filter((e) => e.exit && e.exit.lastDay.slice(0, 7) === m).length]]);
+    // 5. Absences par motif (jours ouvrés, 12 mois)
+    const absTypes = LEAVE_TYPES.map((t) => [t, db.leaves.filter((l) => l.type === t && l.status === 'Approuvée' && l.end >= yearAgo && l.start <= TODAY).reduce((s, l) => s + workDays(l.start < yearAgo ? yearAgo : l.start, l.end > TODAY ? TODAY : l.end), 0)]).filter(([, v]) => v);
+    // 6. Masse salariale mensuelle (paie)
+    const pm = payMonths(), payroll = pm.map((m) => [monthLabel(m), db.employees.filter((e) => inPayroll(e, m)).reduce((s, e) => s + calcPay(e, m).gross, 0)]);
+    // 7. Recrutement
+    const sources = {}; db.candidates.forEach((c) => { sources[c.source] = (sources[c.source] || 0) + 1; });
+    const filled = db.candidates.filter((c) => c.hiredAt).map((c) => { const j = db.jobs.find((x) => x.id === c.jobId); const pub = j.publishedAt || ((j.approvals || []).find((a) => a.step === 'publication') || {}).date || j.createdAt; return dayDiff(pub, c.hiredAt); });
+    // 8. QVT et formation
+    const qvt = monthsBack(6).map((m) => { const st = qvtStats(m); return [ml(m), st.n >= 3 ? st.overall : null]; });
+    const b = budgetState(), trained = new Set(db.enrollments.filter((x) => ['Terminée', 'Validée'].includes(x.status) && x.session.slice(0, 4) === TODAY.slice(0, 4)).map((x) => x.empId));
+    const gap = payGap(db.employees);
+    return `<div class="kpis six">${kpi('Effectif', n, `${plural(exitsPlanned.length, 'départ prévu', 'départs prévus')} · ${plural(db.employees.filter((e) => e.stage === 2).length, 'arrivée prévue', 'arrivées prévues')}`)}
+        ${kpi('Entrées sur 12 mois', entries.length, `taux d’entrée ${pct1(entries.length / Math.max(1, n))}`)}${kpi('Turnover sur 12 mois', pct1(exitsDone.length / Math.max(1, n)), `${plural(exitsDone.length, 'sortie', 'sorties')} réalisée${exitsDone.length > 1 ? 's' : ''}`, 'Sorties des 12 derniers mois rapportées à l’effectif')}
+        ${kpi('Absentéisme maladie', pct1(absRate), `${plural(sickDays, 'jour ouvré', 'jours ouvrés')} sur 12 mois`, 'Jours d’arrêt maladie rapportés à 218 jours travaillés par salarié')}
+        ${kpi('Ancienneté moyenne', `${tenure.toFixed(1).replace('.', ',')} ans`, `âge moyen ${Math.round(age)} ans`)}${kpi('Masse salariale annuelle', eur0(masse), `salaire moyen ${eur0(masse / Math.max(1, n))}`)}</div>
+      <div class="viz-grid2">
+        ${card('Effectif par service', '', `<div class="card-b">${hBars(depts, (v) => v)}${dataTable(['Service', 'Salariés'], depts)}</div>`)}
+        ${card('Femmes et hommes par catégorie', '', `<div class="card-b">${stackBars(cats, [['Femmes', 1], ['Hommes', 2]])}${dataTable(['Catégorie', 'Femmes', 'Hommes'], cats.map(([c, v]) => [c, v[0], v[1]]))}</div>`)}
+        ${card('Pyramide des âges', '', `<div class="card-b"><div class="pyr">${pyr.map(([l, v]) => `<div class="pyr-r" data-tip="${esc(`${l} : ${v[0]} femme${v[0] > 1 ? 's' : ''}, ${v[1]} homme${v[1] > 1 ? 's' : ''}`)}"><span class="pyr-s l"><b class="num">${v[0] || ''}</b><i style="width:${(v[0] / pmax) * 100}%;background:var(--viz-1)"></i></span><span class="pyr-l">${l}</span><span class="pyr-s"><i style="width:${(v[1] / pmax) * 100}%;background:var(--viz-2)"></i><b class="num">${v[1] || ''}</b></span></div>`).join('')}</div>
+          ${legend([['Femmes', 1], ['Hommes', 2]])}${dataTable(['Tranche d’âge', 'Femmes', 'Hommes'], pyr.map(([l, v]) => [l, v[0], v[1]]))}</div>`)}
+        ${card('Entrées et sorties sur 12 mois', '', `<div class="card-b">${columns(moves, [['Entrées', 1], ['Sorties', 2]])}${dataTable(['Mois', 'Entrées', 'Sorties'], moves.map(([l, v]) => [l, v[0], v[1]]))}</div>`)}
+        ${card('Absences par motif sur 12 mois', '<span class="muted" style="font-size:13px">jours ouvrés</span>', `<div class="card-b">${hBars(absTypes.sort((a, c) => c[1] - a[1]), (v) => `${v} j`)}${dataTable(['Motif', 'Jours ouvrés'], absTypes)}</div>`)}
+        ${card('Masse salariale brute mensuelle', '', `<div class="card-b">${columns(payroll.map(([l, v]) => [l.replace(/ \d{4}$/, ''), [Math.round(v)]]), [['Brut', 1]], eur0, (v) => `${Math.round(v / 1000)} k€`)}${dataTable(['Mois', 'Brut versé'], payroll.map(([l, v]) => [l, eur0(v)]))}</div>`)}
+        ${card('Candidatures par source', `<span class="muted" style="font-size:13px">délai moyen de recrutement : ${filled.length ? plural(Math.round(avg(filled)), 'jour', 'jours') : '—'}</span>`, `<div class="card-b">${hBars(Object.entries(sources).sort((a, c) => c[1] - a[1]))}${dataTable(['Source', 'Candidatures'], Object.entries(sources))}</div>`)}
+        ${card('Baromètre QVT', '<span class="muted" style="font-size:13px">note globale sur 5 · masquée sous 3 réponses</span>', `<div class="card-b">${lineChart(qvt, (v) => v.toFixed(1).replace('.', ','), 1, 5)}${dataTable(['Mois', 'Note globale'], qvt.map(([l, v]) => [l, v === null ? 'Non publiée' : v.toFixed(1).replace('.', ',')]))}</div>`)}
+      </div>
+      <div class="two">${card('Formation', '', `<div class="card-b"><div class="crit"><div class="crit-row"><span>Budget ${TODAY.slice(0, 4)}</span><b class="num">${eur0(b.total)}</b></div><div class="crit-row"><span>Réalisé et engagé</span><b class="num">${eur0(b.used + b.engaged)} (${Math.round(((b.used + b.engaged) / b.total) * 100)} %)</b></div>
+          <div class="crit-row"><span>Taux d’accès à la formation</span><b class="num">${pct1(trained.size / Math.max(1, n))}</b></div></div></div>`)}
+        ${card('Égalité salariale', '', `<div class="card-b"><div class="crit">${gap.map((r) => `<div class="crit-row"><span>${esc(r.cat)}</span><b class="num">${r.gap === null ? '—' : `${r.gap > 0 ? 'Femmes' : 'Hommes'} −${(Math.abs(r.h - r.f) / Math.max(r.h, r.f) * 100).toFixed(1).replace('.', ',')} %`}</b></div>`).join('')}</div><p class="hint" style="margin:10px 0 0">Écart de salaire moyen par catégorie ; détail dans Rémunération.</p></div>`)}</div>
+      <p class="hint">Indicateurs calculés sur les salariés en poste au ${fmtDate(TODAY)}, à partir des données du logiciel.</p>`;
+  }
+
   // ---------------------------------------------------------------- Documents RH
   const DOC_LABEL = { contrat: 'Contrat de travail', info7: 'Informations essentielles sur la relation de travail', info1m: 'Informations complémentaires sur la relation de travail', essai: 'Confirmation de fin de période d’essai', attestation: 'Attestation employeur', avenant: 'Avenant au contrat', certificat: 'Certificat de travail', solde: 'Reçu pour solde de tout compte', 'france-travail': 'Attestation employeur France Travail' };
   function docBody(d) {
@@ -2584,7 +2669,7 @@
   function formError(msg) { const el = document.getElementById('m-err'); if (el) el.textContent = msg; }
 
   // ---------------------------------------------------------------- Render
-  const VIEWS = { accueil: viewHome, etape: viewStage, besoins: viewNeeds, collaborateurs: viewAdmin, absences: viewAbsences, paie: viewRemu, recrutement: viewRecruitment, profil: viewProfile, bulletins: viewMyPay,
+  const VIEWS = { accueil: viewHome, reporting: viewReporting, etape: viewStage, besoins: viewNeeds, collaborateurs: viewAdmin, absences: viewAbsences, paie: viewRemu, recrutement: viewRecruitment, profil: viewProfile, bulletins: viewMyPay,
     entretiens: viewReviews, formation: viewTraining, mobilite: viewMobility, sante: viewHealth, relations: viewRelations };
   let drawerAnim = false;
   let rendering = false;
@@ -2618,6 +2703,7 @@
   // Keep (view, stage) consistent with what the profile is allowed to open.
   function route() {
     if (ui.view === 'accueil' || !VIEWS[ui.view]) { ui.view = 'accueil'; ui.stage = null; return; }
+    if (ui.view === 'reporting') { if (ui.profile !== 'rh') ui.view = 'accueil'; ui.stage = null; return; }
     const vis = visibleStages();
     if (ui.view === 'etape') { if (!vis.includes(ui.stage) || stageView(ui.stage) !== 'etape') { ui.view = 'accueil'; ui.stage = null; } return; }
     if (!vis.includes(ui.stage) || stageView(ui.stage) !== ui.view) ui.stage = vis.find((i) => stageView(i) === ui.view) ?? null;
@@ -2851,6 +2937,10 @@
     if ((ev.key === 'Enter' || ev.key === ' ') && t.matches && t.matches('tr[data-act]')) { ev.preventDefault(); t.click(); }
   });
   window.addEventListener('resize', fitWheel);
+  // Info-bulle des graphiques : tout élément porteur de data-tip.
+  const tip = document.createElement('div'); tip.className = 'viz-tip'; tip.setAttribute('role', 'tooltip'); document.body.appendChild(tip);
+  document.addEventListener('mouseover', (ev) => { const t = ev.target.closest && ev.target.closest('[data-tip]'); if (!t) { tip.classList.remove('on'); return; } tip.textContent = t.dataset.tip; tip.classList.add('on'); });
+  document.addEventListener('mousemove', (ev) => { if (!tip.classList.contains('on')) return; const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8); tip.style.transform = `translate(${x}px, ${ev.clientY + 16}px)`; });
 
   normalizeEmployees(); applyDueSalaries(); purgeCandidates();
   render();

@@ -377,8 +377,7 @@
       ${todos.length > 8 ? `<button type="button" class="btn ghost sm todo-more" data-act="todo-all">${ui.todoAll ? 'Réduire la liste' : `Afficher les ${todos.length - 8} autres`}</button>` : ''}</div></div>
       <div class="card card-b"><p class="muted" style="margin:0">La roue est le menu de Teamora : chaque étape du parcours collaborateur ouvre le module qui la gère (recrutement, absences, paie, entretiens…). Le chiffre blanc indique combien de personnes, de besoins ou de candidats s’y trouvent ; le chiffre orange, ce qui vous attend.</p></div>`;
   }
-  const viewHome = () => `${kpiStrip()}<div class="home"><div class="card wheel-card">${wheelHTML()}<nav class="stage-grid" aria-label="Étapes du parcours">${visibleStages().map((i) => { const v = stageView(i);
-    return `<button type="button" data-act="stage" data-i="${i}" style="--c:${STAGE_COLORS[i]}"><span class="sg-ic">${ic(STAGES[i].icon)}${stageBadge(i)}</span><span>${esc(STAGES[i].short)}</span></button>`; }).join('')}</nav></div><div class="panel" id="panel">${defaultPanel()}</div></div>`;
+  const viewHome = () => `${kpiStrip()}<div class="home"><div class="card wheel-card">${wheelHTML()}</div><div class="panel" id="panel">${defaultPanel()}</div></div>`;
   // Stage page (pre-hire, hiring, onboarding, departure…): who is at this stage and their tasks.
   const viewStage = () => `<div class="panel stage-page" id="panel">${stagePanel(ui.stage)}</div>`;
 

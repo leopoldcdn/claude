@@ -1,6 +1,6 @@
 # Teamora — aperçu du logiciel RH
 
-Prototype fonctionnel, sans serveur ni base de données : ouvrez `index.html` dans un navigateur.
+Prototype fonctionnel pour ordinateur (largeur minimale 1 024 px, pas de version mobile), sans serveur ni base de données : ouvrez `index.html` dans un navigateur.
 Les données de départ (`data.js`, schéma version 7) sont fictives ; vos modifications sont conservées dans le navigateur
 (localStorage) et le bouton « Réinitialiser la démo » restaure l'état initial.
 

@@ -43,6 +43,8 @@ window.TEAMORA_SEED = function () {
     phone: extra.phone || '06 12 34 56 78', location: extra.location || 'Paris', birthDate: extra.birthDate || '1990-01-01',
     address: extra.address || '', emergency: extra.emergency || '',
     cp: extra.cp ?? 18, rtt: extra.rtt ?? 6, status: extra.status || null, exit: extra.exit || null,
+    category: extra.category || (contract === 'Alternance' ? 'Employé' : salary >= 45000 ? 'Cadre' : 'Employé'), nationality: extra.nationality || 'Française', zone: extra.zone || 'France',
+    registeredAt: stage >= 3 ? startDate : null,
   });
   const employees = [
     E('e1', 'Olivia', 'Bennett', 'Responsable RH', 'RH', 'e5', 7, '2019-01-14', 'CDI', 62000, { phone: '06 21 44 18 90', cp: 21, rtt: 7 }),
@@ -65,6 +67,28 @@ window.TEAMORA_SEED = function () {
     E('e18', 'Nathan', 'Lefebvre', 'Développeur back-end', 'Tech', 'e6', 3, '2026-10-01', 'CDI', 46000, { cp: 0, rtt: 0 }),
     E('e19', 'Julie', 'Bernard', 'Alternante marketing', 'Marketing', 'e7', 4, '2026-09-07', 'Alternance', 21000, { cp: 2, rtt: 0 }),
   ];
+  // Sexe (mention obligatoire du registre unique du personnel) et nationalités particulières.
+  const MALE = ['e2', 'e4', 'e6', 'e8', 'e9', 'e11', 'e14', 'e16', 'e18'];
+  employees.forEach((e) => { e.sex = MALE.includes(e.id) ? 'H' : 'F'; });
+  Object.assign(employees.find((e) => e.id === 'e12'), { nationality: 'Indienne', zone: 'Hors UE', birthDate: '1995-03-21' });
+  Object.assign(employees.find((e) => e.id === 'e6'), { nationality: 'Britannique', zone: 'Hors UE' });
+  Object.assign(employees.find((e) => e.id === 'e8'), { nationality: 'Irlandaise', zone: 'UE' });
+  Object.assign(employees.find((e) => e.id === 'e7'), { nationality: 'Espagnole', zone: 'UE' });
+  employees.find((e) => e.id === 'e18').registeredAt = null;
+  // Dossiers d'arrivée (pré-embauche, embauche, intégration) des recrues en cours.
+  const ALLDOCS = (d) => ({ identite: d, secu: d, rib: d, domicile: d, diplome: d });
+  const onboarding = {
+    e12: { docs: { identite: '2026-10-02', rib: '2026-10-02' }, titreCheck: null, contract: { status: 'À préparer' }, prep: {}, buddy: null },
+    e18: { docs: ALLDOCS('2026-09-15'), contract: { status: 'Signé', sentAt: '2026-09-18', signedAt: '2026-09-22' }, prep: { poste: '2026-09-25', ordinateur: '2026-09-29', comptes: '2026-09-29', badge: '2026-09-30', bienvenue: '2026-09-26' }, buddy: 'e13',
+      dpae: { date: '2026-09-28', ref: 'DPAE-75-2026-0918' } },
+    e10: { docs: ALLDOCS('2026-08-10'), contract: { status: 'Signé', sentAt: '2026-08-05', signedAt: '2026-08-07' }, prep: { poste: '2026-08-25', ordinateur: '2026-08-28', comptes: '2026-08-28', badge: '2026-08-28', bienvenue: '2026-08-26' }, buddy: 'e4',
+      dpae: { date: '2026-08-26', ref: 'DPAE-75-2026-0831' }, info7: '2026-09-02', info1m: '2026-09-21', mutuelle: 'Affiliation', prevoyance: true, assignedAt: '2026-08-31',
+      plan: { accueil: '2026-08-31', materiel: '2026-08-31', entreprise: '2026-09-02', equipe: '2026-09-04', mission: '2026-09-11', formation: '2026-09-18' },
+      checkins: { j30: { date: '2026-09-30', note: 'Bonne prise en main des outils, autonome sur les supports print. À accompagner sur le design system.' } } },
+    e19: { docs: ALLDOCS('2026-08-20'), contract: { status: 'Signé', sentAt: '2026-08-21', signedAt: '2026-08-25' }, prep: { poste: '2026-09-03', ordinateur: '2026-09-04', comptes: '2026-09-04', badge: '2026-09-04', bienvenue: '2026-09-01' }, buddy: 'e17',
+      dpae: { date: '2026-09-01', ref: 'DPAE-75-2026-0907' }, info7: '2026-09-10', info1m: '2026-10-01', mutuelle: 'Dispense', assignedAt: '2026-09-07',
+      plan: { accueil: '2026-09-07', materiel: '2026-09-07', entreprise: '2026-09-09', equipe: '2026-09-11' } },
+  };
   // Some checklist progress so the stage panels look lived-in.
   const journey = {
     e3: { 6: [true, true, false, false] }, e10: { 4: [true, true, true, false, false, false] }, e12: { 2: [true, false, false] },
@@ -284,6 +308,6 @@ window.TEAMORA_SEED = function () {
     { id: 'doc2', empId: 'e3', kind: 'attestation', title: 'Attestation employeur', date: '2026-02-03' },
     { id: 'doc3', empId: 'e4', kind: 'avenant', title: 'Avenant · Senior Product Designer', date: '2023-12-15', data: { title: 'Senior Product Designer', dept: 'Design', salary: 54000, effective: '2024-01-01' } },
   ];
-  return { version: 4, employees, journey, leaves, jobs, candidates, notifications, payroll, objectives, reviews, feedback, trainings, enrollments, trainingBudget: 25000, purgeLog: [],
+  return { version: 5, employees, journey, leaves, jobs, candidates, notifications, payroll, objectives, reviews, feedback, trainings, enrollments, trainingBudget: 25000, purgeLog: [], onboarding,
     wishes, history, visits, incidents, risks, survey, adjustments, cases, documents };
 };

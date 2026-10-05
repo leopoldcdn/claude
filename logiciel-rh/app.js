@@ -47,7 +47,7 @@
   // ---------------------------------------------------------------- Storage
   const STORE = 'teamora-demo-v1', UI_STORE = 'teamora-ui-v1';
   function load() {
-    try { const d = JSON.parse(localStorage.getItem(STORE)); if (d && d.version === 4) return d; } catch (e) { /* ignore */ }
+    try { const d = JSON.parse(localStorage.getItem(STORE)); if (d && d.version === 5) return d; } catch (e) { /* ignore */ }
     return window.TEAMORA_SEED();
   }
   function save() { try { localStorage.setItem(STORE, JSON.stringify(db)); } catch (e) { /* storage unavailable */ } }
@@ -145,7 +145,8 @@
     box.appendChild(t); setTimeout(() => t.remove(), 3600);
   }
   function journeyOf(id, stage) {
-    const n = STAGES[stage].steps.length;
+    const n = STAGES[stage].steps.length, who = emp(id);
+    if (who && who.stage === stage && stage >= 2 && stage <= 4) return arrivalSteps(who, stage);
     const arr = (db.journey[id] && db.journey[id][stage]) || [];
     return Array.from({ length: n }, (_, k) => !!arr[k]);
   }
@@ -319,9 +320,9 @@
       body = `<div class="card"><div class="card-h"><h3>Collaborateurs à cette étape</h3><span class="pill accent num">${people.length}</span></div><div class="card-b"><div class="people">${people.length ? people.map((e) => {
         const arr = journeyOf(e.id, i), done = arr.filter(Boolean).length, open = ui.selPerson === e.id;
         return `<button type="button" class="person-row" data-act="person" data-id="${e.id}" aria-expanded="${open}">${avatar(e)}<span class="who"><b>${esc(fullName(e))}</b><small>${esc(e.title)} · ${done}/${arr.length} tâches</small></span><span class="mini-bar"><i style="width:${(done / arr.length) * 100}%"></i></span></button>
-          ${open ? `<div class="card card-b">${stepsList(arr, s.steps, true, e.id, i)}<div class="toolbar" style="margin-top:12px">
-            ${ui.profile === 'rh' && i < 15 ? `<button type="button" class="btn primary sm" data-act="advance" data-id="${e.id}">Passer à « ${esc(STAGES[i + 1].short)} »${ic('arrow')}</button>` : ''}
-            <button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir la fiche</button></div>
+          ${open ? `<div class="card card-b">${stepsList(arr, s.steps, !(i >= 2 && i <= 4), e.id, i)}${i >= 2 && i <= 4 ? arrivalDossier(e, i) : ''}<div class="toolbar" style="margin-top:16px">
+            ${ui.profile === 'rh' && i < 15 ? `<button type="button" class="btn ${done === arr.length ? 'primary' : 'ghost'} sm" data-act="advance" data-id="${e.id}">Passer à « ${esc(STAGES[i + 1].short)} »${ic('arrow')}</button>` : ''}
+            <button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir la fiche</button>${done < arr.length ? `<span class="hint">${plural(arr.length - done, 'sous-étape restante', 'sous-étapes restantes')}</span>` : ''}</div>
             ${ui.profile === 'manager' ? '<p class="hint" style="margin:10px 0 0">Les RH font passer le collaborateur à l’étape suivante.</p>' : ''}</div>` : ''}`; }).join('')
         : '<p class="muted" style="margin:0">Aucun collaborateur à cette étape pour le moment.</p>'}</div></div></div>
         <div class="card"><div class="card-h"><h3>Sous-étapes de référence</h3></div><div class="card-b">${stepsList(s.steps.map(() => false), s.steps, false)}</div></div>${moduleBtn(i)}`;
@@ -339,6 +340,7 @@
     pendingForMe().forEach((l) => { const e = emp(l.empId); todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(fullName(e))} · ${esc(l.type)}</b><small>${fmtShort(l.start)} → ${fmtShort(l.end)} · ${plural(l.days, 'jour', 'jours')}</small></div><button type="button" class="btn ok sm" data-act="leave-ok" data-id="${l.id}">Valider</button><button type="button" class="btn bad sm" data-act="leave-ko" data-id="${l.id}">Refuser</button></div>`); });
     needsToDo().forEach((j) => { const what = j.status === 'Validée' ? 'Offre à publier' : j.status === 'En validation' ? (j.pending === 'direction' ? 'Décision de la direction à saisir' : 'Besoin à valider') : j.status === 'À modifier' ? 'Besoin à corriger' : 'Brouillon à envoyer';
       todos.push(`<div class="todo"><div class="t"><b>${what} : ${esc(j.title)}</b><small>${esc(j.dept)} · ${esc(j.contract)} · demandé par ${esc(fullName(emp(j.requestedBy)))}</small></div><button type="button" class="btn ghost sm" data-act="open-need" data-id="${j.id}">Ouvrir</button></div>`); });
+    scopeEmployees().filter((e) => e.stage >= 2 && e.stage <= 4).forEach((e) => { const a = arrivalActions(e); if (a.length) todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(STAGES[e.stage].short)} : ${esc(fullName(e))}</b><small>${a.slice(0, 3).join(' · ')}${a.length > 3 ? ' · …' : ''}</small></div><button type="button" class="btn ghost sm" data-act="open-dossier" data-id="${e.id}">Ouvrir</button></div>`); });
     pendingEvals().forEach(({ c, iv }) => todos.push(`<div class="todo">${avatarName(c.id, c.name, 'sm')}<div class="t"><b>Évaluation à remplir : ${esc(c.name)}</b><small>${esc(iv.kind)} du ${fmtShort(iv.date.slice(0, 10))} · ${esc(candJob(c).title)}${iv.with !== me().id ? ` · avec ${esc(fullName(emp(iv.with)))}` : ''}</small></div><button type="button" class="btn primary sm" data-act="iv-eval" data-id="${c.id}" data-iv="${iv.id}">Évaluer</button></div>`));
     if (ui.profile === 'rh') {
       scopeCandidates().filter((c) => c.stage === 'Proposition' && (!c.offer || ['Expirée', 'Retirée', 'Déclinée'].includes(offerStatus(c.offer)))).forEach((c) => todos.push(`<div class="todo">${avatarName(c.id, c.name, 'sm')}<div class="t"><b>${offerStatus(c.offer) === 'Expirée' ? 'Proposition expirée' : 'Proposition à préparer'} : ${esc(c.name)}</b><small>${esc(candJob(c).title)}</small></div><button type="button" class="btn ghost sm" data-act="open-cand" data-id="${c.id}">Ouvrir</button></div>`));
@@ -1768,8 +1770,191 @@
   MODALS['offer-decline'] = (m, shell, formShell, opt, f) => formShell(`Proposition déclinée · ${esc(findCand(m.id).name)}`, 'offer-decline', `${f('od-r', 'Raison donnée par le candidat', `<select id="od-r" name="reason" class="select">${opt(['Rémunération insuffisante', 'A accepté une autre offre', 'Projet personnel', 'Autre raison'])}</select>`, true)}
     <label style="display:flex;gap:8px;align-items:center;font-size:14px;margin-top:12px"><input type="checkbox" name="pool" checked> Garder le dossier dans le vivier</label>`, 'Enregistrer');
 
+  // ================================================================ Arrivée : pré-embauche, embauche, intégration
+  const ARR_DOCS = [['identite', 'Pièce d’identité'], ['secu', 'Attestation de sécurité sociale (carte Vitale)'], ['rib', 'RIB'], ['domicile', 'Justificatif de domicile'], ['diplome', 'Diplômes et certifications'], ['titre', 'Titre de séjour autorisant à travailler']];
+  const PREP_TASKS = [['poste', 'Poste de travail installé', 'manager'], ['ordinateur', 'Ordinateur et logiciels prêts', 'rh'], ['comptes', 'Comptes et adresse e-mail créés', 'rh'], ['badge', 'Badge d’accès commandé', 'rh'], ['bienvenue', 'Message de bienvenue avec le programme du premier jour', 'manager']];
+  const PLAN = [['accueil', 'Accueil par le manager et visite des locaux', 0, 'manager'], ['materiel', 'Remise du matériel et des accès', 0, 'rh'],
+    ['entreprise', 'Présentation de l’entreprise, des valeurs et de l’organisation', 2, 'rh'], ['equipe', 'Déjeuner d’équipe et rencontre des interlocuteurs clés', 4, 'parrain'],
+    ['mission', 'Première mission courte et valorisante', 10, 'manager'], ['formation', 'Formations de prise de poste (outils, sécurité, RGPD)', 15, 'rh']];
+  const CHECKINS = [['j30', 'Point à 30 jours', 30], ['j60', 'Point à 60 jours', 60], ['j90', 'Point à 90 jours', 90]];
+  const OWNER = { manager: 'Manager', rh: 'RH', parrain: 'Parrain' };
+  const NOTICE_LABEL = { 1: '24 heures', 2: '48 heures', 14: '2 semaines', 30: '1 mois' };
+  function dossier(e) {
+    db.onboarding = db.onboarding || {};
+    const d = db.onboarding[e.id] = db.onboarding[e.id] || {};
+    return Object.assign(d, { docs: d.docs || {}, contract: d.contract || { status: 'À préparer' }, prep: d.prep || {}, plan: d.plan || {}, checkins: d.checkins || {} });
+  }
+  const needsTitre = (e) => e.zone === 'Hors UE';
+  const reqDocs = (e) => ARR_DOCS.filter(([k]) => k !== 'titre' || needsTitre(e));
+  // Jours ouvrables : du lundi au samedi.
+  function subWorkDays(s, n) { let d = s; while (n > 0) { d = addDays(d, -1); if (parse(d).getDay() !== 0) n -= 1; } return d; }
+  function addWorkDays(s, n) { let d = s; while (n > 0) { d = addDays(d, 1); if (parse(d).getDay() !== 0) n -= 1; } return d; }
+  function trialInfo(e) {
+    const d = dossier(e), alt = e.contract === 'Alternance';
+    const months = e.contract === 'CDI' ? ({ Cadre: 4, 'Agent de maîtrise': 3 }[e.category] || 2) : e.contract === 'CDD' ? 1 : 0;
+    if (!months && !alt) return null;
+    let end = alt ? addDays(e.startDate, 44) : addDays(addMonths(e.startDate, months), -1);
+    if (d.trialRenewed) end = addDays(addMonths(addDays(end, 1), months), -1);
+    const presence = dayDiff(e.startDate, end), notice = alt ? 0 : presence > 90 ? 30 : presence > 30 ? 14 : presence >= 8 ? 2 : 1;
+    return { end, notice, months, alt, decideBy: addDays(end, -notice), renewable: e.contract === 'CDI' && !d.trialRenewed,
+      label: alt ? '45 jours de formation pratique en entreprise' : `${months} mois${d.trialRenewed ? `, renouvelée de ${months} mois` : ''}` };
+  }
+  function arrivalSteps(e, stage) {
+    const d = dossier(e), p = (k) => !!d.plan[k];
+    if (stage === 2) return [reqDocs(e).every(([k]) => d.docs[k]) && (!needsTitre(e) || !!d.titreCheck), d.contract.status === 'Signé', PREP_TASKS.every(([k]) => d.prep[k]) && !!d.buddy];
+    if (stage === 3) return [!!d.dpae && !!e.registeredAt, !!d.info7 && !!d.info1m, !!d.assignedAt, !!d.mutuelle && db.visits.some((v) => v.empId === e.id && /information/i.test(v.kind) && v.date >= addDays(e.startDate, -30))];
+    return [p('accueil'), p('entreprise') && p('equipe'), p('materiel') && p('mission'), p('formation'), !!d.checkins.j30 && !!d.astonish, d.trialDecision === 'Confirmée'];
+  }
+  // Actions qui attendent le profil courant pour une arrivée.
+  function arrivalActions(e) {
+    const d = dossier(e), rh = ui.profile === 'rh', mine = (o) => (rh ? o === 'rh' : o !== 'rh'), out = [], start = e.startDate;
+    if (e.stage === 2) {
+      const miss = reqDocs(e).filter(([k]) => !d.docs[k]).length;
+      if (rh && miss) out.push(plural(miss, 'pièce à recevoir', 'pièces à recevoir'));
+      if (rh && needsTitre(e) && !d.titreCheck) out.push(`vérifier le titre de séjour avant le ${fmtShort(subWorkDays(start, 2))}`);
+      if (rh && d.contract.status !== 'Signé') out.push(d.contract.status === 'Envoyé' ? 'contrat en attente de signature' : 'contrat à préparer');
+      const prep = PREP_TASKS.filter(([k, , o]) => !d.prep[k] && mine(o)).length + (!d.buddy && !rh ? 1 : 0);
+      if (prep) out.push(plural(prep, 'tâche de préparation', 'tâches de préparation'));
+    } else if (e.stage === 3 && rh) {
+      if (!d.dpae && TODAY >= addDays(start, -8)) out.push(TODAY > start ? 'DPAE en retard' : 'DPAE à faire');
+      if (!e.registeredAt) out.push('inscription au registre');
+      if (!d.info7) out.push(`informations à remettre avant le ${fmtShort(addDays(start, 7))}`);
+      else if (!d.info1m) out.push(`informations complémentaires avant le ${fmtShort(addMonths(start, 1))}`);
+      if (!d.mutuelle) out.push('mutuelle');
+      if (!arrivalSteps(e, 3)[3] && d.mutuelle) out.push('visite d’information et de prévention');
+      if (!d.assignedAt) out.push('affectation à confirmer');
+    } else if (e.stage === 4) {
+      const late = PLAN.filter(([k, , day, o]) => !d.plan[k] && TODAY >= addDays(start, day) && mine(o)).length;
+      if (late) out.push(plural(late, 'action du programme', 'actions du programme'));
+      CHECKINS.forEach(([k, l, day]) => { if (!d.checkins[k] && TODAY >= addDays(start, day) && TODAY <= addDays(start, day + 30)) out.push(l.toLowerCase()); });
+      const t = trialInfo(e);
+      if (t && !d.trialDecision && dayDiff(TODAY, t.decideBy) <= 14) out.push(`décision sur la période d’essai avant le ${fmtShort(t.decideBy)}`);
+    }
+    return out;
+  }
+  function arrivalDossier(e, i) {
+    const d = dossier(e), rh = ui.profile === 'rh', mgr = ui.profile === 'manager', can = (o) => rh || (mgr && o !== 'rh');
+    const row = (label, sub, state) => `<div class="todo"><div class="t"><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div>${state}</div>`;
+    const ok = (date, txt = 'Fait') => `<span class="pill ok">${txt} · ${fmtShort(date)}</span>`;
+    const b = (act, label, extra = '', cls = 'ghost') => `<button type="button" class="btn ${cls} sm" data-act="${act}" data-id="${e.id}" ${extra}>${label}</button>`;
+    const pend = (txt = 'À faire', cls = 'warn') => `<span class="pill ${cls}">${txt}</span>`;
+    const days = dayDiff(TODAY, e.startDate), start = e.startDate;
+    const when = days > 0 ? `Arrivée dans ${plural(days, 'jour', 'jours')}, le ${fmtDate(start)}` : days === 0 ? 'Arrivée aujourd’hui' : `Arrivée le ${fmtDate(start)} · J+${-days}`;
+    const sec = (title, body) => `<h4 class="sub" style="margin-top:18px">${title}</h4>${body}`;
+    let html = `<p class="hint" style="margin:12px 0 0">${when} · ${esc(e.contract)} · ${esc(e.category || '—')} · manager : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}${d.buddy ? ` · parrain : ${esc(fullName(emp(d.buddy)))}` : ''}</p>`;
+    if (i === 2) {
+      const sel = (f, list, v) => `<select class="select" data-change="arr-civ" data-id="${e.id}" data-f="${f}" ${rh ? '' : 'disabled'} aria-label="${f}">${list.map((x) => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
+      html += sec('État civil (registre du personnel)', `<div class="form-grid civ"><div class="field"><label>Sexe</label>${sel('sex', ['—', 'F', 'H'], e.sex || '—')}</div><div class="field"><label>Nationalité</label><input class="input" value="${esc(e.nationality || '')}" data-change="arr-civ" data-id="${e.id}" data-f="nationality" ${rh ? '' : 'disabled'} aria-label="Nationalité"></div>
+        <div class="field"><label>Zone</label>${sel('zone', ['France', 'UE', 'Hors UE'], e.zone || 'France')}</div><div class="field"><label>Date de naissance</label><input type="date" class="input" value="${esc(e.birthDate || '')}" data-change="arr-civ" data-id="${e.id}" data-f="birthDate" ${rh ? '' : 'disabled'} aria-label="Date de naissance"></div></div>`);
+      html += sec('Pièces du dossier', reqDocs(e).map(([k, l]) => row(l, k === 'titre' ? 'Salarié hors Union européenne : le titre doit autoriser à travailler' : '', d.docs[k] ? ok(d.docs[k], 'Reçu') : rh ? b('arr-doc', 'Marquer reçu', `data-k="${k}"`) : pend('À recevoir'))).join('')
+        + (needsTitre(e) ? row('Vérification du titre auprès de la préfecture', `Au plus tard le ${fmtDate(subWorkDays(start, 2))}, 2 jours ouvrables avant l’embauche (art. R5221-41)`, d.titreCheck ? ok(d.titreCheck, 'Demande envoyée') : rh ? b('arr-titre', 'Demande envoyée') : pend()) : ''));
+      const c = d.contract, st = { 'À préparer': 'neutral', Prêt: 'info', Envoyé: 'warn', Signé: 'ok' }[c.status];
+      html += sec('Contrat de travail', row(`Contrat ${esc(e.contract)} · ${esc(e.title)}`, `${e.contract === 'CDD' ? 'À transmettre au plus tard 2 jours ouvrables après l’embauche (art. L1242-13). ' : ''}Poste, rémunération, durée du travail, période d’essai, convention collective Syntec.`,
+        `<span class="pill ${st}">${c.status}${c.signedAt ? ` · ${fmtShort(c.signedAt)}` : ''}</span>${c.docId ? `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${c.docId}">Voir</button>` : ''}
+        ${rh ? (c.status === 'À préparer' ? b('arr-contract', 'Générer le contrat', 'data-s="Prêt"', 'primary') : c.status === 'Prêt' ? b('arr-contract', 'Envoyer pour signature', 'data-s="Envoyé"', 'primary') : c.status === 'Envoyé' ? b('arr-contract', 'Signé par le salarié', 'data-s="Signé"') : '') : ''}`));
+      const buddies = db.employees.filter((x) => isEmployed(x) && x.id !== e.id && x.id !== e.managerId && (x.dept === e.dept || x.dept === 'RH'));
+      html += sec('Préparation de l’arrivée', PREP_TASKS.map(([k, l, o]) => row(l, OWNER[o], d.prep[k] ? ok(d.prep[k]) : can(o) ? b('arr-prep', 'Fait', `data-k="${k}"`) : pend('À faire', 'neutral'))).join('')
+        + row('Parrain ou marraine', 'Un collègue qui transmet les codes de l’équipe, distinct du manager', `<select class="select" data-change="arr-buddy" data-id="${e.id}" ${can('manager') ? '' : 'disabled'} aria-label="Parrain"><option value="">Choisir…</option>${buddies.map((x) => `<option value="${x.id}" ${x.id === d.buddy ? 'selected' : ''}>${esc(fullName(x))}</option>`).join('')}</select>`));
+    }
+    if (i === 3) {
+      const open = TODAY >= addDays(start, -8);
+      html += sec('Formalités', row('Déclaration préalable à l’embauche (DPAE)', 'Auprès de l’Urssaf, au plus tôt 8 jours avant l’embauche et au plus tard avant la prise de poste. Elle vaut aussi adhésion au service de santé au travail.',
+        d.dpae ? ok(d.dpae.date, `N° ${esc(d.dpae.ref)}`) : !rh ? pend() : open ? b('arr-dpae', TODAY > start ? 'Faire la DPAE (en retard)' : 'Effectuer la DPAE', '', TODAY > start ? 'bad' : 'primary') : `<span class="pill neutral">Possible dès le ${fmtShort(addDays(start, -8))}</span>`)
+        + row('Registre unique du personnel', 'Inscription obligatoire au moment de l’embauche', `${e.registeredAt ? ok(e.registeredAt, 'Inscrit') : rh ? b('arr-register', 'Inscrire') : pend()}${rh ? '<button type="button" class="btn ghost sm" data-act="register-view">Voir le registre</button>' : ''}`));
+      const info = (k, l, sub, due) => row(l, `${sub} · à remettre avant le ${fmtDate(due)}`, d[k] ? `${ok(d[k], 'Remis')}${d[k + 'Doc'] ? `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${d[k + 'Doc']}">Voir</button>` : ''}` : rh ? b('arr-info', 'Générer et remettre', `data-k="${k}"`, TODAY > due ? 'bad' : 'ghost') : pend());
+      html += sec('Informations obligatoires (décret du 30 octobre 2023)', info('info7', 'Informations essentielles', 'Identité des parties, lieu de travail, emploi, date d’embauche, période d’essai, rémunération, durée du travail', addDays(start, 7))
+        + info('info1m', 'Informations complémentaires', 'Congés payés, procédure de rupture et préavis, droit à la formation, protection sociale, convention collective', addMonths(start, 1)));
+      const t = trialInfo(e);
+      html += sec('Affectation', row(`${esc(e.title)} · ${esc(e.dept)}`, `Manager : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'} · catégorie ${esc(e.category || '—')} · période d’essai : ${t ? `${t.label}, jusqu’au ${fmtDate(t.end)}` : 'aucune'}`,
+        `${rh ? `<select class="select" data-change="arr-civ" data-id="${e.id}" data-f="category" aria-label="Catégorie">${['Cadre', 'Agent de maîtrise', 'Employé'].map((x) => `<option ${x === e.category ? 'selected' : ''}>${x}</option>`).join('')}</select>` : ''}${d.assignedAt ? ok(d.assignedAt, 'Confirmée') : rh ? b('arr-assign', 'Confirmer') : pend()}`));
+      const vip = db.visits.find((v) => v.empId === e.id && /information/i.test(v.kind) && v.date >= addDays(start, -30));
+      html += sec('Dispositifs', row('Mutuelle d’entreprise', 'Affiliation obligatoire au contrat collectif, sauf dispense justifiée', `<select class="select" data-change="arr-mutuelle" data-id="${e.id}" ${rh ? '' : 'disabled'} aria-label="Mutuelle"><option value="">À choisir</option>${['Affiliation', 'Dispense'].map((x) => `<option ${x === d.mutuelle ? 'selected' : ''}>${x}</option>`).join('')}</select>`)
+        + (e.category === 'Cadre' ? row('Prévoyance des cadres', 'Obligatoire : 1,50 % de la tranche A à la charge de l’employeur', d.prevoyance ? ok(d.assignedAt || TODAY, 'Affilié') : rh ? b('arr-prev', 'Affilier') : pend()) : '')
+        + row('Visite d’information et de prévention', `Dans les 3 mois suivant la prise de poste, avant le ${fmtDate(addMonths(start, 3))}`, vip ? `<span class="pill ${vip.status === 'Réalisée' ? 'ok' : 'info'}">${vip.status} · ${fmtShort(vip.date)}</span>` : rh ? b('arr-vip', 'Planifier la visite') : pend()));
+    }
+    if (i === 4) {
+      html += sec('Programme d’intégration', PLAN.map(([k, l, day, o]) => { const due = addDays(start, day);
+        return row(l, `${OWNER[o]} · J+${day}, le ${fmtShort(due)}`, d.plan[k] ? ok(d.plan[k]) : `${TODAY > due ? pend('En retard', 'bad') : `<span class="pill neutral">Prévu</span>`}${can(o) ? b('arr-plan', 'Fait', `data-k="${k}"`) : ''}`); }).join(''));
+      html += sec('Points de suivi', CHECKINS.map(([k, l, day]) => { const due = addDays(start, day), c = d.checkins[k];
+        return c ? row(l, `${fmtDate(c.date)} · « ${esc(c.note)} »`, ok(c.date)) : TODAY >= addDays(due, -7) && (rh || mgr)
+          ? `<form class="todo checkin" data-form="arr-checkin" data-id="${e.id}" data-k="${k}"><div class="t"><b>${l}</b><small>Prévu le ${fmtDate(due)} · manager et nouvel arrivant</small><label class="sr" for="ck-${k}">Compte rendu</label><input id="ck-${k}" name="note" class="input" placeholder="Ce qui va bien, les points à ajuster, les objectifs suivants"></div><button class="btn ghost sm">Enregistrer</button></form>`
+          : row(l, `Prévu le ${fmtDate(due)}`, '<span class="pill neutral">À venir</span>'); }).join(''));
+      html += sec('Rapport d’étonnement', d.astonish ? `<q>${esc(d.astonish.text)}</q><p class="hint" style="margin:6px 0 0">Rédigé le ${fmtDate(d.astonish.date)}</p>`
+        : `<form data-form="arr-astonish" data-id="${e.id}"><label class="sr" for="as-${e.id}">Rapport d’étonnement</label><textarea id="as-${e.id}" name="text" class="input" placeholder="Ce qui m’a surpris, ce que je changerais, ce que j’apprécie déjà…"></textarea><div class="toolbar" style="margin-top:8px"><span class="hint">Conseillé vers J+30, rédigé par le nouvel arrivant.</span><button class="btn ghost sm" style="margin-left:auto">Enregistrer</button></div></form>`);
+      const t = trialInfo(e);
+      if (t) {
+        const near = !d.trialDecision && dayDiff(TODAY, t.decideBy) <= 14;
+        html += sec('Période d’essai', row(`${t.label} · fin le ${fmtDate(t.end)}`, t.alt ? 'Pour un apprenti, la rupture est libre pendant les 45 premiers jours de formation pratique en entreprise.'
+          : `Pour y mettre fin, prévenez le salarié au plus tard le ${fmtDate(t.decideBy)} (délai de prévenance de ${NOTICE_LABEL[t.notice]}).${t.renewable ? ' Renouvellement possible une fois, avec l’accord écrit du salarié avant la fin de la période initiale.' : ''}`,
+          d.trialDecision ? `<span class="pill ${d.trialDecision === 'Rompue' ? 'bad' : 'ok'}">${d.trialDecision} · ${fmtShort(d.trialDecisionAt)}</span>${d.trialDoc ? `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${d.trialDoc}">Voir</button>` : ''}` : near ? pend(`Décision avant le ${fmtShort(t.decideBy)}`) : '<span class="pill neutral">En cours</span>')
+          + (rh && (!d.trialDecision || d.trialDecision === 'Renouvelée') ? `<div class="toolbar" style="margin-top:10px">${b('arr-trial', `${ic('check')}Confirmer l’embauche`, 'data-v="Confirmée"', 'ok')}${t.renewable ? b('trial-renew', 'Renouveler') : ''}${b('trial-break', 'Mettre fin à la période d’essai', '', 'bad')}</div>` : ''));
+      }
+    }
+    return html;
+  }
+  function registerHTML() {
+    const list = db.employees.filter((e) => e.registeredAt).sort((a, b) => a.registeredAt.localeCompare(b.registeredAt) || a.startDate.localeCompare(b.startDate));
+    return `<div class="table-wrap"><table class="register"><thead><tr><th>N°</th><th>Nom et prénoms</th><th>Nationalité</th><th>Naissance</th><th>Sexe</th><th>Emploi</th><th>Qualification</th><th>Contrat</th><th>Entrée</th><th>Sortie</th></tr></thead><tbody>
+      ${list.map((e, k) => `<tr><td class="num">${k + 1}</td><td><b>${esc(e.lastName.toUpperCase())}</b> ${esc(e.firstName)}</td><td>${esc(e.nationality || '—')}</td><td class="num">${fmtShort(e.birthDate)}</td><td>${esc(e.sex || '—')}</td><td>${esc(e.title)}</td><td>${esc(e.category || '—')}</td><td>${esc(e.contract)}</td><td class="num">${fmtShort(e.startDate)}</td><td class="num">${e.stage >= 15 && e.exit ? fmtShort(e.exit.lastDay) : '—'}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  const arrE = (d) => emp(d.id);
+  Object.assign(MOD_ACT, {
+    'open-dossier'(d) { const e = emp(d.id); Object.assign(ui, { view: 'etape', stage: e.stage, selPerson: e.id, drawer: null, notif: false }); window.scrollTo(0, 0); render(); },
+    'register-view'() { ui.modal = { type: 'register' }; render(); },
+    'arr-doc'(d) { dossier(arrE(d)).docs[d.k] = TODAY; toast('Pièce reçue'); commit(); },
+    'arr-titre'(d) { dossier(arrE(d)).titreCheck = TODAY; toast('Demande de vérification envoyée à la préfecture'); commit(); },
+    'arr-contract'(d) {
+      const e = arrE(d), c = dossier(e).contract;
+      if (d.s === 'Prêt') { db.documents = db.documents.filter((x) => x.id !== c.docId); c.docId = addDoc(e.id, 'contrat').id; }
+      if (d.s === 'Envoyé') c.sentAt = TODAY;
+      if (d.s === 'Signé') { c.signedAt = TODAY; notify(e.managerId, `Le contrat de ${fullName(e)} est signé.`); }
+      c.status = d.s; toast(d.s === 'Prêt' ? 'Contrat généré' : d.s === 'Envoyé' ? 'Contrat envoyé pour signature électronique' : 'Contrat signé'); commit();
+    },
+    'arr-prep'(d) { const e = arrE(d); dossier(e).prep[d.k] = TODAY; toast('Tâche terminée'); commit(); },
+    'arr-dpae'(d) { const e = arrE(d); dossier(e).dpae = { date: TODAY, ref: `DPAE-75-${TODAY.slice(0, 4)}-${String(Math.floor(Math.random() * 9000) + 1000)}` }; toast('DPAE transmise à l’Urssaf · accusé de réception reçu'); commit(); },
+    'arr-register'(d) { arrE(d).registeredAt = TODAY; toast('Inscrit au registre unique du personnel'); commit(); },
+    'arr-info'(d) { const e = arrE(d), x = dossier(e), doc = addDoc(e.id, d.k); x[d.k] = TODAY; x[d.k + 'Doc'] = doc.id; notify(e.id, `${DOC_LABEL[d.k]} : document disponible dans « Mon profil ».`); ui.modal = { type: 'doc', id: doc.id }; toast('Document remis au salarié'); commit(); },
+    'arr-assign'(d) { const e = arrE(d); dossier(e).assignedAt = TODAY; toast('Affectation confirmée'); commit(); },
+    'arr-prev'(d) { dossier(arrE(d)).prevoyance = true; toast('Affiliation à la prévoyance enregistrée'); commit(); },
+    'arr-vip'(d) { const e = arrE(d), date = addDays(e.startDate > TODAY ? e.startDate : TODAY, 21); db.visits.push({ id: uid('v'), empId: e.id, kind: "Visite d'information et de prévention", date, status: 'Planifiée', result: null }); notify(e.id, `Visite d’information et de prévention prévue le ${fmtDate(date)}.`); toast('Visite planifiée · visible dans Santé & QVT'); commit(); },
+    'arr-plan'(d) { dossier(arrE(d)).plan[d.k] = TODAY; toast('Étape du programme terminée'); commit(); },
+    'arr-trial'(d) { const e = arrE(d), x = dossier(e), doc = addDoc(e.id, 'essai'); Object.assign(x, { trialDecision: 'Confirmée', trialDecisionAt: TODAY, trialDoc: doc.id }); notify(e.id, 'Votre période d’essai est confirmée : bienvenue définitivement chez Nova Studio !'); if (e.managerId) notify(e.managerId, `Période d’essai de ${fullName(e)} confirmée.`); toast('Période d’essai confirmée'); commit(); },
+    'trial-renew'(d) { ui.modal = { type: 'trial-renew', id: d.id }; render(); },
+    'trial-break'(d) { ui.modal = { type: 'trial-break', id: d.id }; render(); },
+  });
+  Object.assign(MOD_CHG, {
+    'arr-civ'(v, d) { const e = emp(d.id); e[d.f] = v === '—' ? null : v; commit(); },
+    'arr-buddy'(v, d) { const e = emp(d.id); dossier(e).buddy = v || null; if (v) notify(v, `Vous êtes le parrain ou la marraine de ${fullName(e)}, qui arrive le ${fmtDate(e.startDate)}.`); toast(v ? 'Parrain désigné' : 'Parrain retiré'); commit(); },
+    'arr-mutuelle'(v, d) { dossier(emp(d.id)).mutuelle = v || null; toast('Mutuelle enregistrée'); commit(); },
+  });
+  Object.assign(MOD_FORMS, {
+    'arr-checkin'(v, form) { const e = emp(form.dataset.id); if (!v.note.trim()) { toast('Écrivez un court compte rendu.', 'info'); return; } dossier(e).checkins[form.dataset.k] = { date: TODAY, note: v.note.trim(), by: me().id }; toast('Point de suivi enregistré'); commit(); },
+    'arr-astonish'(v, form) { const e = emp(form.dataset.id); if (!v.text.trim()) { toast('Le rapport est vide.', 'info'); return; } dossier(e).astonish = { date: TODAY, text: v.text.trim() }; if (ui.profile !== 'rh') notify('e1', `Rapport d’étonnement de ${fullName(e)} disponible.`); toast('Rapport d’étonnement enregistré'); commit(); },
+    'trial-renew'(v) {
+      const e = emp(ui.modal.id); if (v.agree !== 'on') return formError('Le renouvellement exige l’accord écrit du salarié, obtenu avant la fin de la période initiale.');
+      Object.assign(dossier(e), { trialRenewed: true, trialDecision: 'Renouvelée', trialDecisionAt: TODAY }); notify(e.id, `Votre période d’essai est renouvelée jusqu’au ${fmtDate(trialInfo(e).end)}.`);
+      ui.modal = null; toast('Période d’essai renouvelée'); commit();
+    },
+    'trial-break'(v) {
+      const e = emp(ui.modal.id), t = trialInfo(e), min = addDays(TODAY, t.notice);
+      if (!v.lastDay || v.lastDay < min) return formError(`Avec le délai de prévenance de ${NOTICE_LABEL[t.notice] || 'aucun délai'}, la rupture prend effet au plus tôt le ${fmtDate(min)}.`);
+      Object.assign(dossier(e), { trialDecision: 'Rompue', trialDecisionAt: TODAY });
+      e.exit = { reason: 'Rupture de la période d’essai', lastDay: v.lastDay, comment: (v.comment || '').trim() }; e.stage = 13;
+      db.journey[e.id] = db.journey[e.id] || {}; db.journey[e.id][13] = [true, false, false, false, false];
+      notify(e.id, `Fin de votre période d’essai : dernier jour le ${fmtDate(v.lastDay)}.`); if (e.managerId) notify(e.managerId, `Fin de la période d’essai de ${fullName(e)} le ${fmtDate(v.lastDay)}.`);
+      ui.modal = null; ui.selPerson = null; toast(`${fullName(e)} passe à l’étape « Préparation du départ »`); commit();
+    },
+  });
+  MODALS.register = (m, shell) => shell('Registre unique du personnel', `<div class="modal-b"><p class="hint" style="margin:0 0 12px">Tenu dès le premier salarié, dans l’ordre des embauches. Les mentions sont conservées 5 ans après le départ du salarié.</p>${registerHTML()}</div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true);
+  MODALS['trial-renew'] = (m, shell, formShell) => { const e = emp(m.id), t = trialInfo(e);
+    return formShell(`Renouveler la période d’essai · ${esc(fullName(e))}`, 'trial-renew', `<p style="margin:0 0 12px">La période d’essai serait prolongée de ${t.months} mois, jusqu’au ${fmtDate(addDays(addMonths(addDays(t.end, 1), t.months), -1))}. Le renouvellement doit être prévu par le contrat et par la convention collective (Syntec l’autorise).</p>
+      <label style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="agree"> J’ai reçu l’accord écrit du salarié, daté d’avant le ${fmtDate(t.end)}</label>`, 'Renouveler'); };
+  MODALS['trial-break'] = (m, shell, formShell, opt, f) => { const e = emp(m.id), t = trialInfo(e), min = addDays(TODAY, t.notice);
+    return formShell(`Mettre fin à la période d’essai · ${esc(fullName(e))}`, 'trial-break', `<p style="margin:0 0 12px">${t.notice ? `Délai de prévenance : ${NOTICE_LABEL[t.notice]}. La rupture prend effet au plus tôt le ${fmtDate(min)}.` : 'Aucun délai de prévenance.'} Aucune indemnité de rupture n’est due ; la rupture doit être notifiée par écrit.</p>
+      <div class="form-grid">${f('tb-day', 'Dernier jour travaillé', `<input id="tb-day" name="lastDay" type="date" class="input" value="${min > t.end ? t.end : min}">`)}${f('tb-c', 'Commentaire interne (facultatif)', '<input id="tb-c" name="comment" class="input" maxlength="140">')}</div>`, 'Confirmer la rupture'); };
+
   // ---------------------------------------------------------------- Documents RH
-  const DOC_LABEL = { contrat: 'Contrat de travail', attestation: 'Attestation employeur', avenant: 'Avenant au contrat', certificat: 'Certificat de travail', solde: 'Reçu pour solde de tout compte', 'france-travail': 'Attestation employeur France Travail' };
+  const DOC_LABEL = { contrat: 'Contrat de travail', info7: 'Informations essentielles sur la relation de travail', info1m: 'Informations complémentaires sur la relation de travail', essai: 'Confirmation de fin de période d’essai', attestation: 'Attestation employeur', avenant: 'Avenant au contrat', certificat: 'Certificat de travail', solde: 'Reçu pour solde de tout compte', 'france-travail': 'Attestation employeur France Travail' };
   function docBody(d) {
     const e = emp(d.empId), rh = emp('e1');
     const head = `<header><b>Nova Studio SAS</b><span>12 rue de la Paix, 75002 Paris · SIRET 000 000 000 00000 (fictif)</span></header><h2>${DOC_LABEL[d.kind]}</h2>`;
@@ -1777,7 +1962,16 @@
     const who = `${esc(fullName(e))}`;
     if (d.kind === 'attestation') return `${head}<p>Je soussignée ${esc(fullName(rh))}, ${esc(rh.title)} de la société Nova Studio SAS, atteste que ${who} est employé·e au sein de notre société depuis le ${fmtDate(e.startDate, { day: 'numeric', month: 'long', year: 'numeric' })}, en qualité de ${esc(e.title)}, dans le cadre d’un contrat ${esc(e.contract)}${e.exit ? `, jusqu’au ${fmtDate(e.exit.lastDay)}` : ''}.</p><p>Cette attestation est délivrée à la demande de l’intéressé·e pour servir et valoir ce que de droit.</p>${sign}`;
     if (d.kind === 'avenant') return `${head}<p>Entre la société Nova Studio SAS et ${who}, il est convenu ce qui suit.</p><p><b>Article 1.</b> À compter du ${fmtDate(d.data.effective, { day: 'numeric', month: 'long', year: 'numeric' })}, ${who} occupe le poste de ${esc(d.data.title)} au sein du service ${esc(d.data.dept)}.</p><p><b>Article 2.</b> Sa rémunération annuelle brute est portée à ${eur0(d.data.salary)}, versée en douze mensualités.</p><p><b>Article 3.</b> Les autres clauses du contrat de travail demeurent inchangées.</p>${sign}<p class="sig">Signature du collaborateur, précédée de la mention « lu et approuvé »</p>`;
-    if (d.kind === 'contrat') return `${head}<p>Contrat de travail à durée ${e.contract === 'CDI' ? 'indéterminée' : 'déterminée'} conclu entre Nova Studio SAS et ${who}.</p><p><b>Poste :</b> ${esc(e.title)} · <b>Service :</b> ${esc(e.dept)} · <b>Date d’entrée :</b> ${fmtDate(e.startDate)}<br><b>Rémunération annuelle brute :</b> ${eur0(e.salary)} · <b>Lieu de travail :</b> ${esc(e.location)}<br><b>Période d’essai :</b> 4 mois, renouvelable une fois · <b>Convention collective :</b> Syntec (exemple)</p><p class="hint">Extrait de démonstration : le contrat complet comporte l’ensemble des clauses légales et conventionnelles.</p>${sign}`;
+    const t = trialInfo(e);
+    if (d.kind === 'contrat') return `${head}<p>Entre la société Nova Studio SAS, représentée par ${esc(fullName(rh))}, ${esc(rh.title)}, et ${who}, de nationalité ${esc(e.nationality || '—')}, il est conclu un contrat de travail à durée ${e.contract === 'CDI' ? 'indéterminée' : 'déterminée'}.</p>
+      <p><b>Article 1 · Engagement.</b> ${who} est engagé·e à compter du ${fmtDate(e.startDate, { day: 'numeric', month: 'long', year: 'numeric' })} en qualité de ${esc(e.title)}, catégorie ${esc(e.category || '—')}, au sein du service ${esc(e.dept)}, sous la responsabilité de ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}.</p>
+      <p><b>Article 2 · Période d’essai.</b> ${t ? `Le contrat ne deviendra définitif qu’à l’issue d’une période d’essai de ${t.label}${t.renewable ? ', renouvelable une fois pour une durée identique avec l’accord écrit du salarié' : ''}.` : 'Sans objet.'}</p>
+      <p><b>Article 3 · Lieu et durée du travail.</b> Lieu de travail : ${esc(e.location)}. Durée hebdomadaire : 35 heures.</p>
+      <p><b>Article 4 · Rémunération.</b> Rémunération annuelle brute de ${eur0(e.salary)}, versée en 12 mensualités.</p>
+      <p><b>Article 5 · Statut collectif.</b> Convention collective nationale des bureaux d’études techniques (Syntec). Retraite complémentaire Agirc-Arrco ; mutuelle et prévoyance selon les contrats collectifs de l’entreprise.</p>${sign}`;
+    if (d.kind === 'info7') return `${head}<p>Conformément aux articles R1221-34 et suivants du Code du travail, voici les informations essentielles relatives à votre relation de travail.</p><ul><li>Employeur : Nova Studio SAS, 12 rue de la Paix, 75002 Paris · Salarié : ${who}</li><li>Lieu de travail : ${esc(e.location)}</li><li>Emploi : ${esc(e.title)} · catégorie ${esc(e.category || '—')}</li><li>Date d’embauche : ${fmtDate(e.startDate)} · contrat ${esc(e.contract)}</li><li>Période d’essai : ${t ? `${t.label}, jusqu’au ${fmtDate(t.end)}` : 'aucune'}</li><li>Rémunération : ${eur0(e.salary)} bruts annuels, versés mensuellement</li><li>Durée du travail : 35 heures par semaine ; heures supplémentaires selon la législation et la convention collective</li></ul>${sign}`;
+    if (d.kind === 'info1m') return `${head}<p>Informations complémentaires relatives à votre relation de travail (art. R1221-35 du Code du travail).</p><ul><li>Congés payés : 2,5 jours ouvrables par mois de travail effectif, période de référence du 1er juin au 31 mai</li><li>Rupture du contrat : procédure et préavis prévus par le Code du travail et la convention collective Syntec</li><li>Formation : droit à la formation, compte personnel de formation et entretien professionnel tous les 2 ans</li><li>Protection sociale : Urssaf, retraite complémentaire Agirc-Arrco, mutuelle et prévoyance collectives</li><li>Convention collective : bureaux d’études techniques (Syntec), consultable auprès des RH</li></ul>${sign}`;
+    if (d.kind === 'essai') return `${head}<p>Madame, Monsieur,</p><p>Nous avons le plaisir de vous confirmer que votre période d’essai au poste de ${esc(e.title)} a pris fin avec succès. Votre contrat de travail se poursuit donc de manière définitive.</p><p>Nous vous remercions pour votre engagement depuis votre arrivée le ${fmtDate(e.startDate)}.</p>${sign}`;
     if (d.kind === 'certificat') return `${head}<p>Je soussignée ${esc(fullName(rh))}, ${esc(rh.title)}, certifie que ${who} a été employé·e par la société Nova Studio SAS du ${fmtDate(e.startDate, { day: 'numeric', month: 'long', year: 'numeric' })} au ${fmtDate(e.exit ? e.exit.lastDay : TODAY, { day: 'numeric', month: 'long', year: 'numeric' })}, en qualité de ${esc(e.title)}.</p><p>${who} quitte la société libre de tout engagement. Il·elle bénéficie du maintien de ses garanties santé et prévoyance dans les conditions prévues par la loi (portabilité).</p>${sign}`;
     if (d.kind === 'solde') {
       const lastM = monthKey(e.exit ? e.exit.lastDay : TODAY), p = calcPay(e, lastM), cpDays = e.cp, cpPay = cpDays * (e.salary / 12 / 21.67);
@@ -1913,7 +2107,6 @@
     db.journey[e.id] = db.journey[e.id] || {};
     db.journey[e.id][e.stage] = STAGES[e.stage].steps.map(() => true);
     e.stage += 1;
-    if (e.stage === 3 && e.startDate > TODAY) e.startDate = TODAY;
     if (e.stage === 14) ['certificat', 'solde', 'france-travail'].forEach((k) => { if (!db.documents.some((d) => d.empId === e.id && d.kind === k)) addDoc(e.id, k); });
     if (e.stage === 14) notify(e.id, 'Vos documents de fin de contrat sont disponibles dans « Mon profil ».');
     notify(e.id, `Votre parcours passe à l’étape « ${STAGES[e.stage].title} ».`);

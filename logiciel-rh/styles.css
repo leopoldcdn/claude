@@ -433,6 +433,13 @@ details p { margin: 8px 0 0; font-size: 13.5px; }
 .eval-row { padding: 12px 0; border-bottom: 1px solid var(--line); } .eval-row > b { display: block; margin-bottom: 8px; }
 .drawer-b .lint { font-size: 13.5px; }
 
+/* ---------- Arrivée : pré-embauche, embauche, intégration ---------- */
+.civ { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.todo .t + .pill, .todo .t ~ .btn, .todo .t ~ .select { flex: none; }
+.todo > .select { width: auto; max-width: 200px; }
+.todo.checkin .input { width: 100%; margin-top: 8px; }
+.register { font-size: 13px; } .register td, .register th { white-space: nowrap; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1180px) {
   .home { grid-template-columns: 1fr; }
@@ -460,6 +467,9 @@ details p { margin: 8px 0 0; font-size: 13.5px; }
   .info-grid { grid-template-columns: 1fr; }
   .two { grid-template-columns: 1fr; }
   .checks { grid-template-columns: 1fr; }
+  .civ { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .todo { flex-wrap: wrap; }
+  .todo > .select { max-width: 100%; }
   .rkpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .funnel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .obj { grid-template-columns: 1fr 52px; }

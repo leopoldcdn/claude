@@ -1,7 +1,7 @@
 # Teamora — aperçu du logiciel RH
 
 Prototype fonctionnel, sans serveur ni base de données : ouvrez `index.html` dans un navigateur.
-Les données de départ (`data.js`, schéma version 3) sont fictives ; vos modifications sont conservées dans le navigateur
+Les données de départ (`data.js`, schéma version 4) sont fictives ; vos modifications sont conservées dans le navigateur
 (localStorage) et le bouton « Réinitialiser la démo » restaure l'état initial.
 
 - **La roue est le menu** : il n'y a plus de barre latérale. Chaque étape du parcours collaborateur ouvre le module
@@ -26,8 +26,14 @@ Les données de départ (`data.js`, schéma version 3) sont fictives ; vos modif
   de la direction dans la démo) ; chaque décision (valider, demander une modification, refuser avec commentaire obligatoire)
   est historisée. À la publication, l'annonce est vérifiée : mentions discriminatoires interdites (âge, sexe, origine,
   santé, situation de famille) bloquantes, conseil « H/F ».
-- **Recrutement** : offres publiées, pipeline en glisser-déposer, évaluation des candidats selon la fiche de cadrage, entretiens, notes, embauche
-  (le candidat rejoint la roue à l'étape « Pré-embauche »).
+- **Recrutement** : offres publiées et pipeline en glisser-déposer, avec l'avancement des sous-étapes et des indicateurs
+  (délai, candidatures, passage en entretien, meilleure source, entonnoir). Entretiens structurés : après chaque entretien,
+  l'interviewer note chaque compétence de la fiche de cadrage avec une preuve et donne un avis (favorable, réservé,
+  défavorable) ; la note du candidat en découle. Échanges tracés avec le candidat (accusé de réception avec information
+  RGPD, convocation, point d'étape, refus motivé) et alerte au-delà de 7 jours sans nouvelles. Proposition d'embauche
+  (poste, rémunération, date d'entrée, délai de réponse, alerte hors fourchette validée), lettre générée, statuts envoyée,
+  expirée, acceptée, déclinée, retirée ; l'acceptation fait entrer le candidat à l'étape « Pré-embauche ». Vivier des
+  candidats non retenus ; tout dossier non embauché est supprimé automatiquement 2 ans après le dernier contact.
 - **Entretiens** : campagne d'entretiens annuels (planification, auto-évaluation, évaluation manager, signature),
   échéances des entretiens professionnels (tous les 2 ans), objectifs avec avancement, feedback entre collègues.
 - **Formation** : catalogue, demande, double validation manager puis RH, budget du plan (réalisé, engagé, restant), évaluation.

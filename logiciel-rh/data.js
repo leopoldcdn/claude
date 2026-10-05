@@ -127,22 +127,46 @@ window.TEAMORA_SEED = function () {
       description: 'Prospecter les PME de la région lyonnaise.', scorecard: SC(['Prospection téléphonique', 'Connaissance des PME'], [], 2),
       approvals: [A('demande', 'e8', 'Soumise', '2026-09-05'), A('rh', 'e1', 'Validée', '2026-09-08'), A('direction', 'e5', 'Refusée', '2026-09-12', 'Hors budget 2026 : à représenter lors du plan 2027.')] }),
   ];
+  // Candidats. Chaque entretien passé porte une évaluation structurée (note + preuve par compétence de la fiche de cadrage).
+  // Les messages tracent les échanges ; un candidat non embauché est supprimé automatiquement 2 ans après le dernier contact.
+  const ACK = (date) => ({ date, kind: 'ack', subject: 'Nous avons bien reçu votre candidature' });
+  const EV = (date, ratings, evidence, reco, comment = '') => ({ date, ratings, evidence, reco, comment });
   const C = (id, jobId, name, stage, score, source, extra = {}) => ({ id, jobId, name, stage, score, source,
     email: name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, '').replace(' ', '.') + '@mail.fr',
-    phone: extra.phone || '07 00 00 00 00', experience: extra.experience || '', notes: extra.notes || '', interviews: extra.interviews || [], ratings: extra.ratings || [], appliedAt: extra.appliedAt || '2026-09-15' });
+    phone: extra.phone || '07 00 00 00 00', experience: extra.experience || '', notes: extra.notes || '', interviews: extra.interviews || [],
+    appliedAt: extra.appliedAt || '2026-09-15', messages: extra.messages || [ACK(extra.appliedAt || '2026-09-15')],
+    offer: extra.offer || null, refusal: extra.refusal || null, pool: !!extra.pool, hiredAt: extra.hiredAt || null });
   const candidates = [
-    C('c1', 'j1', 'Manon Lefèvre', 'Entretien', 4, 'Site carrière', { ratings: [5, 4, 3], experience: '7 ans · agence et produit SaaS', notes: 'Très bon portfolio, à l’aise en recherche utilisateur.', interviews: [{ date: '2026-10-08T10:00', with: 'e2', kind: 'Entretien manager' }] }),
-    C('c2', 'j1', 'Karim Benali', 'Présélection', 3, 'Jobboard', { experience: '5 ans · e-commerce' }),
-    C('c3', 'j1', 'Chloé Garnier', 'Reçue', 0, 'Réseaux sociaux', { experience: '6 ans · fintech' }),
-    C('c4', 'j1', 'Antoine Mercier', 'Proposition', 5, 'Cooptation', { ratings: [5, 5, 4], experience: '8 ans · design system', notes: 'Coopté par Hugo. Excellent entretien final.', interviews: [{ date: '2026-09-25T14:00', with: 'e2', kind: 'Entretien manager' }, { date: '2026-09-30T11:00', with: 'e1', kind: 'Entretien RH' }] }),
-    C('c5', 'j1', 'Lina Moreau', 'Reçue', 0, 'Site carrière', { experience: '4 ans · startup santé' }),
-    C('c6', 'j2', 'Hamza Diallo', 'Entretien', 4, 'Jobboard', { ratings: [4, 3, 4], experience: '6 ans · Node.js, React', interviews: [{ date: '2026-10-07T09:30', with: 'e6', kind: 'Test technique' }] }),
-    C('c7', 'j2', 'Elise Fontaine', 'Présélection', 3, 'Site carrière', { experience: '3 ans · TypeScript' }),
-    C('c8', 'j2', 'Rayan Masson', 'Reçue', 0, 'Jobboard', { experience: '2 ans · PHP, Vue' }),
-    C('c9', 'j2', 'Maëlle Robin', 'Refusé', 2, 'Réseaux sociaux', { experience: 'Profil junior' }),
-    C('c10', 'j3', 'Tom Girard', 'Présélection', 3, 'École', { experience: 'Master marketing digital' }),
-    C('c11', 'j3', 'Zoé Lambert', 'Reçue', 0, 'École', { experience: 'Bachelor communication' }),
-    C('c12', 'j5', 'Liam O’Connor', 'Embauché', 5, 'Jobboard', { experience: 'Recruté en 2022' }),
+    C('c1', 'j1', 'Manon Lefèvre', 'Entretien', 4, 'Site carrière', { appliedAt: '2026-09-12', experience: '7 ans · agence et produit SaaS', notes: 'Très bon portfolio, à l’aise en recherche utilisateur.',
+      interviews: [{ id: 'i1', date: '2026-09-29T14:00', with: 'e1', kind: 'Entretien RH', eval: EV('2026-09-29', [5, 4, 3], ['A mené 12 tests utilisateurs sur son dernier projet, méthode claire.', 'Montre des prototypes Figma testés en itérations courtes.', 'Connaît les design systems sans en avoir construit un.'], 'Favorable') },
+        { id: 'i2', date: '2026-10-08T10:00', with: 'e2', kind: 'Entretien manager', eval: null }],
+      messages: [ACK('2026-09-12'), { date: '2026-09-24', kind: 'convocation', subject: 'Invitation à un entretien RH' }, { date: '2026-10-01', kind: 'convocation', subject: 'Invitation à un entretien manager' }] }),
+    C('c2', 'j1', 'Karim Benali', 'Présélection', 3, 'Jobboard', { appliedAt: '2026-09-16', experience: '5 ans · e-commerce' }),
+    C('c3', 'j1', 'Chloé Garnier', 'Reçue', 0, 'Réseaux sociaux', { appliedAt: '2026-10-03', experience: '6 ans · fintech' }),
+    C('c4', 'j1', 'Antoine Mercier', 'Proposition', 5, 'Cooptation', { appliedAt: '2026-09-08', experience: '8 ans · design system', notes: 'Coopté par Hugo. Excellent entretien final.',
+      interviews: [{ id: 'i3', date: '2026-09-25T14:00', with: 'e2', kind: 'Entretien manager', eval: EV('2026-09-25', [5, 5, 5], ['Présente une étude de 30 entretiens qui a réorienté une roadmap.', 'Prototype interactif testé en direct pendant l’entretien.', 'A construit et maintenu le design system de son employeur actuel.'], 'Favorable') },
+        { id: 'i4', date: '2026-09-30T11:00', with: 'e1', kind: 'Entretien RH', eval: EV('2026-09-30', [5, 4, 5], ['Exemples concrets de recherche avec des utilisateurs B2B.', 'Bon niveau, moins d’expérience des tests à distance.', 'Anime la guilde design de 15 personnes.'], 'Favorable', 'Disponible début décembre, préavis de 2 mois.') }],
+      messages: [ACK('2026-09-08'), { date: '2026-09-18', kind: 'convocation', subject: 'Invitation à un entretien manager' }, { date: '2026-09-26', kind: 'convocation', subject: 'Invitation à un entretien RH' }, { date: '2026-10-01', kind: 'proposition', subject: 'Notre proposition d’embauche' }],
+      offer: { title: 'UX Designer Senior', contract: 'CDI', salary: 53000, startDate: '2026-12-01', managerId: 'e2', deadline: '2026-10-09', status: 'Envoyée', sentAt: '2026-10-01' } }),
+    C('c5', 'j1', 'Lina Moreau', 'Reçue', 0, 'Site carrière', { appliedAt: '2026-09-18', experience: '4 ans · startup santé' }),
+    C('c6', 'j2', 'Hamza Diallo', 'Entretien', 4, 'Jobboard', { appliedAt: '2026-09-19', experience: '6 ans · Node.js, React',
+      interviews: [{ id: 'i5', date: '2026-09-30T10:00', with: 'e1', kind: 'Entretien RH', eval: null }, { id: 'i6', date: '2026-10-07T09:30', with: 'e6', kind: 'Test technique', eval: null }],
+      messages: [ACK('2026-09-19'), { date: '2026-09-25', kind: 'convocation', subject: 'Invitation à un entretien RH' }, { date: '2026-10-01', kind: 'convocation', subject: 'Invitation à un test technique' }] }),
+    C('c7', 'j2', 'Elise Fontaine', 'Présélection', 3, 'Site carrière', { appliedAt: '2026-09-29', experience: '3 ans · TypeScript' }),
+    C('c8', 'j2', 'Rayan Masson', 'Reçue', 0, 'Jobboard', { appliedAt: '2026-09-22', experience: '2 ans · PHP, Vue' }),
+    C('c9', 'j2', 'Maëlle Robin', 'Refusé', 2, 'Réseaux sociaux', { appliedAt: '2026-09-14', experience: '1 an · stage en agence', pool: true,
+      refusal: { date: '2026-09-28', reason: 'L’expérience ne correspond pas encore au poste', from: 'Présélection' },
+      messages: [ACK('2026-09-14'), { date: '2026-09-28', kind: 'refus', subject: 'Votre candidature chez Nova Studio' }] }),
+    C('c10', 'j3', 'Tom Girard', 'Présélection', 3, 'École', { appliedAt: '2026-09-24', experience: 'Master marketing digital' }),
+    C('c11', 'j3', 'Zoé Lambert', 'Reçue', 0, 'École', { appliedAt: '2026-10-02', experience: 'Bachelor communication' }),
+    C('c12', 'j5', 'Liam O’Connor', 'Embauché', 5, 'Jobboard', { appliedAt: '2026-06-10', experience: 'Recruté en 2022', hiredAt: '2026-06-28' }),
+    C('c13', 'j5', 'Hélène Marchand', 'Refusé', 4, 'Site carrière', { appliedAt: '2024-11-04', experience: '6 ans · vente SaaS', pool: true,
+      refusal: { date: '2024-11-20', reason: 'Un autre candidat a été retenu', from: 'Entretien' }, messages: [ACK('2024-11-04'), { date: '2024-11-20', kind: 'refus', subject: 'Votre candidature chez Nova Studio' }] }),
+    // Dernier contact il y a plus de 2 ans : supprimés automatiquement au premier chargement.
+    C('c14', 'j5', 'Paul Garnier', 'Refusé', 2, 'Jobboard', { appliedAt: '2024-05-02', experience: '3 ans · retail', refusal: { date: '2024-06-10', reason: 'Les compétences indispensables ne sont pas réunies', from: 'Présélection' },
+      messages: [ACK('2024-05-02'), { date: '2024-06-10', kind: 'refus', subject: 'Votre candidature chez Nova Studio' }] }),
+    C('c15', 'j5', 'Nadia Morel', 'Refusé', 3, 'Cooptation', { appliedAt: '2024-08-19', experience: '4 ans · inside sales', pool: true, refusal: { date: '2024-09-03', reason: 'Un autre candidat a été retenu', from: 'Entretien' },
+      messages: [ACK('2024-08-19'), { date: '2024-09-03', kind: 'refus', subject: 'Votre candidature chez Nova Studio' }] }),
   ];
   const notifications = [
     { id: 'n1', to: 'e2', text: 'Hugo Laurent demande 5 jours de congés payés du 26 au 30 octobre.', date: '2026-09-28', read: false },
@@ -260,6 +284,6 @@ window.TEAMORA_SEED = function () {
     { id: 'doc2', empId: 'e3', kind: 'attestation', title: 'Attestation employeur', date: '2026-02-03' },
     { id: 'doc3', empId: 'e4', kind: 'avenant', title: 'Avenant · Senior Product Designer', date: '2023-12-15', data: { title: 'Senior Product Designer', dept: 'Design', salary: 54000, effective: '2024-01-01' } },
   ];
-  return { version: 3, employees, journey, leaves, jobs, candidates, notifications, payroll, objectives, reviews, feedback, trainings, enrollments, trainingBudget: 25000,
+  return { version: 4, employees, journey, leaves, jobs, candidates, notifications, payroll, objectives, reviews, feedback, trainings, enrollments, trainingBudget: 25000, purgeLog: [],
     wishes, history, visits, incidents, risks, survey, adjustments, cases, documents };
 };

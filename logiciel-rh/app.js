@@ -47,7 +47,7 @@
   // ---------------------------------------------------------------- Storage
   const STORE = 'teamora-demo-v1', UI_STORE = 'teamora-ui-v1';
   function load() {
-    try { const d = JSON.parse(localStorage.getItem(STORE)); if (d && d.version === 3) return d; } catch (e) { /* ignore */ }
+    try { const d = JSON.parse(localStorage.getItem(STORE)); if (d && d.version === 4) return d; } catch (e) { /* ignore */ }
     return window.TEAMORA_SEED();
   }
   function save() { try { localStorage.setItem(STORE, JSON.stringify(db)); } catch (e) { /* storage unavailable */ } }
@@ -339,7 +339,12 @@
     pendingForMe().forEach((l) => { const e = emp(l.empId); todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(fullName(e))} · ${esc(l.type)}</b><small>${fmtShort(l.start)} → ${fmtShort(l.end)} · ${plural(l.days, 'jour', 'jours')}</small></div><button type="button" class="btn ok sm" data-act="leave-ok" data-id="${l.id}">Valider</button><button type="button" class="btn bad sm" data-act="leave-ko" data-id="${l.id}">Refuser</button></div>`); });
     needsToDo().forEach((j) => { const what = j.status === 'Validée' ? 'Offre à publier' : j.status === 'En validation' ? (j.pending === 'direction' ? 'Décision de la direction à saisir' : 'Besoin à valider') : j.status === 'À modifier' ? 'Besoin à corriger' : 'Brouillon à envoyer';
       todos.push(`<div class="todo"><div class="t"><b>${what} : ${esc(j.title)}</b><small>${esc(j.dept)} · ${esc(j.contract)} · demandé par ${esc(fullName(emp(j.requestedBy)))}</small></div><button type="button" class="btn ghost sm" data-act="open-need" data-id="${j.id}">Ouvrir</button></div>`); });
-    scopeCandidates().filter((c) => c.stage === 'Proposition').forEach((c) => { const j = db.jobs.find((x) => x.id === c.jobId); todos.push(`<div class="todo">${avatarName(c.id, c.name, 'sm')}<div class="t"><b>Proposition en cours : ${esc(c.name)}</b><small>${esc(j.title)}</small></div><button type="button" class="btn ghost sm" data-act="open-cand" data-id="${c.id}">Ouvrir</button></div>`); });
+    pendingEvals().forEach(({ c, iv }) => todos.push(`<div class="todo">${avatarName(c.id, c.name, 'sm')}<div class="t"><b>Évaluation à remplir : ${esc(c.name)}</b><small>${esc(iv.kind)} du ${fmtShort(iv.date.slice(0, 10))} · ${esc(candJob(c).title)}${iv.with !== me().id ? ` · avec ${esc(fullName(emp(iv.with)))}` : ''}</small></div><button type="button" class="btn primary sm" data-act="iv-eval" data-id="${c.id}" data-iv="${iv.id}">Évaluer</button></div>`));
+    if (ui.profile === 'rh') {
+      scopeCandidates().filter((c) => c.stage === 'Proposition' && (!c.offer || ['Expirée', 'Retirée', 'Déclinée'].includes(offerStatus(c.offer)))).forEach((c) => todos.push(`<div class="todo">${avatarName(c.id, c.name, 'sm')}<div class="t"><b>${offerStatus(c.offer) === 'Expirée' ? 'Proposition expirée' : 'Proposition à préparer'} : ${esc(c.name)}</b><small>${esc(candJob(c).title)}</small></div><button type="button" class="btn ghost sm" data-act="open-cand" data-id="${c.id}">Ouvrir</button></div>`));
+      const late = scopeCandidates().filter((c) => waitingDays(c) > ANSWER_DAYS);
+      if (late.length) todos.push(`<div class="todo"><div class="t"><b>${plural(late.length, 'candidat sans nouvelles', 'candidats sans nouvelles')} depuis plus de ${ANSWER_DAYS} jours</b><small>${late.slice(0, 3).map((c) => esc(c.name)).join(', ')}${late.length > 3 ? '…' : ''}</small></div><button type="button" class="btn ghost sm" data-act="go" data-v="recrutement">Voir</button></div>`);
+    }
     scopeEmployees().filter((e) => e.stage === 13 || e.stage === 14).forEach((e) => todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>Départ : ${esc(fullName(e))}</b><small>${e.exit ? `${esc(e.exit.reason)} · dernier jour le ${fmtDate(e.exit.lastDay)}` : 'Départ en préparation'}</small></div><button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir</button></div>`));
     return `<div class="card"><div class="card-h"><h3>À traiter</h3><span class="pill ${todos.length ? 'warn' : 'ok'} num">${todos.length}</span></div><div class="card-b">${todos.length ? todos.join('') : '<p class="muted" style="margin:0">Rien à traiter pour le moment.</p>'}</div></div>
       <div class="card card-b"><p class="muted" style="margin:0">La roue est le menu de Teamora : chaque étape du parcours collaborateur ouvre le module qui la gère (recrutement, absences, paie, entretiens…). Le chiffre blanc indique combien de personnes, de besoins ou de candidats s’y trouvent ; le chiffre orange, ce qui vous attend.</p></div>`;
@@ -581,48 +586,6 @@
   const jobPill = (j) => `<span class="pill ${JOB_PILL[j.status][0]}">${JOB_PILL[j.status][1]}</span>`;
   const stars = (n, id) => `<span class="stars ${id ? 'lg' : ''}" ${id ? 'role="group" aria-label="Note du candidat"' : `aria-label="Note ${n} sur 5"`}>${[1, 2, 3, 4, 5].map((k) => id
     ? `<button type="button" data-act="cand-score" data-id="${id}" data-v="${k}" class="${k <= n ? '' : 'off'}" aria-label="${k} sur 5" aria-pressed="${k === n}">${STAR}</button>` : `<span class="${k <= n ? '' : 'off'}">${STAR}</span>`).join('')}</span>`;
-  function viewRecruitment() {
-    const order = { Brouillon: 0, Ouverte: 1, Pourvue: 2, Clôturée: 3 };
-    const jobs = scopeJobs().filter((j) => !isNeed(j)).sort((a, b) => order[a.status] - order[b.status] || b.createdAt.localeCompare(a.createdAt));
-    if (!jobs.find((j) => j.id === ui.recJob)) { const first = jobs.find((j) => j.status === 'Ouverte') || jobs[0]; ui.recJob = first ? first.id : null; }
-    const job = db.jobs.find((j) => j.id === ui.recJob);
-    let right = '<div class="card empty">Aucune offre pour le moment.</div>';
-    if (job) {
-      const cands = db.candidates.filter((c) => c.jobId === job.id);
-      const rh = ui.profile === 'rh';
-      const acts = job.status === 'Ouverte' ? `<button type="button" class="btn primary" data-act="cand-new" data-id="${job.id}">${ic('plus')}Ajouter un candidat</button>${rh ? `<button type="button" class="btn ghost" data-act="job-close" data-id="${job.id}">Clôturer l’offre</button>` : ''}` : '';
-      const board = `<div class="board">${CAND_STAGES.map((s) => { const list = cands.filter((c) => c.stage === s);
-          return `<div class="col" data-stage="${s}"><h4>${s}<span class="num">${list.length}</span></h4>${list.map((c) => { const next = (c.interviews || []).filter((iv) => iv.date.slice(0, 10) >= TODAY).sort((a, b) => a.date.localeCompare(b.date))[0];
-            return `<button type="button" class="kc" draggable="true" data-act="open-cand" data-id="${c.id}"><b>${esc(c.name)}</b><small>${esc(c.experience || c.source)}</small>${c.score ? stars(c.score) : ''}${next ? `<small>${ic('calendar').replace('<svg', '<svg style="width:13px;height:13px;vertical-align:-2px"')} ${fmtShort(next.date.slice(0, 10))} · ${next.date.slice(11, 16)}</small>` : ''}</button>`; }).join('')}</div>`; }).join('')}</div>
-          <p class="hint" style="padding:0 20px 16px;margin:0">Glissez une carte d’une colonne à l’autre, ou ouvrez-la pour noter le candidat et planifier un entretien.</p>`;
-      right = `<div class="card"><div class="job-head"><div style="min-width:0"><div class="toolbar">${jobPill(job)}<span class="muted" style="font-size:13px">Créée le ${fmtDate(job.createdAt)}</span></div><h2 style="margin-top:8px">${esc(job.title)}</h2>
-        <p>${esc(job.dept)} · ${esc(job.contract)} · ${esc(job.location)} · ${esc(job.budget)} · ${esc(job.reason)}</p><p>${esc(job.description)}</p></div><div class="toolbar">${acts}</div></div>${board}</div>`;
-    }
-    return `<div class="rec"><div class="jobs"><button type="button" class="btn primary" data-act="need-new">${ic('plus')}Exprimer un besoin</button>${jobs.map((j) => { const n = db.candidates.filter((c) => c.jobId === j.id && activeCand(c)).length;
-      return `<button type="button" class="job" data-act="open-job" data-id="${j.id}" aria-current="${j.id === ui.recJob}"><b>${esc(j.title)}</b><span class="meta">${jobPill(j)}<span>${esc(j.dept)} · ${esc(j.contract)}</span></span><span class="meta">${plural(n, 'candidat actif', 'candidats actifs')}</span></button>`; }).join('')}</div>${right}</div>`;
-  }
-  function candDrawer(c) {
-    const job = db.jobs.find((j) => j.id === c.jobId), rh = ui.profile === 'rh';
-    const interviewers = db.employees.filter((e) => (e.dept === job.dept || e.dept === 'RH') && isEmployed(e));
-    return `<div class="drawer-h">${avatarName(c.id, c.name, 'lg')}<div style="min-width:0"><h2>${esc(c.name)}</h2><p>${esc(job.title)}</p><div style="margin-top:6px"><span class="pill accent">${esc(c.stage)}</span></div></div>
-      <button type="button" class="icon-btn drawer-x" data-act="close-drawer" aria-label="Fermer">${ic('x')}</button></div>
-      <div class="drawer-b"><div class="toolbar"><label class="sr" for="c-stage">Étape</label><select id="c-stage" class="select" data-change="cand-stage" data-id="${c.id}">${CAND_STAGES.map((s) => `<option ${s === c.stage ? 'selected' : ''}>${s}</option>`).join('')}</select>
-        ${c.stage === 'Entretien' ? `<button type="button" class="btn ghost sm" data-act="cand-move" data-id="${c.id}" data-s="Proposition">Faire une proposition</button>` : ''}
-        ${c.stage === 'Proposition' && rh ? `<button type="button" class="btn primary sm" data-act="hire" data-id="${c.id}">${ic('check')}Embaucher</button>` : ''}
-        ${activeCand(c) ? `<button type="button" class="btn bad sm" data-act="cand-move" data-id="${c.id}" data-s="Refusé">Refuser</button>` : ''}</div>
-      ${job.scorecard && job.scorecard.must.length ? `<div class="field"><label>Évaluation selon la fiche de cadrage</label><div class="crit">${job.scorecard.must.map((m, k) => { const n = (c.ratings || [])[k] || 0;
-        return `<div class="crit-row"><span>${esc(m)}</span><span class="stars" role="group" aria-label="${esc(m)}">${[1, 2, 3, 4, 5].map((v) => `<button type="button" data-act="cand-crit" data-id="${c.id}" data-k="${k}" data-v="${v}" class="${v <= n ? '' : 'off'}" aria-label="${esc(m)} : ${v} sur 5" aria-pressed="${v === n}">${STAR}</button>`).join('')}</span></div>`; }).join('')}
-        <div class="crit-row total"><span>Note globale</span>${c.score ? stars(c.score) : '<span class="muted">À évaluer</span>'}</div></div></div>`
-        : `<div><div class="field"><label>Évaluation</label>${stars(c.score, c.id)}</div></div>`}
-      <div class="info-grid"><div><span>E-mail</span>${esc(c.email)}</div><div><span>Téléphone</span>${esc(c.phone)}</div><div><span>Source</span>${esc(c.source)}</div><div><span>Candidature reçue le</span>${fmtDate(c.appliedAt)}</div><div style="grid-column:1/-1"><span>Expérience</span>${esc(c.experience) || '—'}</div></div>
-      <div class="card"><div class="card-h"><h3>Entretiens</h3></div><div class="card-b">${(c.interviews || []).length ? c.interviews.slice().sort((a, b) => a.date.localeCompare(b.date)).map((iv) => `<div class="todo"><div class="t"><b>${esc(iv.kind)}</b><small>${fmtDate(iv.date.slice(0, 10), { weekday: 'long', day: 'numeric', month: 'long' })} à ${iv.date.slice(11, 16)} · avec ${esc(fullName(emp(iv.with)))}</small></div>${iv.date.slice(0, 10) < TODAY ? '<span class="pill neutral">Passé</span>' : '<span class="pill info">Prévu</span>'}</div>`).join('') : '<p class="muted" style="margin:0 0 6px">Aucun entretien planifié.</p>'}
-        ${activeCand(c) ? `<form data-form="interview" data-id="${c.id}" style="margin-top:12px" novalidate><div class="form-grid"><div class="field"><label for="iv-date">Date et heure</label><input id="iv-date" name="date" type="datetime-local" class="input" value="${nextMonday(TODAY)}T10:00"></div>
-          <div class="field"><label for="iv-with">Avec</label><select id="iv-with" name="with" class="select">${interviewers.map((e) => `<option value="${e.id}" ${e.id === me().id ? 'selected' : ''}>${esc(fullName(e))}</option>`).join('')}</select></div>
-          <div class="field"><label for="iv-kind">Type</label><select id="iv-kind" name="kind" class="select">${['Entretien RH', 'Entretien manager', 'Test technique', 'Entretien final'].map((k) => `<option>${k}</option>`).join('')}</select></div>
-          <div class="field" style="justify-content:flex-end"><button class="btn ghost">${ic('calendar')}Planifier l’entretien</button></div></div></form>` : ''}</div></div>
-      <form class="card" data-form="cand-note" data-id="${c.id}"><div class="card-h"><h3>Notes</h3><button class="btn ghost sm">Enregistrer</button></div><div class="card-b"><label class="sr" for="c-notes">Notes sur le candidat</label><textarea id="c-notes" name="notes" class="input" placeholder="Impressions, points forts, points à creuser…">${esc(c.notes)}</textarea></div></form></div>`;
-  }
-
   // ---------------------------------------------------------------- Mon profil
   function viewProfile() {
     const e = me(), mgr = emp(e.managerId);
@@ -993,7 +956,7 @@
   Object.assign(MOD_ACT, {
     'apply-internal'(d) {
       const j = db.jobs.find((x) => x.id === d.id), e = me();
-      db.candidates.push({ id: uid('c'), jobId: j.id, name: fullName(e), email: e.email, phone: e.phone, source: 'Mobilité interne', experience: `${e.title} · ${e.dept} (en interne depuis ${seniority(e.startDate)})`, stage: 'Présélection', score: 0, notes: '', interviews: [], appliedAt: TODAY, empId: e.id });
+      db.candidates.push({ id: uid('c'), jobId: j.id, name: fullName(e), email: e.email, phone: e.phone, source: 'Mobilité interne', experience: `${e.title} · ${e.dept} (en interne depuis ${seniority(e.startDate)})`, stage: 'Présélection', score: 0, notes: '', interviews: [], appliedAt: TODAY, empId: e.id, messages: [], offer: null, refusal: null, pool: false });
       notify('e1', `Candidature interne de ${fullName(e)} sur « ${j.title} ».`); if (DEPT_HEAD[j.dept] !== e.id) notify(DEPT_HEAD[j.dept], `Candidature interne de ${fullName(e)} sur « ${j.title} ».`);
       tickJourney(e.id, 10, 1); toast('Candidature interne envoyée aux RH'); commit();
     },
@@ -1426,10 +1389,6 @@
     },
     'need-decide'(d) { ui.modal = { type: 'need-decide', id: d.id, d: d.d }; render(); },
     'need-publish'(d) { ui.modal = { type: 'need-publish', id: d.id }; render(); },
-    'cand-crit'(d) {
-      const c = db.candidates.find((x) => x.id === d.id); c.ratings = c.ratings || []; c.ratings[Number(d.k)] = Number(d.v);
-      const r = c.ratings.filter(Boolean); c.score = Math.round(r.reduce((s, x) => s + x, 0) / r.length); commit();
-    },
   });
   Object.assign(MOD_LIVE, {
     need(form) {
@@ -1520,6 +1479,295 @@
       <div id="ad-lint" style="margin-top:10px">${adLintHTML(j.title, desc, true)}</div>`, 'Publier l’offre', true);
   };
 
+  // ================================================================ Recrutement : entretiens structurés, échanges, proposition, RGPD, indicateurs
+  const dayDiff = (a, b) => Math.round((parse(b) - parse(a)) / 864e5);
+  const nowStamp = () => { const d = new Date(); return `${TODAY}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const RETENTION_YEARS = 2, ANSWER_DAYS = 7;
+  function lastContact(c) {
+    return [c.appliedAt, ...(c.messages || []).map((m) => m.date), ...(c.interviews || []).map((iv) => iv.date.slice(0, 10)).filter((d) => d <= TODAY),
+      c.refusal && c.refusal.date, c.offer && c.offer.sentAt].filter(Boolean).sort().pop();
+  }
+  const purgeDate = (c) => addYears(lastContact(c), RETENTION_YEARS);
+  // RGPD : un candidat non embauché est supprimé automatiquement 2 ans après le dernier contact.
+  function purgeCandidates() {
+    const old = db.candidates.filter((c) => c.stage !== 'Embauché' && purgeDate(c) <= TODAY);
+    if (!old.length) return;
+    db.candidates = db.candidates.filter((c) => !old.includes(c));
+    db.purgeLog = [{ date: TODAY, count: old.length }].concat(db.purgeLog || []);
+    save();
+  }
+  const offerStatus = (o) => (o && o.status === 'Envoyée' && o.deadline < TODAY ? 'Expirée' : o && o.status);
+  const OFFER_PILL = { Envoyée: 'info', Expirée: 'warn', Acceptée: 'ok', Déclinée: 'bad', Retirée: 'neutral' };
+  const waitingDays = (c) => (activeCand(c) && c.stage !== 'Proposition' ? dayDiff(lastContact(c), TODAY) : 0);
+  const reachedIdx = (c) => CAND_STAGES.indexOf(c.stage === 'Refusé' ? (c.refusal && c.refusal.from) || 'Reçue' : c.stage);
+  const canEval = (iv) => ui.profile === 'rh' || iv.with === me().id;
+  function pendingEvals() {
+    const now = nowStamp();
+    return scopeCandidates().filter(activeCand).flatMap((c) => (c.interviews || []).filter((iv) => !iv.eval && iv.date <= now && canEval(iv)).map((iv) => ({ c, iv })));
+  }
+  function evalSummary(c, job) {
+    const sc = job.scorecard || { must: [], rounds: 0 }, evals = (c.interviews || []).filter((iv) => iv.eval);
+    const avg = sc.must.map((m, k) => { const r = evals.map((iv) => iv.eval.ratings[k]).filter(Boolean); return r.length ? r.reduce((s, x) => s + x, 0) / r.length : 0; });
+    const recos = evals.reduce((o, iv) => { o[iv.eval.reco] = (o[iv.eval.reco] || 0) + 1; return o; }, {});
+    return { sc, evals, avg, recos };
+  }
+  function recomputeScore(c, job) { const r = evalSummary(c, job).avg.filter(Boolean); if (r.length) c.score = Math.round(r.reduce((s, x) => s + x, 0) / r.length); }
+  const RECO_PILL = { Favorable: 'ok', Réservé: 'warn', Défavorable: 'bad' };
+  function evalGauge(c, job, short) {
+    const rounds = (job.scorecard && job.scorecard.rounds) || 0, done = (c.interviews || []).filter((iv) => iv.eval).length;
+    return rounds ? `<span class="gauge" title="${done} entretien(s) évalué(s) sur ${rounds} prévus"><i style="width:${Math.min(100, (done / rounds) * 100)}%"></i></span><small class="num">${done}/${rounds}${short ? '' : ' entretiens évalués'}</small>` : '';
+  }
+
+  // Modèles de messages aux candidats (l'envoi est simulé et tracé dans la fiche).
+  const RGPD_NOTE = 'Vos données sont utilisées uniquement pour nos recrutements. Elles sont supprimées automatiquement 2 ans après notre dernier échange. Vous pouvez à tout moment demander leur suppression ou vous opposer à leur conservation en écrivant à rh@novastudio.fr.';
+  const firstName = (c) => c.name.split(' ')[0];
+  const SIGN = '\n\nL’équipe RH de Nova Studio';
+  const MSG_TPL = {
+    ack: ['Accusé de réception', 'Nous avons bien reçu votre candidature', (c, j) => `Bonjour ${firstName(c)},\n\nMerci pour votre candidature au poste de ${j.title}. Nous l’étudions et reviendrons vers vous sous ${ANSWER_DAYS} jours.\n\n${RGPD_NOTE}${SIGN}`],
+    point: ['Point d’étape', 'Votre candidature est toujours à l’étude', (c, j) => `Bonjour ${firstName(c)},\n\nNous revenons vers vous au sujet de votre candidature au poste de ${j.title} : elle est toujours à l’étude. Nous vous tiendrons informé·e de la suite d’ici une semaine.${SIGN}`],
+    libre: ['Message libre', '', (c) => `Bonjour ${firstName(c)},\n\n${SIGN.trim()}`],
+  };
+  const convocBody = (c, j, iv) => `Bonjour ${firstName(c)},\n\nNous avons le plaisir de vous inviter à un ${iv.kind.toLowerCase()} pour le poste de ${j.title}, le ${fmtDate(iv.date.slice(0, 10), { weekday: 'long', day: 'numeric', month: 'long' })} à ${iv.date.slice(11, 16)}, avec ${fullName(emp(iv.with))}.\n\nMerci de nous confirmer votre disponibilité.${SIGN}`;
+  const refusBody = (c, j, reason, pool) => `Bonjour ${firstName(c)},\n\nMerci pour l’intérêt que vous portez à Nova Studio. Après étude, nous ne donnons pas suite à votre candidature au poste de ${j.title}. ${reason ? `Motif : ${reason.charAt(0).toLowerCase() + reason.slice(1)}.` : ''}\n\n${pool
+    ? `Nous conservons votre dossier dans notre vivier pour vous proposer de futures opportunités. Il sera supprimé automatiquement le ${fmtDate(addYears(TODAY, RETENTION_YEARS))}, sauf nouvel échange. Vous pouvez vous y opposer en répondant simplement à ce message.`
+    : `Nous ne vous recontacterons pas pour d’autres offres. Votre dossier sera supprimé automatiquement au plus tard le ${fmtDate(addYears(TODAY, RETENTION_YEARS))}.`}${SIGN}`;
+  const offerBody = (c, o) => `Bonjour ${firstName(c)},\n\nNous avons le plaisir de vous proposer le poste de ${o.title} (${o.contract}), avec une rémunération annuelle brute de ${eur0(o.salary)} et une prise de poste le ${fmtDate(o.startDate)}. Vous trouverez notre proposition détaillée ci-jointe.\n\nMerci de nous faire part de votre réponse avant le ${fmtDate(o.deadline)}.${SIGN}`;
+  const REFUS_REASONS = ['Les compétences indispensables ne sont pas réunies', 'L’expérience ne correspond pas encore au poste', 'Un autre candidat a été retenu', 'Les prétentions salariales sont hors budget', 'Autre motif'];
+  function sendMsg(c, kind, subject, body) { c.messages = c.messages || []; c.messages.push({ date: TODAY, kind, subject, body }); }
+
+  function hireFromOffer(c) {
+    const job = db.jobs.find((j) => j.id === c.jobId), o = c.offer, [first, ...rest] = c.name.split(' '), internal = c.empId && emp(c.empId), id = internal ? c.empId : uid('e');
+    if (internal) { Object.assign(internal, { title: o.title, dept: job.dept, managerId: o.managerId, salary: o.salary }); db.history.push({ id: uid('h'), empId: id, date: o.startDate, label: 'Mobilité interne', detail: `${o.title} · ${job.dept}` }); }
+    else db.employees.push({ id, firstName: first, lastName: rest.join(' ') || first, title: o.title, dept: job.dept, managerId: o.managerId, stage: 2, startDate: o.startDate, contract: o.contract, salary: o.salary,
+      email: c.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, '').replace(/ +/g, '.') + '@novastudio.fr', phone: c.phone, location: job.location.split(' ')[0], birthDate: '', address: '', emergency: '', cp: 0, rtt: 0, exit: null });
+    Object.assign(o, { status: 'Acceptée', answeredAt: TODAY });
+    Object.assign(c, { stage: 'Embauché', empId: id, hiredAt: TODAY });
+    job.status = 'Pourvue';
+    notify(o.managerId, `${c.name} a accepté la proposition : arrivée le ${fmtDate(o.startDate)} (${o.title}).`);
+    const others = db.candidates.filter((x) => x.jobId === job.id && activeCand(x)).length;
+    toast(`${c.name} est en pré-embauche${others ? ` · pensez à répondre aux ${plural(others, 'autre candidat', 'autres candidats')}` : ''}`);
+  }
+
+  function jobSubsteps(job, cands) {
+    const done = [true, cands.some((c) => reachedIdx(c) >= 1), cands.some((c) => (c.interviews || []).some((iv) => iv.eval)), cands.some((c) => reachedIdx(c) >= 3),
+      cands.some((c) => c.stage === 'Embauché' || (c.offer && ['Envoyée', 'Acceptée'].includes(c.offer.status)))];
+    return `<div class="substeps" aria-label="Avancement de l’étape">${STAGES[1].steps.map((t, k) => `<span class="${done[k] ? 'done' : ''}">${done[k] ? ic('check') : '<i></i>'}${esc(t)}</span>`).join('')}</div>`;
+  }
+  function jobKpis(job, cands) {
+    const pub = job.publishedAt || ((job.approvals || []).find((a) => a.step === 'publication') || {}).date || job.createdAt;
+    const hired = cands.find((c) => c.stage === 'Embauché'), n = cands.length, reach = (k) => cands.filter((c) => reachedIdx(c) >= k).length;
+    const bySrc = {};
+    cands.filter((c) => c.score).forEach((c) => { const s = bySrc[c.source] = bySrc[c.source] || { n: 0, sum: 0 }; s.n += 1; s.sum += c.score; });
+    const best = Object.entries(bySrc).map(([src, s]) => ({ src, n: s.n, avg: s.sum / s.n })).sort((a, b) => b.avg - a.avg || b.n - a.n)[0];
+    const funnel = ['Reçues', 'Présélection', 'Entretien', 'Proposition', 'Embauche'].map((l, k) => [l, reach(k)]);
+    return `<div class="rkpis"><div><span>${hired ? 'Délai de recrutement' : 'En ligne depuis'}</span><b class="num">${plural(dayDiff(pub, (hired && hired.hiredAt) || TODAY), 'jour', 'jours')}</b><small>Publiée le ${fmtDate(pub)}</small></div>
+      <div><span>Candidatures</span><b class="num">${n}</b><small>${plural(cands.filter(activeCand).length, 'en cours', 'en cours')}</small></div>
+      <div><span>Passage en entretien</span><b class="num">${n ? Math.round((reach(2) / n) * 100) : 0} %</b><small>${reach(2)} sur ${n}</small></div>
+      <div><span>Meilleure source</span><b>${best ? esc(best.src) : '—'}</b><small>${best ? `${best.avg.toFixed(1).replace('.', ',')}/5 · ${plural(best.n, 'candidat noté', 'candidats notés')}` : 'Aucun candidat noté'}</small></div></div>
+      <div class="funnel" aria-label="Entonnoir de recrutement">${funnel.map(([l, v]) => `<div><span>${l}</span><i><b style="width:${n ? (v / n) * 100 : 0}%"></b></i><em class="num">${v}</em></div>`).join('')}</div>`;
+  }
+  function candCard(c, job) {
+    const next = (c.interviews || []).filter((iv) => iv.date.slice(0, 10) >= TODAY).sort((a, b) => a.date.localeCompare(b.date))[0];
+    const w = waitingDays(c), os = offerStatus(c.offer), late = (c.interviews || []).some((iv) => !iv.eval && iv.date <= nowStamp());
+    return `<button type="button" class="kc" draggable="true" data-act="open-cand" data-id="${c.id}"><b>${esc(c.name)}</b><small>${esc(c.experience || c.source)}</small>${c.score ? stars(c.score) : ''}
+      ${(c.interviews || []).length ? `<span class="kc-g">${evalGauge(c, job, true)}</span>` : ''}
+      ${next ? `<small>${ic('calendar').replace('<svg', '<svg style="width:13px;height:13px;vertical-align:-2px"')} ${fmtShort(next.date.slice(0, 10))} · ${next.date.slice(11, 16)}</small>` : ''}
+      ${late ? '<span class="pill warn">Évaluation à remplir</span>' : ''}${os && c.stage === 'Proposition' ? `<span class="pill ${OFFER_PILL[os]}">Proposition ${os.toLowerCase()}</span>` : ''}
+      ${c.stage === 'Proposition' && !os ? '<span class="pill accent">Proposition à préparer</span>' : ''}${w > ANSWER_DAYS ? `<span class="pill bad">Sans nouvelles · ${w} j</span>` : ''}</button>`;
+  }
+  function poolView() {
+    const list = db.candidates.filter((c) => c.stage === 'Refusé' && c.pool).sort((a, b) => lastContact(b).localeCompare(lastContact(a)));
+    const open = db.jobs.filter((j) => j.status === 'Ouverte'), log = (db.purgeLog || [])[0];
+    return card('Vivier de candidats', `<span class="muted num">${plural(list.length, 'dossier', 'dossiers')}</span>`, `<div class="card-b"><p class="hint" style="margin:0 0 6px">Candidats non retenus qui acceptent d’être recontactés. Chaque dossier est supprimé automatiquement ${RETENTION_YEARS} ans après le dernier contact.</p>
+      ${log ? `<p class="hint" style="margin:0 0 10px">${ic('check').replace('<svg', '<svg style="width:13px;height:13px;vertical-align:-2px"')} Suppression automatique du ${fmtDate(log.date)} : ${plural(log.count, 'dossier effacé', 'dossiers effacés')}.</p>` : ''}
+      ${list.length ? list.map((c) => { const j = db.jobs.find((x) => x.id === c.jobId), pd = purgeDate(c), soon = dayDiff(TODAY, pd) <= 90;
+        return `<div class="todo">${avatarName(c.id, c.name, 'sm')}<div class="t"><b>${esc(c.name)}</b><small>${esc(c.experience)} · candidature « ${esc(j ? j.title : '—')} » · dernier contact le ${fmtDate(lastContact(c))}</small>
+          <small class="${soon ? 'warn-t' : ''}">Suppression automatique le ${fmtDate(pd)}</small></div>${c.score ? stars(c.score) : ''}
+          <label class="sr" for="pp-${c.id}">Proposer pour une offre</label><select id="pp-${c.id}" class="select" data-change="pool-propose" data-id="${c.id}"><option value="">Proposer pour…</option>${open.map((o) => `<option value="${o.id}">${esc(o.title)}</option>`).join('')}</select></div>`; }).join('')
+        : '<p class="muted" style="margin:0">Le vivier est vide.</p>'}</div>`);
+  }
+  function viewRecruitment() {
+    const order = { Ouverte: 1, Pourvue: 2, Clôturée: 3 }, rh = ui.profile === 'rh';
+    const jobs = scopeJobs().filter((j) => !isNeed(j)).sort((a, b) => order[a.status] - order[b.status] || b.createdAt.localeCompare(a.createdAt));
+    if (ui.recJob === 'vivier' && !rh) ui.recJob = null;
+    if (ui.recJob !== 'vivier' && !jobs.find((j) => j.id === ui.recJob)) { const first = jobs.find((j) => j.status === 'Ouverte') || jobs[0]; ui.recJob = first ? first.id : null; }
+    const job = db.jobs.find((j) => j.id === ui.recJob);
+    let right = '<div class="card empty">Aucune offre pour le moment.</div>';
+    if (ui.recJob === 'vivier') right = poolView();
+    else if (job) {
+      const cands = db.candidates.filter((c) => c.jobId === job.id);
+      const acts = job.status === 'Ouverte' ? `<button type="button" class="btn primary" data-act="cand-new" data-id="${job.id}">${ic('plus')}Ajouter un candidat</button>${rh ? `<button type="button" class="btn ghost" data-act="job-close" data-id="${job.id}">Clôturer l’offre</button>` : ''}` : '';
+      const board = `<div class="board">${CAND_STAGES.map((s) => { const list = cands.filter((c) => c.stage === s);
+        return `<div class="col" data-stage="${s}"><h4>${s}<span class="num">${list.length}</span></h4>${list.map((c) => candCard(c, job)).join('')}</div>`; }).join('')}</div>
+        <p class="hint" style="padding:0 20px 16px;margin:0">Glissez une carte d’une colonne à l’autre, ou ouvrez-la pour évaluer le candidat, lui écrire ou préparer la proposition.</p>`;
+      right = `<div class="card"><div class="job-head"><div style="min-width:0"><div class="toolbar">${jobPill(job)}<span class="muted" style="font-size:13px">Besoin du ${fmtDate(job.createdAt)}</span></div><h2 style="margin-top:8px">${esc(job.title)}</h2>
+        <p>${esc(job.dept)} · ${esc(job.contract)} · ${esc(job.location)} · ${esc(job.budget)} · ${esc(job.reason)}</p><p>${esc(job.description)}</p></div><div class="toolbar">${acts}</div></div>
+        <div class="card-b" style="border-top:1px solid var(--line)">${jobSubsteps(job, cands)}${jobKpis(job, cands)}</div>${board}</div>`;
+    }
+    const pool = db.candidates.filter((c) => c.stage === 'Refusé' && c.pool).length;
+    return `<div class="rec"><div class="jobs"><button type="button" class="btn primary" data-act="need-new">${ic('plus')}Exprimer un besoin</button>${jobs.map((j) => { const n = db.candidates.filter((c) => c.jobId === j.id && activeCand(c)).length;
+      return `<button type="button" class="job" data-act="open-job" data-id="${j.id}" aria-current="${j.id === ui.recJob}"><b>${esc(j.title)}</b><span class="meta">${jobPill(j)}<span>${esc(j.dept)} · ${esc(j.contract)}</span></span><span class="meta">${plural(n, 'candidat actif', 'candidats actifs')}</span></button>`; }).join('')}
+      ${rh ? `<button type="button" class="job pool" data-act="open-pool" aria-current="${ui.recJob === 'vivier'}"><b>${ic('users')}Vivier de candidats</b><span class="meta">${plural(pool, 'dossier', 'dossiers')} · suppression auto. après ${RETENTION_YEARS} ans</span></button>` : ''}</div>${right}</div>`;
+  }
+
+  function candDrawer(c) {
+    const job = db.jobs.find((j) => j.id === c.jobId), rh = ui.profile === 'rh', os = offerStatus(c.offer), { sc, evals, avg, recos } = evalSummary(c, job), act = activeCand(c);
+    const interviewers = db.employees.filter((e) => (e.dept === job.dept || e.dept === 'RH') && isEmployed(e)), now = nowStamp(), w = waitingDays(c);
+    const offerActive = c.offer && ['Envoyée', 'Expirée'].includes(os);
+    let btns = '';
+    if (act && ['Reçue', 'Présélection', 'Entretien'].includes(c.stage)) btns += `<button type="button" class="btn ghost sm" data-act="cand-move" data-id="${c.id}" data-s="Proposition">${rh ? 'Préparer la proposition' : 'Choisir ce candidat'}</button>`;
+    if (act && c.stage === 'Proposition' && !offerActive && rh) btns += `<button type="button" class="btn primary sm" data-act="offer-new" data-id="${c.id}">${ic('file')}Préparer la proposition</button>`;
+    if (act && rh) btns += `<button type="button" class="btn ghost sm" data-act="cand-msg" data-id="${c.id}">Écrire au candidat</button>`;
+    if (act && !offerActive) btns += `<button type="button" class="btn bad sm" data-act="cand-move" data-id="${c.id}" data-s="Refusé">Refuser</button>`;
+    const offerCard = c.offer ? card('Proposition d’embauche', `<span class="pill ${OFFER_PILL[os]}">${os}</span>`, `<div class="card-b"><div class="info-grid"><div><span>Poste</span>${esc(c.offer.title)} · ${esc(c.offer.contract)}</div><div><span>Rémunération annuelle brute</span><span class="num">${eur0(c.offer.salary)}</span></div>
+        <div><span>Date d’entrée</span>${fmtDate(c.offer.startDate)}</div><div><span>Réponse attendue avant le</span>${fmtDate(c.offer.deadline)}</div></div>
+        ${c.offer.salary > job.salaryMax ? `<p class="lint bad" style="margin:12px 0 0">Au-dessus de la fourchette validée (${esc(job.budget)}).</p>` : ''}
+        <div class="toolbar" style="margin-top:12px"><button type="button" class="btn ghost sm" data-act="offer-doc" data-id="${c.id}">${ic('file')}Voir la proposition</button>
+        ${rh && offerActive ? `<button type="button" class="btn ok sm" data-act="offer-accept" data-id="${c.id}">${ic('check')}Acceptée : embaucher</button><button type="button" class="btn ghost sm" data-act="offer-decline" data-id="${c.id}">Déclinée</button>
+          ${os === 'Expirée' ? `<button type="button" class="btn ghost sm" data-act="offer-extend" data-id="${c.id}">Prolonger de 7 jours</button>` : ''}<button type="button" class="btn ghost sm" data-act="offer-withdraw" data-id="${c.id}">Retirer</button>` : ''}
+        ${c.stage === 'Embauché' && c.empId ? `<button type="button" class="btn ghost sm" data-act="open-emp" data-id="${c.empId}">Ouvrir la fiche collaborateur</button>` : ''}</div>
+        ${rh && offerActive ? '<p class="hint" style="margin:10px 0 0">Tant que le candidat ne l’a pas acceptée, la proposition peut être retirée. Acceptée avant la date limite, elle vaut contrat de travail.</p>' : ''}</div>`) : '';
+    const synth = sc.must.length ? card('Évaluation', evalGauge(c, job), `<div class="card-b"><div class="crit">${sc.must.map((m, k) => `<div class="crit-row"><span>${esc(m)}</span>${avg[k] ? `<span class="crit-v">${stars(Math.round(avg[k]))}<small class="num">${avg[k].toFixed(1).replace('.', ',')}</small></span>` : '<span class="muted">—</span>'}</div>`).join('')}
+        <div class="crit-row total"><span>Note globale</span>${c.score ? stars(c.score) : '<span class="muted">À évaluer</span>'}</div></div>
+        ${evals.length ? `<div class="tags" style="margin-top:10px">${Object.entries(recos).map(([r, n]) => `<span class="pill ${RECO_PILL[r]}">${plural(n, `avis ${r.toLowerCase()}`, `avis ${r.toLowerCase()}s`)}</span>`).join('')}</div>` : '<p class="hint" style="margin:10px 0 0">Les notes viennent des évaluations remplies après chaque entretien.</p>'}</div>`) : '';
+    const ivs = (c.interviews || []).slice().sort((a, b) => a.date.localeCompare(b.date)).map((iv) => {
+      const past = iv.date <= now, e = iv.eval;
+      const state = e ? `<span class="pill ${RECO_PILL[e.reco]}">${e.reco}</span>` : past ? (canEval(iv) && act ? `<button type="button" class="btn primary sm" data-act="iv-eval" data-id="${c.id}" data-iv="${iv.id}">Évaluer</button>` : '<span class="pill warn">Évaluation attendue</span>') : '<span class="pill info">Prévu</span>';
+      return `<div class="todo iv"><div class="t"><b>${esc(iv.kind)}</b><small>${fmtDate(iv.date.slice(0, 10), { weekday: 'long', day: 'numeric', month: 'long' })} à ${iv.date.slice(11, 16)} · avec ${esc(fullName(emp(iv.with)))}</small>
+        ${e ? `<details><summary>Voir l’évaluation du ${fmtShort(e.date)}</summary>${sc.must.map((m, k) => `<p><b>${esc(m)} · ${e.ratings[k]}/5</b><br>« ${esc(e.evidence[k])} »</p>`).join('')}${e.comment ? `<p class="muted">${esc(e.comment)}</p>` : ''}</details>` : ''}</div>${state}</div>`; }).join('');
+    const msgs = (c.messages || []).slice().reverse().map((m) => `<div class="msg"><div><b>${esc(m.subject || MSG_TPL[m.kind]?.[0] || 'Message')}</b><small>${fmtDate(m.date)}</small></div>${m.body ? `<details><summary>Lire</summary><p>${esc(m.body).replace(/\n/g, '<br>')}</p></details>` : ''}</div>`).join('');
+    return `<div class="drawer-h">${avatarName(c.id, c.name, 'lg')}<div style="min-width:0"><h2>${esc(c.name)}</h2><p>${esc(job.title)}</p><div class="toolbar" style="margin-top:6px"><span class="pill accent">${esc(c.stage)}</span>${w > ANSWER_DAYS ? `<span class="pill bad">Sans nouvelles depuis ${w} jours</span>` : ''}</div></div>
+      <button type="button" class="icon-btn drawer-x" data-act="close-drawer" aria-label="Fermer">${ic('x')}</button></div>
+      <div class="drawer-b"><div class="toolbar"><label class="sr" for="c-stage">Étape</label><select id="c-stage" class="select" data-change="cand-stage" data-id="${c.id}" ${c.stage === 'Embauché' ? 'disabled' : ''}>${CAND_STAGES.map((s) => `<option ${s === c.stage ? 'selected' : ''}>${s}</option>`).join('')}</select>${btns}</div>
+      ${c.refusal ? `<p class="lint bad" style="margin:0"><b>${c.refusal.declined ? 'Proposition déclinée' : 'Candidature non retenue'} le ${fmtDate(c.refusal.date)}</b> · ${esc(c.refusal.reason)}</p>` : ''}
+      ${offerCard}${synth}
+      ${card('Entretiens', '', `<div class="card-b">${ivs || '<p class="muted" style="margin:0 0 6px">Aucun entretien planifié.</p>'}
+        ${act ? `<form data-form="interview" data-id="${c.id}" style="margin-top:12px" novalidate><div class="form-grid"><div class="field"><label for="iv-date">Date et heure</label><input id="iv-date" name="date" type="datetime-local" class="input" value="${nextMonday(TODAY)}T10:00"></div>
+          <div class="field"><label for="iv-with">Avec</label><select id="iv-with" name="with" class="select">${interviewers.map((e) => `<option value="${e.id}" ${e.id === me().id ? 'selected' : ''}>${esc(fullName(e))}</option>`).join('')}</select></div>
+          <div class="field"><label for="iv-kind">Type</label><select id="iv-kind" name="kind" class="select">${['Entretien RH', 'Entretien manager', 'Test technique', 'Entretien final'].map((k) => `<option>${k}</option>`).join('')}</select></div>
+          <div class="field" style="justify-content:flex-end"><button class="btn ghost">${ic('calendar')}Planifier l’entretien</button></div>
+          <label class="full" style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="convoc" checked> Envoyer la convocation au candidat</label></div></form>` : ''}</div>`)}
+      ${card('Échanges avec le candidat', rh && act ? `<button type="button" class="btn ghost sm" data-act="cand-msg" data-id="${c.id}">Écrire</button>` : '', `<div class="card-b">${msgs || '<p class="muted" style="margin:0">Aucun message envoyé.</p>'}
+        <p class="hint rgpd">${ic('check').replace('<svg', '<svg style="width:13px;height:13px;vertical-align:-2px"')} Dernier contact le ${fmtDate(lastContact(c))}${c.stage === 'Embauché' ? ' · dossier rattaché à la fiche collaborateur' : ` · suppression automatique le ${fmtDate(purgeDate(c))}${c.stage === 'Refusé' ? (c.pool ? ' · dans le vivier' : ' · hors vivier') : ''}`}</p></div>`)}
+      <div class="info-grid"><div><span>E-mail</span>${esc(c.email)}</div><div><span>Téléphone</span>${esc(c.phone)}</div><div><span>Source</span>${esc(c.source)}</div><div><span>Candidature reçue le</span>${fmtDate(c.appliedAt)}</div><div style="grid-column:1/-1"><span>Expérience</span>${esc(c.experience) || '—'}</div></div>
+      <form class="card" data-form="cand-note" data-id="${c.id}"><div class="card-h"><h3>Notes</h3><button class="btn ghost sm">Enregistrer</button></div><div class="card-b"><label class="sr" for="c-notes">Notes sur le candidat</label><textarea id="c-notes" name="notes" class="input" placeholder="Impressions, points forts, points à creuser…">${esc(c.notes)}</textarea></div></form></div>`;
+  }
+
+  const findCand = (id) => db.candidates.find((x) => x.id === id);
+  const candJob = (c) => db.jobs.find((j) => j.id === c.jobId);
+  Object.assign(MOD_ACT, {
+    'open-pool'() { ui.recJob = 'vivier'; render(); },
+    'iv-eval'(d) { ui.modal = { type: 'iv-eval', id: d.id, iv: d.iv }; render(); },
+    'cand-msg'(d) { ui.modal = { type: 'cand-msg', id: d.id }; render(); },
+    'offer-new'(d) { ui.modal = { type: 'offer', id: d.id }; render(); },
+    'offer-doc'(d) { ui.modal = { type: 'offer-doc', id: d.id }; render(); },
+    'offer-accept'(d) { hireFromOffer(findCand(d.id)); commit(); },
+    'offer-decline'(d) { ui.modal = { type: 'offer-decline', id: d.id }; render(); },
+    'offer-extend'(d) { const c = findCand(d.id); Object.assign(c.offer, { deadline: addDays(TODAY, 7), status: 'Envoyée' }); sendMsg(c, 'relance', 'Notre proposition est prolongée', `Bonjour ${firstName(c)},\n\nNotre proposition reste valable jusqu’au ${fmtDate(c.offer.deadline)}. N’hésitez pas à nous contacter pour en parler.${SIGN}`); toast('Proposition prolongée de 7 jours'); commit(); },
+    'offer-withdraw'(d) { const c = findCand(d.id); c.offer.status = 'Retirée'; c.stage = 'Entretien'; sendMsg(c, 'retrait', 'Retrait de notre proposition', `Bonjour ${firstName(c)},\n\nNous vous informons que nous retirons notre proposition pour le poste de ${c.offer.title}. Nous reviendrons vers vous rapidement.${SIGN}`); toast('Proposition retirée'); commit(); },
+  });
+  Object.assign(MOD_CHG, {
+    'pool-propose'(v, d) {
+      if (!v) return; const c = findCand(d.id), j = db.jobs.find((x) => x.id === v);
+      Object.assign(c, { jobId: v, stage: 'Présélection', refusal: null, interviews: [], offer: null, pool: false, source: `Vivier · ${c.source.replace(/^Vivier · /, '')}` });
+      sendMsg(c, 'point', 'Une nouvelle opportunité chez Nova Studio', `Bonjour ${firstName(c)},\n\nVotre profil nous a marqués lors d’un précédent recrutement. Le poste de ${j.title} pourrait vous intéresser : seriez-vous disponible pour en parler ?${SIGN}`);
+      ui.recJob = v; toast(`${c.name} est proposé·e pour « ${j.title} »`); commit();
+    },
+  });
+  Object.assign(MOD_LIVE, {
+    msg(form) { const t = MSG_TPL[new FormData(form).get('tpl')], c = findCand(ui.modal.id); document.getElementById('ms-subj').value = t[1]; document.getElementById('ms-body').value = t[2](c, candJob(c)); },
+    refus(form) { const fd = new FormData(form), c = findCand(ui.modal.id), r = fd.get('reason') === 'Autre motif' ? fd.get('other') : fd.get('reason'); document.getElementById('rf-body').value = refusBody(c, candJob(c), r, fd.get('pool') === 'on'); document.getElementById('rf-other').hidden = fd.get('reason') !== 'Autre motif'; },
+    offer(form) { const c = findCand(ui.modal.id), j = candJob(c), s = Number(new FormData(form).get('salary')) || 0;
+      document.getElementById('of-warn').innerHTML = s > j.salaryMax ? `<p class="lint bad" style="margin:0">Au-dessus de la fourchette validée à l’étape « Besoin RH » (${esc(j.budget)}) : prévoyez l’accord de la direction.</p>` : s && s < j.salaryMin ? `<p class="hint" style="margin:0">En dessous de la fourchette validée (${esc(j.budget)}).</p>` : `<p class="hint" style="margin:0">Dans la fourchette validée (${esc(j.budget)}).</p>`; },
+  });
+  Object.assign(MOD_FORMS, {
+    'iv-eval'(v) {
+      const c = findCand(ui.modal.id), job = candJob(c), iv = c.interviews.find((x) => x.id === ui.modal.iv), must = job.scorecard.must;
+      const ratings = must.map((m, k) => Number(v[`r${k}`]) || 0), evidence = must.map((m, k) => (v[`e${k}`] || '').trim());
+      const miss = must.findIndex((m, k) => !ratings[k] || !evidence[k]);
+      if (miss >= 0) return formError(`Notez « ${must[miss]} » et justifiez la note par un fait observé.`);
+      if (!v.reco) return formError('Donnez votre recommandation.');
+      iv.eval = { date: TODAY, ratings, evidence, reco: v.reco, comment: (v.comment || '').trim(), by: me().id };
+      recomputeScore(c, job);
+      if (ui.profile !== 'rh') notify('e1', `${fullName(me())} a évalué ${c.name} (${iv.kind}) : avis ${v.reco.toLowerCase()}.`);
+      ui.modal = null; toast('Évaluation enregistrée'); commit();
+    },
+    'cand-msg'(v) {
+      const c = findCand(ui.modal.id);
+      if (!v.subject.trim() || !v.body.trim()) return formError('Indiquez un objet et un message.');
+      sendMsg(c, v.tpl, v.subject.trim(), v.body.trim()); ui.modal = null; toast(`Message envoyé à ${c.name}`); commit();
+    },
+    'cand-refuse'(v) {
+      const c = findCand(ui.modal.id), reason = v.reason === 'Autre motif' ? (v.other || '').trim() : v.reason;
+      if (!reason) return formError('Précisez le motif du refus.');
+      c.refusal = { date: TODAY, reason, from: c.stage }; c.pool = v.pool === 'on'; c.stage = 'Refusé';
+      if (v.send === 'on') sendMsg(c, 'refus', 'Votre candidature chez Nova Studio', v.body.trim());
+      ui.modal = null; toast(`${c.name} : candidature non retenue${v.send === 'on' ? ' · réponse envoyée' : ''}`); commit();
+    },
+    offer(v) {
+      const c = findCand(ui.modal.id), j = candJob(c), salary = Number(v.salary);
+      if (!(salary > 0)) return formError('Indiquez la rémunération annuelle brute.');
+      if (!v.startDate) return formError('Indiquez la date d’entrée.');
+      if (!v.deadline || v.deadline < TODAY) return formError('Indiquez une date limite de réponse à venir.');
+      c.offer = { title: v.title.trim() || j.title, contract: j.contract, salary, startDate: v.startDate, managerId: v.managerId, deadline: v.deadline, status: 'Envoyée', sentAt: TODAY };
+      c.stage = 'Proposition';
+      sendMsg(c, 'proposition', 'Notre proposition d’embauche', offerBody(c, c.offer));
+      if (salary > j.salaryMax) notify('e5', `Proposition à ${c.name} au-dessus de la fourchette validée pour « ${j.title} » (${eur0(salary)}).`);
+      if (v.managerId !== me().id) notify(v.managerId, `Proposition d’embauche envoyée à ${c.name} (${j.title}) : réponse attendue avant le ${fmtDate(v.deadline)}.`);
+      ui.modal = null; toast('Proposition envoyée au candidat'); commit();
+    },
+    'offer-decline'(v) {
+      const c = findCand(ui.modal.id);
+      c.offer.status = 'Déclinée'; c.offer.answeredAt = TODAY;
+      c.refusal = { date: TODAY, reason: `Proposition déclinée par le candidat : ${v.reason.toLowerCase()}`, from: 'Proposition', declined: true }; c.pool = v.pool === 'on'; c.stage = 'Refusé';
+      ui.modal = null; toast(`${c.name} a décliné la proposition`); commit();
+    },
+  });
+  MODALS['iv-eval'] = (m, shell, formShell, opt, f) => {
+    const c = findCand(m.id), job = candJob(c), iv = c.interviews.find((x) => x.id === m.iv);
+    const levels = [['5', '5 · Excellent'], ['4', '4 · Très bon'], ['3', '3 · Conforme aux attentes'], ['2', '2 · En dessous'], ['1', '1 · Insuffisant']];
+    return formShell(`Évaluer ${esc(c.name)}`, 'iv-eval', `<p class="hint" style="margin:0 0 12px">${esc(iv.kind)} du ${fmtDate(iv.date.slice(0, 10))} avec ${esc(fullName(emp(iv.with)))}${iv.with !== me().id ? ' · saisie par les RH pour le compte de l’interviewer' : ''}. Chaque note s’appuie sur un fait observé pendant l’entretien.</p>
+      ${job.scorecard.must.map((mm, k) => `<div class="eval-row"><b>${esc(mm)}</b><div class="form-grid"><div class="field"><label for="ev-r${k}">Note</label><select id="ev-r${k}" name="r${k}" class="select"><option value="">Choisir…</option>${opt(levels, '')}</select></div>
+        <div class="field"><label for="ev-e${k}">Ce qui justifie la note</label><input id="ev-e${k}" name="e${k}" class="input" maxlength="200" placeholder="Ex. a présenté une étude menée auprès de 20 utilisateurs"></div></div></div>`).join('')}
+      <fieldset class="field radios" style="margin-top:14px"><legend>Recommandation</legend>${['Favorable', 'Réservé', 'Défavorable'].map((r) => `<label><input type="radio" name="reco" value="${r}"> ${r}</label>`).join('')}</fieldset>
+      <div style="margin-top:12px">${f('ev-c', 'Commentaire (facultatif)', '<textarea id="ev-c" name="comment" class="input" style="min-height:70px"></textarea>', true)}</div>`, 'Enregistrer l’évaluation', true);
+  };
+  MODALS['cand-msg'] = (m, shell, formShell, opt, f) => {
+    const c = findCand(m.id), t = MSG_TPL.point;
+    return formShell(`Écrire à ${esc(c.name)}`, 'cand-msg', `<div class="form-grid">${f('ms-tpl', 'Modèle', `<select id="ms-tpl" name="tpl" class="select" data-live="msg">${opt(Object.entries(MSG_TPL).map(([k, x]) => [k, x[0]]), 'point')}</select>`)}
+      ${f('ms-subj', 'Objet', `<input id="ms-subj" name="subject" class="input" value="${esc(t[1])}">`)}${f('ms-body', 'Message', `<textarea id="ms-body" name="body" class="input" style="min-height:180px">${esc(t[2](c, candJob(c)))}</textarea>`, true)}</div>
+      <p class="hint" style="margin:8px 0 0">Envoyé à ${esc(c.email)} · le message est conservé dans la fiche du candidat.</p>`, 'Envoyer', true);
+  };
+  MODALS['cand-refuse'] = (m, shell, formShell, opt, f) => {
+    const c = findCand(m.id), j = candJob(c);
+    return formShell(`Ne pas retenir ${esc(c.name)}`, 'cand-refuse', `<div class="form-grid">${f('rf-reason', 'Motif', `<select id="rf-reason" name="reason" class="select" data-live="refus">${opt(REFUS_REASONS, REFUS_REASONS[0])}</select>`, true)}
+      <div class="field full" id="rf-other" hidden><label for="rf-o">Motif précis</label><input id="rf-o" name="other" class="input" maxlength="160" data-live="refus"></div>
+      <label class="full" style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="pool" checked data-live="refus"> Proposer de garder le dossier dans le vivier (le candidat peut s’y opposer)</label>
+      <label class="full" style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="send" checked> Envoyer la réponse au candidat</label>
+      ${f('rf-body', 'Message au candidat', `<textarea id="rf-body" name="body" class="input" style="min-height:190px">${esc(refusBody(c, j, REFUS_REASONS[0], true))}</textarea>`, true)}</div>`, 'Confirmer', true);
+  };
+  MODALS.offer = (m, shell, formShell, opt, f) => {
+    const c = findCand(m.id), j = candJob(c), mid = Math.round(((j.salaryMin || 0) + (j.salaryMax || 0)) / 2 / 500) * 500;
+    const mgrs = db.employees.filter(isEmployed).map((x) => [x.id, fullName(x)]), start = j.startWanted && j.startWanted > TODAY ? j.startWanted : nextMonday(TODAY, 4);
+    return formShell(`Proposition d’embauche · ${esc(c.name)}`, 'offer', `<p class="hint" style="margin:0 0 12px">Une offre qui précise le poste, la rémunération et la date d’entrée engage l’entreprise dès que le candidat l’accepte. Elle peut être retirée tant qu’il n’a pas répondu.</p><div class="form-grid">
+      ${f('of-title', 'Poste', `<input id="of-title" name="title" class="input" value="${esc(j.title)}">`)}${f('of-contract', 'Contrat', `<input id="of-contract" class="input" value="${esc(j.contract)}" readonly>`)}
+      ${f('of-salary', 'Rémunération annuelle brute (€)', `<input id="of-salary" name="salary" type="number" min="0" step="500" class="input num" value="${mid || ''}" data-live="offer">`)}${f('of-start', 'Date d’entrée', `<input id="of-start" name="startDate" type="date" class="input" value="${start}">`)}
+      ${f('of-mgr', 'Manager', `<select id="of-mgr" name="managerId" class="select">${opt(mgrs, DEPT_HEAD[j.dept])}</select>`)}${f('of-deadline', 'Réponse attendue avant le', `<input id="of-deadline" name="deadline" type="date" class="input" value="${addDays(TODAY, 7)}">`)}
+      <div class="full" id="of-warn"><p class="hint" style="margin:0">Fourchette validée : ${esc(j.budget)}.</p></div></div>`, 'Envoyer la proposition', true);
+  };
+  MODALS['offer-doc'] = (m, shell) => {
+    const c = findCand(m.id), o = c.offer, j = candJob(c);
+    return shell('Proposition d’embauche', `<div class="modal-b"><article class="letter"><header><b>Nova Studio</b><span>Paris, le ${fmtDate(o.sentAt)}</span></header>
+      <p><b>À l’attention de ${esc(c.name)}</b></p><p><b>Objet : proposition d’embauche – offre de contrat de travail</b></p>
+      <p>Madame, Monsieur,</p><p>Suite à nos échanges, nous avons le plaisir de vous proposer de rejoindre Nova Studio aux conditions suivantes :</p>
+      <ul><li>Poste : ${esc(o.title)}, au sein du service ${esc(j.dept)}, rattaché à ${esc(fullName(emp(o.managerId)))}</li><li>Contrat : ${esc(o.contract)}</li><li>Lieu de travail : ${esc(j.location)}</li>
+      <li>Rémunération annuelle brute : ${eur0(o.salary)}, versée en 12 mensualités</li><li>Date d’entrée : ${fmtDate(o.startDate)}</li></ul>
+      <p>Une période d’essai s’appliquera conformément à la convention collective. Cette offre est valable jusqu’au ${fmtDate(o.deadline)}. Elle peut être retirée tant que vous ne l’avez pas acceptée ; votre acceptation avant cette date vaut conclusion du contrat de travail.</p>
+      <p>Nous serions ravis de vous compter parmi nous.</p><p>Olivia Bennett<br>Responsable RH</p></article></div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true);
+  };
+  MODALS['offer-decline'] = (m, shell, formShell, opt, f) => formShell(`Proposition déclinée · ${esc(findCand(m.id).name)}`, 'offer-decline', `${f('od-r', 'Raison donnée par le candidat', `<select id="od-r" name="reason" class="select">${opt(['Rémunération insuffisante', 'A accepté une autre offre', 'Projet personnel', 'Autre raison'])}</select>`, true)}
+    <label style="display:flex;gap:8px;align-items:center;font-size:14px;margin-top:12px"><input type="checkbox" name="pool" checked> Garder le dossier dans le vivier</label>`, 'Enregistrer');
+
   // ---------------------------------------------------------------- Documents RH
   const DOC_LABEL = { contrat: 'Contrat de travail', attestation: 'Attestation employeur', avenant: 'Avenant au contrat', certificat: 'Certificat de travail', solde: 'Reçu pour solde de tout compte', 'france-travail': 'Attestation employeur France Travail' };
   function docBody(d) {
@@ -1592,15 +1840,8 @@
     if (m.type === 'cand') {
       return formShell('Ajouter un candidat', 'cand', `<div class="form-grid">${f('k-name', 'Prénom et nom', '<input id="k-name" name="name" class="input" required>', true)}
         ${f('k-email', 'E-mail', '<input id="k-email" name="email" type="email" class="input">')}${f('k-phone', 'Téléphone', '<input id="k-phone" name="phone" class="input">')}
-        ${f('k-source', 'Source', `<select id="k-source" name="source" class="select">${opt(['Site carrière', 'Jobboard', 'Réseaux sociaux', 'Cooptation', 'École'])}</select>`)}${f('k-exp', 'Expérience', '<input id="k-exp" name="experience" class="input" placeholder="Ex. 4 ans · agence">')}</div>`, 'Ajouter');
-    }
-    if (m.type === 'hire') {
-      const c = db.candidates.find((x) => x.id === m.id), job = db.jobs.find((j) => j.id === c.jobId);
-      const mgrs = db.employees.filter(isEmployed).map((x) => [x.id, fullName(x)]);
-      return formShell(`Embaucher ${esc(c.name)}`, 'hire', `<p class="muted" style="margin:0">${esc(job.title)} · ${esc(job.contract)}. ${esc(c.name.split(' ')[0])} rejoindra la roue du parcours à l’étape « Pré-embauche ».</p><div class="form-grid">
-        ${f('h-start', 'Date d’arrivée', `<input id="h-start" name="startDate" type="date" class="input" value="${nextMonday(TODAY, 4)}">`)}${f('h-salary', 'Salaire annuel brut (€)', '<input id="h-salary" name="salary" type="number" min="0" step="100" class="input num" value="46000">')}
-        ${f('h-mgr', 'Manager', `<select id="h-mgr" name="managerId" class="select">${opt(mgrs, DEPT_HEAD[job.dept])}</select>`, true)}</div>
-        <label style="display:flex;gap:10px;align-items:center;font-weight:600"><input type="checkbox" name="close" checked> Marquer l’offre comme pourvue</label>`, 'Confirmer l’embauche');
+        ${f('k-source', 'Source', `<select id="k-source" name="source" class="select">${opt(['Site carrière', 'Jobboard', 'Réseaux sociaux', 'Cooptation', 'École'])}</select>`)}${f('k-exp', 'Expérience', '<input id="k-exp" name="experience" class="input" placeholder="Ex. 4 ans · agence">')}</div>
+        <label style="display:flex;gap:8px;align-items:center;font-size:14px;margin-top:12px"><input type="checkbox" name="ack" checked> Envoyer l’accusé de réception (avec l’information sur ses données personnelles)</label>`, 'Ajouter');
     }
     if (m.type === 'reset') {
       return shell('Réinitialiser la démo', '<div class="modal-b"><p style="margin:0">Toutes vos modifications (demandes, validations, embauches, paies…) seront effacées et les données de départ seront restaurées.</p></div>',
@@ -1657,13 +1898,14 @@
   }
   function moveCandidate(id, stage) {
     const c = db.candidates.find((x) => x.id === id); if (!c || c.stage === stage) return;
-    if (stage === 'Embauché') {
-      if (ui.profile !== 'rh') { toast('Seuls les RH peuvent finaliser une embauche.', 'info'); return; }
-      if (c.stage !== 'Proposition') { toast('Passez d’abord le candidat en « Proposition ».', 'info'); return; }
-      ui.modal = { type: 'hire', id }; render(); return;
-    }
     if (c.stage === 'Embauché') { toast('Ce candidat est déjà embauché.', 'info'); return; }
-    c.stage = stage; toast(`${c.name} : ${stage}`); commit();
+    if (stage === 'Embauché') { toast('L’embauche se fait quand le candidat accepte la proposition : ouvrez sa fiche.', 'info'); return; }
+    if (c.offer && ['Envoyée', 'Expirée'].includes(offerStatus(c.offer))) { toast('Une proposition est en cours : enregistrez la réponse du candidat ou retirez-la.', 'info'); return; }
+    if (stage === 'Refusé') { ui.modal = { type: 'cand-refuse', id }; render(); return; }
+    if (stage === 'Proposition' && ui.profile === 'rh') { ui.modal = { type: 'offer', id }; render(); return; }
+    if (stage === 'Proposition') notify('e1', `${fullName(me())} a choisi ${c.name} pour « ${candJob(c).title} » : proposition à préparer.`);
+    if (c.stage === 'Refusé') c.refusal = null;
+    c.stage = stage; toast(stage === 'Proposition' ? `${c.name} est choisi·e · les RH préparent la proposition` : `${c.name} : ${stage}`); commit();
   }
 
   function advance(id) {
@@ -1744,11 +1986,9 @@
     'open-job'(d) { const j = db.jobs.find((x) => x.id === d.id); if (j && isNeed(j)) { ACT['open-need'](d); return; } ui.view = 'recrutement'; ui.stage = null; ui.recJob = d.id; ui.drawer = null; window.scrollTo(0, 0); render(); },
     'job-close'(d) { const j = db.jobs.find((x) => x.id === d.id); j.status = 'Clôturée'; toast('Offre clôturée'); commit(); },
     'cand-new'(d) { ui.modal = { type: 'cand', jobId: d.id }; render(); },
-    'cand-score'(d) { const c = db.candidates.find((x) => x.id === d.id); c.score = Number(d.v); commit(); },
     'cand-move'(d) { moveCandidate(d.id, d.s); },
-    hire(d) { ui.modal = { type: 'hire', id: d.id }; render(); },
     reset() { ui.modal = { type: 'reset' }; render(); },
-    'reset-ok'() { db = window.TEAMORA_SEED(); save(); ui = Object.assign({ profile: ui.profile, view: 'accueil' }, freshUI()); render(); toast('Démo réinitialisée'); },
+    'reset-ok'() { db = window.TEAMORA_SEED(); purgeCandidates(); save(); ui = Object.assign({ profile: ui.profile, view: 'accueil' }, freshUI()); render(); toast('Démo réinitialisée'); },
   };
   const CHG = {
     fDept(v) { ui.fDept = v; render(); },
@@ -1810,32 +2050,22 @@
     },
     cand(v) {
       if (!v.name.trim()) return formError('Indiquez le nom du candidat.');
-      db.candidates.push({ id: uid('c'), jobId: ui.modal.jobId, name: v.name.trim(), email: v.email.trim() || '—', phone: v.phone.trim() || '—', source: v.source, experience: v.experience.trim(), stage: 'Reçue', score: 0, notes: '', interviews: [], appliedAt: TODAY });
-      ui.modal = null; toast('Candidat ajouté'); commit();
+      const c = { id: uid('c'), jobId: ui.modal.jobId, name: v.name.trim(), email: v.email.trim() || '—', phone: v.phone.trim() || '—', source: v.source, experience: v.experience.trim(), stage: 'Reçue', score: 0, notes: '', interviews: [], appliedAt: TODAY, messages: [], offer: null, refusal: null, pool: false };
+      db.candidates.push(c);
+      if (v.ack === 'on') sendMsg(c, 'ack', MSG_TPL.ack[1], MSG_TPL.ack[2](c, candJob(c)));
+      ui.modal = null; toast(v.ack === 'on' ? 'Candidat ajouté · accusé de réception envoyé' : 'Candidat ajouté'); commit();
     },
     interview(v, form) {
       const c = db.candidates.find((x) => x.id === form.dataset.id);
       if (!v.date) { toast('Choisissez une date d’entretien.', 'info'); return; }
-      c.interviews = c.interviews || []; c.interviews.push({ date: v.date, with: v.with, kind: v.kind });
+      const iv = { id: uid('i'), date: v.date, with: v.with, kind: v.kind, eval: null };
+      c.interviews = c.interviews || []; c.interviews.push(iv);
+      if (v.convoc === 'on') sendMsg(c, 'convocation', `Invitation à un ${v.kind.toLowerCase()}`, convocBody(c, candJob(c), iv));
       if (['Reçue', 'Présélection'].includes(c.stage)) c.stage = 'Entretien';
       if (v.with !== me().id) notify(v.with, `${v.kind} avec ${c.name} le ${fmtDate(v.date.slice(0, 10))} à ${v.date.slice(11, 16)}.`);
       toast('Entretien planifié'); commit();
     },
     'cand-note'(v, form) { const c = db.candidates.find((x) => x.id === form.dataset.id); c.notes = v.notes.trim(); toast('Note enregistrée'); commit(); },
-    hire(v) {
-      const c = db.candidates.find((x) => x.id === ui.modal.id), job = db.jobs.find((j) => j.id === c.jobId), salary = Number(v.salary);
-      if (!v.startDate) return formError('Indiquez une date d’arrivée.');
-      if (!(salary > 0)) return formError('Indiquez un salaire annuel brut supérieur à 0 €.');
-      const [first, ...rest] = c.name.split(' ');
-      const id = uid('e');
-      db.employees.push({ id, firstName: first, lastName: rest.join(' ') || first, title: job.title, dept: job.dept, managerId: v.managerId, stage: 2, startDate: v.startDate, contract: job.contract, salary,
-        email: c.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, '').replace(/ +/g, '.') + '@novastudio.fr', phone: c.phone, location: job.location.split(' ')[0], birthDate: '', address: '', emergency: '', cp: 0, rtt: 0, exit: null });
-      c.stage = 'Embauché'; c.empId = id;
-      if (v.close === 'on') job.status = 'Pourvue';
-      notify(v.managerId, `${c.name} rejoindra votre équipe le ${fmtDate(v.startDate)} (${job.title}).`);
-      ui.modal = null; ui.drawer = null;
-      toast(`${c.name} est en pré-embauche : retrouvez-le à l’étape « Pré-embauche » de la roue`); commit();
-    },
     profile(v) {
       const e = me();
       if (!v.phone.trim()) { document.getElementById('p-err').textContent = 'Le numéro de téléphone est obligatoire.'; return; }
@@ -1877,5 +2107,6 @@
   });
   window.addEventListener('resize', fitWheel);
 
+  purgeCandidates();
   render();
 })();

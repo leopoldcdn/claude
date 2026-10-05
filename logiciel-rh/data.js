@@ -81,23 +81,62 @@ window.TEAMORA_SEED = function () {
     { id: 'l8', empId: 'e2', type: 'RTT', start: '2026-10-23', end: '2026-10-23', days: 1, status: 'Approuvée', comment: '', createdAt: '2026-09-20' },
     { id: 'l9', empId: 'e15', type: 'Congés payés', start: '2026-12-21', end: '2026-12-31', days: 8, status: 'En attente', comment: 'Fêtes de fin d’année', createdAt: '2026-10-03' },
   ];
+  // Besoins de recrutement et offres. Un besoin suit le circuit Demande → RH → Direction (création de poste ou hors budget) → Publication.
+  const SC = (must, nice, rounds) => ({ must, nice, rounds });
+  const A = (step, by, decision, date, comment = '') => ({ step, by, decision, date, comment });
+  const J = (id, o) => Object.assign({ id, contract: 'CDI', location: 'Paris', priority: 'Normale', budgeted: true, replaces: null, pending: null, refusedAt: null,
+    alternatives: { mobilite: true, taches: false, interim: false, auto: false, note: '' }, scorecard: null, approvals: [] }, o,
+    { budget: o.budget || `${new Intl.NumberFormat('fr-FR').format(o.salaryMin)} – ${new Intl.NumberFormat('fr-FR').format(o.salaryMax)} €` });
   const jobs = [
-    { id: 'j1', title: 'UX Designer Senior', dept: 'Design', contract: 'CDI', location: 'Paris', status: 'Ouverte', createdAt: '2026-09-01', budget: '48 000 – 54 000 €', reason: 'Création de poste', description: 'Concevoir les parcours clés de nos applications, du besoin utilisateur au prototype testé.' },
-    { id: 'j2', title: 'Développeur·se Full-stack', dept: 'Tech', contract: 'CDI', location: 'Lyon · hybride', status: 'Ouverte', createdAt: '2026-09-12', budget: '45 000 – 52 000 €', reason: 'Remplacement', description: 'Faire évoluer notre plateforme (TypeScript, Node.js, PostgreSQL) au sein d’une équipe de 6 personnes.' },
-    { id: 'j3', title: 'Chargé·e de marketing digital', dept: 'Marketing', contract: 'Alternance', location: 'Paris', status: 'Ouverte', createdAt: '2026-09-20', budget: 'Grille alternance', reason: 'Création de poste', description: 'Piloter nos campagnes d’acquisition et nos contenus sur les réseaux sociaux.' },
-    { id: 'j4', title: 'Designer produit (UI)', dept: 'Design', contract: 'CDD', location: 'Paris', status: 'Brouillon', createdAt: '2026-10-02', budget: '40 000 – 44 000 €', reason: 'Surcroît d’activité', description: 'Renfort de 9 mois pour la refonte de l’application mobile.' },
-    { id: 'j5', title: 'Account Executive', dept: 'Sales', contract: 'CDI', location: 'Paris', status: 'Pourvue', createdAt: '2026-06-03', budget: '42 000 € + variable', reason: 'Remplacement', description: 'Développer le portefeuille de clients grands comptes.' },
+    J('j1', { title: 'UX Designer Senior', dept: 'Design', status: 'Ouverte', createdAt: '2026-09-01', requestedBy: 'e2', salaryMin: 48000, salaryMax: 54000, startWanted: '2026-12-01', reason: 'Création de poste', budgeted: true,
+      description: 'Concevoir les parcours clés de nos applications, du besoin utilisateur au prototype testé.',
+      alternatives: { mobilite: true, taches: true, interim: false, auto: false, note: 'Aucun profil interne disponible sur la recherche utilisateur.' },
+      scorecard: SC(['Recherche utilisateur', 'Prototypage et tests', 'Travail avec un design system'], ['Animation d’ateliers', 'Notions d’accessibilité'], 3),
+      approvals: [A('demande', 'e2', 'Soumise', '2026-08-25'), A('rh', 'e1', 'Validée', '2026-08-27'), A('direction', 'e5', 'Validée', '2026-08-29', 'Prévu dans le plan 2026.'), A('publication', 'e1', 'Publiée', '2026-09-01')] }),
+    J('j2', { title: 'Développeur·se Full-stack', dept: 'Tech', location: 'Lyon · hybride', status: 'Ouverte', createdAt: '2026-09-12', requestedBy: 'e6', salaryMin: 45000, salaryMax: 52000, startWanted: '2026-11-15', reason: 'Remplacement', replaces: 'e13', priority: 'Urgente',
+      description: 'Faire évoluer notre plateforme (TypeScript, Node.js, PostgreSQL) au sein d’une équipe de 6 personnes.',
+      scorecard: SC(['TypeScript et Node.js', 'Bases de données SQL', 'Tests automatisés'], ['React', 'Culture DevOps'], 3),
+      approvals: [A('demande', 'e6', 'Soumise', '2026-09-08'), A('rh', 'e1', 'Validée', '2026-09-10'), A('publication', 'e1', 'Publiée', '2026-09-12')] }),
+    J('j3', { title: 'Chargé·e de marketing digital', dept: 'Marketing', contract: 'Alternance', status: 'Ouverte', createdAt: '2026-09-20', requestedBy: 'e7', salaryMin: 14000, salaryMax: 18000, budget: 'Grille alternance', startWanted: '2026-10-15', reason: 'Création de poste',
+      description: 'Piloter nos campagnes d’acquisition et nos contenus sur les réseaux sociaux.',
+      scorecard: SC(['Réseaux sociaux', 'Rédaction web', 'Analyse des performances'], ['Montage vidéo'], 2),
+      approvals: [A('demande', 'e7', 'Soumise', '2026-09-14'), A('rh', 'e1', 'Validée', '2026-09-15'), A('direction', 'e5', 'Validée', '2026-09-17'), A('publication', 'e1', 'Publiée', '2026-09-20')] }),
+    J('j4', { title: 'Designer produit (UI)', dept: 'Design', contract: 'CDD', status: 'En validation', pending: 'rh', createdAt: '2026-10-02', requestedBy: 'e2', salaryMin: 40000, salaryMax: 44000, startWanted: '2026-11-16', reason: 'Surcroît d’activité', budgeted: false, priority: 'Urgente',
+      description: 'Renfort de 9 mois pour la refonte de l’application mobile : maquettes UI, bibliothèque de composants, suivi avec les développeurs.',
+      alternatives: { mobilite: true, taches: true, interim: true, auto: false, note: 'L’équipe est déjà à pleine charge ; l’intérim ne propose pas de profil UI.' },
+      scorecard: SC(['Design d’interface mobile', 'Figma et composants', 'Collaboration avec les développeurs'], ['Motion design'], 2),
+      approvals: [A('demande', 'e2', 'Soumise', '2026-10-02', 'Refonte de l’app prévue en janvier.')] }),
+    J('j5', { title: 'Account Executive', dept: 'Sales', status: 'Pourvue', createdAt: '2026-06-03', requestedBy: 'e8', salaryMin: 42000, salaryMax: 42000, budget: '42 000 € + variable', startWanted: '2026-07-01', reason: 'Remplacement',
+      description: 'Développer le portefeuille de clients grands comptes.', scorecard: SC(['Prospection grands comptes', 'Négociation', 'Suivi CRM'], [], 2),
+      approvals: [A('demande', 'e8', 'Soumise', '2026-05-28'), A('rh', 'e1', 'Validée', '2026-05-30'), A('publication', 'e1', 'Publiée', '2026-06-03')] }),
+    J('j6', { title: 'Chef de projet digital', dept: 'Marketing', status: 'Validée', createdAt: '2026-09-22', requestedBy: 'e7', salaryMin: 46000, salaryMax: 50000, startWanted: '2027-01-04', reason: 'Création de poste',
+      description: 'Nous recherchons un jeune chef de projet dynamique, de langue maternelle française, pour coordonner le lancement de notre nouveau site et le suivi des agences.',
+      alternatives: { mobilite: true, taches: true, interim: false, auto: false, note: '' },
+      scorecard: SC(['Gestion de projet web', 'Pilotage de prestataires', 'Suivi budgétaire'], ['SEO', 'Anglais professionnel'], 3),
+      approvals: [A('demande', 'e7', 'Soumise', '2026-09-22'), A('rh', 'e1', 'Validée', '2026-09-24'), A('direction', 'e5', 'Validée', '2026-09-30', 'Accord pour un démarrage en janvier.')] }),
+    J('j7', { title: 'Développeur·se mobile', dept: 'Tech', location: 'Lyon · hybride', status: 'En validation', pending: 'direction', createdAt: '2026-09-25', requestedBy: 'e6', salaryMin: 47000, salaryMax: 53000, startWanted: '2027-02-01', reason: 'Création de poste',
+      description: 'Développer nos applications iOS et Android en React Native, en lien avec l’équipe produit.',
+      alternatives: { mobilite: true, taches: false, interim: false, auto: false, note: 'Inès Haddad a été sollicitée mais préfère rester sur le front-end web.' },
+      scorecard: SC(['React Native', 'Publication sur les stores', 'Tests et qualité'], ['Swift ou Kotlin'], 3),
+      approvals: [A('demande', 'e6', 'Soumise', '2026-09-25'), A('rh', 'e1', 'Validée', '2026-09-29', 'Budget à confirmer par la direction.')] }),
+    J('j8', { title: 'Stagiaire UX research', dept: 'Design', contract: 'Stage', status: 'À modifier', createdAt: '2026-09-29', requestedBy: 'e2', salaryMin: 7200, salaryMax: 7200, startWanted: '2027-02-15', reason: 'Création de poste', priority: 'Anticipée',
+      description: 'Aider l’équipe sur les études utilisateurs.',
+      scorecard: SC(['Méthodes d’entretien utilisateur'], [], 2),
+      approvals: [A('demande', 'e2', 'Soumise', '2026-09-29'), A('rh', 'e1', 'À modifier', '2026-10-01', 'Merci de préciser les missions, la durée du stage et le tuteur.')] }),
+    J('j9', { title: 'Business Developer', dept: 'Sales', status: 'Refusée', refusedAt: 'direction', createdAt: '2026-09-05', requestedBy: 'e8', salaryMin: 38000, salaryMax: 42000, startWanted: '2026-11-02', reason: 'Création de poste', budgeted: false,
+      description: 'Prospecter les PME de la région lyonnaise.', scorecard: SC(['Prospection téléphonique', 'Connaissance des PME'], [], 2),
+      approvals: [A('demande', 'e8', 'Soumise', '2026-09-05'), A('rh', 'e1', 'Validée', '2026-09-08'), A('direction', 'e5', 'Refusée', '2026-09-12', 'Hors budget 2026 : à représenter lors du plan 2027.')] }),
   ];
   const C = (id, jobId, name, stage, score, source, extra = {}) => ({ id, jobId, name, stage, score, source,
     email: name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, '').replace(' ', '.') + '@mail.fr',
-    phone: extra.phone || '07 00 00 00 00', experience: extra.experience || '', notes: extra.notes || '', interviews: extra.interviews || [], appliedAt: extra.appliedAt || '2026-09-15' });
+    phone: extra.phone || '07 00 00 00 00', experience: extra.experience || '', notes: extra.notes || '', interviews: extra.interviews || [], ratings: extra.ratings || [], appliedAt: extra.appliedAt || '2026-09-15' });
   const candidates = [
-    C('c1', 'j1', 'Manon Lefèvre', 'Entretien', 4, 'Site carrière', { experience: '7 ans · agence et produit SaaS', notes: 'Très bon portfolio, à l’aise en recherche utilisateur.', interviews: [{ date: '2026-10-08T10:00', with: 'e2', kind: 'Entretien manager' }] }),
+    C('c1', 'j1', 'Manon Lefèvre', 'Entretien', 4, 'Site carrière', { ratings: [5, 4, 3], experience: '7 ans · agence et produit SaaS', notes: 'Très bon portfolio, à l’aise en recherche utilisateur.', interviews: [{ date: '2026-10-08T10:00', with: 'e2', kind: 'Entretien manager' }] }),
     C('c2', 'j1', 'Karim Benali', 'Présélection', 3, 'Jobboard', { experience: '5 ans · e-commerce' }),
     C('c3', 'j1', 'Chloé Garnier', 'Reçue', 0, 'Réseaux sociaux', { experience: '6 ans · fintech' }),
-    C('c4', 'j1', 'Antoine Mercier', 'Proposition', 5, 'Cooptation', { experience: '8 ans · design system', notes: 'Coopté par Hugo. Excellent entretien final.', interviews: [{ date: '2026-09-25T14:00', with: 'e2', kind: 'Entretien manager' }, { date: '2026-09-30T11:00', with: 'e1', kind: 'Entretien RH' }] }),
+    C('c4', 'j1', 'Antoine Mercier', 'Proposition', 5, 'Cooptation', { ratings: [5, 5, 4], experience: '8 ans · design system', notes: 'Coopté par Hugo. Excellent entretien final.', interviews: [{ date: '2026-09-25T14:00', with: 'e2', kind: 'Entretien manager' }, { date: '2026-09-30T11:00', with: 'e1', kind: 'Entretien RH' }] }),
     C('c5', 'j1', 'Lina Moreau', 'Reçue', 0, 'Site carrière', { experience: '4 ans · startup santé' }),
-    C('c6', 'j2', 'Hamza Diallo', 'Entretien', 4, 'Jobboard', { experience: '6 ans · Node.js, React', interviews: [{ date: '2026-10-07T09:30', with: 'e6', kind: 'Test technique' }] }),
+    C('c6', 'j2', 'Hamza Diallo', 'Entretien', 4, 'Jobboard', { ratings: [4, 3, 4], experience: '6 ans · Node.js, React', interviews: [{ date: '2026-10-07T09:30', with: 'e6', kind: 'Test technique' }] }),
     C('c7', 'j2', 'Elise Fontaine', 'Présélection', 3, 'Site carrière', { experience: '3 ans · TypeScript' }),
     C('c8', 'j2', 'Rayan Masson', 'Reçue', 0, 'Jobboard', { experience: '2 ans · PHP, Vue' }),
     C('c9', 'j2', 'Maëlle Robin', 'Refusé', 2, 'Réseaux sociaux', { experience: 'Profil junior' }),
@@ -108,6 +147,7 @@ window.TEAMORA_SEED = function () {
   const notifications = [
     { id: 'n1', to: 'e2', text: 'Hugo Laurent demande 5 jours de congés payés du 26 au 30 octobre.', date: '2026-09-28', read: false },
     { id: 'n2', to: 'e1', text: 'Thomas Petit a créé un besoin de recrutement : Designer produit (UI).', date: '2026-10-02', read: false },
+    { id: 'n4', to: 'e2', text: 'Olivia Bennett demande des précisions sur votre besoin « Stagiaire UX research ».', date: '2026-10-01', read: false },
     { id: 'n3', to: 'e3', text: 'Votre bulletin de paie de septembre 2026 est disponible.', date: '2026-09-30', read: false },
   ];
   // Months already closed (payslips available), with optional bonuses per employee.
@@ -220,6 +260,6 @@ window.TEAMORA_SEED = function () {
     { id: 'doc2', empId: 'e3', kind: 'attestation', title: 'Attestation employeur', date: '2026-02-03' },
     { id: 'doc3', empId: 'e4', kind: 'avenant', title: 'Avenant · Senior Product Designer', date: '2023-12-15', data: { title: 'Senior Product Designer', dept: 'Design', salary: 54000, effective: '2024-01-01' } },
   ];
-  return { version: 2, employees, journey, leaves, jobs, candidates, notifications, payroll, objectives, reviews, feedback, trainings, enrollments, trainingBudget: 25000,
+  return { version: 3, employees, journey, leaves, jobs, candidates, notifications, payroll, objectives, reviews, feedback, trainings, enrollments, trainingBudget: 25000,
     wishes, history, visits, incidents, risks, survey, adjustments, cases, documents };
 };

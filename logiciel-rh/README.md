@@ -1,7 +1,7 @@
 # Teamora — aperçu du logiciel RH
 
 Prototype fonctionnel, sans serveur ni base de données : ouvrez `index.html` dans un navigateur.
-Les données de départ (`data.js`) sont fictives ; vos modifications sont conservées dans le navigateur
+Les données de départ (`data.js`, schéma version 3) sont fictives ; vos modifications sont conservées dans le navigateur
 (localStorage) et le bouton « Réinitialiser la démo » restaure l'état initial.
 
 - **La roue est le menu** : il n'y a plus de barre latérale. Chaque étape du parcours collaborateur ouvre le module
@@ -19,7 +19,14 @@ Les données de départ (`data.js`) sont fictives ; vos modifications sont conse
 - **Collaborateurs** : recherche, filtres, tri, fiche détaillée, ajout/modification, départ.
 - **Absences** : demande (jours ouvrés, jours fériés, contrôle du solde), validation/refus, planning mensuel, historique.
 - **Paie** : préparation du mois (primes), validation, bulletins générés (simulation, taux forfaitaires).
-- **Recrutement** : besoin → validation RH → offre, pipeline en glisser-déposer, entretiens, notes, embauche
+- **Besoins de recrutement** (étape « Besoin RH ») : demande complète (motif, personne remplacée, fourchette de salaire,
+  date d'arrivée, priorité, poste prévu ou non au budget), alternatives étudiées avant de recruter avec les talents internes
+  issus des souhaits de mobilité, fiche de cadrage (3 à 4 compétences indispensables, atouts, nombre d'entretiens).
+  Circuit de validation : RH, puis direction pour une création de poste ou un poste hors budget (la RH saisit la décision
+  de la direction dans la démo) ; chaque décision (valider, demander une modification, refuser avec commentaire obligatoire)
+  est historisée. À la publication, l'annonce est vérifiée : mentions discriminatoires interdites (âge, sexe, origine,
+  santé, situation de famille) bloquantes, conseil « H/F ».
+- **Recrutement** : offres publiées, pipeline en glisser-déposer, évaluation des candidats selon la fiche de cadrage, entretiens, notes, embauche
   (le candidat rejoint la roue à l'étape « Pré-embauche »).
 - **Entretiens** : campagne d'entretiens annuels (planification, auto-évaluation, évaluation manager, signature),
   échéances des entretiens professionnels (tous les 2 ans), objectifs avec avancement, feedback entre collègues.

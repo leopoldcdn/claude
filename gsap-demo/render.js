@@ -38,13 +38,13 @@ async function openPage(browser) {
     for (let i = w * chunk; i < Math.min(total, (w + 1) * chunk); i++) {
       // Don't return seek()'s result: Playwright would try to serialize the whole timeline.
       await page.evaluate((t) => { window.tl.seek(t, false); }, i / FPS);
-      await page.screenshot({ path: path.join(FRAMES_DIR, `f${String(i).padStart(5, '0')}.png`) });
+      await page.screenshot({ path: path.join(FRAMES_DIR, `f${String(i).padStart(5, '0')}.jpg`), type: 'jpeg', quality: 95 });
     }
   }));
   await browser.close();
 
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(FPS),
-    '-i', path.join(FRAMES_DIR, 'f%05d.png'),
+    '-i', path.join(FRAMES_DIR, 'f%05d.jpg'),
     '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-movflags', '+faststart', OUT], { stdio: 'inherit' });
   fs.rmSync(FRAMES_DIR, { recursive: true, force: true });
   console.log('Wrote', OUT);

@@ -228,8 +228,9 @@
   // Outside the home page, the wheel's stages stay reachable as a strip, in the same order and colours.
   function stageRail() {
     if (ui.view === 'accueil') return '';
-    return `<nav class="rail" aria-label="Étapes du parcours"><button type="button" class="rail-home" data-act="go" data-v="accueil">${ic('home')}<span>Roue</span></button>
-      ${visibleStages().map((i) => `<button type="button" data-act="stage" data-i="${i}" style="--c:${STAGE_COLORS[i]}" ${ui.stage === i ? 'aria-current="page"' : ''}><i></i><small class="num">${pad(i + 1)}</small><span>${esc(STAGES[i].short)}</span>${stageBadge(i)}</button>`).join('')}</nav>`;
+    return `<nav class="rail" aria-label="Étapes du parcours"><button type="button" class="rail-home" data-act="go" data-v="accueil" aria-label="Retour à la roue" title="Retour à la roue">${ic('home')}</button>
+      ${visibleStages().map((i) => { const v = stageView(i), name = `${pad(i + 1)} · ${STAGES[i].short}${v === 'etape' ? '' : ` — ${VIEW_LABELS[ui.profile][v]}`}`;
+        return `<button type="button" data-act="stage" data-i="${i}" style="--c:${STAGE_COLORS[i]}" aria-label="${esc(name)}" title="${esc(name)}" ${ui.stage === i ? 'aria-current="page"' : ''}>${ic(STAGES[i].icon)}${stageBadge(i)}</button>`; }).join('')}</nav>`;
   }
   const footer = () => `<footer class="foot"><button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Réinitialiser la démo</button>
     <p class="demo-note">Aperçu de démonstration : toutes les données sont fictives et enregistrées uniquement dans ce navigateur.</p></footer>`;

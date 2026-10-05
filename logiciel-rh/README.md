@@ -10,7 +10,8 @@ Les données de départ (`data.js`) sont fictives ; vos modifications sont conse
   Les étapes Pré-embauche, Embauche, Intégration, Préparation du départ, Départ et Après le départ ouvrent une page
   d'étape (personnes concernées, tâches à cocher, passage à l'étape suivante). Au survol, les étapes sortent du cercle
   central ; badge blanc = personnes, besoins ou candidats à l'étape, badge orange = éléments qui vous attendent.
-  Sur les autres pages, un bandeau reprend les mêmes étapes et le logo ramène à la roue.
+  Sur les autres pages, un bandeau reprend les mêmes étapes en pictogrammes (avec leur badge) ; le nom s'affiche au survol,
+  et le logo ou la maison ramène à la roue.
 - **Étapes par profil** : une étape n'apparaît que si le profil a besoin de son module. La Manager n'a pas l'étape
   Rémunération (pas d'accès à la paie). La Salariée ne voit pas Besoin RH ni Recrutement ; Vie administrative ouvre
   « Mon profil », Rémunération « Mes bulletins », et les étapes d'arrivée ou de départ n'apparaissent que lorsque c'est

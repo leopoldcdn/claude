@@ -52,7 +52,7 @@
   }
   function save() { try { localStorage.setItem(STORE, JSON.stringify(db)); } catch (e) { /* storage unavailable */ } }
   function loadUI() { try { return JSON.parse(localStorage.getItem(UI_STORE)) || {}; } catch (e) { return {}; } }
-  function saveUI() { try { localStorage.setItem(UI_STORE, JSON.stringify({ profile: ui.profile, view: ui.view })); } catch (e) { /* ignore */ } }
+  function saveUI() { try { localStorage.setItem(UI_STORE, JSON.stringify({ profile: ui.profile, view: ui.view, stage: ui.stage })); } catch (e) { /* ignore */ } }
 
   let db = load();
   const PROFILES = {
@@ -60,10 +60,10 @@
     manager: { emp: 'e2', label: 'Manager' },
     salarie: { emp: 'e3', label: 'Salarié' },
   };
-  const freshUI = () => ({ wheelOpen: false, selStage: null, selPerson: null, q: '', fDept: '', fStatus: '', sort: 'name', sortDir: 1,
+  const freshUI = () => ({ wheelOpen: false, selPerson: null, q: '', fDept: '', fStatus: '', sort: 'name', sortDir: 1,
     absTab: 'valider', histStatus: '', planMonth: null, payMonth: null, recJob: null, drawer: null, modal: null, notif: false,
     revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
-  let ui = Object.assign({ profile: 'rh', view: 'accueil' }, loadUI(), freshUI());
+  let ui = Object.assign({ profile: 'rh', view: 'accueil', stage: null }, loadUI(), freshUI());
   if (!PROFILES[ui.profile]) ui.profile = 'rh';
 
   // ---------------------------------------------------------------- Helpers
@@ -173,17 +173,24 @@
   }
 
   // ---------------------------------------------------------------- Shell
-  const NAVS = {
-    rh: [['accueil', 'Accueil', 'home'], ['collaborateurs', 'Collaborateurs', 'users'], ['absences', 'Absences', 'calendar'], ['paie', 'Paie', 'wallet'], ['recrutement', 'Recrutement', 'briefcase'],
-      ['sep', 'Développement'], ['entretiens', 'Entretiens', 'star'], ['formation', 'Formation', 'cap'], ['mobilite', 'Mobilité', 'trend'],
-      ['sep', 'Suivi'], ['sante', 'Santé & QVT', 'heart'], ['relations', 'Relations individuelles', 'chat']],
-    manager: [['accueil', 'Accueil', 'home'], ['collaborateurs', 'Mon équipe', 'users'], ['absences', 'Absences', 'calendar'], ['recrutement', 'Recrutement', 'briefcase'],
-      ['sep', 'Développement'], ['entretiens', 'Entretiens', 'star'], ['formation', 'Formation', 'cap'], ['mobilite', 'Mobilité', 'trend'],
-      ['sep', 'Suivi'], ['sante', 'Santé & QVT', 'heart'], ['relations', 'Signalements', 'chat']],
-    salarie: [['accueil', 'Mon parcours', 'home'], ['profil', 'Mon profil', 'user'], ['absences', 'Mes absences', 'calendar'], ['bulletins', 'Mes bulletins', 'file'],
-      ['sep', 'Mon développement'], ['entretiens', 'Mes entretiens', 'star'], ['formation', 'Formations', 'cap'], ['mobilite', 'Mobilité', 'trend'],
-      ['sep', 'Bien-être'], ['sante', 'Santé & QVT', 'heart'], ['relations', 'Échanges RH', 'chat']],
+  // The wheel is the main menu: each stage of the journey opens a module. A profile only sees the stages it needs.
+  // 'etape' = the stage page itself (people at this stage and their tasks); 'etape-moi' = shown to an employee on their current stage only.
+  const STAGE_VIEW = {
+    rh: ['recrutement', 'recrutement', 'etape', 'etape', 'etape', 'collaborateurs', 'absences', 'paie', 'entretiens', 'formation', 'mobilite', 'sante', 'relations', 'etape', 'etape', 'etape'],
+    manager: ['recrutement', 'recrutement', 'etape', 'etape', 'etape', 'collaborateurs', 'absences', null, 'entretiens', 'formation', 'mobilite', 'sante', 'relations', 'etape', 'etape', 'etape'],
+    salarie: [null, null, 'etape-moi', 'etape-moi', 'etape-moi', 'profil', 'absences', 'bulletins', 'entretiens', 'formation', 'mobilite', 'sante', 'relations', 'etape-moi', 'etape-moi', 'etape-moi'],
   };
+  const VIEW_LABELS = {
+    rh: { accueil: 'Accueil', collaborateurs: 'Collaborateurs', absences: 'Absences', paie: 'Paie', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Relations individuelles' },
+    manager: { accueil: 'Accueil', collaborateurs: 'Mon équipe', absences: 'Absences', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Signalements' },
+    salarie: { accueil: 'Mon parcours', profil: 'Mon profil', absences: 'Mes absences', bulletins: 'Mes bulletins', entretiens: 'Mes entretiens', formation: 'Formations', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Échanges RH' },
+  };
+  // Stage indexes shown in the wheel for the current profile, in journey order.
+  function visibleStages() {
+    return STAGES.map((s, i) => i).filter((i) => { const v = STAGE_VIEW[ui.profile][i]; return v === 'etape-moi' ? me().stage === i : !!v; });
+  }
+  const stageView = (i) => (STAGE_VIEW[ui.profile][i] === 'etape-moi' ? 'etape' : STAGE_VIEW[ui.profile][i]);
+  const canView = (v) => v === 'accueil' || (v === 'etape' ? visibleStages().includes(ui.stage) : visibleStages().some((i) => stageView(i) === v));
   function navCount(v) {
     if (v === 'absences') return pendingForMe().length;
     if (v === 'recrutement' && ui.profile === 'rh') return db.jobs.filter((j) => j.status === 'Brouillon').length;
@@ -197,30 +204,40 @@
     if (v === 'relations') return p === 'rh' ? db.cases.filter((c) => c.status === 'Ouvert').length : 0;
     return 0;
   }
-  function sidebar() {
-    return `<aside class="side"><div class="brand"><span class="brand-mark">${LOGO}</span><div>Teamora<small>Nova Studio</small></div></div>
-      <nav class="nav" aria-label="Navigation principale">${NAVS[ui.profile].map(([v, l, i]) => { if (v === 'sep') return `<span class="nav-sep">${l}</span>`; const n = navCount(v);
-        return `<button type="button" data-act="go" data-v="${v}" ${ui.view === v ? 'aria-current="page"' : ''}>${ic(i)}<span>${l}</span>${n ? `<span class="count num">${n}</span>` : ''}</button>`; }).join('')}</nav>
-      <div class="side-foot"><button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Réinitialiser la démo</button>
-      <p class="demo-note">Aperçu de démonstration : toutes les données sont fictives et enregistrées uniquement dans ce navigateur.</p></div></aside>`;
+  // Badge on a stage: people (or needs, candidates) at that stage, or the module's items waiting for me.
+  function stageBadge(i) {
+    const v = stageView(i);
+    if (ui.profile !== 'salarie' && ['etape', 'recrutement', 'collaborateurs'].includes(v)) { const n = stageCount(i); return n ? `<span class="badge num">${n}</span>` : ''; }
+    const n = v === 'etape' ? 0 : navCount(v);
+    return n ? `<span class="badge todo num" title="À traiter">${n}</span>` : '';
   }
-  const TITLES = { accueil: 'Accueil', collaborateurs: 'Collaborateurs', absences: 'Absences', paie: 'Paie', recrutement: 'Recrutement', profil: 'Mon profil', bulletins: 'Mes bulletins' };
   function topbar() {
-    const navItem = NAVS[ui.profile].find((n) => n[0] === ui.view);
-    const title = navItem ? navItem[1] : TITLES[ui.view];
+    const st = ui.view === 'accueil' ? null : ui.stage;
+    const title = ui.view === 'etape' ? esc(STAGES[st].title) : VIEW_LABELS[ui.profile][ui.view];
+    const crumb = st === null ? `Nova Studio · ${esc(fullName(me()))}` : `<b style="color:${STAGE_COLORS[st]}">Étape ${pad(st + 1)}</b> · ${esc(STAGES[st].title)}`;
     const mine = db.notifications.filter((n) => n.to === me().id);
     const unread = mine.filter((n) => !n.read).length;
-    return `<header class="top"><div><div class="crumb">Nova Studio · ${esc(fullName(me()))}</div><h1>${title}</h1></div>
+    return `<header class="top"><button type="button" class="brand" data-act="go" data-v="accueil" aria-label="Teamora · retour à la roue"><span class="brand-mark">${LOGO}</span><span class="brand-t">Teamora<small>Nova Studio</small></span></button>
+      <div class="top-title"><div class="crumb">${crumb}</div><h1>${title}</h1></div>
       <div class="top-right"><div class="persona" role="group" aria-label="Voir l’application en tant que">${Object.entries(PROFILES).map(([k, p]) => { const e = emp(p.emp);
         return `<button type="button" data-act="persona" data-p="${k}" aria-pressed="${ui.profile === k}">${avatar(e)}<span class="who-name">${esc(e.firstName)} ·</span> ${p.label}</button>`; }).join('')}</div>
       <button type="button" class="icon-btn" data-act="notif" aria-label="Notifications (${unread} non lues)" aria-expanded="${ui.notif}">${ic('bell')}${unread ? `<span class="dot num">${unread}</span>` : ''}</button></div>
       ${ui.notif ? `<div class="card notif-pop" data-act="noop"><div class="card-h"><h3>Notifications</h3>${unread ? '<button type="button" class="btn ghost sm" data-act="notif-read">Tout marquer comme lu</button>' : ''}</div>
         ${mine.length ? mine.slice(0, 8).map((n) => `<div class="notif ${n.read ? '' : 'unread'}"><div>${esc(n.text)}<small>${fmtDate(n.date)}</small></div></div>`).join('') : '<div class="empty">Aucune notification.</div>'}</div>` : ''}</header>`;
   }
+  // Outside the home page, the wheel's stages stay reachable as a strip, in the same order and colours.
+  function stageRail() {
+    if (ui.view === 'accueil') return '';
+    return `<nav class="rail" aria-label="Étapes du parcours"><button type="button" class="rail-home" data-act="go" data-v="accueil">${ic('home')}<span>Roue</span></button>
+      ${visibleStages().map((i) => `<button type="button" data-act="stage" data-i="${i}" style="--c:${STAGE_COLORS[i]}" ${ui.stage === i ? 'aria-current="page"' : ''}><i></i><small class="num">${pad(i + 1)}</small><span>${esc(STAGES[i].short)}</span>${stageBadge(i)}</button>`).join('')}</nav>`;
+  }
+  const footer = () => `<footer class="foot"><button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Réinitialiser la démo</button>
+    <p class="demo-note">Aperçu de démonstration : toutes les données sont fictives et enregistrées uniquement dans ce navigateur.</p></footer>`;
 
   // ---------------------------------------------------------------- Home (wheel)
   const W = { cx: 430, cy: 380, R: 250, LR: 310 };
-  const ang = (i) => (-90 + i * 22.5) * Math.PI / 180;
+  let wheelN = 16; // number of stages shown in the wheel for the current profile
+  const ang = (k) => (-90 + k * 360 / wheelN) * Math.PI / 180;
   const nodePos = (i, r = W.R) => ({ x: Math.cos(ang(i)) * r, y: Math.sin(ang(i)) * r });
   function stageCount(i) {
     if (i === 0) return scopeJobs().filter((j) => j.status === 'Brouillon').length;
@@ -247,33 +264,34 @@
       ${k('Demandes à valider', pendingForMe().length, 'Absences en attente')}${k('Postes ouverts', open, drafts ? `${plural(drafts, 'besoin', 'besoins')} à valider` : 'Aucun besoin en attente')}</div>`;
   }
   function wheelHTML() {
-    const sal = ui.profile === 'salarie', m = me();
-    const nodes = STAGES.map((s, i) => {
-      let extra = '', cls = '';
-      if (sal) { if (i < m.stage) extra = `<span class="ck">${ic('check')}</span>`; else if (i === m.stage) cls = 'current'; else cls = 'future'; }
-      else { const n = stageCount(i); if (n) extra = `<span class="badge num">${n}</span>`; }
-      if (ui.selStage === i) cls += ' sel';
-      return `<button type="button" class="node ${cls}" data-act="stage" data-i="${i}" style="background:${STAGE_COLORS[i]}" aria-label="Étape ${i + 1} : ${esc(s.title)}" tabindex="${ui.wheelOpen ? 0 : -1}">${ic(s.icon)}${extra}</button>`;
+    const sal = ui.profile === 'salarie', m = me(), vis = visibleStages();
+    wheelN = vis.length;
+    const nodes = vis.map((i) => {
+      const s = STAGES[i], cls = sal && i === m.stage ? 'current' : '';
+      return `<button type="button" class="node ${cls}" data-act="stage" data-i="${i}" style="background:${STAGE_COLORS[i]}" aria-label="Étape ${i + 1} : ${esc(s.title)} · ${esc(stageView(i) === 'etape' ? 'suivi de l’étape' : VIEW_LABELS[ui.profile][stageView(i)])}" tabindex="${ui.wheelOpen ? 0 : -1}">${ic(s.icon)}${stageBadge(i)}</button>`;
     }).join('');
-    const labels = STAGES.map((s, i) => {
-      const p = nodePos(i, W.LR), c = Math.cos(ang(i)), sn = Math.sin(ang(i));
+    const labels = vis.map((i, k) => {
+      const s = STAGES[i], v = stageView(i), p = nodePos(k, W.LR), c = Math.cos(ang(k)), sn = Math.sin(ang(k));
       let tr, align;
       if (c > 0.3) { tr = 'translate(0,-50%)'; align = 'left'; } else if (c < -0.3) { tr = 'translate(-100%,-50%)'; align = 'right'; } else { tr = sn < 0 ? 'translate(-50%,-100%)' : 'translate(-50%,0)'; align = 'center'; }
-      return `<div class="lab" style="left:${W.cx + p.x}px;top:${W.cy + p.y}px;transform:${tr};text-align:${align}"><div class="lab-in"><small style="color:${STAGE_COLORS[i]}">${pad(i + 1)}</small><b>${esc(s.short)}</b></div></div>`;
+      const mod = v === 'etape' ? '' : VIEW_LABELS[ui.profile][v];
+      return `<div class="lab" style="left:${W.cx + p.x}px;top:${W.cy + p.y}px;transform:${tr};text-align:${align}"><div class="lab-in"><small style="color:${STAGE_COLORS[i]}">${pad(i + 1)}</small><b>${esc(s.short)}</b>${mod && mod !== s.short ? `<em>${esc(mod)}</em>` : ''}</div></div>`;
     }).join('');
     const hubText = sal ? `<small>MON PARCOURS</small><b>Étape ${m.stage + 1}<br>sur 16</b><span class="hub-n">${esc(STAGES[m.stage].short)}</span>`
       : ui.profile === 'manager' ? `<small>PARCOURS</small><b>Équipe ${esc(m.dept)}</b><span class="hub-n num">${plural(scopeEmployees().length, 'personne', 'personnes')}</span>`
         : `<small>PARCOURS</small><b>Collaborateur</b><span class="hub-n num">${plural(db.employees.filter((e) => e.stage < 15).length, 'collaborateur', 'collaborateurs')}</span>`;
     return `<div class="wheel-box" id="wheel-box"><div class="wheel" id="wheel">${labels}${nodes}
-      <button type="button" class="hub" data-act="hub" aria-expanded="${ui.wheelOpen}" aria-label="${ui.wheelOpen ? 'Replier' : 'Déplier'} les étapes du parcours">${hubText}</button></div></div>
-      <p class="wheel-hint" id="wheel-hint">${ui.wheelOpen ? 'Cliquez sur une étape pour l’ouvrir' : 'Survolez ou touchez la roue pour afficher les 16 étapes'}</p>`;
+      <button type="button" class="hub" data-act="hub" aria-expanded="${ui.wheelOpen}" aria-label="${ui.wheelOpen ? 'Replier' : 'Déplier'} le menu du parcours">${hubText}</button></div></div>
+      <p class="wheel-hint" id="wheel-hint">${ui.wheelOpen ? HINT_OPEN : HINT_CLOSED}</p>`;
   }
+  const HINT_OPEN = 'Cliquez sur une étape pour ouvrir son module';
+  const HINT_CLOSED = 'Survolez ou touchez la roue pour afficher le menu';
   function stepsList(arr, steps, editable, empId, stage) {
     return `<div class="steps">${steps.map((t, k) => `<div class="step ${arr[k] ? 'done' : ''}">${editable
       ? `<button type="button" class="ckbox" role="checkbox" aria-checked="${arr[k]}" data-act="jcheck" data-id="${empId}" data-s="${stage}" data-k="${k}" aria-label="${esc(t)}">${ic('check')}</button>`
       : `<span class="ckbox" aria-checked="${arr[k]}">${ic('check')}</span>`}<span>${esc(t)}</span></div>`).join('')}</div>`;
   }
-  function stageHead(i, closable = true) {
+  function stageHead(i, closable = false) {
     const s = STAGES[i], c = STAGE_COLORS[i];
     return `<div class="stage-head"><span class="stage-ic" style="background:${c}">${ic(s.icon)}</span><div style="flex:1;min-width:0"><small style="color:${c}">ÉTAPE ${pad(i + 1)} / 16</small><h2>${esc(s.title)}</h2></div>
       ${closable ? `<button type="button" class="icon-btn" data-act="stage" data-i="${i}" aria-label="Fermer l’étape">${ic('x')}</button>` : ''}</div>`;
@@ -284,7 +302,7 @@
     const mod = STAGES[i].module; if (!mod) return '';
     let [v, label] = MODULE_LINK[mod];
     if (ui.profile === 'salarie') { const map = { absences: ['absences', 'Mes absences'], paie: ['bulletins', 'Mes bulletins'], collaborateurs: ['profil', 'Mon profil'], entretiens: ['entretiens', 'Mes entretiens'], formation: ['formation', 'Formations'], mobilite: ['mobilite', 'Mobilité'], sante: ['sante', 'Santé & QVT'], relations: ['relations', 'Échanges RH'] }; if (!map[mod]) return ''; [v, label] = map[mod]; }
-    if (!NAVS[ui.profile].some((n) => n[0] === v)) return '';
+    if (!canView(v)) return '';
     return `<button type="button" class="btn ghost" data-act="go" data-v="${v}">${label}${ic('arrow')}</button>`;
   }
   function stagePanel(i) {
@@ -332,9 +350,11 @@
     scopeCandidates().filter((c) => c.stage === 'Proposition').forEach((c) => { const j = db.jobs.find((x) => x.id === c.jobId); todos.push(`<div class="todo">${avatarName(c.id, c.name, 'sm')}<div class="t"><b>Proposition en cours : ${esc(c.name)}</b><small>${esc(j.title)}</small></div><button type="button" class="btn ghost sm" data-act="open-cand" data-id="${c.id}">Ouvrir</button></div>`); });
     scopeEmployees().filter((e) => e.stage === 13 || e.stage === 14).forEach((e) => todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>Départ : ${esc(fullName(e))}</b><small>${e.exit ? `${esc(e.exit.reason)} · dernier jour le ${fmtDate(e.exit.lastDay)}` : 'Départ en préparation'}</small></div><button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir</button></div>`));
     return `<div class="card"><div class="card-h"><h3>À traiter</h3><span class="pill ${todos.length ? 'warn' : 'ok'} num">${todos.length}</span></div><div class="card-b">${todos.length ? todos.join('') : '<p class="muted" style="margin:0">Rien à traiter pour le moment.</p>'}</div></div>
-      <div class="card card-b"><p class="muted" style="margin:0">Survolez la roue pour faire apparaître les 16 étapes du parcours collaborateur. Le nombre sur chaque étape indique combien de personnes (ou de besoins et candidats) s’y trouvent. Cliquez sur une étape pour suivre les tâches de chacun.</p></div>`;
+      <div class="card card-b"><p class="muted" style="margin:0">La roue est le menu de Teamora : chaque étape du parcours collaborateur ouvre le module qui la gère (recrutement, absences, paie, entretiens…). Le chiffre blanc indique combien de personnes, de besoins ou de candidats s’y trouvent ; le chiffre orange, ce qui vous attend.</p></div>`;
   }
-  const viewHome = () => `${kpiStrip()}<div class="home"><div class="card wheel-card">${wheelHTML()}</div><div class="panel" id="panel">${ui.selStage === null ? defaultPanel() : stagePanel(ui.selStage)}</div></div>`;
+  const viewHome = () => `${kpiStrip()}<div class="home"><div class="card wheel-card">${wheelHTML()}</div><div class="panel" id="panel">${defaultPanel()}</div></div>`;
+  // Stage page (pre-hire, hiring, onboarding, departure…): who is at this stage and their tasks.
+  const viewStage = () => `<div class="panel stage-page" id="panel">${stagePanel(ui.stage)}</div>`;
 
   // Wheel animation (GSAP when available, plain styles otherwise).
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -359,15 +379,15 @@
     if (ui.wheelOpen) return; ui.wheelOpen = true; openedAt = Date.now();
     document.querySelectorAll('.node').forEach((n, i) => { const p = nodePos(i); n.tabIndex = 0; tw(n, { x: p.x, y: p.y, opacity: 1, scale: 1, duration: 0.75, delay: i * 0.035, ease: 'back.out(1.5)' }); });
     document.querySelectorAll('.lab-in').forEach((l, i) => tw(l, { opacity: 1, duration: 0.35, delay: 0.35 + i * 0.035 }));
-    const hint = document.getElementById('wheel-hint'); if (hint) hint.textContent = 'Cliquez sur une étape pour l’ouvrir';
+    const hint = document.getElementById('wheel-hint'); if (hint) hint.textContent = HINT_OPEN;
     const hub = document.querySelector('.hub'); if (hub) { hub.setAttribute('aria-expanded', 'true'); tw(hub, { scale: 1.03, duration: 0.4 }); }
   }
   function closeWheel() {
     if (!ui.wheelOpen) return; ui.wheelOpen = false;
     const nodes = [...document.querySelectorAll('.node')];
-    nodes.forEach((n, i) => { n.tabIndex = -1; tw(n, { x: 0, y: 0, opacity: 0, scale: 0.4, duration: 0.45, delay: (15 - i) * 0.02, ease: 'power3.in' }); });
+    nodes.forEach((n, i) => { n.tabIndex = -1; tw(n, { x: 0, y: 0, opacity: 0, scale: 0.4, duration: 0.45, delay: (nodes.length - 1 - i) * 0.02, ease: 'power3.in' }); });
     document.querySelectorAll('.lab-in').forEach((l) => tw(l, { opacity: 0, duration: 0.2 }));
-    const hint = document.getElementById('wheel-hint'); if (hint) hint.textContent = 'Survolez ou touchez la roue pour afficher les 16 étapes';
+    const hint = document.getElementById('wheel-hint'); if (hint) hint.textContent = HINT_CLOSED;
     const hub = document.querySelector('.hub'); if (hub) { hub.setAttribute('aria-expanded', 'false'); tw(hub, { scale: 1, duration: 0.4 }); }
   }
   function fitWheel() { const box = document.getElementById('wheel-box'), w = document.getElementById('wheel'); if (box && w) w.style.transform = `scale(${box.clientWidth / 860})`; }
@@ -375,7 +395,7 @@
     const box = document.getElementById('wheel-box'); if (!box) return;
     fitWheel(); placeWheel();
     box.addEventListener('mouseenter', () => { clearTimeout(closeTimer); openWheel(); });
-    box.addEventListener('mouseleave', () => { if (ui.selStage === null) closeTimer = setTimeout(closeWheel, 700); });
+    box.addEventListener('mouseleave', () => { closeTimer = setTimeout(closeWheel, 700); });
     box.addEventListener('focusin', () => { clearTimeout(closeTimer); openWheel(); });
     box.querySelectorAll('.node').forEach((n) => {
       n.addEventListener('mouseenter', () => tw(n, { scale: 1.14, duration: 0.2 }));
@@ -1357,13 +1377,13 @@
   function formError(msg) { const el = document.getElementById('m-err'); if (el) el.textContent = msg; }
 
   // ---------------------------------------------------------------- Render
-  const VIEWS = { accueil: viewHome, collaborateurs: viewEmployees, absences: viewAbsences, paie: viewPay, recrutement: viewRecruitment, profil: viewProfile, bulletins: viewPayslips,
+  const VIEWS = { accueil: viewHome, etape: viewStage, collaborateurs: viewEmployees, absences: viewAbsences, paie: viewPay, recrutement: viewRecruitment, profil: viewProfile, bulletins: viewPayslips,
     entretiens: viewReviews, formation: viewTraining, mobilite: viewMobility, sante: viewHealth, relations: viewRelations };
   let drawerAnim = false;
   function render() {
-    if (!NAVS[ui.profile].some((n) => n[0] === ui.view)) ui.view = 'accueil';
+    route();
     const scrollY = window.scrollY;
-    document.getElementById('app').innerHTML = `<div class="app">${sidebar()}<div class="main">${topbar()}<main class="view" id="view">${VIEWS[ui.view]()}</main></div></div>`;
+    document.getElementById('app').innerHTML = `<div class="app">${topbar()}${stageRail()}<main class="view" id="view">${VIEWS[ui.view]()}</main>${footer()}</div>`;
     let ov = '';
     if (ui.drawer) {
       const dt = ui.drawer.type, cs = dt === 'case' && db.cases.find((c) => c.id === ui.drawer.id);
@@ -1375,11 +1395,20 @@
     document.getElementById('overlay').innerHTML = ov;
     if (drawerAnim) { drawerAnim = false; requestAnimationFrame(() => requestAnimationFrame(() => document.querySelectorAll('.scrim, .drawer').forEach((el) => el.classList.add('on')))); }
     window.scrollTo(0, scrollY);
+    const cur = document.querySelector('.rail [aria-current]'); if (cur) cur.parentElement.scrollLeft = cur.offsetLeft - 80;
     if (ui.view === 'accueil') bindWheel();
     if (ui.view === 'recrutement') bindBoard();
     saveUI();
   }
   const commit = () => { save(); render(); };
+  // Keep (view, stage) consistent with what the profile is allowed to open.
+  function route() {
+    if (ui.view === 'accueil' || !VIEWS[ui.view]) { ui.view = 'accueil'; ui.stage = null; return; }
+    const vis = visibleStages();
+    if (ui.view === 'etape') { if (!vis.includes(ui.stage) || stageView(ui.stage) !== 'etape') { ui.view = 'accueil'; ui.stage = null; } return; }
+    if (!vis.includes(ui.stage) || stageView(ui.stage) !== ui.view) ui.stage = vis.find((i) => stageView(i) === ui.view) ?? null;
+    if (ui.stage === null) ui.view = 'accueil';
+  }
 
   function bindBoard() {
     document.querySelectorAll('.kc').forEach((el) => {
@@ -1415,37 +1444,36 @@
     if (e.managerId && e.managerId !== me().id) notify(e.managerId, `${fullName(e)} passe à l’étape « ${STAGES[e.stage].short} ».`);
     toast(`${fullName(e)} passe à l’étape ${e.stage + 1} · ${STAGES[e.stage].short}`);
     ui.selPerson = null;
-    if (ui.view === 'accueil' && ui.selStage !== null) ui.selStage = e.stage;
     commit();
   }
 
   // ---------------------------------------------------------------- Actions
   const ACT = {
     noop() {},
-    go(d) { ui.view = d.v; ui.notif = false; ui.drawer = null; window.scrollTo(0, 0); render(); },
+    go(d) { ui.view = d.v; ui.stage = null; ui.notif = false; ui.drawer = null; window.scrollTo(0, 0); render(); },
     persona(d) {
       if (ui.profile === d.p) return;
-      ui = Object.assign({ profile: d.p, view: 'accueil' }, freshUI());
+      ui = Object.assign({ profile: d.p, view: 'accueil', stage: null }, freshUI());
       render(); toast(`Vous voyez maintenant l’application en tant que ${fullName(me())} (${PROFILES[d.p].label}).`);
     },
     notif() { ui.notif = !ui.notif; render(); },
     'notif-read'() { db.notifications.forEach((n) => { if (n.to === me().id) n.read = true; }); commit(); },
     hub() { if (ui.wheelOpen && Date.now() - openedAt < 500) return; // a tap fires mouseenter (opens) then click
-      if (ui.wheelOpen) { ui.selStage = null; ui.selPerson = null; closeWheel(); document.getElementById('panel').innerHTML = defaultPanel(); } else openWheel(); },
+      if (ui.wheelOpen) closeWheel(); else openWheel(); },
+    // A stage of the wheel (or of the strip) opens its module.
     stage(d) {
-      const i = Number(d.i);
-      ui.selStage = ui.selStage === i ? null : i; ui.selPerson = null;
-      document.getElementById('panel').innerHTML = ui.selStage === null ? defaultPanel() : stagePanel(i);
-      document.querySelectorAll('.node').forEach((n, k) => n.classList.toggle('sel', k === ui.selStage));
-      if (window.innerWidth <= 1180 && ui.selStage !== null) document.getElementById('panel').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+      const i = Number(d.i), v = stageView(i); if (!v) return;
+      if (v === 'recrutement') { const j = scopeJobs().find((x) => x.status === (i === 0 ? 'Brouillon' : 'Ouverte')); if (j) ui.recJob = j.id; }
+      Object.assign(ui, { view: v, stage: i, selPerson: null, notif: false, drawer: null });
+      window.scrollTo(0, 0); render();
     },
-    person(d) { ui.selPerson = ui.selPerson === d.id ? null : d.id; document.getElementById('panel').innerHTML = stagePanel(ui.selStage); },
+    person(d) { ui.selPerson = ui.selPerson === d.id ? null : d.id; document.getElementById('panel').innerHTML = stagePanel(ui.stage); },
     jcheck(d) {
       const s = Number(d.s), k = Number(d.k);
       db.journey[d.id] = db.journey[d.id] || {};
       const arr = journeyOf(d.id, s); arr[k] = !arr[k]; db.journey[d.id][s] = arr;
       save();
-      if (ui.view === 'accueil' && !ui.drawer) { document.getElementById('panel').innerHTML = stagePanel(ui.selStage); } else render();
+      if (ui.view === 'etape' && !ui.drawer) { document.getElementById('panel').innerHTML = stagePanel(ui.stage); } else render();
     },
     advance(d) { advance(d.id); },
     'open-emp'(d) { ui.drawer = { type: 'emp', id: d.id, tab: 'infos' }; drawerAnim = true; render(); },

@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Roue Parcours</title>
+<style>
+  @font-face { font-family: 'Inter'; font-weight: 400; src: url(node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 500; src: url(node_modules/@fontsource/inter/files/inter-latin-500-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 600; src: url(node_modules/@fontsource/inter/files/inter-latin-600-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 700; src: url(node_modules/@fontsource/inter/files/inter-latin-700-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 800; src: url(node_modules/@fontsource/inter/files/inter-latin-800-normal.woff2) format('woff2'); }
+
+  :root { --primary: #4f46e5; --accent: #06b6d4; --ink: #0f172a; --muted: #64748b; --line: #e2e8f0; --panel: #f8fafc; --green: #10b981; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; }
+  body { background: #0b1020; font-family: 'Inter', sans-serif; color: var(--ink); }
+  .h { opacity: 0; }
+  .stage { position: relative; width: 100%; height: 100%; overflow: hidden;
+    background: radial-gradient(circle at 50% 52%, #1b1f4a 0%, #0b1020 55%); }
+
+  /* ---------- Home (wheel) ---------- */
+  .topbar { position: absolute; top: 0; left: 0; right: 0; height: 84px; display: flex; align-items: center; justify-content: space-between; padding: 0 48px; color: #fff; }
+  .tb-l { display: flex; align-items: center; gap: 14px; font-size: 20px; font-weight: 700; }
+  .tb-l .ic { width: 40px; height: 40px; border-radius: 12px; background: #ffffff14; display: flex; align-items: center; justify-content: center; }
+  .tb-l .ic svg { width: 22px; height: 22px; }
+  .tb-l span { color: #94a3b8; font-weight: 500; }
+  .tb-r { display: flex; align-items: center; gap: 18px; color: #94a3b8; font-size: 16px; }
+  .tb-r .av { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, #8b5cf6, #ec4899); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+
+  #ring { position: absolute; left: 960px; top: 565px; width: 0; height: 0; z-index: 1; }
+  .node { position: absolute; left: -44px; top: -44px; width: 88px; height: 88px; border-radius: 50%; display: flex; align-items: center; justify-content: center; opacity: 0;
+    box-shadow: 0 10px 30px #0006, inset 0 0 0 3px #ffffff30; }
+  .node svg { width: 38px; height: 38px; }
+  .node .ck { position: absolute; right: -4px; top: -4px; width: 30px; height: 30px; border-radius: 50%; background: var(--green); border: 3px solid #0b1020; display: flex; align-items: center; justify-content: center; transform: scale(0); }
+  .node .ck svg { width: 16px; height: 16px; }
+  #labels { position: absolute; left: 960px; top: 565px; width: 0; height: 0; z-index: 1; }
+  .lab { position: absolute; width: 230px; }
+  .lab-in { opacity: 0; color: #fff; }
+  .lab-in small { display: block; font-size: 14px; font-weight: 700; letter-spacing: 1px; }
+  .lab-in b { display: block; font-size: 18px; font-weight: 600; line-height: 1.2; }
+
+  #hub { position: absolute; left: 760px; top: 365px; width: 400px; height: 400px; border-radius: 50%; z-index: 2;
+    background: linear-gradient(140deg, #4f46e5 0%, #6366f1 45%, #06b6d4 100%); display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 14px #ffffff0a, 0 0 120px #4f46e588; color: #fff; text-align: center; transform: scale(0); }
+  .hub-in small { display: block; font-size: 18px; font-weight: 600; letter-spacing: 4px; color: #c7d2fe; }
+  .hub-in b { display: block; font-size: 46px; font-weight: 800; line-height: 1.05; letter-spacing: -1px; margin-top: 10px; }
+  .hub-in span { display: inline-block; margin-top: 18px; font-size: 17px; font-weight: 600; background: #ffffff26; padding: 8px 16px; border-radius: 99px; }
+  #hub-logo { position: absolute; width: 210px; height: 210px; opacity: 0; }
+
+  /* ---------- Brand reveal ---------- */
+  #brand { position: absolute; left: 0; right: 0; top: 540px; text-align: center; color: #fff; z-index: 3; }
+  #brand .name { font-size: 110px; font-weight: 800; letter-spacing: -3px; }
+  #brand .name span { display: inline-block; opacity: 0; }
+  #brand .tag { font-size: 34px; color: #c7d2fe; margin-top: 6px; font-weight: 500; }
+  #brand .url { font-size: 24px; color: #94a3b8; margin-top: 22px; letter-spacing: 1px; }
+
+  /* ---------- Shared overlays ---------- */
+  .zoomer { position: absolute; left: -44px; top: -44px; width: 88px; height: 88px; border-radius: 50%; z-index: 6; opacity: 0; }
+  #dots { position: absolute; top: 46px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; z-index: 7; align-items: center; opacity: 0; }
+  #dots i { width: 12px; height: 12px; border-radius: 50%; background: #ffffff26; }
+  #step-count { position: absolute; top: 40px; right: 60px; color: #94a3b8; font-size: 20px; font-weight: 600; z-index: 7; opacity: 0; }
+  #step-count b { color: #fff; font-size: 26px; }
+
+  /* ---------- Detail scenes ---------- */
+  .detail { position: absolute; inset: 0; z-index: 5; opacity: 0; }
+  .d-left { position: absolute; left: 130px; top: 220px; width: 660px; color: #fff; }
+  .d-num { font-size: 22px; font-weight: 800; letter-spacing: 4px; }
+  .d-title { font-size: 66px; font-weight: 800; letter-spacing: -2px; line-height: 1.04; margin-top: 16px; }
+  .d-desc { font-size: 25px; color: #cbd5e1; margin-top: 20px; line-height: 1.45; }
+  .d-steps { margin-top: 40px; }
+  .d-step { display: flex; align-items: center; gap: 16px; font-size: 23px; font-weight: 500; color: #94a3b8; height: 54px; }
+  .d-step .c { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #ffffff40; display: flex; align-items: center; justify-content: center; flex: none; }
+  .d-step .c svg { width: 18px; height: 18px; }
+  .d-step .c path { stroke-dasharray: 24; stroke-dashoffset: 24; }
+  .w { position: absolute; left: 860px; top: 160px; width: 940px; background: #fff; border-radius: 28px; padding: 34px 36px; box-shadow: 0 50px 120px #0009; }
+  .w-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  .w-head h3 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 15px; border-radius: 99px; font-size: 15px; font-weight: 600; }
+  .pill svg { width: 16px; height: 16px; }
+  .pstack { position: relative; height: 36px; display: flex; align-items: center; justify-content: flex-end; }
+  .pstack .pill { position: absolute; right: 0; white-space: nowrap; }
+  .sec { font-size: 13px; font-weight: 700; letter-spacing: 1.4px; color: #94a3b8; margin: 22px 0 12px; }
+  .btn { height: 48px; padding: 0 22px; border-radius: 12px; color: #fff; font-weight: 600; font-size: 16px; display: inline-flex; align-items: center; gap: 8px; }
+
+  /* Stage 1 */
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 20px; }
+  .field label { display: block; font-size: 14px; font-weight: 600; color: var(--muted); margin-bottom: 7px; }
+  .inp { height: 50px; border: 1.5px solid var(--line); border-radius: 12px; display: flex; align-items: center; padding: 0 16px; font-size: 17px; font-weight: 500; }
+  .seg { display: flex; gap: 8px; height: 50px; }
+  .seg div { flex: 1; border: 1.5px solid var(--line); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600; color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; min-height: 44px; }
+  .chip { padding: 10px 16px; border-radius: 10px; font-size: 16px; font-weight: 600; opacity: 0; }
+  .flow { display: flex; align-items: flex-start; justify-content: space-between; position: relative; padding: 0 20px; }
+  .flow-line { position: absolute; left: 80px; right: 80px; top: 28px; height: 4px; background: #eef2f7; border-radius: 2px; }
+  .flow-line i { display: block; height: 100%; width: 0; background: var(--green); border-radius: 2px; }
+  .fnode { width: 180px; text-align: center; position: relative; }
+  .fnode .fa { width: 58px; height: 58px; border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 18px; position: relative; border: 4px solid #fff; box-shadow: 0 0 0 2px var(--line); }
+  .fnode .fa .ok { position: absolute; inset: -4px; border-radius: 50%; background: var(--green); display: flex; align-items: center; justify-content: center; opacity: 0; }
+  .fnode .fa .ok svg { width: 26px; height: 26px; }
+  .fnode b { display: block; font-size: 16px; margin-top: 10px; }
+  .fnode span { display: block; font-size: 14px; color: var(--muted); }
+  .fnode em { display: block; font-style: normal; font-size: 13px; font-weight: 700; margin-top: 6px; height: 16px; position: relative; }
+  .fnode em s { text-decoration: none; position: absolute; left: 0; right: 0; }
+
+  /* Stage 2 */
+  .chans { display: flex; gap: 10px; align-items: center; }
+  .chan { padding: 9px 14px; border-radius: 10px; font-size: 15px; font-weight: 600; background: var(--panel); color: #94a3b8; border: 1.5px solid var(--line); }
+  .stats { display: flex; gap: 14px; margin-left: auto; }
+  .stat { background: var(--panel); border-radius: 12px; padding: 8px 16px; font-size: 13px; color: var(--muted); font-weight: 600; text-align: right; }
+  .stat b { display: block; font-size: 24px; color: var(--ink); font-weight: 800; font-variant-numeric: tabular-nums; }
+  .kanban { position: relative; height: 470px; margin-top: 22px; }
+  .kcol { position: absolute; top: 0; bottom: 0; width: 202px; background: var(--panel); border-radius: 16px; }
+  .kcol h4 { display: flex; justify-content: space-between; padding: 14px 14px 0; font-size: 15px; font-weight: 700; }
+  .kcol h4 span { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .kcard { position: absolute; width: 186px; height: 62px; background: #fff; border-radius: 12px; box-shadow: 0 2px 6px #0f172a14; display: flex; align-items: center; gap: 10px; padding: 0 10px; opacity: 0; }
+  .kcard .av { width: 36px; height: 36px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex: none; }
+  .kcard b { display: block; font-size: 14px; }
+  .kcard small { font-size: 12px; color: var(--muted); }
+  .kcard .sc { position: absolute; right: 8px; top: 8px; font-size: 11px; font-weight: 800; color: #b45309; background: #fef3c7; padding: 2px 6px; border-radius: 6px; opacity: 0; }
+  .offer { position: absolute; width: 186px; opacity: 0; }
+  .offer .pstack { justify-content: center; }
+  .offer .pill { right: auto; font-size: 13px; padding: 7px 12px; }
+
+  /* Stage 3 */
+  .docrow { display: flex; align-items: center; gap: 14px; height: 50px; }
+  .docrow .di { width: 34px; height: 40px; border-radius: 7px; background: #eef2ff; color: var(--primary); font-size: 11px; font-weight: 800; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; flex: none; }
+  .docrow .dn { width: 190px; font-size: 16px; font-weight: 600; }
+  .docrow .bar { flex: 1; height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
+  .docrow .bar i { display: block; width: 0; height: 100%; background: var(--primary); border-radius: 4px; }
+  .docrow .pstack { width: 130px; }
+  .contract { display: flex; gap: 20px; align-items: center; border: 1.5px solid var(--line); border-radius: 16px; padding: 14px 18px; }
+  .sigbox { flex: 1; height: 92px; border: 2px dashed #cbd5e1; border-radius: 12px; position: relative; }
+  .sigbox label { position: absolute; left: 12px; top: 8px; font-size: 12px; color: #94a3b8; font-weight: 600; }
+  .sigbox svg { position: absolute; left: 30px; top: 8px; }
+  .sigbox path { stroke-dasharray: 900; stroke-dashoffset: 900; }
+  .c-act { width: 220px; height: 50px; position: relative; display: flex; align-items: center; justify-content: flex-end; }
+  .c-act > * { position: absolute; right: 0; }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .tile { border: 2px solid var(--line); border-radius: 16px; padding: 16px; text-align: center; position: relative; }
+  .tile svg { width: 34px; height: 34px; color: #94a3b8; }
+  .tile b { display: block; font-size: 15px; margin-top: 8px; }
+  .tile small { display: block; font-size: 13px; color: #94a3b8; font-weight: 600; margin-top: 2px; position: relative; height: 16px; }
+  .tile small s { text-decoration: none; position: absolute; left: 0; right: 0; }
+  .tile .tk { position: absolute; top: -10px; right: -10px; width: 28px; height: 28px; border-radius: 50%; background: var(--green); display: flex; align-items: center; justify-content: center; transform: scale(0); }
+  .tile .tk svg { width: 15px; height: 15px; color: #fff; }
+
+  /* ---------- Warp ---------- */
+  #warp { position: absolute; inset: 0; z-index: 5; opacity: 0; background: radial-gradient(circle at 50% 50%, #1e1b4b 0%, #070a16 70%); overflow: hidden; }
+  #streaks { position: absolute; left: 960px; top: 540px; }
+  .streak { position: absolute; left: 0; top: -1.5px; width: 140px; height: 3px; border-radius: 2px; transform-origin: 0 50%; opacity: 0; }
+  .wcard { position: absolute; left: 50%; top: 50%; width: 1200px; margin-left: -600px; height: 440px; margin-top: -220px; text-align: center; color: #fff; opacity: 0; }
+  .wcard .wi { width: 120px; height: 120px; border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 80px currentColor; }
+  .wcard .wi svg { width: 58px; height: 58px; }
+  .wcard .wn { font-size: 24px; font-weight: 800; letter-spacing: 5px; margin-top: 28px; }
+  .wcard h2 { font-size: 76px; font-weight: 800; letter-spacing: -2px; margin-top: 8px; line-height: 1.05; }
+  .wcard .wc { display: flex; gap: 14px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }
+  .wcard .wc span { padding: 12px 20px; border-radius: 12px; background: #ffffff14; border: 1px solid #ffffff26; font-size: 22px; font-weight: 500; color: #e2e8f0; }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 8; }
+
+  #cursor { position: absolute; left: 0; top: 0; width: 36px; height: 36px; opacity: 0; z-index: 20; }
+  .ripple { position: absolute; left: -30px; top: -30px; width: 60px; height: 60px; border-radius: 50%; background: #fff; opacity: 0; z-index: 19; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+
+  <!-- ===== Home: wheel ===== -->
+  <div class="topbar h" id="topbar">
+    <div class="tb-l"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>Accueil <span>/ Parcours collaborateur</span></div>
+    <div class="tb-r">Olivia Bennett · RH<div class="av">OB</div></div>
+  </div>
+  <div id="ring"></div>
+  <div id="labels"></div>
+  <div id="hub">
+    <div class="hub-in"><small>PARCOURS</small><b>Collaborateur</b><span>16 étapes</span></div>
+    <svg id="hub-logo" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2c2.6-.4 4.4 1.2 5 4.3"/></svg>
+  </div>
+  <div id="brand">
+    <div class="name" data-split>Teamora</div>
+    <div class="tag h">Chaque étape du parcours collaborateur, dans un seul logiciel.</div>
+    <div class="url h">teamora.app</div>
+  </div>
+
+  <!-- ===== Detail 1 : Expression du besoin RH ===== -->
+  <div class="detail" id="det0">
+    <div class="w">
+      <div class="w-head"><h3>Nouvelle demande de recrutement</h3>
+        <div class="pstack" style="width:200px"><span class="pill" id="s1-draft" style="background:#f1f5f9;color:#475569">Brouillon</span><span class="pill h" id="s1-wait" style="background:#fff7ed;color:#c2410c">En validation</span><span class="pill h" id="s1-ok" style="background:#ecfdf5;color:#047857"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>Besoin validé</span></div></div>
+      <div class="fields">
+        <div class="field"><label>Intitulé du poste</label><div class="inp" id="f-poste"></div></div>
+        <div class="field"><label>Équipe</label><div class="inp" id="f-team"></div></div>
+        <div class="field"><label>Type de contrat</label><div class="seg"><div id="seg-cdi">CDI</div><div>CDD</div><div>Alternance</div></div></div>
+        <div class="field"><label>Arrivée souhaitée</label><div class="inp" id="f-date"></div></div>
+        <div class="field"><label>Budget annuel brut</label><div class="inp" id="f-budget"></div></div>
+        <div class="field"><label>Motif</label><div class="inp" id="f-motif"></div></div>
+      </div>
+      <div class="sec">PROFIL RECHERCHÉ</div>
+      <div class="chips" id="s1-chips"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:14px"><div class="btn" id="s1-submit" style="background:#6366f1">Soumettre la demande</div></div>
+      <div class="sec" style="margin-top:6px">CIRCUIT DE VALIDATION</div>
+      <div class="flow">
+        <div class="flow-line"><i id="s1-line"></i></div>
+        <div class="fnode"><div class="fa" style="background:#6366f1">TP<div class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg></div></div><b>Thomas Petit</b><span>Manager Design</span><em><s class="wt" style="color:#94a3b8">En attente</s><s class="ok2 h" style="color:#047857">Validé</s></em></div>
+        <div class="fnode"><div class="fa" style="background:#ec4899">OB<div class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg></div></div><b>Olivia Bennett</b><span>Responsable RH</span><em><s class="wt" style="color:#94a3b8">En attente</s><s class="ok2 h" style="color:#047857">Validé</s></em></div>
+        <div class="fnode"><div class="fa" style="background:#0ea5e9">CD<div class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg></div></div><b>Claire Durand</b><span>Direction</span><em><s class="wt" style="color:#94a3b8">En attente</s><s class="ok2 h" style="color:#047857">Validé</s></em></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Detail 2 : Recrutement ===== -->
+  <div class="detail" id="det1">
+    <div class="w">
+      <div class="w-head"><h3>Recrutement · UX Designer (CDI)</h3><span class="pill" style="background:#f5f3ff;color:#6d28d9">Offre n° 2026-041</span></div>
+      <div class="chans">
+        <span class="chan">Site carrière</span><span class="chan">Jobboards</span><span class="chan">Réseaux sociaux</span>
+        <div class="stats"><div class="stat">Vues<b id="s2-views">0</b></div><div class="stat">Candidatures<b id="s2-cands">0</b></div></div>
+      </div>
+      <div class="kanban" id="kanban"></div>
+    </div>
+  </div>
+
+  <!-- ===== Detail 3 : Pré-embauche ===== -->
+  <div class="detail" id="det2">
+    <div class="w">
+      <div class="w-head"><h3>Pré-embauche · Léa Martin</h3><span class="pill" style="background:#fdf4ff;color:#a21caf">Arrivée le 3 nov. 2026</span></div>
+      <div class="sec" style="margin-top:0">DOCUMENTS DU COLLABORATEUR</div>
+      <div id="s3-docs"></div>
+      <div class="sec">CONTRAT DE TRAVAIL · CDI</div>
+      <div class="contract">
+        <div class="sigbox"><label>Signature de Léa Martin</label>
+          <svg width="400" height="80" viewBox="0 0 420 96" fill="none"><path id="s3-sig" d="M10 70 C 30 20, 50 20, 46 58 S 70 86, 86 44 C 96 18, 104 70, 120 58 C 132 48, 136 40, 150 52 C 160 62, 170 30, 184 40 C 198 50, 196 70, 214 56 C 232 42, 240 30, 262 44 C 280 56, 300 62, 330 40 L 400 30" stroke="#1e1b4b" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="c-act">
+          <div class="btn" id="s3-send" style="background:#a855f7">Envoyer pour signature</div>
+          <span class="pill h" id="s3-wait" style="background:#fff7ed;color:#c2410c">En attente de signature</span>
+          <span class="pill h" id="s3-signed" style="background:#ecfdf5;color:#047857"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>Signé le 20/10/2026</span>
+        </div>
+      </div>
+      <div class="sec">PRÉPARATION DE L'ARRIVÉE</div>
+      <div class="tiles" id="s3-tiles"></div>
+    </div>
+  </div>
+
+  <!-- ===== Warp ===== -->
+  <div id="warp"><div id="streaks"></div><div id="wcards"></div></div>
+
+  <div id="dots"></div>
+  <div id="step-count">Étape <b id="sc-n">01</b> / 16</div>
+  <div id="zoomers"></div>
+  <div id="flash"></div>
+  <svg id="cursor" viewBox="0 0 24 24"><path d="M3 2l7.5 19 2.6-7.9L21 10.5z" fill="#0f172a" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+</div>
+
+<script src="node_modules/gsap/dist/gsap.min.js"></script>
+<script>
+// ================= Data =================
+const STAGES = [
+  ['Besoin RH', 'Expression du besoin RH', ['Identification du besoin', 'Définition du poste et du profil recherché', 'Validation du besoin']],
+  ['Recrutement', 'Recrutement', ["Publication de l'offre", 'Réception et sélection des candidatures', 'Entretiens et évaluations', 'Choix du candidat', "Proposition d'embauche"]],
+  ['Pré-embauche', 'Pré-embauche', ['Collecte des informations et documents', 'Établissement et signature du contrat', "Préparation de l'arrivée"]],
+  ['Embauche', 'Embauche', ["Formalités d'embauche", 'Dossier administratif', 'Affectation au poste et au manager']],
+  ['Intégration', 'Intégration / Onboarding', ['Accueil du collaborateur', 'Formation initiale', "Fin de période d'essai"]],
+  ['Vie administrative', 'Vie administrative', ['Contrat et avenants', 'Documents RH', 'Changements de situation']],
+  ['Temps & absences', 'Temps de travail et absences', ['Congés et RTT', 'Absences et arrêts', 'Télétravail']],
+  ['Rémunération', 'Rémunération et avantages', ['Salaire et évolution', 'Primes et variables', 'Avantages sociaux']],
+  ['Performance', 'Performance et entretiens', ['Fixation des objectifs', 'Entretien annuel', 'Entretien professionnel']],
+  ['Formation', 'Formation et compétences', ['Identification des besoins', 'Plan de formation', 'Évaluation des acquis']],
+  ['Mobilité', 'Mobilité et évolution', ['Souhaits d’évolution', 'Mobilité interne', 'Évolution de carrière']],
+  ['Santé & QVT', 'Santé, sécurité et QVT', ['Santé au travail', 'Prévention des risques', 'Qualité de vie au travail']],
+  ['Relations indiv.', 'Relations individuelles', ['Situations individuelles', 'Échanges avec le collaborateur', 'Suivi des procédures']],
+  ['Prépa. départ', 'Préparation du départ', ['Motif de départ', 'Gestion du préavis', 'Documents de sortie']],
+  ['Départ', 'Départ / Offboarding', ['Entretien de départ', 'Restitution du matériel', 'Fin des accès']],
+  ['Après le départ', 'Après le départ', ['Archivage du dossier', 'Demandes postérieures', 'Lien avec les alumni']],
+];
+const COLORS = ['#6366f1', '#7c3aed', '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6'];
+const ICONS = [
+  '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+  '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 16l2.5 2 5-5"/>',
+  '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.2"/><path d="M5.8 16.5c.6-1.6 1.7-2.5 3.2-2.5s2.6.9 3.2 2.5M14.5 10h4M14.5 13.5h3"/>',
+  '<path d="M5 15c-1.5 1.5-2 5-2 5s3.5-.5 5-2"/><path d="M9 15l-3-3c1-4 4.5-8.5 12-9 0 7.5-5 11-9 12z"/><circle cx="14.5" cy="9.5" r="1.6"/>',
+  '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  '<path d="M17 6.5A6.5 6.5 0 1 0 17 17.5"/><path d="M4 10.5h9M4 13.5h9"/>',
+  '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+  '<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2 9 2 12 0v-5"/>',
+  '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+  '<path d="M12 20s-7-4.4-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.6-9 9-9 9z"/>',
+  '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/>',
+  '<path d="M6 3h12M6 21h12"/><path d="M7 3v3l5 6-5 6v3M17 3v3l-5 6 5 6v3"/>',
+  '<path d="M14 3H6v18h8"/><path d="M14 3l6 2v16l-6-2z"/><path d="M10 12h.01"/>',
+  '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/>',
+];
+const DESC = [
+  'Un besoin naît dans une équipe : Teamora le structure et le fait valider en quelques clics.',
+  "De la publication de l'offre à la proposition, chaque candidature est suivie au même endroit.",
+  'Documents, contrat, matériel : tout est prêt avant même le premier jour.',
+];
+const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>';
+const icon = (i, c = '#fff', w = 2) => `<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${ICONS[i]}</svg>`;
+const $ = (s) => document.querySelector(s);
+const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+const pad = (n) => String(n).padStart(2, '0');
+const int = (v) => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rnd = mulberry32(42);
+
+// ================= Geometry =================
+const CX = 960, CY = 565, R = 340, LR = 402;
+const ang = (i) => (-90 + i * 22.5) * Math.PI / 180;
+const pos = (i, r = R) => ({ x: Math.cos(ang(i)) * r, y: Math.sin(ang(i)) * r });
+const scr = (i) => { const p = pos(i); return { x: CX + p.x, y: CY + p.y }; };
+
+// ================= Build DOM =================
+$('#ring').innerHTML = STAGES.map((s, i) => `<div class="node" id="n${i}" style="background:${COLORS[i]}">${icon(i)}<div class="ck">${CHECK}</div></div>`).join('');
+$('#labels').innerHTML = STAGES.map((s, i) => {
+  const p = pos(i, LR), c = Math.cos(ang(i)), sn = Math.sin(ang(i));
+  let tr, align;
+  if (c > 0.3) { tr = 'translate(0,-50%)'; align = 'left'; }
+  else if (c < -0.3) { tr = 'translate(-100%,-50%)'; align = 'right'; }
+  else { tr = sn < 0 ? 'translate(-50%,-100%)' : 'translate(-50%,0)'; align = 'center'; }
+  return `<div class="lab" style="left:${p.x}px;top:${p.y}px;transform:${tr};text-align:${align}"><div class="lab-in"><small style="color:${COLORS[i]}">${pad(i + 1)}</small><b>${s[0]}</b></div></div>`;
+}).join('');
+$('#dots').innerHTML = STAGES.map(() => '<i></i>').join('');
+$('#zoomers').innerHTML = [0, 1, 2, 3].map((i) => `<div class="zoomer" id="z${i}" style="background:${COLORS[i]}"></div>`).join('');
+$$('[data-split]').forEach((el) => { el.innerHTML = [...el.textContent].map((c) => `<span>${c}</span>`).join(''); });
+
+// Detail left columns
+[0, 1, 2].forEach((i) => {
+  const d = document.createElement('div'); d.className = 'd-left';
+  d.innerHTML = `<div class="d-num" style="color:${COLORS[i]}">ÉTAPE ${pad(i + 1)} / 16</div><div class="d-title">${STAGES[i][1]}</div><div class="d-desc">${DESC[i]}</div>
+    <div class="d-steps">${STAGES[i][2].map((s) => `<div class="d-step"><div class="c">${CHECK}</div>${s}</div>`).join('')}</div>`;
+  const det = $(`#det${i}`); det.prepend(d);
+  det.style.background = `radial-gradient(circle at 22% 30%, ${COLORS[i]}55 0%, ${COLORS[i]}00 55%), radial-gradient(circle at 85% 90%, ${COLORS[i]}30 0%, ${COLORS[i]}00 50%), #0b1020`;
+});
+
+// Stage 1
+const S1_CHIPS = ['Figma', 'Recherche utilisateur', 'Design system', '3 ans d’expérience min.', 'Anglais courant'];
+$('#s1-chips').innerHTML = S1_CHIPS.map((c) => `<span class="chip" style="background:#eef2ff;color:#4338ca">${c}</span>`).join('');
+
+// Stage 2 : kanban
+const COLS = [['Reçues', 86], ['Présélection', 12], ['Entretiens', 4], ['Proposition', 1]];
+const KX = (c) => c * 216, KY = (s) => 50 + s * 72;
+let kb = COLS.map(([n], c) => `<div class="kcol" style="left:${KX(c)}px"><h4>${n}<span id="kc${c}">0</span></h4></div>`).join('');
+const CANDS = [['LM', 'Léa Martin', 'UX Designer · 5 ans', '#ec4899'], ['IH', 'Inès Haddad', 'Product Designer', '#0ea5e9'], ['PG', 'Paul Girard', 'UI Designer', '#f59e0b'],
+  ['MD', 'Marc Dupont', 'UX Researcher', '#10b981'], ['SC', 'Sarah Cohen', 'UX/UI Designer', '#8b5cf6'], ['YM', 'Yanis Morel', 'Designer junior', '#f43f5e']];
+kb += CANDS.map(([i, n, r, c], k) => `<div class="kcard" id="kc-${i}" style="left:${KX(0) + 8}px;top:${KY(k)}px"><div class="av" style="background:${c}">${i}</div><div><b>${n}</b><small>${r}</small></div><span class="sc">★ ${k === 0 ? '4,8' : '4,2'}</span></div>`).join('');
+kb += `<div class="offer" style="left:${KX(3) + 8}px;top:${KY(1) + 6}px"><div class="pstack"><span class="pill" id="s2-sent" style="background:#fff7ed;color:#c2410c">Proposition envoyée</span><span class="pill h" id="s2-ok" style="background:#ecfdf5;color:#047857"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>Acceptée</span></div></div>`;
+$('#kanban').innerHTML = kb;
+
+// Stage 3
+const DOCS = ["Pièce d'identité", 'RIB', 'Carte Vitale', 'Diplôme'];
+$('#s3-docs').innerHTML = DOCS.map((d) => `<div class="docrow"><div class="di">PDF</div><div class="dn">${d}</div><div class="bar"><i></i></div>
+  <div class="pstack"><span class="pill wt" style="background:#f1f5f9;color:#64748b">En attente</span><span class="pill ok h" style="background:#ecfdf5;color:#047857"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>Reçu</span></div></div>`).join('');
+const TILES = [['Ordinateur', '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/>'], ['Accès & comptes', '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'],
+  ['Badge', '<rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="2.5"/><path d="M9 16h6"/>'], ['Poste de travail', '<path d="M3 10h18M5 10v10M19 10v10M8 6h8v4H8z"/>']];
+$('#s3-tiles').innerHTML = TILES.map(([n, p]) => `<div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg><b>${n}</b><small><s class="wt">À préparer</s><s class="ok h" style="color:#047857">Prêt</s></small><div class="tk">${CHECK}</div></div>`).join('');
+
+// Warp cards (stages 4 → 16)
+$('#wcards').innerHTML = STAGES.slice(3).map((s, k) => {
+  const i = k + 3;
+  return `<div class="wcard" id="wc${i}"><div class="wi" style="background:${COLORS[i]};color:${COLORS[i]}">${icon(i)}</div><div class="wn" style="color:${COLORS[i]}">ÉTAPE ${pad(i + 1)}</div><h2>${s[1]}</h2><div class="wc">${s[2].map((x) => `<span>${x}</span>`).join('')}</div></div>`;
+}).join('');
+const STREAKS = 70;
+$('#streaks').innerHTML = Array.from({ length: STREAKS }, (_, k) => `<div class="streak" style="background:linear-gradient(90deg, #ffffff00, ${COLORS[k % 16]})"></div>`).join('');
+
+// Fit each widget to its content and center it vertically (left column follows).
+$$('.detail').forEach((det) => {
+  const w = det.querySelector('.w'), l = det.querySelector('.d-left');
+  w.style.top = Math.round((1080 - w.offsetHeight) / 2 + 30) + 'px';
+  l.style.top = Math.round((1080 - l.offsetHeight) / 2 + 30) + 'px';
+});
+
+// ================= Measure targets (before any tween) =================
+const center = (el, fx = 0.5, fy = 0.5) => { const r = (typeof el === 'string' ? $(el) : el).getBoundingClientRect(); return { x: r.left + r.width * fx, y: r.top + r.height * fy }; };
+const kanbanR = $('#kanban').getBoundingClientRect();
+const PT = {
+  s1submit: center('#s1-submit', 0.4), s3send: center('#s3-send', 0.4),
+  leaGrab: { x: kanbanR.left + KX(2) + 8 + 50, y: kanbanR.top + KY(0) + 31 },
+  leaDrop: { x: kanbanR.left + KX(3) + 8 + 50, y: kanbanR.top + KY(0) + 31 },
+};
+
+// ================= Timeline helpers =================
+const tl = gsap.timeline({ paused: true, defaults: { ease: 'power3.out', immediateRender: false } });
+const show = (t, sel, from = { y: 20 }, d = 0.5, extra = {}) => tl.fromTo(sel, { opacity: 0, ...from }, { opacity: 1, y: 0, x: 0, scale: 1, duration: d, ...extra }, t);
+const hide = (t, sel, d = 0.3, to = {}) => tl.to(sel, { opacity: 0, duration: d, ease: 'power2.in', ...to }, t);
+const swap = (t, a, b) => { hide(t, a, 0.15); show(t + 0.1, b, { scale: 0.7 }, 0.4, { ease: 'back.out(2.5)' }); };
+function counter(t, el, from, to, d, fmt = int, ease = 'power2.out') {
+  const o = { v: from }; const set = () => { (typeof el === 'string' ? $(el) : el).textContent = fmt(o.v); };
+  tl.to(o, { v: to, duration: d, ease, onUpdate: set, onComplete: set }, t);
+}
+function setText(t, el, text) { const set = () => { $(el).textContent = text; }; tl.to({}, { duration: 0.01, onComplete: set }, t); }
+function type(t, el, text, d) {
+  const o = { n: 0 }; const set = () => { $(el).textContent = text.slice(0, Math.round(o.n)); };
+  tl.to(o, { n: text.length, duration: d, ease: 'none', onUpdate: set, onComplete: set }, t);
+}
+const moveCursor = (t, pt, d = 0.7, ease = 'power2.inOut') => tl.to('#cursor', { x: pt.x, y: pt.y, duration: d, ease }, t);
+const cursorIn = (t, pt) => tl.set('#cursor', { x: pt.x, y: pt.y, scale: 1 }, t).fromTo('#cursor', { opacity: 0 }, { opacity: 1, duration: 0.3 }, t);
+const cursorOut = (t) => tl.to('#cursor', { opacity: 0, duration: 0.3 }, t);
+function click(t, pt) {
+  const r = document.createElement('div'); r.className = 'ripple'; $('#stage').appendChild(r);
+  tl.set(r, { x: pt.x, y: pt.y }, t)
+    .fromTo(r, { scale: 0, opacity: 0.45 }, { scale: 1.4, opacity: 0, duration: 0.5, ease: 'power2.out' }, t)
+    .to('#cursor', { scale: 0.82, duration: 0.08, yoyo: true, repeat: 1, ease: 'power1.inOut' }, t);
+}
+function stepTick(t, det, k, color) {
+  const row = $$(`#det${det} .d-step`)[k], c = row.querySelector('.c');
+  tl.to(c, { backgroundColor: color, borderColor: color, duration: 0.25 }, t)
+    .fromTo(c, { scale: 0.6 }, { scale: 1, duration: 0.45, ease: 'back.out(3)' }, t)
+    .to(c.querySelector('path'), { strokeDashoffset: 0, duration: 0.3 }, t + 0.05)
+    .to(row, { color: '#fff', duration: 0.3 }, t);
+}
+function dotsTo(t, i, d = 0.3) {
+  const dots = $$('#dots i');
+  tl.to(dots[i], { backgroundColor: COLORS[i], scale: 1.5, duration: d }, t);
+  if (i > 0) tl.to(dots[i - 1], { scale: 1, duration: d }, t);
+}
+
+// ---- Zoom in / out between the wheel and a stage ----
+function zoomIn(t, i, sceneSel) {
+  const p = scr(i), z = `#z${i}`;
+  tl.set(z, { x: p.x, y: p.y, scale: 1, opacity: 1 }, t)
+    .to(z, { scale: 34, duration: 0.65, ease: 'power3.in' }, t)
+    .set(sceneSel, { opacity: 1 }, t + 0.65)
+    .to(z, { opacity: 0, duration: 0.45, ease: 'power1.out' }, t + 0.65);
+}
+function zoomOut(t, i, sceneSel) {
+  const p = scr(i), z = `#z${i}`;
+  tl.set(z, { x: p.x, y: p.y, scale: 34 }, t)
+    .to(z, { opacity: 1, duration: 0.3, ease: 'power1.in' }, t)
+    .set(sceneSel, { opacity: 0 }, t + 0.3)
+    .to(z, { scale: 1, duration: 0.6, ease: 'power3.out' }, t + 0.3)
+    .set(z, { opacity: 0 }, t + 0.95);
+}
+function detailIntro(t, i) {
+  show(t + 0.1, `#det${i} .d-num`, { y: 20 }, 0.5);
+  show(t + 0.2, `#det${i} .d-title`, { y: 40 }, 0.6, { ease: 'power4.out' });
+  show(t + 0.4, `#det${i} .d-desc`, { y: 20 }, 0.5);
+  tl.fromTo(`#det${i} .d-step`, { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.4, stagger: 0.08 }, t + 0.6);
+  tl.fromTo(`#det${i} .w`, { opacity: 0, x: 120, rotationY: -12, transformPerspective: 1400 }, { opacity: 1, x: 0, rotationY: 0, duration: 0.9, ease: 'power4.out' }, t + 0.2);
+}
+function nodeHover(t, i) {
+  tl.to(`#n${i}`, { scale: 1.18, duration: 0.3, ease: 'back.out(2)' }, t)
+    .to(`#n${i}`, { boxShadow: `0 0 0 8px ${COLORS[i]}44, 0 10px 40px ${COLORS[i]}aa`, duration: 0.3 }, t);
+}
+function nodeDone(t, i) {
+  tl.to(`#n${i}`, { scale: 1, boxShadow: '0 10px 30px #0006, inset 0 0 0 3px #ffffff30', duration: 0.3 }, t)
+    .to(`#n${i} .ck`, { scale: 1, duration: 0.45, ease: 'back.out(3)' }, t + 0.1);
+}
+
+// ================= 0. Home wheel =================
+tl.fromTo('#hub', { scale: 0 }, { scale: 1, duration: 1.0, ease: 'back.out(1.5)' }, 0.2);
+tl.fromTo('.hub-in > *', { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.1 }, 0.7);
+show(0.6, '#topbar', { y: -20 }, 0.6);
+cursorIn(1.2, { x: 1500, y: 1000 });
+moveCursor(1.2, { x: CX + 175, y: CY + 110 }, 0.9);
+// Hover: the steps slide out from behind the wheel
+tl.to('#hub', { scale: 1.04, duration: 0.4, ease: 'power2.out' }, 2.05);
+tl.to('#hub', { boxShadow: '0 0 0 22px #ffffff12, 0 0 160px #6366f1aa', duration: 0.5 }, 2.05);
+STAGES.forEach((s, i) => {
+  const p = pos(i), t = 2.15 + i * 0.055;
+  tl.fromTo(`#n${i}`, { x: 0, y: 0, scale: 0.4, opacity: 0 }, { x: p.x, y: p.y, scale: 1, opacity: 1, duration: 0.8, ease: 'back.out(1.5)' }, t);
+  tl.fromTo($$('.lab-in')[i], { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.4 }, t + 0.45);
+});
+
+// ================= 1-3. Detailed stages =================
+// Stage 1 — Expression du besoin RH
+let T = 4.4;
+moveCursor(T, scr(0), 0.75);
+nodeHover(T + 0.6, 0);
+click(T + 1.0, scr(0));
+cursorOut(T + 1.05);
+zoomIn(T + 1.1, 0, '#det0');
+let D = T + 1.75; // detail visible
+show(D, '#dots', { y: -10 }, 0.4); show(D, '#step-count', { y: -10 }, 0.4); setText(D, '#sc-n', '01'); dotsTo(D, 0);
+detailIntro(D, 0);
+type(D + 1.1, '#f-poste', 'UX Designer', 0.6);
+type(D + 1.5, '#f-team', 'Design', 0.4);
+tl.to('#seg-cdi', { backgroundColor: '#6366f1', borderColor: '#6366f1', color: '#fff', duration: 0.25 }, D + 1.9);
+type(D + 2.1, '#f-date', 'Novembre 2026', 0.5);
+type(D + 2.4, '#f-budget', '42 000 – 46 000 €', 0.6);
+type(D + 2.7, '#f-motif', 'Création de poste', 0.5);
+stepTick(D + 2.9, 0, 0, COLORS[0]);
+tl.fromTo('#s1-chips .chip', { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.4, stagger: 0.12, ease: 'back.out(2.5)' }, D + 3.2);
+stepTick(D + 3.9, 0, 1, COLORS[0]);
+cursorIn(D + 3.6, { x: 1700, y: 1000 });
+moveCursor(D + 3.6, PT.s1submit, 0.6);
+click(D + 4.3, PT.s1submit);
+cursorOut(D + 4.6);
+swap(D + 4.4, '#s1-draft', '#s1-wait');
+$$('#det0 .fnode').forEach((n, k) => {
+  const t = D + 4.8 + k * 0.7;
+  tl.to(n.querySelector('.ok'), { opacity: 1, duration: 0.3 }, t)
+    .fromTo(n.querySelector('.fa'), { scale: 1 }, { scale: 1.15, duration: 0.18, yoyo: true, repeat: 1 }, t)
+    .to(n.querySelector('.wt'), { opacity: 0, duration: 0.15 }, t)
+    .to(n.querySelector('.ok2'), { opacity: 1, duration: 0.25 }, t + 0.1)
+    .to('#s1-line', { width: (k / 2 * 100) + '%', duration: 0.5, ease: 'power2.inOut' }, t);
+});
+swap(D + 6.3, '#s1-wait', '#s1-ok');
+stepTick(D + 6.3, 0, 2, COLORS[0]);
+// back to wheel
+T = D + 7.6;
+zoomOut(T, 0, '#det0');
+hide(T, '#dots, #step-count', 0.3);
+nodeDone(T + 0.9, 0);
+
+// Stage 2 — Recrutement
+T += 1.3;
+cursorIn(T, { x: CX + 175, y: CY + 110 });
+moveCursor(T, scr(1), 0.6);
+nodeHover(T + 0.5, 1);
+click(T + 0.85, scr(1));
+cursorOut(T + 0.9);
+zoomIn(T + 0.95, 1, '#det1');
+D = T + 1.6;
+show(D, '#dots, #step-count', { y: -10 }, 0.4); setText(D, '#sc-n', '02'); dotsTo(D, 1);
+detailIntro(D, 1);
+$$('#det1 .chan').forEach((c, k) => tl.to(c, { backgroundColor: '#f5f3ff', borderColor: '#a78bfa', color: '#6d28d9', duration: 0.3 }, D + 1.0 + k * 0.2));
+stepTick(D + 1.5, 1, 0, COLORS[1]);
+counter(D + 1.2, '#s2-views', 0, 2430, 1.8);
+counter(D + 1.4, '#s2-cands', 0, 86, 1.6);
+counter(D + 1.4, '#kc0', 0, 86, 1.6);
+tl.fromTo('#kanban .kcard', { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.35, stagger: 0.1 }, D + 1.5);
+// Pre-selection: Léa, Inès, Paul move to column 2
+const kmove = (t, id, col, slot, d = 0.55) => tl.to(`#kc-${id}`, { left: KX(col) + 8, top: KY(slot), duration: d, ease: 'power3.inOut' }, t);
+let K = D + 2.9;
+kmove(K, 'LM', 1, 0); kmove(K + 0.12, 'IH', 1, 1); kmove(K + 0.24, 'PG', 1, 2);
+kmove(K + 0.4, 'MD', 0, 0); kmove(K + 0.45, 'SC', 0, 1); kmove(K + 0.5, 'YM', 0, 2);
+counter(K + 0.2, '#kc1', 0, 12, 0.6);
+stepTick(K + 0.4, 1, 1, COLORS[1]);
+// Interviews
+K += 1.3;
+kmove(K, 'LM', 2, 0); kmove(K + 0.15, 'IH', 2, 1); kmove(K + 0.35, 'PG', 1, 0);
+counter(K + 0.2, '#kc2', 0, 4, 0.5);
+tl.fromTo('#kc-LM .sc, #kc-IH .sc', { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.4, stagger: 0.15, ease: 'back.out(3)' }, K + 0.6);
+stepTick(K + 0.6, 1, 2, COLORS[1]);
+// Choice: drag Léa to "Proposition"
+K += 1.4;
+tl.to('#kc-LM', { boxShadow: `0 0 0 3px ${COLORS[1]}, 0 12px 30px #6d28d955`, duration: 0.3 }, K);
+cursorIn(K, { x: 1750, y: 980 });
+moveCursor(K, PT.leaGrab, 0.6);
+stepTick(K + 0.5, 1, 3, COLORS[1]);
+tl.to('#kc-LM', { scale: 1.06, rotation: -3, duration: 0.2 }, K + 0.7)
+  .to('#kc-LM', { left: KX(3) + 8, top: KY(0), duration: 0.8, ease: 'power2.inOut' }, K + 0.85)
+  .to('#cursor', { x: PT.leaDrop.x, y: PT.leaDrop.y, duration: 0.8, ease: 'power2.inOut' }, K + 0.85)
+  .to('#kc-LM', { scale: 1, rotation: 0, duration: 0.25, ease: 'back.out(2)' }, K + 1.65);
+counter(K + 1.7, '#kc3', 0, 1, 0.2);
+cursorOut(K + 1.9);
+show(K + 1.9, '.offer', { y: -10 }, 0.4);
+swap(K + 2.7, '#s2-sent', '#s2-ok');
+stepTick(K + 2.8, 1, 4, COLORS[1]);
+T = K + 4.0;
+zoomOut(T, 1, '#det1');
+hide(T, '#dots, #step-count', 0.3);
+nodeDone(T + 0.9, 1);
+
+// Stage 3 — Pré-embauche
+T += 1.3;
+cursorIn(T, { x: CX + 200, y: CY - 40 });
+moveCursor(T, scr(2), 0.6);
+nodeHover(T + 0.5, 2);
+click(T + 0.85, scr(2));
+cursorOut(T + 0.9);
+zoomIn(T + 0.95, 2, '#det2');
+D = T + 1.6;
+show(D, '#dots, #step-count', { y: -10 }, 0.4); setText(D, '#sc-n', '03'); dotsTo(D, 2);
+detailIntro(D, 2);
+$$('#det2 .docrow').forEach((r, k) => {
+  const t = D + 1.0 + k * 0.35;
+  tl.to(r.querySelector('.bar i'), { width: '100%', duration: 0.6, ease: 'power1.inOut' }, t);
+  hide(t + 0.6, r.querySelector('.wt'), 0.15);
+  show(t + 0.65, r.querySelector('.ok'), { scale: 0.6 }, 0.35, { ease: 'back.out(2.5)' });
+});
+stepTick(D + 2.7, 2, 0, COLORS[2]);
+cursorIn(D + 2.6, { x: 1750, y: 1000 });
+moveCursor(D + 2.6, PT.s3send, 0.6);
+click(D + 3.3, PT.s3send);
+cursorOut(D + 3.6);
+hide(D + 3.4, '#s3-send', 0.2, { scale: 0.9 });
+show(D + 3.5, '#s3-wait', { x: 10 }, 0.3);
+tl.to('#s3-sig', { strokeDashoffset: 0, duration: 1.2, ease: 'power1.inOut' }, D + 3.7);
+swap(D + 4.9, '#s3-wait', '#s3-signed');
+stepTick(D + 5.0, 2, 1, COLORS[2]);
+$$('#det2 .tile').forEach((tile, k) => {
+  const t = D + 5.4 + k * 0.3;
+  tl.to(tile, { borderColor: '#10b981', backgroundColor: '#f0fdf9', duration: 0.3 }, t)
+    .to(tile.querySelector('svg'), { color: '#10b981', duration: 0.3 }, t)
+    .to(tile.querySelector('.tk'), { scale: 1, duration: 0.4, ease: 'back.out(3)' }, t)
+    .to(tile.querySelector('.wt'), { opacity: 0, duration: 0.15 }, t)
+    .to(tile.querySelector('.ok'), { opacity: 1, duration: 0.25 }, t + 0.1);
+});
+stepTick(D + 6.5, 2, 2, COLORS[2]);
+T = D + 7.5;
+zoomOut(T, 2, '#det2');
+hide(T, '#dots, #step-count', 0.3);
+nodeDone(T + 0.9, 2);
+
+// ================= 4-16. Acceleration =================
+T += 1.3;
+cursorIn(T, { x: CX + 220, y: CY + 20 });
+moveCursor(T, scr(3), 0.5);
+nodeHover(T + 0.4, 3);
+click(T + 0.7, scr(3));
+cursorOut(T + 0.75);
+zoomIn(T + 0.8, 3, '#warp');
+const W0 = T + 1.45;
+show(W0, '#dots, #step-count', { y: -10 }, 0.3);
+const DUR = [1.55, 1.3, 1.12, 0.98, 0.86, 0.76, 0.67, 0.6, 0.53, 0.47, 0.42, 0.38, 0.36];
+let s = W0;
+const starts = DUR.map((d) => { const st = s; s += d; return st; });
+const W1 = s + 0.35;
+DUR.forEach((d, k) => {
+  const i = k + 3, st = starts[k], card = `#wc${i}`;
+  tl.fromTo(card, { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1, duration: d * 0.45, ease: 'power2.out' }, st)
+    .to(card, { opacity: 0, scale: 2.6, duration: d * 0.5, ease: 'power2.in' }, st + d * 0.62);
+  setText(st, '#sc-n', pad(i + 1));
+  dotsTo(st, i, Math.min(0.3, d * 0.4));
+});
+// Streaks get faster as the stages speed by
+$$('.streak').forEach((el) => {
+  const a = rnd() * Math.PI * 2, cos = Math.cos(a), sin = Math.sin(a);
+  const d0 = 60 + rnd() * 140;
+  let t = W0 - 0.4 + rnd() * 0.9;
+  tl.set(el, { rotation: a * 180 / Math.PI }, W0 - 0.5);
+  while (t < W1) {
+    const prog = Math.min(1, Math.max(0, (t - W0) / (W1 - W0)));
+    const d = 1.2 - 0.95 * Math.pow(prog, 1.2);
+    tl.fromTo(el, { x: cos * d0, y: sin * d0, opacity: 0, scaleX: 0.3 },
+      { x: cos * 1300, y: sin * 1300, opacity: 0.35 + prog * 0.6, scaleX: 0.8 + prog * 2.2, duration: d, ease: 'power2.in' }, t);
+    t += d * (0.9 + rnd() * 0.3);
+  }
+});
+// Flash back to the wheel: every step is done
+tl.to('#flash', { opacity: 0.9, duration: 0.25, ease: 'power2.in' }, W1 - 0.1)
+  .set('#warp', { opacity: 0 }, W1 + 0.15)
+  .to('#flash', { opacity: 0, duration: 0.6, ease: 'power2.out' }, W1 + 0.15);
+hide(W1 + 0.15, '#dots, #step-count', 0.3);
+for (let i = 3; i < 16; i++) {
+  tl.to(`#n${i}`, { scale: 1, boxShadow: '0 10px 30px #0006, inset 0 0 0 3px #ffffff30', duration: 0.2 }, W1 + 0.1);
+  tl.to(`#n${i} .ck`, { scale: 1, duration: 0.4, ease: 'back.out(3)' }, W1 + 0.4 + (i - 3) * 0.06);
+}
+
+// ================= Finale: steps return into the hub, the logo emerges =================
+const F = W1 + 2.0;
+tl.to('.lab-in', { opacity: 0, duration: 0.4, stagger: { each: 0.02, from: 'end' } }, F);
+hide(F, '#topbar', 0.4, { y: -20 });
+tl.to('#ring', { rotation: 220, duration: 1.6, ease: 'power2.in' }, F + 0.2);
+STAGES.forEach((_, i) => {
+  tl.to(`#n${i}`, { x: 0, y: 0, scale: 0.35, duration: 1.3, ease: 'power3.in' }, F + 0.2 + (15 - i) * 0.025);
+  tl.set(`#n${i}`, { opacity: 0 }, F + 1.6 + (15 - i) * 0.025);
+});
+tl.to('#hub', { scale: 1.12, duration: 0.3, ease: 'power2.out' }, F + 1.5)
+  .to('.hub-in', { opacity: 0, scale: 0.8, duration: 0.3, ease: 'power2.in' }, F + 1.5)
+  .to('#hub', { scale: 0.42, borderRadius: '26%', y: -150, boxShadow: '0 0 0 0px #ffffff00, 0 40px 120px #4f46e5aa', duration: 0.9, ease: 'power4.inOut' }, F + 1.8)
+  .fromTo('#hub-logo', { opacity: 0, scale: 0.4, rotation: -60 }, { opacity: 1, scale: 1, rotation: 0, duration: 0.7, ease: 'back.out(1.8)' }, F + 2.4)
+  .fromTo('#brand .name span', { opacity: 0, y: 70 }, { opacity: 1, y: 0, duration: 0.6, stagger: 0.05, ease: 'back.out(1.6)' }, F + 2.7);
+show(F + 3.3, '#brand .tag', { y: 20 }, 0.6);
+show(F + 3.7, '#brand .url', {}, 0.6);
+tl.to({}, { duration: 2.2 });
+
+window.tl = tl;
+window.ready = document.fonts.ready.then(() => true);
+</script>
+</body>
+</html>

@@ -28,3 +28,13 @@ intégration → paie & absences → entretien annuel → sortie. Données ficti
 ```bash
 node render.js parcours-collaborateur.html parcours-collaborateur.mp4 30 4
 ```
+
+## Vidéo « Roue du parcours » (FR)
+
+`roue-parcours.html` : l'accueil du logiciel est une roue ; au survol, les 16 étapes du parcours collaborateur
+sortent de derrière le cercle central. Les 3 premières sont détaillées, les 13 suivantes défilent en accélérant,
+puis les étapes rentrent dans la roue et le logo apparaît.
+
+```bash
+node render.js roue-parcours.html roue-parcours.mp4 30 4
+```

@@ -1,7 +1,7 @@
 # Teamora — aperçu du logiciel RH
 
 Prototype fonctionnel, sans serveur ni base de données : ouvrez `index.html` dans un navigateur.
-Les données de départ (`data.js`, schéma version 4) sont fictives ; vos modifications sont conservées dans le navigateur
+Les données de départ (`data.js`, schéma version 6) sont fictives ; vos modifications sont conservées dans le navigateur
 (localStorage) et le bouton « Réinitialiser la démo » restaure l'état initial.
 
 - **La roue est le menu** : il n'y a plus de barre latérale. Chaque étape du parcours collaborateur ouvre le module
@@ -12,8 +12,8 @@ Les données de départ (`data.js`, schéma version 4) sont fictives ; vos modif
   central ; badge blanc = personnes, besoins ou candidats à l'étape, badge orange = éléments qui vous attendent.
   Sur les autres pages, un bandeau reprend les mêmes étapes en pictogrammes (avec leur badge) ; le nom s'affiche au survol,
   et le logo ou la maison ramène à la roue.
-- **Étapes par profil** : une étape n'apparaît que si le profil a besoin de son module. La Manager n'a pas l'étape
-  Rémunération (pas d'accès à la paie). La Salariée ne voit pas Besoin RH ni Recrutement ; Vie administrative ouvre
+- **Étapes par profil** : une étape n'apparaît que si le profil a besoin de son module. La Manager voit l'étape
+  Rémunération réduite à la révision salariale de son équipe (pas d'accès à la paie). La Salariée ne voit pas Besoin RH ni Recrutement ; Vie administrative ouvre
   « Mon profil », Rémunération « Mes bulletins », et les étapes d'arrivée ou de départ n'apparaissent que lorsque c'est
   son étape en cours.
 - **Collaborateurs** : recherche, filtres, tri, fiche détaillée, ajout/modification, départ.
@@ -34,6 +34,23 @@ Les données de départ (`data.js`, schéma version 4) sont fictives ; vos modif
   (poste, rémunération, date d'entrée, délai de réponse, alerte hors fourchette validée), lettre générée, statuts envoyée,
   expirée, acceptée, déclinée, retirée ; l'acceptation fait entrer le candidat à l'étape « Pré-embauche ». Vivier des
   candidats non retenus ; tout dossier non embauché est supprimé automatiquement 2 ans après le dernier contact.
+- **Pré-embauche, Embauche, Intégration** (pages d'étape) : dossier d'arrivée par recrue. Pré-embauche : état civil,
+  pièces à recevoir, vérification du titre de séjour en préfecture (2 jours ouvrables avant), contrat généré puis signé,
+  préparation (poste, matériel, comptes, badge, message de bienvenue) et parrain. Embauche : DPAE dans sa fenêtre légale
+  (8 jours avant), registre unique du personnel, informations obligatoires à 7 jours et 1 mois (décret du 30 octobre 2023),
+  affectation et période d'essai, mutuelle, prévoyance des cadres, visite d'information et de prévention. Intégration :
+  programme J+0 à J+15, points à 30, 60 et 90 jours, rapport d'étonnement, période d'essai avec délai de prévenance,
+  renouvellement (accord écrit) ou rupture. Les sous-étapes de la roue se cochent toutes seules.
+- **Vie administrative** (Collaborateurs) : annuaire, échéancier (titres de séjour, fins de contrat, périodes d'essai,
+  visites médicales), demandes de modification des salariés avec justificatif et validation RH, organigramme.
+- **Temps de travail** (Absences) : compteurs de congés (solde à poser avant le 31 mai, acquisition en cours), feuilles de
+  temps hebdomadaires avec contrôle des durées maximales, heures supplémentaires majorées et payées, contingent de 220 h,
+  forfait de 218 jours pour les cadres, quota de télétravail, arrêts de travail (48 h, carence, maintien, attestation DSN,
+  subrogation), alerte sur le congé principal.
+- **Rémunération** (Paie) : paie du mois avec heures supplémentaires et prime de partage de la valeur, campagne de
+  révision salariale (enveloppe, propositions des managers, validation RH, application), écarts femmes-hommes par
+  catégorie (seuil de 5 %), partage de la valeur pour les 11-49 salariés, avantages sociaux. Côté salarié : rémunération
+  globale et demande d'information sur les salaires moyens de sa catégorie.
 - **Entretiens** : campagne d'entretiens annuels (planification, auto-évaluation, évaluation manager, signature),
   échéances des entretiens professionnels (tous les 2 ans), objectifs avec avancement, feedback entre collègues.
 - **Formation** : catalogue, demande, double validation manager puis RH, budget du plan (réalisé, engagé, restant), évaluation.
@@ -45,7 +62,7 @@ Les données de départ (`data.js`, schéma version 4) sont fictives ; vos modif
   signalements des managers, demandes d'échange des salariés avec réponses.
 - **Documents RH** : attestation employeur, avenant, et documents de sortie (certificat de travail, solde de tout
   compte, attestation France Travail) générés au passage à l'étape « Départ ».
-- **Profils** : RH (Olivia, 16 étapes), Manager (Thomas, équipe Design, 15 étapes), Salariée (Léa, 8 étapes) ; les étapes ne sont pas numérotées à l’écran — chacun voit ses propres écrans.
+- **Profils** : RH (Olivia, 16 étapes), Manager (Thomas, équipe Design, 16 étapes), Salariée (Léa, 8 étapes) ; les étapes ne sont pas numérotées à l’écran — chacun voit ses propres écrans.
 
 Le fichier `index.html` n'a pas de `<!doctype>` : il est conçu pour être publié comme Artifact claude.ai,
 qui ajoute lui-même l'en-tête HTML. Il s'ouvre aussi tel quel dans un navigateur.

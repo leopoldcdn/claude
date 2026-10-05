@@ -47,7 +47,7 @@
   // ---------------------------------------------------------------- Storage
   const STORE = 'teamora-demo-v1', UI_STORE = 'teamora-ui-v1';
   function load() {
-    try { const d = JSON.parse(localStorage.getItem(STORE)); if (d && d.version === 5) return d; } catch (e) { /* ignore */ }
+    try { const d = JSON.parse(localStorage.getItem(STORE)); if (d && d.version === 6) return d; } catch (e) { /* ignore */ }
     return window.TEAMORA_SEED();
   }
   function save() { try { localStorage.setItem(STORE, JSON.stringify(db)); } catch (e) { /* storage unavailable */ } }
@@ -62,7 +62,7 @@
   };
   const freshUI = () => ({ wheelOpen: false, selPerson: null, q: '', fDept: '', fStatus: '', sort: 'name', sortDir: 1,
     absTab: 'valider', histStatus: '', planMonth: null, payMonth: null, recJob: null, drawer: null, modal: null, notif: false,
-    needTab: 'cours', needSel: null, revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
+    needTab: 'cours', needSel: null, adminTab: 'annuaire', payTab: 'paie', tsWeek: null, revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
   let ui = Object.assign({ profile: 'rh', view: 'accueil', stage: null }, loadUI(), freshUI());
   if (!PROFILES[ui.profile]) ui.profile = 'rh';
 
@@ -164,13 +164,14 @@
     if (e.startDate > start) base *= workDays(e.startDate, end) / Math.max(1, workDays(start, end));
     if (e.exit && e.exit.lastDay < end) base *= workDays(start, e.exit.lastDay) / Math.max(1, workDays(start, end));
     const bonus = Number(payrollOf(m).bonus[e.id] || 0);
-    const gross = base + bonus;
+    const ot = overtimePay(e, m), ppv = Number((payrollOf(m).ppv || {})[e.id] || 0);
+    const gross = base + bonus + ot.amount;
     const lines = RATES.map(([l, r]) => [l, r, gross * r]);
     const contrib = lines.reduce((s, x) => s + x[2], 0);
-    const netBefore = gross - contrib, tax = netBefore * TAX_RATE;
+    const ppvNet = ppv * (1 - 0.097), netBefore = gross - contrib + ppvNet, tax = (gross - contrib) * TAX_RATE;
     const leaveDays = db.leaves.filter((l) => l.empId === e.id && l.status === 'Approuvée' && ['Congés payés', 'RTT'].includes(l.type) && l.start <= end && l.end >= start)
       .reduce((s, l) => s + workDays(l.start < start ? start : l.start, l.end > end ? end : l.end), 0);
-    return { base, bonus, gross, lines, contrib, netBefore, tax, net: netBefore - tax, leaveDays };
+    return { base, bonus, ot, ppv, ppvNet, gross, lines, contrib, netBefore, tax, net: netBefore - tax, leaveDays };
   }
 
   // ---------------------------------------------------------------- Shell
@@ -178,12 +179,12 @@
   // 'etape' = the stage page itself (people at this stage and their tasks); 'etape-moi' = shown to an employee on their current stage only.
   const STAGE_VIEW = {
     rh: ['besoins', 'recrutement', 'etape', 'etape', 'etape', 'collaborateurs', 'absences', 'paie', 'entretiens', 'formation', 'mobilite', 'sante', 'relations', 'etape', 'etape', 'etape'],
-    manager: ['besoins', 'recrutement', 'etape', 'etape', 'etape', 'collaborateurs', 'absences', null, 'entretiens', 'formation', 'mobilite', 'sante', 'relations', 'etape', 'etape', 'etape'],
+    manager: ['besoins', 'recrutement', 'etape', 'etape', 'etape', 'collaborateurs', 'absences', 'paie', 'entretiens', 'formation', 'mobilite', 'sante', 'relations', 'etape', 'etape', 'etape'],
     salarie: [null, null, 'etape-moi', 'etape-moi', 'etape-moi', 'profil', 'absences', 'bulletins', 'entretiens', 'formation', 'mobilite', 'sante', 'relations', 'etape-moi', 'etape-moi', 'etape-moi'],
   };
   const VIEW_LABELS = {
     rh: { accueil: 'Accueil', besoins: 'Besoins de recrutement', collaborateurs: 'Collaborateurs', absences: 'Absences', paie: 'Paie', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Relations individuelles' },
-    manager: { accueil: 'Accueil', besoins: 'Besoins de recrutement', collaborateurs: 'Mon équipe', absences: 'Absences', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Signalements' },
+    manager: { accueil: 'Accueil', besoins: 'Besoins de recrutement', collaborateurs: 'Mon équipe', absences: 'Absences', paie: 'Rémunération de l’équipe', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Signalements' },
     salarie: { accueil: 'Mon parcours', profil: 'Mon profil', absences: 'Mes absences', bulletins: 'Mes bulletins', entretiens: 'Mes entretiens', formation: 'Formations', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Échanges RH' },
   };
   // Stage indexes shown in the wheel for the current profile, in journey order.
@@ -193,7 +194,8 @@
   const stageView = (i) => (STAGE_VIEW[ui.profile][i] === 'etape-moi' ? 'etape' : STAGE_VIEW[ui.profile][i]);
   const canView = (v) => v === 'accueil' || (v === 'etape' ? visibleStages().includes(ui.stage) : visibleStages().some((i) => stageView(i) === v));
   function navCount(v) {
-    if (v === 'absences') return pendingForMe().length;
+    if (v === 'absences') return pendingForMe().length + pendingSheets().length;
+    if (v === 'paie') return ui.profile === 'rh' ? Object.values(db.raises.proposals).filter((x) => x.status === 'Proposée').length : ui.profile === 'manager' && db.raises.status === 'Ouverte' ? scopeEmployees().filter((e) => raiseEligible(e) && !db.raises.proposals[e.id]).length : 0;
     if (v === 'besoins') return needsToDo().length;
     const p = ui.profile, m = me(), ids = new Set(scopeEmployees().map((e) => e.id));
     if (v === 'entretiens') return db.reviews.filter((r) => (p === 'salarie' ? r.empId === m.id && ['Planifié', 'À signer'].includes(r.status)
@@ -341,6 +343,16 @@
     needsToDo().forEach((j) => { const what = j.status === 'Validée' ? 'Offre à publier' : j.status === 'En validation' ? (j.pending === 'direction' ? 'Décision de la direction à saisir' : 'Besoin à valider') : j.status === 'À modifier' ? 'Besoin à corriger' : 'Brouillon à envoyer';
       todos.push(`<div class="todo"><div class="t"><b>${what} : ${esc(j.title)}</b><small>${esc(j.dept)} · ${esc(j.contract)} · demandé par ${esc(fullName(emp(j.requestedBy)))}</small></div><button type="button" class="btn ghost sm" data-act="open-need" data-id="${j.id}">Ouvrir</button></div>`); });
     scopeEmployees().filter((e) => e.stage >= 2 && e.stage <= 4).forEach((e) => { const a = arrivalActions(e); if (a.length) todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(STAGES[e.stage].short)} : ${esc(fullName(e))}</b><small>${a.slice(0, 3).join(' · ')}${a.length > 3 ? ' · …' : ''}</small></div><button type="button" class="btn ghost sm" data-act="open-dossier" data-id="${e.id}">Ouvrir</button></div>`); });
+    pendingSheets().forEach((t) => { const e = emp(t.empId), w = weekStats(t); todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>Heures à valider : ${esc(fullName(e))}</b><small>Semaine du ${fmtShort(t.week)} · ${fmtH(w.total)}${w.alerts.length ? ' · alerte de durée maximale' : ''}</small></div><button type="button" class="btn ok sm" data-act="ts-ok" data-id="${t.id}">Valider</button></div>`); });
+    if (ui.profile === 'rh') {
+      pendingChanges().forEach((r) => todos.push(`<div class="todo">${avatar(emp(r.empId), 'sm')}<div class="t"><b>Modification à valider : ${esc(fullName(emp(r.empId)))}</b><small>${esc(r.label)} → ${esc(r.to)}</small></div><button type="button" class="btn ok sm" data-act="chg-ok" data-id="${r.id}">Valider</button></div>`));
+      db.leaves.filter((l) => l.type === 'Maladie' && !l.dsnAt).forEach((l) => todos.push(`<div class="todo">${avatar(emp(l.empId), 'sm')}<div class="t"><b>Attestation de salaire : ${esc(fullName(emp(l.empId)))}</b><small>Arrêt du ${fmtShort(l.start)} · à transmettre via la DSN avant le ${fmtShort(addDays(l.receivedAt || l.start, 5))}</small></div><button type="button" class="btn primary sm" data-act="sick-dsn" data-id="${l.id}">Transmettre</button></div>`));
+      const rp = Object.values(db.raises.proposals).filter((x) => x.status === 'Proposée').length;
+      if (rp && db.raises.status === 'Ouverte') todos.push(`<div class="todo"><div class="t"><b>Révision salariale : ${plural(rp, 'proposition à valider', 'propositions à valider')}</b><small>Campagne ${db.raises.year} · clôture le ${fmtShort(db.raises.deadline)}</small></div><button type="button" class="btn ghost sm" data-act="go-pay-tab" data-t="revision">Ouvrir</button></div>`);
+      const late = adminDeadlines(db.employees).filter((x) => x.date <= addDays(TODAY, 14));
+      if (late.length) todos.push(`<div class="todo"><div class="t"><b>${plural(late.length, 'échéance administrative', 'échéances administratives')} sous 15 jours</b><small>${late.slice(0, 2).map((x) => `${esc(fullName(x.e))} : ${esc(x.label.toLowerCase())}`).join(' · ')}</small></div><button type="button" class="btn ghost sm" data-act="go-admin-tab" data-t="echeances">Voir</button></div>`);
+    }
+    if (ui.profile === 'manager' && db.raises.status === 'Ouverte') { const left = scopeEmployees().filter((e) => raiseEligible(e) && !db.raises.proposals[e.id]).length; if (left) todos.push(`<div class="todo"><div class="t"><b>Révision salariale ${db.raises.year}</b><small>${plural(left, 'collaborateur', 'collaborateurs')} sans proposition · avant le ${fmtShort(db.raises.deadline)}</small></div><button type="button" class="btn ghost sm" data-act="go" data-v="paie">Proposer</button></div>`); }
     pendingEvals().forEach(({ c, iv }) => todos.push(`<div class="todo">${avatarName(c.id, c.name, 'sm')}<div class="t"><b>Évaluation à remplir : ${esc(c.name)}</b><small>${esc(iv.kind)} du ${fmtShort(iv.date.slice(0, 10))} · ${esc(candJob(c).title)}${iv.with !== me().id ? ` · avec ${esc(fullName(emp(iv.with)))}` : ''}</small></div><button type="button" class="btn primary sm" data-act="iv-eval" data-id="${c.id}" data-iv="${iv.id}">Évaluer</button></div>`));
     if (ui.profile === 'rh') {
       scopeCandidates().filter((c) => c.stage === 'Proposition' && (!c.offer || ['Expirée', 'Retirée', 'Déclinée'].includes(offerStatus(c.offer)))).forEach((c) => todos.push(`<div class="todo">${avatarName(c.id, c.name, 'sm')}<div class="t"><b>${offerStatus(c.offer) === 'Expirée' ? 'Proposition expirée' : 'Proposition à préparer'} : ${esc(c.name)}</b><small>${esc(candJob(c).title)}</small></div><button type="button" class="btn ghost sm" data-act="open-cand" data-id="${c.id}">Ouvrir</button></div>`));
@@ -476,7 +488,7 @@
     const mine = db.leaves.filter((l) => l.empId === e.id).sort((a, b) => b.start.localeCompare(a.start));
     const taken = mine.filter((l) => l.status === 'Approuvée' && balanceKey(l.type) && l.start.slice(0, 4) === TODAY.slice(0, 4)).reduce((s, l) => s + l.days, 0);
     const start = nextMonday(TODAY, 2), end = addDays(start, 4);
-    return `<div class="balances"><div class="card bal"><span class="l">Congés payés restants</span><div class="v num">${e.cp} <small>jours</small></div></div><div class="card bal"><span class="l">RTT restants</span><div class="v num">${e.rtt} <small>jours</small></div></div><div class="card bal"><span class="l">Posés en ${TODAY.slice(0, 4)}</span><div class="v num">${taken} <small>jours</small></div></div></div>
+    return `${myTimeHTML(e)}
       <form class="card" data-form="leave" novalidate><div class="card-h"><h3>Nouvelle demande</h3><span class="muted" style="font-size:13px">Validée par ${esc(fullName(approverOf(e)))}</span></div><div class="card-b"><div class="form-grid">
         <div class="field"><label for="lv-type">Type d’absence</label><select id="lv-type" name="type" class="select" data-live="leave">${LEAVE_TYPES.map((t) => `<option>${t}</option>`).join('')}</select></div>
         <div class="field"><label for="lv-comment">Commentaire (facultatif)</label><input id="lv-comment" name="comment" class="input" maxlength="120" placeholder="Ex. vacances en famille"></div>
@@ -493,6 +505,11 @@
     if (!d) return '<span class="err">Cette période ne contient aucun jour ouvré.</span>';
     const k = balanceKey(type);
     if (k && d > e[k]) return `<span class="err">${plural(d, 'jour ouvré', 'jours ouvrés')} : votre solde (${e[k]} j) est insuffisant.</span>`;
+    if (type === 'Maladie') return `<b class="num">${plural(d, 'jour ouvré', 'jours ouvrés')}</b> · arrêt enregistré directement ; transmettez votre avis d’arrêt sous 48 h`;
+    if (type === 'Télétravail') {
+      const wk = mondayOf(start), we = addDays(wk, 6), already = db.leaves.filter((l) => l.empId === e.id && l.type === 'Télétravail' && l.status !== 'Refusée' && l.start <= we && l.end >= wk).reduce((s, l) => s + workDays(l.start < wk ? wk : l.start, l.end > we ? we : l.end), 0);
+      if (already + workDays(start, end < we ? end : we) > TT_MAX) return `<b class="num">${plural(d, 'jour ouvré', 'jours ouvrés')}</b> · <span class="warn-t">au-delà de ${TT_MAX} jours de télétravail par semaine prévus par la charte</span>`;
+    }
     return `<b class="num">${plural(d, 'jour ouvré', 'jours ouvrés')}</b>${k ? ` · solde après validation : ${e[k] - d} j` : ''}`;
   }
   function planning(people) {
@@ -523,12 +540,19 @@
   function viewAbsences() {
     if (ui.profile === 'salarie') return myAbsences(me());
     const pending = pendingForMe();
-    const tabs = ui.profile === 'rh' ? [['valider', 'À valider', pending.length], ['planning', 'Planning'], ['historique', 'Historique']] : [['valider', 'À valider', pending.length], ['planning', 'Planning de l’équipe'], ['moi', 'Mes absences']];
+    const sheets = pendingSheets(), sickTodo = db.leaves.filter((l) => l.type === 'Maladie' && !l.dsnAt).length;
+    const tabs = ui.profile === 'rh' ? [['valider', 'À valider', pending.length], ['temps', 'Temps de travail', sheets.length], ['arrets', 'Arrêts de travail', sickTodo], ['compteurs', 'Compteurs'], ['planning', 'Planning'], ['historique', 'Historique']]
+      : [['valider', 'À valider', pending.length], ['temps', 'Temps de l’équipe', sheets.length], ['planning', 'Planning de l’équipe'], ['compteurs', 'Compteurs de l’équipe'], ['moi', 'Mes absences']];
     if (!tabs.some((t) => t[0] === ui.absTab)) ui.absTab = 'valider';
     let body;
     if (ui.absTab === 'valider') body = `<div class="card"><div class="req-list">${pending.length ? pending.sort((a, b) => a.start.localeCompare(b.start)).map((l) => reqRow(l, true)).join('') : '<div class="empty">Toutes les demandes ont été traitées.</div>'}</div></div>`;
     else if (ui.absTab === 'planning') body = planning(scopeEmployees().filter(isEmployed).concat(ui.profile === 'manager' ? [me()] : []));
     else if (ui.absTab === 'moi') body = myAbsences(me());
+    else if (ui.absTab === 'temps') { const team = new Set(scopeEmployees().map((e) => e.id)), recent = db.timesheets.filter((t) => t.status !== 'Soumise' && (ui.profile === 'rh' || team.has(t.empId))).sort((a, b) => b.week.localeCompare(a.week)).slice(0, 8);
+      body = `${card('Feuilles de temps à valider', `<span class="muted num">${sheets.length}</span>`, `<div class="req-list">${sheets.length ? sheets.map((t) => sheetRow(t, true)).join('') : '<div class="empty">Aucune feuille de temps en attente.</div>'}</div>`)}
+        ${card('Dernières semaines', '', `<div class="req-list">${recent.map((t) => sheetRow(t, false)).join('') || '<div class="empty">Rien pour le moment.</div>'}</div>`)}<p class="hint">Les heures validées sont payées avec la paie du mois : majoration de 25 % de la 36e à la 43e heure, de 50 % au-delà. Contingent annuel : ${HS_QUOTA} heures.</p>`; }
+    else if (ui.absTab === 'arrets') body = sickRows();
+    else if (ui.absTab === 'compteurs') body = countersTable();
     else {
       const all = db.leaves.filter((l) => !ui.histStatus || l.status === ui.histStatus).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       body = `<div class="toolbar"><label class="sr" for="h-status">Statut</label><select id="h-status" class="select" data-change="histStatus"><option value="">Tous les statuts</option>${['En attente', 'Approuvée', 'Refusée'].map((s) => `<option ${ui.histStatus === s ? 'selected' : ''}>${s}</option>`).join('')}</select><span class="muted">${plural(all.length, 'demande', 'demandes')}</span></div>
@@ -567,10 +591,12 @@
       <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>Élément</th><th class="r">Base</th><th class="r">Taux</th><th class="r">Montant</th></tr></thead><tbody>
       <tr><td>Salaire de base</td><td class="r num">${eur(e.salary / 12)}</td><td></td><td class="r num">${eur(p.base)}</td></tr>
       ${p.bonus ? `<tr><td>Prime exceptionnelle</td><td></td><td></td><td class="r num">${eur(p.bonus)}</td></tr>` : ''}
+      ${p.ot.amount ? `<tr><td>Heures supplémentaires (${fmtH(p.ot.h25)} à 25 %${p.ot.h50 ? `, ${fmtH(p.ot.h50)} à 50 %` : ''})</td><td class="r num">${eur(e.salary / 12 / 151.67)}</td><td></td><td class="r num">${eur(p.ot.amount)}</td></tr>` : ''}
       <tr><td><b>Salaire brut</b></td><td></td><td></td><td class="r num"><b>${eur(p.gross)}</b></td></tr>
       ${p.lines.map(([l, r, v]) => `<tr><td>${l}</td><td class="r num">${eur(p.gross)}</td><td class="r num">${(r * 100).toFixed(2).replace('.', ',')} %</td><td class="r num">−${eur(v)}</td></tr>`).join('')}
+      ${p.ppv ? `<tr><td>Prime de partage de la valeur (exonérée de cotisations, CSG-CRDS 9,7 %)</td><td class="r num">${eur(p.ppv)}</td><td class="r num">9,70 %</td><td class="r num">${eur(p.ppvNet)}</td></tr>` : ''}
       <tr><td><b>Net à payer avant impôt</b></td><td></td><td></td><td class="r num"><b>${eur(p.netBefore)}</b></td></tr>
-      <tr><td>Impôt sur le revenu (prélèvement à la source)</td><td class="r num">${eur(p.netBefore)}</td><td class="r num">7,50 %</td><td class="r num">−${eur(p.tax)}</td></tr></tbody></table></div>
+      <tr><td>Impôt sur le revenu (prélèvement à la source)</td><td class="r num">${eur(p.gross - p.contrib)}</td><td class="r num">7,50 %</td><td class="r num">−${eur(p.tax)}</td></tr></tbody></table></div>
       <div class="net"><span>Net payé · ${monthLabel(m)}</span><b class="num">${eur(p.net)}</b></div>
       <p class="hint" style="margin-top:12px">Congés pris ce mois : ${p.leaveDays} j · Solde de congés payés : ${e.cp} j · Bulletin de démonstration, montants indicatifs.</p></div>`;
   }
@@ -593,13 +619,14 @@
     const e = me(), mgr = emp(e.managerId);
     return `<div class="card"><div class="drawer-h" style="padding:22px 24px">${avatar(e, 'lg')}<div><h2>${esc(fullName(e))}</h2><p>${esc(e.title)} · ${esc(e.dept)} · ${statusPill(e)}</p></div></div>
       <div class="card-b" style="border-top:1px solid var(--line)"><div class="info-grid"><div><span>E-mail professionnel</span>${esc(e.email)}</div><div><span>Manager</span>${mgr ? esc(fullName(mgr)) : '—'}</div><div><span>Contrat</span>${esc(e.contract)}</div>
-        <div><span>Date d’entrée</span>${fmtDate(e.startDate)} · ${seniority(e.startDate)}</div><div><span>Étape du parcours</span>${stageChip(e.stage)}</div><div><span>Salaire annuel brut</span><span class="num">${eur0(e.salary)}</span></div></div></div></div>
+        <div><span>Date d’entrée</span>${fmtDate(e.startDate)} · ${seniority(e.startDate)}</div><div><span>Étape du parcours</span>${stageChip(e.stage)}</div><div><span>Salaire annuel brut</span><span class="num">${eur0(e.salary)}</span></div>
+        <div><span>Adresse postale</span>${esc(e.address) || '—'}</div><div><span>Coordonnées bancaires</span><span class="num">${esc(e.iban)}</span></div><div><span>Situation familiale</span>${esc(e.family || '—')}</div></div></div></div>
       <form class="card" data-form="profile" novalidate><div class="card-h"><h3>Mes informations personnelles</h3><span class="muted" style="font-size:13px">Les RH sont prévenus de chaque modification</span></div><div class="card-b"><div class="form-grid">
         <div class="field"><label for="p-phone">Téléphone</label><input id="p-phone" name="phone" class="input" value="${esc(e.phone)}" autocomplete="tel"></div>
         <div class="field"><label for="p-loc">Lieu de travail</label><select id="p-loc" name="location" class="select">${['Paris', 'Lyon', 'Télétravail majoritaire'].map((l) => `<option ${l === e.location ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
-        <div class="field full"><label for="p-address">Adresse postale</label><input id="p-address" name="address" class="input" value="${esc(e.address)}" autocomplete="street-address"></div>
         <div class="field full"><label for="p-emerg">Contact d’urgence</label><input id="p-emerg" name="emergency" class="input" value="${esc(e.emergency)}" placeholder="Nom · téléphone"></div></div>
         <div class="toolbar" style="margin-top:16px"><span class="err" id="p-err"></span><button class="btn primary" style="margin-left:auto">Enregistrer</button></div></div></form>
+      ${myChangesHTML(e)}
       <h3 style="font-size:16px;margin-top:4px">Mes documents</h3>${docsList(e, true)}`;
   }
 
@@ -1659,6 +1686,8 @@
   const candJob = (c) => db.jobs.find((j) => j.id === c.jobId);
   Object.assign(MOD_ACT, {
     'open-pool'() { ui.recJob = 'vivier'; render(); },
+    'go-pay-tab'(d) { Object.assign(ui, { view: 'paie', stage: null, payTab: d.t }); window.scrollTo(0, 0); render(); },
+    'go-admin-tab'(d) { Object.assign(ui, { view: 'collaborateurs', stage: null, adminTab: d.t }); window.scrollTo(0, 0); render(); },
     'iv-eval'(d) { ui.modal = { type: 'iv-eval', id: d.id, iv: d.iv }; render(); },
     'cand-msg'(d) { ui.modal = { type: 'cand-msg', id: d.id }; render(); },
     'offer-new'(d) { ui.modal = { type: 'offer', id: d.id }; render(); },
@@ -1953,6 +1982,292 @@
     return formShell(`Mettre fin à la période d’essai · ${esc(fullName(e))}`, 'trial-break', `<p style="margin:0 0 12px">${t.notice ? `Délai de prévenance : ${NOTICE_LABEL[t.notice]}. La rupture prend effet au plus tôt le ${fmtDate(min)}.` : 'Aucun délai de prévenance.'} Aucune indemnité de rupture n’est due ; la rupture doit être notifiée par écrit.</p>
       <div class="form-grid">${f('tb-day', 'Dernier jour travaillé', `<input id="tb-day" name="lastDay" type="date" class="input" value="${min > t.end ? t.end : min}">`)}${f('tb-c', 'Commentaire interne (facultatif)', '<input id="tb-c" name="comment" class="input" maxlength="140">')}</div>`, 'Confirmer la rupture'); };
 
+  // ================================================================ Vie administrative (étape 6)
+  const CHANGE_FIELDS = { address: ['Adresse postale', 'Justificatif de domicile de moins de 3 mois'], iban: ['Coordonnées bancaires (RIB)', 'RIB au nom du salarié'], family: ['Situation familiale', 'Acte ou attestation (mariage, PACS, naissance…)'], lastName: ['Nom d’usage', 'Pièce justificative'] };
+  const FAMILY = ['Célibataire', 'Marié·e', 'Pacsé·e', 'Divorcé·e', 'Veuf·ve'];
+  const pendingChanges = () => (db.changeReqs || []).filter((r) => r.status === 'En attente' && (ui.profile === 'rh' || r.empId === me().id));
+  // Échéancier : tout ce qui arrive à expiration dans les 120 prochains jours (ou déjà dépassé).
+  function adminDeadlines(people) {
+    const out = [], horizon = addDays(TODAY, 120), push = (e, date, label, sub) => { if (date <= horizon) out.push({ e, date, label, sub }); };
+    people.filter((e) => e.stage >= 2 && e.stage < 15).forEach((e) => {
+      if (e.titreEnd) push(e, addDays(e.titreEnd, -90), `Titre de séjour : expire le ${fmtDate(e.titreEnd)}`, 'Demander le justificatif de renouvellement et vérifier l’autorisation de travail');
+      if (e.contract === 'CDD' && e.endDate) push(e, addDays(e.endDate, -30), `Fin de CDD le ${fmtDate(e.endDate)}`, 'Renouvellement, embauche en CDI ou fin du contrat (indemnité de fin de contrat de 10 %)');
+      if (e.contract === 'Alternance' && e.endDate) push(e, addDays(e.endDate, -60), `Fin du contrat d’alternance le ${fmtDate(e.endDate)}`, 'Préparer la suite : embauche ou fin de contrat');
+      if (e.stage === 4) { const t = trialInfo(e), d = dossier(e); if (t && !d.trialDecision) push(e, t.decideBy, `Période d’essai : fin le ${fmtDate(t.end)}`, 'Décision à notifier en respectant le délai de prévenance'); }
+      if (e.stage === 3) { const d = dossier(e); if (!d.info7) push(e, addDays(e.startDate, 7), 'Informations essentielles à remettre', 'Décret du 30 octobre 2023'); }
+    });
+    visitsDue(people).forEach((v) => push(v.e, v.deadline, v.kind, v.why));
+    return out.sort((a, b) => a.date.localeCompare(b.date));
+  }
+  function orgNode(e, depth) {
+    const kids = db.employees.filter((x) => x.managerId === e.id && x.stage >= 2 && x.stage < 15).sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr'));
+    return `<li><button type="button" class="org-card" data-act="open-emp" data-id="${e.id}">${avatar(e, 'sm')}<span><b>${esc(fullName(e))}</b><small>${esc(e.title)} · ${esc(e.dept)}</small></span>${e.stage < 3 ? '<span class="pill info">Arrivée</span>' : ''}</button>
+      ${kids.length ? `<ul>${kids.map((k) => orgNode(k, depth + 1)).join('')}</ul>` : ''}</li>`;
+  }
+  function viewAdmin() {
+    const rh = ui.profile === 'rh', people = scopeEmployees(), dl = adminDeadlines(people), reqs = pendingChanges();
+    const tabs = [['annuaire', rh ? 'Annuaire' : 'Mon équipe'], ['echeances', 'Échéances', dl.filter((x) => x.date <= addDays(TODAY, 30)).length]].concat(rh ? [['demandes', 'Demandes de modification', reqs.length]] : []).concat([['organigramme', 'Organigramme']]);
+    if (!tabs.some((t) => t[0] === ui.adminTab)) ui.adminTab = 'annuaire';
+    let body = '';
+    if (ui.adminTab === 'annuaire') body = viewEmployees();
+    else if (ui.adminTab === 'echeances') body = card('Échéancier administratif', '<span class="muted" style="font-size:13px">120 prochains jours</span>', `<div class="card-b">${dl.length ? dl.map((x) => { const late = x.date < TODAY, soon = !late && x.date <= addDays(TODAY, 30);
+      return `<div class="todo">${avatar(x.e, 'sm')}<div class="t"><b>${esc(fullName(x.e))} · ${esc(x.label)}</b><small>${esc(x.sub)}</small></div><span class="pill ${late ? 'bad' : soon ? 'warn' : 'neutral'}">${late ? 'Dépassé' : 'À traiter'} · ${fmtShort(x.date)}</span><button type="button" class="btn ghost sm" data-act="open-emp" data-id="${x.e.id}">Ouvrir</button></div>`; }).join('') : '<p class="muted" style="margin:0">Aucune échéance dans les 120 prochains jours.</p>'}</div>`);
+    else if (ui.adminTab === 'demandes') {
+      const all = (db.changeReqs || []).slice().sort((a, b) => (a.status === 'En attente' ? 0 : 1) - (b.status === 'En attente' ? 0 : 1) || b.createdAt.localeCompare(a.createdAt));
+      body = card('Demandes de modification des salariés', '', `<div class="card-b">${all.length ? all.map((r) => { const e = emp(r.empId);
+        return `<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(fullName(e))} · ${esc(r.label)}</b><small>${esc(r.from || '—')} → <b>${esc(r.to)}</b> · justificatif : ${esc(r.proof || 'aucun')} · demandé le ${fmtShort(r.createdAt)}</small>${r.reason ? `<small>Motif du refus : ${esc(r.reason)}</small>` : ''}</div>
+          ${r.status === 'En attente' ? `<button type="button" class="btn ok sm" data-act="chg-ok" data-id="${r.id}">${ic('check')}Valider</button><button type="button" class="btn bad sm" data-act="chg-ko" data-id="${r.id}">Refuser</button>` : `<span class="pill ${r.status === 'Validée' ? 'ok' : 'bad'}">${r.status}</span>`}</div>`; }).join('') : '<p class="muted" style="margin:0">Aucune demande.</p>'}
+        <p class="hint" style="margin:12px 0 0">Les modifications validées mettent à jour la fiche et sont transmises à la paie. Dossier conservé 5 ans après le départ du salarié.</p></div>`);
+    } else {
+      const root = rh ? db.employees.filter((e) => !e.managerId && e.stage < 15) : [me()];
+      body = `<div class="card card-b"><ul class="org">${root.map((r) => orgNode(r, 0)).join('')}</ul></div>`;
+    }
+    return `<div class="tabs" role="tablist">${tabs.map(([k, l, n]) => `<button type="button" role="tab" aria-selected="${ui.adminTab === k}" data-act="tab" data-k="adminTab" data-t="${k}">${l}${n ? `<span class="count num">${n}</span>` : ''}</button>`).join('')}</div>${body}`;
+  }
+  function myChangesHTML(e) {
+    const mine = (db.changeReqs || []).filter((r) => r.empId === e.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return `<form class="card" data-form="chg-req" novalidate><div class="card-h"><h3>Demander une modification</h3><span class="muted" style="font-size:13px">Validée par les RH avec un justificatif</span></div><div class="card-b"><div class="form-grid">
+        <div class="field"><label for="cr-field">Information</label><select id="cr-field" name="field" class="select">${Object.entries(CHANGE_FIELDS).map(([k, [l]]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
+        <div class="field"><label for="cr-to">Nouvelle valeur</label><input id="cr-to" name="to" class="input" placeholder="Ex. nouvelle adresse, nouvel IBAN, Marié·e…"></div>
+        <div class="field full"><label for="cr-proof">Justificatif</label><input id="cr-proof" name="proof" type="file" class="input" accept=".pdf,.jpg,.png"></div></div>
+        <div class="toolbar" style="margin-top:14px"><span class="err" id="cr-err"></span><button class="btn primary" style="margin-left:auto">Envoyer aux RH</button></div>
+        ${mine.length ? `<div style="margin-top:14px">${mine.map((r) => `<div class="todo"><div class="t"><b>${esc(r.label)} → ${esc(r.to)}</b><small>Demandé le ${fmtShort(r.createdAt)}${r.reason ? ` · ${esc(r.reason)}` : ''}</small></div><span class="pill ${r.status === 'Validée' ? 'ok' : r.status === 'Refusée' ? 'bad' : 'warn'}">${r.status}</span></div>`).join('')}</div>` : ''}</div></form>`;
+  }
+
+  // ================================================================ Temps de travail et absences (étape 7)
+  const DAYS_FR = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  const fmtH = (h) => `${String(Math.round(h * 100) / 100).replace('.', ',')} h`;
+  const mondayOf = (s) => { let d = s; while (parse(d).getDay() !== 1) d = addDays(d, -1); return d; };
+  const isForfait = (e) => e.category === 'Cadre';
+  const TT_MAX = 2, FORFAIT_DAYS = 218, HS_QUOTA = 220;
+  function weekStats(ts) {
+    const total = ts.hours.reduce((s, h) => s + (Number(h) || 0), 0), hs = Math.max(0, total - 35), h25 = Math.min(hs, 8), h50 = Math.max(0, hs - 8), alerts = [];
+    ts.hours.forEach((h, k) => { if (h > 10) alerts.push(`${DAYS_FR[k]} : ${fmtH(h)}, au-delà de 10 h par jour`); });
+    if (total > 48) alerts.push(`${fmtH(total)} sur la semaine, au-delà de 48 h`);
+    return { total, hs, h25, h50, alerts };
+  }
+  const tsOf = (e) => (db.timesheets || []).filter((t) => t.empId === e.id);
+  function yearHS(e, y = TODAY.slice(0, 4)) { return tsOf(e).filter((t) => t.status === 'Validée' && t.week.slice(0, 4) === y).reduce((s, t) => s + weekStats(t).hs, 0); }
+  function avg12(e) { const from = addDays(mondayOf(TODAY), -84), list = tsOf(e).filter((t) => t.week >= from && t.status !== 'Brouillon'); return list.length ? list.reduce((s, t) => s + weekStats(t).total, 0) / 12 : 0; }
+  function overtimePay(e, m) {
+    const hourly = e.salary / 12 / 151.67;
+    return tsOf(e).filter((t) => t.status === 'Validée' && t.week.slice(0, 7) === m).reduce((o, t) => { const w = weekStats(t); o.h25 += w.h25; o.h50 += w.h50; o.amount += (w.h25 * 1.25 + w.h50 * 1.5) * hourly; return o; }, { h25: 0, h50: 0, amount: 0 });
+  }
+  function forfaitDays(e) {
+    const from = e.startDate > TODAY.slice(0, 4) + '-01-01' ? e.startDate : TODAY.slice(0, 4) + '-01-01';
+    const off = db.leaves.filter((l) => l.empId === e.id && l.status === 'Approuvée' && l.type !== 'Télétravail' && l.end >= from && l.start <= TODAY).reduce((s, l) => s + workDays(l.start < from ? from : l.start, l.end > TODAY ? TODAY : l.end), 0);
+    const worked = Math.max(0, workDays(from, TODAY) - off), yearEnd = TODAY.slice(0, 4) + '-12-31';
+    const remainingWork = workDays(addDays(TODAY, 1), yearEnd), plannedOff = db.leaves.filter((l) => l.empId === e.id && l.status !== 'Refusée' && l.type !== 'Télétravail' && l.start > TODAY && l.start <= yearEnd).reduce((s, l) => s + l.days, 0);
+    return { worked, projected: worked + Math.max(0, remainingWork - plannedOff - e.cp - e.rtt) };
+  }
+  // Congés : solde N-1 (e.cp) à poser avant le 31 mai, et acquisition en cours depuis le 1er juin (2,08 jours ouvrés par mois).
+  function cpAcquiring(e) {
+    const y = TODAY.slice(5) >= '06-01' ? Number(TODAY.slice(0, 4)) : Number(TODAY.slice(0, 4)) - 1, from = `${y}-06-01` > e.startDate ? `${y}-06-01` : e.startDate;
+    const months = Math.max(0, (parse(TODAY).getFullYear() - parse(from).getFullYear()) * 12 + parse(TODAY).getMonth() - parse(from).getMonth());
+    return { acquiring: Math.round(months * 2.08 * 2) / 2, deadline: `${y + 1}-05-31`, period: `${y}-${y + 1}` };
+  }
+  function mainLeaveMissing(e) {
+    const y = TODAY.slice(0, 4); if (e.startDate > `${y}-05-01` || !isEmployed(e)) return false;
+    return !db.leaves.some((l) => l.empId === e.id && l.type === 'Congés payés' && l.status !== 'Refusée' && l.start >= `${y}-05-01` && l.start <= `${y}-10-31` && l.days >= 10);
+  }
+  const pendingSheets = () => (db.timesheets || []).filter((t) => t.status === 'Soumise' && (ui.profile === 'rh' ? true : approverOf(emp(t.empId)).id === me().id)).filter((t) => ui.profile === 'rh' || ui.profile === 'manager');
+  function sheetRow(t, actions) {
+    const e = emp(t.empId), w = weekStats(t);
+    return `<div class="req"><div class="who-cell">${avatar(e)}<div><b>${esc(fullName(e))}</b><small>Semaine du ${fmtShort(t.week)} · ${t.hours.map((h, k) => `${DAYS_FR[k].slice(0, 3)} ${String(h).replace('.', ',')}`).join(' · ')}</small></div></div>
+      <div class="what"><b class="num">${fmtH(w.total)}${w.hs ? ` · ${fmtH(w.hs)} sup.` : ''}</b><small>${w.hs ? `${fmtH(w.h25)} à 25 %${w.h50 ? ` · ${fmtH(w.h50)} à 50 %` : ''}` : 'Pas d’heures supplémentaires'}</small>${w.alerts.map((a) => `<small class="warn-t">${esc(a)}</small>`).join('')}</div>
+      ${actions ? `<div class="acts"><button type="button" class="btn ok sm" data-act="ts-ok" data-id="${t.id}">${ic('check')}Valider</button><button type="button" class="btn bad sm" data-act="ts-ko" data-id="${t.id}">Refuser</button></div>` : `<span class="pill ${{ Validée: 'ok', Soumise: 'warn', Refusée: 'bad', Brouillon: 'neutral' }[t.status]}">${t.status}</span>`}</div>`;
+  }
+  function myTimeHTML(e) {
+    const a = cpAcquiring(e), bal = (l, v, s) => `<div class="card bal"><span class="l">${l}</span><div class="v num">${v}</div>${s ? `<small class="hint">${s}</small>` : ''}</div>`;
+    let html = `<div class="balances four">${bal('Congés à poser', `${e.cp} <small>j</small>`, `avant le ${fmtDate(a.deadline)}`)}${bal('En cours d’acquisition', `${String(a.acquiring).replace('.', ',')} <small>j</small>`, `période ${a.period} · 2,08 j par mois`)}${bal('RTT', `${e.rtt} <small>j</small>`, 'année ' + TODAY.slice(0, 4))}
+      ${isForfait(e) ? (() => { const f = forfaitDays(e); return bal('Forfait jours', `${f.worked} <small>/ ${FORFAIT_DAYS}</small>`, `projection fin d’année : ${f.projected} j`); })() : bal('Heures sup. ' + TODAY.slice(0, 4), `${String(yearHS(e)).replace('.', ',')} <small>h</small>`, `contingent annuel : ${HS_QUOTA} h`)}</div>`;
+    if (mainLeaveMissing(e)) html += '<p class="lint bad" style="margin:0">Vous n’avez pas encore pris votre congé principal : au moins 12 jours ouvrables continus entre le 1er mai et le 31 octobre.</p>';
+    if (!isForfait(e)) {
+      const wk = ui.tsWeek || mondayOf(TODAY), t = tsOf(e).find((x) => x.week === wk) || { hours: [0, 0, 0, 0, 0, 0], status: 'Brouillon' }, w = weekStats(t), locked = ['Soumise', 'Validée'].includes(t.status);
+      const weeks = [0, 1, 2, 3].map((k) => addDays(mondayOf(TODAY), -7 * k));
+      html += `<form class="card" data-form="ts" novalidate><div class="card-h"><h3>Mes heures</h3><div class="toolbar"><label class="sr" for="ts-week">Semaine</label><select id="ts-week" class="select" data-change="ts-week">${weeks.map((x) => `<option value="${x}" ${x === wk ? 'selected' : ''}>Semaine du ${fmtShort(x)}</option>`).join('')}</select><span class="pill ${{ Validée: 'ok', Soumise: 'warn', Refusée: 'bad', Brouillon: 'neutral' }[t.status]}">${t.status}</span></div></div>
+        <div class="card-b"><div class="ts-grid">${DAYS_FR.map((d, k) => `<div class="field"><label for="ts-${k}">${d.slice(0, 3)}. ${parse(addDays(wk, k)).getDate()}</label><input id="ts-${k}" name="h${k}" type="number" min="0" max="24" step="0.25" class="input num" value="${t.hours[k] || ''}" placeholder="0" ${locked ? 'disabled' : ''} data-live="ts"></div>`).join('')}</div>
+        <div id="ts-sum" style="margin-top:12px">${tsSummary(w)}</div>
+        ${locked ? '' : `<div class="toolbar" style="margin-top:12px"><span class="hint">Durée légale 35 h · max. 10 h par jour et 48 h par semaine · repos de 11 h entre deux journées.</span><button class="btn primary" style="margin-left:auto">Soumettre à ${esc(fullName(approverOf(e)))}</button></div>`}</div></form>`;
+    }
+    return html;
+  }
+  const tsSummary = (w) => `<b class="num">${fmtH(w.total)}</b>${w.hs ? ` · <span class="num">${fmtH(w.hs)}</span> supplémentaires (${fmtH(w.h25)} à 25 %${w.h50 ? `, ${fmtH(w.h50)} à 50 %` : ''})` : ''}${w.alerts.map((a) => `<p class="lint bad" style="margin:8px 0 0">${esc(a)}</p>`).join('')}`;
+  function sickRows() {
+    const list = db.leaves.filter((l) => l.type === 'Maladie').sort((a, b) => b.start.localeCompare(a.start));
+    return card('Arrêts de travail', '', `<div class="card-b">${list.length ? list.map((l) => { const e = emp(l.empId), late = l.receivedAt && dayDiff(l.start, l.receivedAt) > 2, dsnDue = addDays(l.receivedAt || l.start, 5), seniorYear = dayDiff(e.startDate, l.start) >= 365;
+      const ij = l.days > 3 ? `IJSS à partir du ${fmtShort(addDays(l.start, 3))} (3 jours de carence)` : 'Arrêt de 3 jours ou moins : pas d’IJSS (carence)';
+      const mt = seniorYear ? (l.days > 7 ? `maintien de salaire employeur à partir du ${fmtShort(addDays(l.start, 7))}` : 'pas de maintien légal avant le 8e jour') : 'moins d’un an d’ancienneté : pas de maintien légal';
+      return `<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(fullName(e))} · ${fmtShort(l.start)} → ${fmtShort(l.end)} (${plural(l.days, 'jour', 'jours')})</b><small>Avis d’arrêt reçu le ${fmtShort(l.receivedAt || l.start)}${late ? ' · <span class="warn-t">au-delà de 48 h</span>' : ''} · ${ij} · ${mt}</small>
+        <small>Acquisition de congés pendant l’arrêt : 2 jours ouvrables par mois (loi du 22 avril 2024)</small></div>
+        ${l.dsnAt ? `<span class="pill ok">Attestation DSN · ${fmtShort(l.dsnAt)}</span>` : `<button type="button" class="btn ${TODAY > dsnDue ? 'bad' : 'primary'} sm" data-act="sick-dsn" data-id="${l.id}">Attestation de salaire (avant le ${fmtShort(dsnDue)})</button>`}
+        <label class="sub-tog"><input type="checkbox" data-change="sick-sub" data-id="${l.id}" ${l.subrogation ? 'checked' : ''}> Subrogation</label></div>`; }).join('') : '<p class="muted" style="margin:0">Aucun arrêt enregistré.</p>'}
+      <p class="hint" style="margin:12px 0 0">Le salarié transmet son avis d’arrêt sous 48 h. L’employeur envoie l’attestation de salaire via la DSN pour le calcul des indemnités journalières. Avec la subrogation, l’employeur maintient le salaire et perçoit les IJSS.</p></div>`);
+  }
+  function countersTable() {
+    const people = scopeEmployees().filter(isEmployed).sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr'));
+    return `<div class="card"><div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th class="r">CP à poser</th><th class="r">CP en cours</th><th class="r">RTT</th><th>Temps de travail</th><th>Alertes</th></tr></thead><tbody>
+      ${people.map((e) => { const a = cpAcquiring(e), al = [];
+        if (mainLeaveMissing(e)) al.push('Congé principal non pris'); if (e.cp > 20) al.push('Solde de congés élevé');
+        let tw;
+        if (isForfait(e)) { const f = forfaitDays(e); tw = `Forfait jours : ${f.worked} j · projection ${f.projected} / ${FORFAIT_DAYS}`; if (f.projected > FORFAIT_DAYS) al.push('Dépassement du forfait prévu'); }
+        else { const hs = yearHS(e), av = avg12(e); tw = `${String(hs).replace('.', ',')} h sup. / ${HS_QUOTA} h${av ? ` · moyenne 12 sem. ${fmtH(av)}` : ''}`; if (hs > HS_QUOTA * 0.8) al.push('Contingent bientôt atteint'); if (av > 44) al.push('Moyenne au-delà de 44 h'); }
+        return `<tr class="click" data-act="open-emp" data-id="${e.id}"><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.category || '')}</small></div></div></td><td class="r num">${e.cp} j</td><td class="r num">${String(a.acquiring).replace('.', ',')} j</td><td class="r num">${e.rtt} j</td><td>${tw}</td><td>${al.map((x) => `<span class="pill warn">${x}</span>`).join(' ') || '—'}</td></tr>`; }).join('')}</tbody></table></div></div>
+      <p class="hint">Congés acquis : 2,08 jours ouvrés par mois du 1er juin au 31 mai. Les cadres sont au forfait de ${FORFAIT_DAYS} jours, avec un suivi de leur charge de travail ; les autres salariés déclarent leurs heures chaque semaine.</p>`;
+  }
+
+  // ================================================================ Rémunération (étape 8)
+  const median = (arr) => { const a = arr.slice().sort((x, y) => x - y), n = a.length; return n ? (n % 2 ? a[(n - 1) / 2] : (a[n / 2 - 1] + a[n / 2]) / 2) : 0; };
+  const RAISE_REASONS = ['Performance', 'Évolution du poste', 'Marché', 'Rattrapage égalité', 'Ancienneté'];
+  const raiseEligible = (e) => isEmployed(e) && e.stage < 13 && !e.exit;
+  function payGap(list) {
+    const cats = {}; list.filter(isEmployed).forEach((e) => { const c = cats[e.category] = cats[e.category] || { F: [], H: [] }; if (e.sex === 'F' || e.sex === 'H') c[e.sex].push(e.salary); });
+    return Object.entries(cats).map(([cat, c]) => { const avg = (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : 0), f = avg(c.F), h = avg(c.H);
+      return { cat, nF: c.F.length, nH: c.H.length, f, h, gap: f && h ? (h - f) / h : null }; });
+  }
+  function gapTable(rows) {
+    return `<div class="table-wrap"><table><thead><tr><th>Catégorie</th><th class="r">Femmes</th><th class="r">Salaire moyen F</th><th class="r">Hommes</th><th class="r">Salaire moyen H</th><th class="r">Écart</th></tr></thead><tbody>
+      ${rows.map((r) => `<tr><td><b>${esc(r.cat)}</b></td><td class="r num">${r.nF}</td><td class="r num">${r.f ? eur0(r.f) : '—'}</td><td class="r num">${r.nH}</td><td class="r num">${r.h ? eur0(r.h) : '—'}</td>
+        <td class="r">${r.gap === null ? '—' : `<span class="pill ${Math.abs(r.gap) > 0.05 ? 'bad' : 'ok'} num">${r.gap > 0 ? 'Femmes' : 'Hommes'} −${(Math.abs(r.h - r.f) / Math.max(r.h, r.f) * 100).toFixed(1).replace('.', ',')} %</span>`}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  function raiseCampaign() {
+    const R = db.raises, rh = ui.profile === 'rh', people = (rh ? db.employees : scopeEmployees()).filter(raiseEligible).sort((a, b) => a.dept.localeCompare(b.dept) || a.lastName.localeCompare(b.lastName, 'fr'));
+    const all = db.employees.filter(raiseEligible), masse = all.reduce((s, e) => s + e.salary, 0), env = masse * R.budgetPct / 100;
+    const used = Object.entries(R.proposals).filter(([, p]) => p.status !== 'Refusée').reduce((s, [id, p]) => s + (emp(id) ? emp(id).salary * p.pct / 100 : 0), 0);
+    const medByCat = {}; all.forEach((e) => { (medByCat[e.category] = medByCat[e.category] || []).push(e.salary); });
+    const open = R.status === 'Ouverte', canEdit = (e) => open && (rh || e.managerId === me().id) && (!R.proposals[e.id] || R.proposals[e.id].status !== 'Validée');
+    const after = db.employees.map((e) => { const p = R.proposals[e.id]; return p && p.status !== 'Refusée' ? Object.assign({}, e, { salary: e.salary * (1 + p.pct / 100) }) : e; });
+    return `<div class="card"><div class="card-h" style="flex-wrap:wrap"><div><h3>Révision salariale ${R.year}</h3><p class="hint" style="margin:2px 0 0">Effet au ${fmtDate(R.effective)} · propositions des managers avant le ${fmtDate(R.deadline)}</p></div><span class="pill ${open ? 'warn' : 'ok'}">${open ? 'Campagne ouverte' : 'Clôturée'}</span>
+        ${rh && open ? `<button type="button" class="btn primary" data-act="raise-close">${ic('check')}Clôturer et notifier</button>` : ''}</div>
+      <div class="card-b"><div class="rkpis"><div><span>Enveloppe</span><b class="num">${eur0(env)}</b><small>${String(R.budgetPct).replace('.', ',')} % de la masse salariale (${eur0(masse)})</small></div><div><span>Engagé</span><b class="num">${eur0(used)}</b><small>${env ? Math.round((used / env) * 100) : 0} % de l’enveloppe</small></div>
+        <div><span>Reste</span><b class="num" style="${used > env ? 'color:var(--bad)' : ''}">${eur0(env - used)}</b><small>${used > env ? 'Enveloppe dépassée' : 'disponible'}</small></div><div><span>Propositions</span><b class="num">${Object.keys(R.proposals).length}</b><small>${Object.values(R.proposals).filter((p) => p.status === 'Validée').length} validées</small></div></div>
+        <div class="gauge big"><i style="width:${Math.min(100, env ? (used / env) * 100 : 0)}%;${used > env ? 'background:var(--bad)' : ''}"></i></div></div>
+      <div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th class="r">Salaire actuel</th><th class="r">Positionnement</th><th>Dernière évolution</th><th class="r">Augmentation</th><th>Motif</th><th class="r">Nouveau salaire</th><th>Statut</th></tr></thead><tbody>
+      ${people.map((e) => { const p = R.proposals[e.id], med = median(medByCat[e.category] || []), last = db.history.filter((h) => h.empId === e.id && /Augmentation|Promotion|Mobilité/.test(h.label)).sort((a, b) => b.date.localeCompare(a.date))[0];
+        const ed = canEdit(e);
+        return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)} · ${esc(e.category)}</small></div></div></td><td class="r num">${eur0(e.salary)}</td>
+          <td class="r"><span class="num ${e.salary < med * 0.9 ? 'warn-t' : ''}" title="Par rapport au salaire médian de la catégorie (${eur0(med)})">${Math.round((e.salary / med) * 100)} %</span></td><td>${last ? `${esc(last.label)} · ${fmtShort(last.date)}` : `Embauche · ${fmtShort(e.startDate)}`}</td>
+          <td class="r">${ed ? `<span class="pct-in"><label class="sr" for="rp-${e.id}">Augmentation de ${esc(fullName(e))} (%)</label><input id="rp-${e.id}" class="input cell-input num" type="number" min="0" max="20" step="0.5" value="${p ? p.pct : ''}" placeholder="0" data-change="raise-pct" data-id="${e.id}">%</span>` : p ? `<span class="num">${String(p.pct).replace('.', ',')} %</span>` : '—'}</td>
+          <td>${ed && p ? `<select class="select" data-change="raise-reason" data-id="${e.id}" aria-label="Motif">${RAISE_REASONS.map((r) => `<option ${p && p.reason === r ? 'selected' : ''}>${r}</option>`).join('')}</select>` : p ? esc(p.reason) : '—'}</td>
+          <td class="r num">${p ? eur0(Math.round(e.salary * (1 + p.pct / 100) / 100) * 100) : '—'}</td>
+          <td>${p ? (rh && open && p.status === 'Proposée' ? `<div class="toolbar" style="flex-wrap:nowrap"><button type="button" class="btn ok sm" data-act="raise-ok" data-id="${e.id}">Valider</button><button type="button" class="btn bad sm" data-act="raise-ko" data-id="${e.id}">Refuser</button></div>` : `<span class="pill ${{ Proposée: 'warn', Validée: 'ok', Refusée: 'bad', Appliquée: 'ok' }[p.status]}">${p.status}</span>`) : '<span class="muted">—</span>'}</td></tr>`; }).join('')}</tbody></table></div></div>
+      ${card('Effet sur l’égalité femmes-hommes', '<span class="muted" style="font-size:13px">après les propositions en cours</span>', `<div class="card-b">${gapTable(payGap(after))}</div>`)}`;
+  }
+  function equityView() {
+    const rows = payGap(db.employees), n = db.employees.filter(isEmployed).length;
+    const reqs = (db.payInfoReqs || []).slice().reverse();
+    return `${card('Écarts de rémunération femmes-hommes', '', `<div class="card-b">${gapTable(rows)}
+        <p class="hint" style="margin:12px 0 0">Un écart de plus de 5 % entre femmes et hommes d’une même catégorie, non justifié par des critères objectifs, devra être corrigé selon la directive européenne 2023/970 sur la transparence salariale. Sa transposition en France est en cours.</p></div>`)}
+      <div class="two">${card('Obligations selon l’effectif', '', `<div class="card-b"><div class="todo"><div class="t"><b>Index de l’égalité professionnelle</b><small>Obligatoire à partir de 50 salariés : Nova Studio (${n} salariés) n’est pas concernée.</small></div><span class="pill neutral">Non applicable</span></div>
+          <div class="todo"><div class="t"><b>Fourchette de salaire dans les offres</b><small>Déjà affichée à l’étape « Besoin RH » ; l’historique de salaire des candidats n’est pas demandé.</small></div><span class="pill ok">En place</span></div>
+          <div class="todo"><div class="t"><b>Droit à l’information des salariés</b><small>Chaque salarié peut demander la rémunération moyenne, par sexe, des salariés de sa catégorie.</small></div><span class="pill ok">En place</span></div></div>`)}
+        ${card('Demandes d’information', `<span class="muted num">${reqs.length}</span>`, `<div class="card-b">${reqs.length ? reqs.map((r) => `<div class="todo">${avatar(emp(r.empId), 'sm')}<div class="t"><b>${esc(fullName(emp(r.empId)))} · catégorie ${esc(r.cat)}</b><small>Demandée et transmise le ${fmtShort(r.date)}</small></div><span class="pill ok">Répondue</span></div>`).join('') : '<p class="muted" style="margin:0">Aucune demande pour le moment.</p>'}</div>`)}</div>`;
+  }
+  const BENEFITS = [['Mutuelle santé', 'Part employeur 60 % (minimum légal 50 %)', 576, true], ['Prévoyance', 'Obligatoire pour les cadres (1,50 % de la tranche A)', 0, true], ['Remboursement des transports en commun', '50 % de l’abonnement, obligatoire', 488, true],
+    ['Titres-restaurant', '9 € par jour travaillé, dont 5,40 € à la charge de l’employeur', 1150, false], ['Forfait mobilités durables', 'Vélo, covoiturage : jusqu’à 300 € par an', 300, false]];
+  function shareView() {
+    const V = db.valueShare, ok = V.years.every(([, ca, b]) => b / ca >= 0.01), people = db.employees.filter((e) => isEmployed(e) && !e.exit);
+    const months = payMonths().filter((m) => !(db.payroll[m] && db.payroll[m].closed)), dist = ppvSplit(V.total, V.rule, people);
+    return `<div class="two">${card('Partage de la valeur', `<span class="pill ${ok ? 'warn' : 'neutral'}">${ok ? 'Obligatoire' : 'Facultatif'}</span>`, `<div class="card-b"><p class="hint" style="margin:0 0 10px">Entreprises de 11 à 49 salariés : un dispositif est obligatoire depuis 2025 si le bénéfice net atteint au moins 1 % du chiffre d’affaires 3 années de suite (loi du 29 novembre 2023).</p>
+        <div class="table-wrap"><table><thead><tr><th>Exercice</th><th class="r">Chiffre d’affaires</th><th class="r">Bénéfice net</th><th class="r">Ratio</th></tr></thead><tbody>${V.years.map(([y, ca, b]) => `<tr><td>${y}</td><td class="r num">${eur0(ca)}</td><td class="r num">${eur0(b)}</td><td class="r"><span class="pill ${b / ca >= 0.01 ? 'ok' : 'neutral'} num">${(b / ca * 100).toFixed(1).replace('.', ',')} %</span></td></tr>`).join('')}</tbody></table></div></div>`)}
+      ${card('Avantages sociaux', '', `<div class="card-b">${BENEFITS.map(([l, d, , legal]) => `<div class="todo"><div class="t"><b>${l}</b><small>${d}</small></div><span class="pill ${legal ? 'accent' : 'neutral'}">${legal ? 'Obligatoire' : 'Choix de l’entreprise'}</span></div>`).join('')}</div>`)}</div>
+      ${card('Prime de partage de la valeur', V.paidMonth ? `<span class="pill ok">Versée avec la paie de ${monthLabel(V.paidMonth).toLowerCase()}</span>` : '', `<div class="card-b"><div class="form-grid three">
+        <div class="field"><label for="pv-total">Montant total (€)</label><input id="pv-total" class="input num" type="number" min="0" step="500" value="${V.total}" data-change="ppv-total" ${V.paidMonth ? 'disabled' : ''}></div>
+        <div class="field"><label for="pv-rule">Répartition</label><select id="pv-rule" class="select" data-change="ppv-rule" ${V.paidMonth ? 'disabled' : ''}>${[['uniforme', 'Montant identique'], ['salaire', 'Proportionnelle au salaire'], ['presence', 'Selon la durée de présence']].map(([k, l]) => `<option value="${k}" ${V.rule === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="field"><label for="pv-month">Versement avec la paie de</label><select id="pv-month" class="select" ${V.paidMonth ? 'disabled' : ''}>${months.map((m) => `<option value="${m}">${monthLabel(m)}</option>`).join('')}</select></div></div>
+        <div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Collaborateur</th><th class="r">Salaire</th><th class="r">Présence 12 mois</th><th class="r">Prime</th></tr></thead><tbody>${dist.map(([e, v, pres]) => `<tr><td>${esc(fullName(e))}</td><td class="r num">${eur0(e.salary)}</td><td class="r num">${pres} mois</td><td class="r num"><b>${eur0(v)}</b></td></tr>`).join('')}</tbody></table></div>
+        <div class="toolbar" style="margin-top:12px"><span class="hint">Exonérée de cotisations sociales dans les entreprises de moins de 50 salariés (CSG-CRDS dues), dans la limite de 3 000 € par salarié.</span>${V.paidMonth ? '' : `<button type="button" class="btn primary" style="margin-left:auto" data-act="ppv-pay">Intégrer à la paie</button>`}</div></div>`)}`;
+  }
+  function ppvSplit(total, rule, people) {
+    const pres = (e) => Math.min(12, Math.max(0, Math.round(dayDiff(e.startDate > addMonths(TODAY, -12) ? e.startDate : addMonths(TODAY, -12), TODAY) / 30.4)));
+    const w = people.map((e) => [e, rule === 'uniforme' ? 1 : rule === 'salaire' ? e.salary : pres(e)]), sum = w.reduce((s, [, x]) => s + x, 0) || 1;
+    return w.map(([e, x]) => [e, Math.min(3000, Math.round((total * x) / sum)), pres(e)]);
+  }
+  function viewRemu() {
+    if (ui.profile === 'manager') return `<p class="hint" style="margin:0">Proposez les augmentations de votre équipe dans l’enveloppe fixée par les RH. Les RH valident avant la date d’effet.</p>${raiseCampaign()}`;
+    const R = db.raises, pend = Object.values(R.proposals).filter((p) => p.status === 'Proposée').length;
+    const tabs = [['paie', 'Paie du mois'], ['revision', 'Révision salariale', pend], ['egalite', 'Égalité salariale'], ['avantages', 'Avantages et partage de la valeur']];
+    if (!tabs.some((t) => t[0] === ui.payTab)) ui.payTab = 'paie';
+    const body = ui.payTab === 'paie' ? viewPay() : ui.payTab === 'revision' ? raiseCampaign() : ui.payTab === 'egalite' ? equityView() : shareView();
+    return `<div class="tabs" role="tablist">${tabs.map(([k, l, n]) => `<button type="button" role="tab" aria-selected="${ui.payTab === k}" data-act="tab" data-k="payTab" data-t="${k}">${l}${n ? `<span class="count num">${n}</span>` : ''}</button>`).join('')}</div>${body}`;
+  }
+  function viewMyPay() {
+    const e = me(), closed = payMonths().filter((m) => db.payroll[m] && db.payroll[m].closed && inPayroll(e, m)).slice(-12);
+    const t = closed.reduce((o, m) => { const p = calcPay(e, m); o.base += p.base; o.bonus += p.bonus; o.ot += p.ot.amount; o.ppv += p.ppv; return o; }, { base: 0, bonus: 0, ot: 0, ppv: 0 });
+    const ratio = closed.length / 12, ben = BENEFITS.filter(([l]) => l !== 'Prévoyance' || e.category === 'Cadre').map(([l, , v]) => [l, v * ratio]);
+    const total = t.base + t.bonus + t.ot + t.ppv + ben.reduce((s, [, v]) => s + v, 0);
+    const req = (db.payInfoReqs || []).filter((r) => r.empId === e.id).slice(-1)[0], row = req && payGap(db.employees).find((r) => r.cat === e.category);
+    return `${viewPayslips()}
+      <div class="two">${card('Ma rémunération globale', `<span class="muted" style="font-size:13px">${plural(closed.length, 'mois', 'mois')} de paie</span>`, `<div class="card-b"><div class="crit">
+        ${[['Salaire de base brut', t.base], ['Primes', t.bonus], ['Heures supplémentaires', t.ot], ['Prime de partage de la valeur', t.ppv]].filter(([, v]) => v).map(([l, v]) => `<div class="crit-row"><span>${l}</span><b class="num">${eur0(v)}</b></div>`).join('')}
+        ${ben.filter(([, v]) => v).map(([l, v]) => `<div class="crit-row"><span>${l} <small class="muted">(part employeur)</small></span><span class="num">${eur0(v)}</span></div>`).join('')}
+        <div class="crit-row total"><span>Total</span><b class="num">${eur0(total)}</b></div></div><p class="hint" style="margin:10px 0 0">Avantages estimés sur la période, à titre indicatif.</p></div>`)}
+      ${card('Transparence salariale', '', `<div class="card-b"><p style="margin:0 0 10px">Vous pouvez demander la rémunération moyenne des femmes et des hommes de votre catégorie (${esc(e.category)}).</p>
+        ${row ? `<div class="crit"><div class="crit-row"><span>Femmes (${row.nF})</span><b class="num">${row.f ? eur0(row.f) : '—'}</b></div><div class="crit-row"><span>Hommes (${row.nH})</span><b class="num">${row.h ? eur0(row.h) : '—'}</b></div></div><p class="hint" style="margin:8px 0 0">Réponse du ${fmtDate(req.date)}.</p>`
+          : '<button type="button" class="btn primary" data-act="pay-info">Faire la demande</button>'}</div>`)}</div>`;
+  }
+
+  Object.assign(MOD_ACT, {
+    'chg-ok'(d) {
+      const r = db.changeReqs.find((x) => x.id === d.id), e = emp(r.empId);
+      if (r.field === 'iban') e.iban = `FR76 •••• •••• •••• ${r.to.replace(/\s/g, '').slice(-4)}`; else if (r.field === 'lastName') e.lastName = r.to; else e[r.field] = r.to;
+      Object.assign(r, { status: 'Validée', decidedAt: TODAY }); tickJourney(e.id, 5, 1); tickJourney(e.id, 5, 3);
+      notify(e.id, `Votre demande (${r.label.toLowerCase()}) est validée : votre dossier est à jour.`); toast('Modification appliquée au dossier'); commit();
+    },
+    'chg-ko'(d) { ui.modal = { type: 'chg-ko', id: d.id }; render(); },
+    'ts-ok'(d) { const t = db.timesheets.find((x) => x.id === d.id); Object.assign(t, { status: 'Validée', validatedAt: TODAY, by: me().id }); tickJourney(t.empId, 6, 0); notify(t.empId, `Vos heures de la semaine du ${fmtShort(t.week)} sont validées.`); toast('Heures validées · transmises à la paie'); commit(); },
+    'ts-ko'(d) { const t = db.timesheets.find((x) => x.id === d.id); t.status = 'Refusée'; notify(t.empId, `Vos heures de la semaine du ${fmtShort(t.week)} sont à corriger.`); toast('Feuille de temps renvoyée au salarié'); commit(); },
+    'sick-dsn'(d) { const l = db.leaves.find((x) => x.id === d.id); l.dsnAt = TODAY; tickJourney(l.empId, 6, 2); toast('Attestation de salaire transmise via la DSN'); commit(); },
+    'raise-ok'(d) { db.raises.proposals[d.id].status = 'Validée'; toast('Augmentation validée'); commit(); },
+    'raise-ko'(d) { db.raises.proposals[d.id].status = 'Refusée'; notify(db.raises.proposals[d.id].by, `Augmentation proposée pour ${fullName(emp(d.id))} refusée par les RH.`); toast('Proposition refusée'); commit(); },
+    'raise-close'() {
+      const R = db.raises; let n = 0;
+      Object.entries(R.proposals).forEach(([id, p]) => { const e = emp(id); if (!e) return;
+        if (p.status === 'Validée') { const old = e.salary; e.salary = Math.round(old * (1 + p.pct / 100) / 100) * 100; db.history.push({ id: uid('h'), empId: id, date: R.effective, label: 'Augmentation', detail: `Salaire ${eur0(old)} → ${eur0(e.salary)} (+${String(p.pct).replace('.', ',')} %, ${p.reason.toLowerCase()})` });
+          p.status = 'Appliquée'; n += 1; tickJourney(id, 7, 0); notify(id, `Votre salaire passe à ${eur0(e.salary)} bruts annuels au ${fmtDate(R.effective)}.`); }
+        else if (p.status === 'Proposée') p.status = 'Refusée'; });
+      R.status = 'Clôturée'; toast(`Campagne clôturée · ${plural(n, 'augmentation appliquée', 'augmentations appliquées')}`); commit();
+    },
+    'ppv-pay'() {
+      const V = db.valueShare, m = document.getElementById('pv-month').value, pr = payrollOf(m), people = db.employees.filter((e) => isEmployed(e) && !e.exit);
+      pr.ppv = {}; ppvSplit(V.total, V.rule, people).forEach(([e, v]) => { pr.ppv[e.id] = v; tickJourney(e.id, 7, 3); });
+      V.paidMonth = m; toast(`Prime de partage de la valeur intégrée à la paie de ${monthLabel(m).toLowerCase()}`); commit();
+    },
+    'pay-info'() { db.payInfoReqs = db.payInfoReqs || []; db.payInfoReqs.push({ id: uid('pi'), empId: me().id, cat: me().category, date: TODAY }); notify('e1', `${fullName(me())} a demandé les rémunérations moyennes de sa catégorie.`); toast('Information transmise'); commit(); },
+  });
+  Object.assign(MOD_CHG, {
+    'ts-week'(v) { ui.tsWeek = v; render(); },
+    'sick-sub'(v, d, el) { const l = db.leaves.find((x) => x.id === d.id); l.subrogation = el.checked; save(); toast(el.checked ? 'Subrogation activée' : 'Subrogation désactivée'); },
+    'raise-pct'(v, d) { const R = db.raises, pct = Math.max(0, Math.min(20, Number(v) || 0)); if (!pct) delete R.proposals[d.id]; else R.proposals[d.id] = Object.assign(R.proposals[d.id] || { reason: 'Performance' }, { pct, by: me().id, status: ui.profile === 'rh' ? 'Validée' : 'Proposée', date: TODAY }); commit(); },
+    'raise-reason'(v, d) { const p = db.raises.proposals[d.id]; if (p) { p.reason = v; save(); } else toast('Indiquez d’abord un pourcentage.', 'info'); },
+    'ppv-total'(v) { db.valueShare.total = Math.max(0, Number(v) || 0); commit(); },
+    'ppv-rule'(v) { db.valueShare.rule = v; commit(); },
+  });
+  Object.assign(MOD_LIVE, {
+    ts(form) { const fd = new FormData(form), w = weekStats({ hours: [0, 1, 2, 3, 4, 5].map((k) => Number(fd.get('h' + k)) || 0) }); document.getElementById('ts-sum').innerHTML = tsSummary(w); },
+  });
+  Object.assign(MOD_FORMS, {
+    ts(v) {
+      const e = me(), wk = ui.tsWeek || mondayOf(TODAY), hours = [0, 1, 2, 3, 4, 5].map((k) => Number(v['h' + k]) || 0);
+      if (!hours.some(Boolean)) { toast('Saisissez vos heures de la semaine.', 'info'); return; }
+      let t = db.timesheets.find((x) => x.empId === e.id && x.week === wk);
+      if (!t) { t = { id: uid('t'), empId: e.id, week: wk }; db.timesheets.push(t); }
+      Object.assign(t, { hours, status: 'Soumise', submittedAt: TODAY }); tickJourney(e.id, 6, 0);
+      const w = weekStats(t), ap = approverOf(e); notify(ap.id, `${fullName(e)} a déclaré ${fmtH(w.total)} pour la semaine du ${fmtShort(wk)}${w.alerts.length ? ' (alerte de durée maximale)' : ''}.`);
+      toast(`Heures envoyées à ${fullName(ap)}`); commit();
+    },
+    'chg-req'(v, form) {
+      const e = me(), to = (v.to || '').trim(), [label] = CHANGE_FIELDS[v.field], file = form.querySelector('#cr-proof').files[0];
+      if (!to) { document.getElementById('cr-err').textContent = 'Indiquez la nouvelle valeur.'; return; }
+      if (!file) { document.getElementById('cr-err').textContent = 'Joignez un justificatif.'; return; }
+      db.changeReqs = db.changeReqs || [];
+      db.changeReqs.push({ id: uid('cr'), empId: e.id, field: v.field, label, from: v.field === 'iban' ? e.iban : e[v.field] || '', to: v.field === 'iban' ? `•••• ${to.replace(/\s/g, '').slice(-4)}` : to, proof: file.name, status: 'En attente', createdAt: TODAY });
+      notify('e1', `${fullName(e)} demande une modification : ${label.toLowerCase()}.`); toast('Demande envoyée aux RH'); commit();
+    },
+    'chg-ko'(v) { const r = db.changeReqs.find((x) => x.id === ui.modal.id); if (!v.reason.trim()) return formError('Indiquez le motif du refus.'); Object.assign(r, { status: 'Refusée', reason: v.reason.trim(), decidedAt: TODAY }); notify(r.empId, `Votre demande (${r.label.toLowerCase()}) est refusée : ${v.reason.trim()}`); ui.modal = null; toast('Demande refusée'); commit(); },
+  });
+  MODALS['chg-ko'] = (m, shell, formShell, opt, f) => formShell('Refuser la demande', 'chg-ko', f('ck-r', 'Motif communiqué au salarié', '<input id="ck-r" name="reason" class="input" maxlength="160" placeholder="Ex. justificatif illisible ou de plus de 3 mois">', true), 'Refuser');
+
   // ---------------------------------------------------------------- Documents RH
   const DOC_LABEL = { contrat: 'Contrat de travail', info7: 'Informations essentielles sur la relation de travail', info1m: 'Informations complémentaires sur la relation de travail', essai: 'Confirmation de fin de période d’essai', attestation: 'Attestation employeur', avenant: 'Avenant au contrat', certificat: 'Certificat de travail', solde: 'Reçu pour solde de tout compte', 'france-travail': 'Attestation employeur France Travail' };
   function docBody(d) {
@@ -2046,10 +2361,17 @@
   function formError(msg) { const el = document.getElementById('m-err'); if (el) el.textContent = msg; }
 
   // ---------------------------------------------------------------- Render
-  const VIEWS = { accueil: viewHome, etape: viewStage, besoins: viewNeeds, collaborateurs: viewEmployees, absences: viewAbsences, paie: viewPay, recrutement: viewRecruitment, profil: viewProfile, bulletins: viewPayslips,
+  const VIEWS = { accueil: viewHome, etape: viewStage, besoins: viewNeeds, collaborateurs: viewAdmin, absences: viewAbsences, paie: viewRemu, recrutement: viewRecruitment, profil: viewProfile, bulletins: viewMyPay,
     entretiens: viewReviews, formation: viewTraining, mobilite: viewMobility, sante: viewHealth, relations: viewRelations };
   let drawerAnim = false;
+  let rendering = false;
   function render() {
+    // A field losing focus during a render fires « change », which would render again mid-way: defer it.
+    if (rendering) { setTimeout(render, 0); return; }
+    rendering = true;
+    try { renderNow(); } finally { rendering = false; }
+  }
+  function renderNow() {
     route();
     const scrollY = window.scrollY;
     document.getElementById('app').innerHTML = `<div class="app">${topbar()}${stageRail()}<main class="view" id="view">${VIEWS[ui.view]()}</main>${footer()}</div>`;
@@ -2205,6 +2527,11 @@
       if (!d) return err('Cette période ne contient aucun jour ouvré.');
       if (k && d > e[k]) return err(`Solde insuffisant : il vous reste ${e[k]} j.`);
       if (db.leaves.some((l) => l.empId === e.id && l.status !== 'Refusée' && l.start <= v.end && l.end >= v.start)) return err('Vous avez déjà une absence sur cette période.');
+      if (v.type === 'Maladie') {
+        db.leaves.push({ id: uid('l'), empId: e.id, type: v.type, start: v.start, end: v.end, days: d, status: 'Approuvée', comment: (v.comment || '').trim() || 'Arrêt de travail', createdAt: TODAY, receivedAt: TODAY, dsnAt: null, subrogation: false });
+        tickJourney(e.id, 6, 2); notify('e1', `Arrêt de travail de ${fullName(e)} du ${fmtShort(v.start)} au ${fmtShort(v.end)} : attestation de salaire à transmettre.`); if (e.managerId) notify(e.managerId, `${fullName(e)} est en arrêt de travail du ${fmtShort(v.start)} au ${fmtShort(v.end)}.`);
+        toast('Arrêt enregistré · les RH et votre manager sont prévenus'); form.reset(); commit(); return;
+      }
       db.leaves.push({ id: uid('l'), empId: e.id, type: v.type, start: v.start, end: v.end, days: d, status: 'En attente', comment: (v.comment || '').trim(), createdAt: TODAY });
       const ap = approverOf(e);
       notify(ap.id, `${fullName(e)} demande ${plural(d, 'jour', 'jours')} (${v.type}) du ${fmtShort(v.start)} au ${fmtShort(v.end)}.`);
@@ -2262,7 +2589,7 @@
     profile(v) {
       const e = me();
       if (!v.phone.trim()) { document.getElementById('p-err').textContent = 'Le numéro de téléphone est obligatoire.'; return; }
-      Object.assign(e, { phone: v.phone.trim(), location: v.location, address: v.address.trim(), emergency: v.emergency.trim() });
+      Object.assign(e, { phone: v.phone.trim(), location: v.location, emergency: v.emergency.trim() });
       db.journey[e.id] = db.journey[e.id] || {};
       if (e.stage === 5) { const arr = journeyOf(e.id, 5); arr[1] = true; db.journey[e.id][5] = arr; }
       notify('e1', `${fullName(e)} a mis à jour ses informations personnelles.`);

@@ -44,7 +44,8 @@ window.TEAMORA_SEED = function () {
     address: extra.address || '', emergency: extra.emergency || '',
     cp: extra.cp ?? 18, rtt: extra.rtt ?? 6, status: extra.status || null, exit: extra.exit || null,
     category: extra.category || (contract === 'Alternance' ? 'Employé' : salary >= 45000 ? 'Cadre' : 'Employé'), nationality: extra.nationality || 'Française', zone: extra.zone || 'France',
-    registeredAt: stage >= 3 ? startDate : null,
+    registeredAt: stage >= 3 ? startDate : null, family: extra.family || 'Célibataire', iban: `FR76 •••• •••• •••• ${String(1000 + Number(id.slice(1)) * 37).slice(-4)}`,
+    titreEnd: extra.titreEnd || null, endDate: extra.endDate || null,
   });
   const employees = [
     E('e1', 'Olivia', 'Bennett', 'Responsable RH', 'RH', 'e5', 7, '2019-01-14', 'CDI', 62000, { phone: '06 21 44 18 90', cp: 21, rtt: 7 }),
@@ -75,6 +76,33 @@ window.TEAMORA_SEED = function () {
   Object.assign(employees.find((e) => e.id === 'e8'), { nationality: 'Irlandaise', zone: 'UE' });
   Object.assign(employees.find((e) => e.id === 'e7'), { nationality: 'Espagnole', zone: 'UE' });
   employees.find((e) => e.id === 'e18').registeredAt = null;
+  Object.assign(employees.find((e) => e.id === 'e6'), { titreEnd: '2026-12-15' });
+  Object.assign(employees.find((e) => e.id === 'e12'), { titreEnd: '2027-09-30' });
+  Object.assign(employees.find((e) => e.id === 'e19'), { endDate: '2028-08-31' });
+  Object.assign(employees.find((e) => e.id === 'e3'), { family: 'Pacsé·e' });
+  // Vie administrative : demandes de modification soumises à validation RH.
+  const changeReqs = [
+    { id: 'cr1', empId: 'e3', field: 'address', label: 'Adresse postale', from: '18 rue des Martyrs, 75009 Paris', to: '7 avenue Jean Jaurès, 75019 Paris', proof: 'justificatif-domicile.pdf', status: 'En attente', createdAt: '2026-10-03' },
+    { id: 'cr2', empId: 'e4', field: 'family', label: 'Situation familiale', from: 'Célibataire', to: 'Pacsé·e', proof: 'attestation-pacs.pdf', status: 'En attente', createdAt: '2026-10-01' },
+  ];
+  // Temps de travail : feuilles de temps hebdomadaires des salariés en heures (les cadres sont au forfait de 218 jours).
+  const T = (id, empId, week, hours, status, extra = {}) => Object.assign({ id, empId, week, hours, status, submittedAt: status !== 'Brouillon' ? week : null }, extra);
+  const timesheets = [
+    T('t1', 'e3', '2026-09-21', [7.5, 8, 7.5, 8, 7, 0], 'Validée', { validatedAt: '2026-09-28', by: 'e2' }),
+    T('t2', 'e3', '2026-09-28', [8, 9, 8.5, 8, 7.5, 0], 'Soumise'),
+    T('t3', 'e10', '2026-09-28', [7.5, 7.5, 8, 7.5, 7, 0], 'Soumise'),
+    T('t4', 'e14', '2026-09-21', [9, 9.5, 9, 9, 8, 0], 'Validée', { validatedAt: '2026-09-28', by: 'e1' }),
+    T('t5', 'e14', '2026-09-28', [11, 9.5, 10, 9.5, 7, 0], 'Soumise'),
+    T('t6', 'e15', '2026-09-28', [7, 7, 7, 7, 7, 0], 'Validée', { validatedAt: '2026-10-02', by: 'e9' }),
+  ];
+  // Rémunération : campagne de révision salariale et partage de la valeur.
+  const raises = { year: 2027, budgetPct: 3, effective: '2027-01-01', deadline: '2026-11-13', status: 'Ouverte', proposals: {
+    e4: { pct: 4, reason: 'Performance', by: 'e2', status: 'Proposée', date: '2026-10-02' },
+    e3: { pct: 3, reason: 'Performance', by: 'e2', status: 'Proposée', date: '2026-10-02' },
+    e13: { pct: 2.5, reason: 'Marché', by: 'e6', status: 'Validée', date: '2026-09-30' },
+    e15: { pct: 4.5, reason: 'Rattrapage égalité', by: 'e9', status: 'Proposée', date: '2026-10-01' } } };
+  const valueShare = { years: [[2023, 1800000, 40000], [2024, 2100000, 52000], [2025, 2400000, 61000]], total: 12000, rule: 'salaire', paidMonth: null };
+  const payInfoReqs = [];
   // Dossiers d'arrivée (pré-embauche, embauche, intégration) des recrues en cours.
   const ALLDOCS = (d) => ({ identite: d, secu: d, rib: d, domicile: d, diplome: d });
   const onboarding = {
@@ -101,7 +129,8 @@ window.TEAMORA_SEED = function () {
     { id: 'l4', empId: 'e13', type: 'RTT', start: '2026-10-16', end: '2026-10-16', days: 1, status: 'En attente', comment: 'Pont personnel', createdAt: '2026-10-02' },
     { id: 'l5', empId: 'e7', type: 'Congés payés', start: '2026-10-05', end: '2026-10-09', days: 5, status: 'Approuvée', comment: '', createdAt: '2026-09-10' },
     { id: 'l6', empId: 'e6', type: 'Congés payés', start: '2026-11-02', end: '2026-11-06', days: 5, status: 'Approuvée', comment: '', createdAt: '2026-09-15' },
-    { id: 'l7', empId: 'e11', type: 'Maladie', start: '2026-10-05', end: '2026-10-06', days: 2, status: 'Approuvée', comment: 'Arrêt de travail transmis', createdAt: '2026-10-05' },
+    { id: 'l7', empId: 'e11', type: 'Maladie', start: '2026-10-05', end: '2026-10-06', days: 2, status: 'Approuvée', comment: 'Arrêt de travail transmis', createdAt: '2026-10-05', receivedAt: '2026-10-05', dsnAt: null, subrogation: false },
+    { id: 'l10', empId: 'e15', type: 'Maladie', start: '2026-09-14', end: '2026-09-25', days: 10, status: 'Approuvée', comment: 'Arrêt de travail', createdAt: '2026-09-15', receivedAt: '2026-09-15', dsnAt: '2026-09-17', subrogation: true },
     { id: 'l8', empId: 'e2', type: 'RTT', start: '2026-10-23', end: '2026-10-23', days: 1, status: 'Approuvée', comment: '', createdAt: '2026-09-20' },
     { id: 'l9', empId: 'e15', type: 'Congés payés', start: '2026-12-21', end: '2026-12-31', days: 8, status: 'En attente', comment: 'Fêtes de fin d’année', createdAt: '2026-10-03' },
   ];
@@ -308,6 +337,6 @@ window.TEAMORA_SEED = function () {
     { id: 'doc2', empId: 'e3', kind: 'attestation', title: 'Attestation employeur', date: '2026-02-03' },
     { id: 'doc3', empId: 'e4', kind: 'avenant', title: 'Avenant · Senior Product Designer', date: '2023-12-15', data: { title: 'Senior Product Designer', dept: 'Design', salary: 54000, effective: '2024-01-01' } },
   ];
-  return { version: 5, employees, journey, leaves, jobs, candidates, notifications, payroll, objectives, reviews, feedback, trainings, enrollments, trainingBudget: 25000, purgeLog: [], onboarding,
+  return { version: 6, employees, journey, leaves, jobs, candidates, notifications, payroll, objectives, reviews, feedback, trainings, enrollments, trainingBudget: 25000, purgeLog: [], onboarding, changeReqs, timesheets, raises, valueShare, payInfoReqs,
     wishes, history, visits, incidents, risks, survey, adjustments, cases, documents };
 };

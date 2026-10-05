@@ -32,7 +32,7 @@ Les données de départ (`data.js`) sont fictives ; vos modifications sont conse
   signalements des managers, demandes d'échange des salariés avec réponses.
 - **Documents RH** : attestation employeur, avenant, et documents de sortie (certificat de travail, solde de tout
   compte, attestation France Travail) générés au passage à l'étape « Départ ».
-- **Profils** : RH (Olivia, 16 étapes), Manager (Thomas, équipe Design, 15 étapes), Salariée (Léa, 8 étapes) — chacun voit ses propres écrans.
+- **Profils** : RH (Olivia, 16 étapes), Manager (Thomas, équipe Design, 15 étapes), Salariée (Léa, 8 étapes) ; les étapes ne sont pas numérotées à l’écran — chacun voit ses propres écrans.
 
 Le fichier `index.html` n'a pas de `<!doctype>` : il est conçu pour être publié comme Artifact claude.ai,
 qui ajoute lui-même l'en-tête HTML. Il s'ouvre aussi tel quel dans un navigateur.

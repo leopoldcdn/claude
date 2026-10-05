@@ -106,7 +106,7 @@
   const avatarName = (id, name, cls = '') => `<span class="av ${cls}" style="background:${avColor(id)}" aria-hidden="true">${esc(name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase())}</span>`;
   const DEPTS = ['Direction', 'RH', 'Design', 'Tech', 'Marketing', 'Sales', 'Finance'];
   const DEPT_HEAD = { Direction: 'e5', RH: 'e1', Design: 'e2', Tech: 'e6', Marketing: 'e7', Sales: 'e8', Finance: 'e9' };
-  const stageChip = (i) => `<span class="stage-chip"><i style="background:${STAGE_COLORS[i]}"></i>${pad(i + 1)} · ${esc(STAGES[i].short)}</span>`;
+  const stageChip = (i) => `<span class="stage-chip"><i style="background:${STAGE_COLORS[i]}"></i>${esc(STAGES[i].short)}</span>`;
 
   const leaveOn = (e, day) => db.leaves.find((l) => l.empId === e.id && l.status === 'Approuvée' && l.start <= day && l.end >= day);
   function statusOf(e) {
@@ -214,7 +214,7 @@
   function topbar() {
     const st = ui.view === 'accueil' ? null : ui.stage;
     const title = ui.view === 'etape' ? esc(STAGES[st].title) : VIEW_LABELS[ui.profile][ui.view];
-    const crumb = st === null ? `Nova Studio · ${esc(fullName(me()))}` : `<b style="color:${STAGE_COLORS[st]}">Étape ${pad(st + 1)}</b> · ${esc(STAGES[st].title)}`;
+    const crumb = st === null ? `Nova Studio · ${esc(fullName(me()))}` : `<b style="color:${STAGE_COLORS[st]}">${esc(STAGES[st].title)}</b>`;
     const mine = db.notifications.filter((n) => n.to === me().id);
     const unread = mine.filter((n) => !n.read).length;
     return `<header class="top"><button type="button" class="brand" data-act="go" data-v="accueil" aria-label="Teamora · retour à la roue"><span class="brand-mark">${LOGO}</span><span class="brand-t">Teamora<small>Nova Studio</small></span></button>
@@ -229,7 +229,7 @@
   function stageRail() {
     if (ui.view === 'accueil') return '';
     return `<nav class="rail" aria-label="Étapes du parcours"><button type="button" class="rail-home" data-act="go" data-v="accueil" aria-label="Retour à la roue" title="Retour à la roue">${ic('home')}</button>
-      ${visibleStages().map((i) => { const v = stageView(i), name = `${pad(i + 1)} · ${STAGES[i].short}${v === 'etape' ? '' : ` — ${VIEW_LABELS[ui.profile][v]}`}`;
+      ${visibleStages().map((i) => { const v = stageView(i), name = `${STAGES[i].short}${v === 'etape' ? '' : ` — ${VIEW_LABELS[ui.profile][v]}`}`;
         return `<button type="button" data-act="stage" data-i="${i}" style="--c:${STAGE_COLORS[i]}" aria-label="${esc(name)}" title="${esc(name)}" ${ui.stage === i ? 'aria-current="page"' : ''}>${ic(STAGES[i].icon)}${stageBadge(i)}</button>`; }).join('')}</nav>`;
   }
   const footer = () => `<footer class="foot"><button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Réinitialiser la démo</button>
@@ -250,7 +250,7 @@
     if (ui.profile === 'salarie') {
       const e = me(); const closed = payMonths().filter((m) => db.payroll[m] && db.payroll[m].closed && inPayroll(e, m)); const last = closed[closed.length - 1];
       return `<div class="kpis">${k('Congés payés restants', `${e.cp} j`, 'Acquis : 2,08 j par mois')}${k('RTT restants', `${e.rtt} j`, 'Année 2026')}
-        ${k('Mon parcours', `${e.stage + 1}<span class="muted" style="font-size:16px"> / 16</span>`, esc(STAGES[e.stage].title))}${k('Dernier bulletin', last ? eur0(calcPay(e, last).net) : '—', last ? `Net payé · ${monthLabel(last)}` : 'Aucun bulletin')}</div>`;
+        ${k('Mon parcours', esc(STAGES[e.stage].short), esc(STAGES[e.stage].title))}${k('Dernier bulletin', last ? eur0(calcPay(e, last).net) : '—', last ? `Net payé · ${monthLabel(last)}` : 'Aucun bulletin')}</div>`;
     }
     const people = scopeEmployees();
     const employed = people.filter(isEmployed);
@@ -269,16 +269,16 @@
     wheelN = vis.length;
     const nodes = vis.map((i) => {
       const s = STAGES[i], cls = sal && i === m.stage ? 'current' : '';
-      return `<button type="button" class="node ${cls}" data-act="stage" data-i="${i}" style="background:${STAGE_COLORS[i]}" aria-label="Étape ${i + 1} : ${esc(s.title)} · ${esc(stageView(i) === 'etape' ? 'suivi de l’étape' : VIEW_LABELS[ui.profile][stageView(i)])}" tabindex="${ui.wheelOpen ? 0 : -1}">${ic(s.icon)}${stageBadge(i)}</button>`;
+      return `<button type="button" class="node ${cls}" data-act="stage" data-i="${i}" style="background:${STAGE_COLORS[i]}" aria-label="${esc(s.title)} · ${esc(stageView(i) === 'etape' ? 'suivi de l’étape' : VIEW_LABELS[ui.profile][stageView(i)])}" tabindex="${ui.wheelOpen ? 0 : -1}">${ic(s.icon)}${stageBadge(i)}</button>`;
     }).join('');
     const labels = vis.map((i, k) => {
       const s = STAGES[i], v = stageView(i), p = nodePos(k, W.LR), c = Math.cos(ang(k)), sn = Math.sin(ang(k));
       let tr, align;
       if (c > 0.3) { tr = 'translate(0,-50%)'; align = 'left'; } else if (c < -0.3) { tr = 'translate(-100%,-50%)'; align = 'right'; } else { tr = sn < 0 ? 'translate(-50%,-100%)' : 'translate(-50%,0)'; align = 'center'; }
       const mod = v === 'etape' ? '' : VIEW_LABELS[ui.profile][v];
-      return `<div class="lab" style="left:${W.cx + p.x}px;top:${W.cy + p.y}px;transform:${tr};text-align:${align}"><div class="lab-in"><small style="color:${STAGE_COLORS[i]}">${pad(i + 1)}</small><b>${esc(s.short)}</b>${mod && mod !== s.short ? `<em>${esc(mod)}</em>` : ''}</div></div>`;
+      return `<div class="lab" style="left:${W.cx + p.x}px;top:${W.cy + p.y}px;transform:${tr};text-align:${align}"><div class="lab-in"><b>${esc(s.short)}</b>${mod && mod !== s.short ? `<em>${esc(mod)}</em>` : ''}</div></div>`;
     }).join('');
-    const hubText = sal ? `<small>MON PARCOURS</small><b>Étape ${m.stage + 1}<br>sur 16</b><span class="hub-n">${esc(STAGES[m.stage].short)}</span>`
+    const hubText = sal ? `<small>MON PARCOURS</small><b>Étape<br>en cours</b><span class="hub-n">${esc(STAGES[m.stage].short)}</span>`
       : ui.profile === 'manager' ? `<small>PARCOURS</small><b>Équipe ${esc(m.dept)}</b><span class="hub-n num">${plural(scopeEmployees().length, 'personne', 'personnes')}</span>`
         : `<small>PARCOURS</small><b>Collaborateur</b><span class="hub-n num">${plural(db.employees.filter((e) => e.stage < 15).length, 'collaborateur', 'collaborateurs')}</span>`;
     return `<div class="wheel-box" id="wheel-box"><div class="wheel" id="wheel">${labels}${nodes}
@@ -294,7 +294,7 @@
   }
   function stageHead(i, closable = false) {
     const s = STAGES[i], c = STAGE_COLORS[i];
-    return `<div class="stage-head"><span class="stage-ic" style="background:${c}">${ic(s.icon)}</span><div style="flex:1;min-width:0"><small style="color:${c}">ÉTAPE ${pad(i + 1)} / 16</small><h2>${esc(s.title)}</h2></div>
+    return `<div class="stage-head"><span class="stage-ic" style="background:${c}">${ic(s.icon)}</span><div style="flex:1;min-width:0"><small style="color:${c}">ÉTAPE DU PARCOURS</small><h2>${esc(s.title)}</h2></div>
       ${closable ? `<button type="button" class="icon-btn" data-act="stage" data-i="${i}" aria-label="Fermer l’étape">${ic('x')}</button>` : ''}</div>`;
   }
   const MODULE_LINK = { recrutement: ['recrutement', 'Ouvrir le recrutement'], absences: ['absences', 'Ouvrir les absences'], paie: ['paie', 'Ouvrir la paie'], collaborateurs: ['collaborateurs', 'Ouvrir les collaborateurs'],
@@ -443,7 +443,7 @@
         ${e.exit ? `<div class="card card-b"><b>Départ prévu</b><p class="muted" style="margin:4px 0 0">${esc(e.exit.reason)} · dernier jour le ${fmtDate(e.exit.lastDay)}${e.exit.comment ? ` · ${esc(e.exit.comment)}` : ''}</p></div>` : ''}`;
     } else if (tab === 'parcours') {
       const canEdit = rh || (ui.profile === 'manager' && e.managerId === me().id);
-      body = `<div class="journey-strip" aria-label="Étape ${e.stage + 1} sur 16">${STAGES.map((s, i) => `<i title="${esc(s.title)}" style="${i <= e.stage ? `background:${STAGE_COLORS[i]};` : ''}${i === e.stage ? 'outline:2px solid var(--fg);outline-offset:1px' : ''}"></i>`).join('')}</div>
+      body = `<div class="journey-strip" aria-label="Étape en cours : ${esc(STAGES[e.stage].title)}">${STAGES.map((s, i) => `<i title="${esc(s.title)}" style="${i <= e.stage ? `background:${STAGE_COLORS[i]};` : ''}${i === e.stage ? 'outline:2px solid var(--fg);outline-offset:1px' : ''}"></i>`).join('')}</div>
         <div class="card card-b">${stageHead(e.stage, false)}<div style="margin-top:12px">${stepsList(journeyOf(e.id, e.stage), STAGES[e.stage].steps, canEdit, e.id, e.stage)}</div>
         ${rh && e.stage < 15 ? `<div class="toolbar" style="margin-top:12px"><button type="button" class="btn primary sm" data-act="advance" data-id="${e.id}">Passer à « ${esc(STAGES[e.stage + 1].short)} »${ic('arrow')}</button></div>` : ''}</div>`;
     } else if (tab === 'absences') {
@@ -1441,9 +1441,9 @@
     if (e.stage === 3 && e.startDate > TODAY) e.startDate = TODAY;
     if (e.stage === 14) ['certificat', 'solde', 'france-travail'].forEach((k) => { if (!db.documents.some((d) => d.empId === e.id && d.kind === k)) addDoc(e.id, k); });
     if (e.stage === 14) notify(e.id, 'Vos documents de fin de contrat sont disponibles dans « Mon profil ».');
-    notify(e.id, `Votre parcours passe à l’étape ${e.stage + 1} : ${STAGES[e.stage].title}.`);
+    notify(e.id, `Votre parcours passe à l’étape « ${STAGES[e.stage].title} ».`);
     if (e.managerId && e.managerId !== me().id) notify(e.managerId, `${fullName(e)} passe à l’étape « ${STAGES[e.stage].short} ».`);
-    toast(`${fullName(e)} passe à l’étape ${e.stage + 1} · ${STAGES[e.stage].short}`);
+    toast(`${fullName(e)} passe à l’étape « ${STAGES[e.stage].short} »`);
     ui.selPerson = null;
     commit();
   }
@@ -1616,7 +1616,7 @@
       if (v.close === 'on') job.status = 'Pourvue';
       notify(v.managerId, `${c.name} rejoindra votre équipe le ${fmtDate(v.startDate)} (${job.title}).`);
       ui.modal = null; ui.drawer = null;
-      toast(`${c.name} est en pré-embauche : retrouvez-le à l’étape 3 de la roue`); commit();
+      toast(`${c.name} est en pré-embauche : retrouvez-le à l’étape « Pré-embauche » de la roue`); commit();
     },
     profile(v) {
       const e = me();

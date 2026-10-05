@@ -144,17 +144,90 @@
   .tile .tk { position: absolute; top: -10px; right: -10px; width: 28px; height: 28px; border-radius: 50%; background: var(--green); display: flex; align-items: center; justify-content: center; transform: scale(0); }
   .tile .tk svg { width: 15px; height: 15px; color: #fff; }
 
-  /* ---------- Warp ---------- */
-  #warp { position: absolute; inset: 0; z-index: 5; opacity: 0; background: radial-gradient(circle at 50% 50%, #1e1b4b 0%, #070a16 70%); overflow: hidden; }
-  #streaks { position: absolute; left: 960px; top: 540px; }
-  .streak { position: absolute; left: 0; top: -1.5px; width: 140px; height: 3px; border-radius: 2px; transform-origin: 0 50%; opacity: 0; }
-  .wcard { position: absolute; left: 50%; top: 50%; width: 1200px; margin-left: -600px; height: 440px; margin-top: -220px; text-align: center; color: #fff; opacity: 0; }
-  .wcard .wi { width: 120px; height: 120px; border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 80px currentColor; }
-  .wcard .wi svg { width: 58px; height: 58px; }
-  .wcard .wn { font-size: 24px; font-weight: 800; letter-spacing: 5px; margin-top: 28px; }
-  .wcard h2 { font-size: 76px; font-weight: 800; letter-spacing: -2px; margin-top: 8px; line-height: 1.05; }
-  .wcard .wc { display: flex; gap: 14px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }
-  .wcard .wc span { padding: 12px 20px; border-radius: 12px; background: #ffffff14; border: 1px solid #ffffff26; font-size: 22px; font-weight: 500; color: #e2e8f0; }
+  /* ---------- Tunnel (stages 4 → 16) ---------- */
+  #tunnel { position: absolute; inset: 0; z-index: 5; opacity: 0; overflow: hidden; background: radial-gradient(circle at 50% 50%, #151a3c 0%, #070a16 62%); }
+  #t-glow { position: absolute; left: 260px; top: -160px; width: 1400px; height: 1400px; border-radius: 50%; opacity: 0.5; }
+  #t-world > * { position: absolute; left: 0; top: 0; display: none; will-change: transform, opacity; }
+  .tf { border-style: solid; }
+  .ts { height: 3px; transform-origin: 0 50%; border-radius: 2px; }
+  .pg { width: 1500px; height: 1024px; transform-origin: 50% 50%; }
+  .pg-h { height: 120px; display: flex; align-items: center; gap: 24px; color: #fff; padding-left: 6px; }
+  .pg-h .pi { width: 84px; height: 84px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; }
+  .pg-h .pi svg { width: 42px; height: 42px; }
+  .pg-h small { display: block; font-size: 20px; font-weight: 800; letter-spacing: 4px; }
+  .pg-h b { display: block; font-size: 50px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.08; }
+
+  /* Software page mock-ups (based on the Teamora app) */
+  .app { margin-top: 24px; height: 880px; border-radius: 26px; overflow: hidden; display: grid; grid-template-columns: 270px 1fr; background: #f4f5fb; color: #151935; }
+  .app svg { width: 20px; height: 20px; flex: none; }
+  .sb { background: #fff; border-right: 1px solid #e0e3ef; padding: 26px 16px; }
+  .sb-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 24px; }
+  .sb-brand i { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(140deg, #4f46e5, #0ea5c6); color: #fff; display: flex; align-items: center; justify-content: center; }
+  .sb-brand i svg { width: 24px; height: 24px; }
+  .sb-brand b { display: block; font-size: 21px; font-weight: 800; }
+  .sb-brand small { display: block; font-size: 13px; color: #8d92b0; }
+  .sb-n { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 10px; color: #5f6589; font-weight: 600; font-size: 16px; }
+  .sb-n.on { background: #ebeafd; color: #4f46e5; }
+  .sb-n em { margin-left: auto; font-style: normal; font-size: 12px; font-weight: 700; min-width: 22px; height: 22px; border-radius: 11px; background: #4f46e5; color: #fff; display: flex; align-items: center; justify-content: center; }
+  .sb-s { font-size: 11.5px; font-weight: 800; letter-spacing: 1.4px; color: #8d92b0; padding: 16px 12px 6px; text-transform: uppercase; }
+  .mn { padding: 26px 34px; overflow: hidden; }
+  .mn-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
+  .mn-top small { display: block; font-size: 13px; color: #8d92b0; font-weight: 600; }
+  .mn-top h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.6px; margin-top: 2px; }
+  .persona { display: flex; gap: 8px; }
+  .persona span { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 99px; background: #fff; border: 1px solid #e0e3ef; font-size: 14px; font-weight: 600; color: #5f6589; }
+  .persona span.on { border-color: #4f46e5; color: #151935; }
+  .av2 { font-style: normal; width: 40px; height: 40px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .av2.s { width: 28px; height: 28px; font-size: 11px; }
+  .av2.l { width: 76px; height: 76px; font-size: 26px; }
+  .cd { background: #fff; border: 1px solid #e0e3ef; border-radius: 16px; margin-bottom: 18px; }
+  .cd-h { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 8px; }
+  .cd-h h3 { font-size: 19px; font-weight: 800; }
+  .kp { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .kp .cd { padding: 16px 20px; }
+  .kp > .cd > span, .kp > div > span { display: block; font-size: 14px; color: #5f6589; font-weight: 600; }
+  .kp b { display: block; font-size: 32px; font-weight: 800; letter-spacing: -0.5px; margin-top: 4px; }
+  .kp small { display: block; font-size: 13px; color: #8d92b0; margin-top: 2px; }
+  .tabs { display: flex; gap: 30px; border-bottom: 1px solid #e0e3ef; margin-bottom: 18px; }
+  .tabs span { padding: 0 2px 12px; font-size: 16px; font-weight: 700; color: #5f6589; }
+  .tabs span.on { color: #4f46e5; box-shadow: inset 0 -3px 0 #4f46e5; }
+  .trw { display: grid; align-items: center; gap: 14px; padding: 0 22px; min-height: 64px; border-top: 1px solid #eef0f8; font-size: 15.5px; }
+  .trw.th { min-height: 42px; border-top: 0; font-size: 12px; font-weight: 800; letter-spacing: 1.2px; color: #8d92b0; text-transform: uppercase; }
+  .trw .r { text-align: right; }
+  .who { display: flex; align-items: center; gap: 12px; }
+  .who b { display: block; font-size: 16px; }
+  .who small, .sub { display: block; font-size: 13px; color: #8d92b0; font-weight: 500; }
+  .pl { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 99px; font-size: 13.5px; font-weight: 700; white-space: nowrap; }
+  .pl::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .pl.ok { background: #e3f6ee; color: #0c8a5f; } .pl.warn { background: #fdf0e1; color: #b95a0b; } .pl.bad { background: #fbe7ea; color: #c8314a; }
+  .pl.inf { background: #e5eefc; color: #2563c9; } .pl.neutral { background: #eef0f8; color: #5f6589; } .pl.accent { background: #ebeafd; color: #4f46e5; }
+  .bt { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 10px; font-size: 14.5px; font-weight: 700; background: #4f46e5; color: #fff; white-space: nowrap; }
+  .bt.g { background: #fff; color: #151935; border: 1px solid #e0e3ef; }
+  .bt.okb { background: #e3f6ee; color: #0c8a5f; } .bt.nob { background: #fbe7ea; color: #c8314a; }
+  .bt svg { width: 17px; height: 17px; }
+  .chk { display: flex; align-items: center; gap: 14px; padding: 13px 22px; border-top: 1px solid #eef0f8; font-size: 16px; }
+  .chk > i { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; border: 2px solid #d5d9ea; color: #fff; }
+  .chk > i svg { width: 16px; height: 16px; }
+  .chk > i.ok { background: #10b981; border-color: #10b981; } .chk > i.wip { border-color: #f59e0b; box-shadow: inset 0 0 0 5px #fff, inset 0 0 0 12px #f59e0b; }
+  .chk b { font-weight: 600; } .chk .pl { margin-left: auto; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .igrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 30px; padding: 6px 22px 20px; }
+  .igrid span { display: block; font-size: 13px; color: #8d92b0; font-weight: 600; }
+  .igrid b { display: block; font-size: 17px; margin-top: 3px; }
+  .bar { height: 12px; border-radius: 6px; background: #eef0f8; overflow: hidden; display: flex; }
+  .bar i { display: block; height: 100%; }
+  .tl { display: flex; justify-content: space-between; position: relative; padding: 14px 40px 22px; }
+  .tl::before { content: ''; position: absolute; left: 90px; right: 90px; top: 34px; height: 4px; background: #eef0f8; }
+  .tl .tl-f { position: absolute; left: 90px; top: 34px; height: 4px; background: #10b981; }
+  .tl > div { width: 150px; text-align: center; position: relative; }
+  .tl > div i { width: 44px; height: 44px; border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center; background: #fff; border: 3px solid #d5d9ea; color: #fff; }
+  .tl > div i.ok { background: #10b981; border-color: #10b981; } .tl > div i.wip { border-color: #f59e0b; }
+  .tl > div b { display: block; font-size: 15px; margin-top: 10px; } .tl > div small { display: block; font-size: 13px; color: #8d92b0; }
+  .tiles2 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 4px 22px 20px; }
+  .tiles2 > div { border: 1.5px solid #e0e3ef; border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 15.5px; }
+  .tiles2 > div svg { width: 26px; height: 26px; color: #4f46e5; }
+  .tiles2 > div .pl { margin-left: auto; }
+  .banner { display: flex; align-items: center; gap: 12px; padding: 14px 20px; font-size: 15px; color: #5f6589; }
   #flash { position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 8; }
 
   #cursor { position: absolute; left: 0; top: 0; width: 36px; height: 36px; opacity: 0; z-index: 20; }
@@ -241,7 +314,7 @@
   </div>
 
   <!-- ===== Warp ===== -->
-  <div id="warp"><div id="streaks"></div><div id="wcards"></div></div>
+  <div id="tunnel"><div id="t-glow"></div><div id="t-world"></div></div>
 
   <div id="dots"></div>
   <div id="step-count">Étape <b id="sc-n">01</b> / 16</div>
@@ -355,13 +428,220 @@ const TILES = [['Ordinateur', '<rect x="3" y="4" width="18" height="12" rx="2"/>
   ['Badge', '<rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="2.5"/><path d="M9 16h6"/>'], ['Poste de travail', '<path d="M3 10h18M5 10v10M19 10v10M8 6h8v4H8z"/>']];
 $('#s3-tiles').innerHTML = TILES.map(([n, p]) => `<div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg><b>${n}</b><small><s class="wt">À préparer</s><s class="ok h" style="color:#047857">Prêt</s></small><div class="tk">${CHECK}</div></div>`).join('');
 
-// Warp cards (stages 4 → 16)
-$('#wcards').innerHTML = STAGES.slice(3).map((s, k) => {
+// ================= Tunnel pages (stages 4 → 16) : mock-ups of the Teamora app =================
+const NI = {
+  home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+  users: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2c2.6-.4 4.4 1.2 5 4.3"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  wallet: '<rect x="2.5" y="6" width="19" height="13" rx="2"/><path d="M2.5 10h19M7 15h3"/>',
+  briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+  cap: '<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2 9 2 12 0v-5"/>',
+  trend: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+  heart: '<path d="M12 20s-7-4.4-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.6-9 9-9 9z"/>',
+  chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/>',
+  check: '<path d="M5 12l5 5 9-10"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  right: '<path d="M9 6l6 6-6 6"/>',
+  file: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  laptop: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/>',
+  badge: '<rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="2.5"/><path d="M9 16h6"/>',
+  phone: '<rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18h2"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+  archive: '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/>',
+};
+const ico = (n, w = 2) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${NI[n]}</svg>`;
+const PEOPLE = {
+  OB: ['Olivia Bennett', '#6366f1'], JB: ['Julie Bernard', '#2563eb'], JC: ['James Carter', '#7c3aed'], SC: ['Sarah Cohen', '#ea580c'],
+  ED: ['Emma Dubois', '#c026d3'], MD: ['Marc Dupont', '#0891b2'], CD: ['Claire Durand', '#16a34a'], IH: ['Inès Haddad', '#e11d48'],
+  HL: ['Hugo Laurent', '#d97706'], NL: ['Nathan Lefebvre', '#dc2626'], LM: ['Léa Martin', '#0d9488'], YM: ['Yanis Morel', '#059669'],
+  LO: ['Liam O’Connor', '#0284c7'], AP: ['Aisha Patel', '#7c3aed'], LS: ['Lucas Silva', '#16a34a'], NW: ['Noah Williams', '#9333ea'],
+  SR: ['Sofia Ramirez', '#db2777'], TP: ['Thomas Petit', '#e11d48'], AM: ['Antoine Mercier', '#475569'], CL: ['Camille Leroy', '#0891b2'],
+};
+const av = (k, sz = '') => `<i class="av2 ${sz}" style="background:${PEOPLE[k][1]}">${k}</i>`;
+const who = (k, sub) => `<div class="who">${av(k)}<div><b>${PEOPLE[k][0]}</b><small>${sub}</small></div></div>`;
+const pl = (t, k = 'neutral') => `<span class="pl ${k}">${t}</span>`;
+const bt = (t, k = '', i = '') => `<span class="bt ${k}">${i ? ico(i, 2.4) : ''}${t}</span>`;
+const kpis = (a) => `<div class="kp">${a.map(([l, v, s]) => `<div class="cd"><span>${l}</span><b>${v}</b><small>${s}</small></div>`).join('')}</div>`;
+const card = (title, right, body, style = '') => `<div class="cd" style="${style}">${title ? `<div class="cd-h"><h3>${title}</h3>${right || ''}</div>` : ''}${body}</div>`;
+const tabs = (a, on = 0) => `<div class="tabs">${a.map((t, i) => `<span class="${i === on ? 'on' : ''}">${t}</span>`).join('')}</div>`;
+const rows = (tpl, head, list) => `<div class="trw th" style="grid-template-columns:${tpl}">${head.map((h) => `<span>${h}</span>`).join('')}</div>`
+  + list.map((r) => `<div class="trw" style="grid-template-columns:${tpl}">${r.map((c) => `<span>${c}</span>`).join('')}</div>`).join('');
+const chk = (state, t, right = '') => `<div class="chk"><i class="${state}">${state === 'ok' ? ico('check', 3) : ''}</i><b>${t}</b>${right}</div>`;
+const two = (t, s) => `<b>${t}</b><small class="sub">${s}</small>`;
+const NAV = [['home', 'Accueil'], ['users', 'Collaborateurs'], ['calendar', 'Absences', 4], ['wallet', 'Paie'], ['briefcase', 'Recrutement', 1], 'Développement',
+  ['star', 'Entretiens', 1], ['cap', 'Formation', 1], ['trend', 'Mobilité', 2], 'Suivi', ['heart', 'Santé & QVT', 2], ['chat', 'Relations individuelles', 1]];
+const persona = `<div class="persona"><span class="on">${av('OB', 's')}Olivia · RH</span><span>${av('TP', 's')}Thomas · Manager</span><span>${av('LM', 's')}Léa · Salarié</span></div>`;
+const appPage = (nav, title, body) => `<div class="app"><div class="sb"><div class="sb-brand"><i>${ico('users', 2.2)}</i><div><b>Teamora</b><small>Nova Studio</small></div></div>
+  ${NAV.map((n) => typeof n === 'string' ? `<div class="sb-s">${n}</div>` : `<div class="sb-n ${n[1] === nav ? 'on' : ''}">${ico(n[0])}${n[1]}${n[2] ? `<em>${n[2]}</em>` : ''}</div>`).join('')}</div>
+  <div class="mn"><div class="mn-top"><div><small>Nova Studio · Olivia Bennett</small><h1>${title}</h1></div>${persona}</div>${body}</div></div>`;
+
+const PAGE_HTML = [
+  // 04 · Embauche
+  appPage('Collaborateurs', 'Embauche · Nathan Lefebvre',
+    kpis([['Statut', '<span style="font-size:24px">Période d’essai</span>', 'jusqu’au 31 janv. 2027'], ['Date d’entrée', '1 oct.', '2026 · CDI'], ['Dossier administratif', '6 / 8', 'pièces reçues'], ['Manager', '<span style="font-size:24px">James Carter</span>', 'Lead Developer']])
+    + `<div class="grid2">${card("Formalités d'embauche", pl('3 / 4', 'accent'),
+      chk('ok', 'Déclaration préalable à l’embauche (DPAE)', pl('Faite', 'ok')) + chk('ok', 'Registre unique du personnel', pl('Fait', 'ok'))
+      + chk('ok', 'Mutuelle et prévoyance', pl('Affilié', 'ok')) + chk('wip', 'Visite d’information et de prévention', pl('À planifier', 'warn')))}
+    ${card('Affectation au poste', '', `<div class="igrid"><div><span>Poste</span><b>Développeur back-end</b></div><div><span>Service</span><b>Tech</b></div>
+      <div><span>Manager</span><b style="display:flex;align-items:center;gap:8px;margin-top:6px">${av('JC', 's')}James Carter</b></div><div><span>Lieu de travail</span><b>Paris</b></div>
+      <div><span>Contrat</span><b>CDI · temps plein</b></div><div><span>Salaire annuel brut</span><b>46 000 €</b></div></div>`)}</div>`
+    + card('Dossier administratif', pl('6 / 8 pièces', 'inf'), `<div style="padding:4px 22px 22px"><div class="bar"><i style="width:75%;background:#4f46e5"></i></div>
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">${['Pièce d’identité', 'RIB', 'Carte Vitale', 'Diplôme', 'Justificatif de domicile', 'Photo'].map((d) => pl(d, 'ok')).join('')}${pl('Permis de travail', 'neutral')}${pl('Attestation mutuelle', 'neutral')}</div></div>`)),
+
+  // 05 · Intégration
+  appPage('Collaborateurs', 'Intégration · Julie Bernard',
+    kpis([['Parcours d’intégration', '62 %', '5 actions sur 8'], ['Arrivée', '7 sept.', '2026 · Alternance'], ['Fin de période d’essai', '7 nov.', 'dans 33 jours'], ['Marraine', '<span style="font-size:24px">Sofia Ramirez</span>', 'Responsable marketing']])
+    + card('Parcours d’intégration', pl('En cours', 'inf'), `<div class="tl"><div class="tl-f" style="width:56%"></div>
+      ${[['ok', 'Kit d’accueil', 'J − 7'], ['ok', 'Accueil & visite', 'Jour 1'], ['ok', 'Formation initiale', 'Semaine 1'], ['wip', 'Rapport d’étonnement', 'Mois 1'], ['', 'Bilan d’essai', 'Mois 2']]
+        .map(([s, t, d]) => `<div><i class="${s}">${s === 'ok' ? ico('check', 3) : ''}</i><b>${t}</b><small>${d}</small></div>`).join('')}</div>`)
+    + `<div class="grid2">${card('Formation initiale', pl('3 / 3', 'ok'), chk('ok', 'Outils et accès Teamora') + chk('ok', 'Charte et sécurité informatique') + chk('ok', 'Présentation des équipes'))}
+    ${card('Fin de période d’essai', pl('À préparer', 'warn'), chk('ok', 'Point à mi-parcours avec la manager') + chk('wip', 'Avis de la manager', pl('À recueillir', 'warn')) + chk('', 'Confirmation de l’embauche'))}</div>`),
+
+  // 06 · Vie administrative
+  appPage('Collaborateurs', 'Léa Martin',
+    card('', '', `<div style="display:flex;align-items:center;gap:20px;padding:22px">${av('LM', 'l')}<div><b style="font-size:26px;font-weight:800">Léa Martin</b>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:4px;color:#5f6589;font-size:16px">UX Designer · Design ${pl('Actif', 'ok')}</div></div></div>
+      <div class="igrid" style="grid-template-columns:repeat(4,1fr)"><div><span>Contrat</span><b>CDI</b></div><div><span>Date d’entrée</span><b>4 nov. 2024</b></div><div><span>Manager</span><b>Thomas Petit</b></div><div><span>Salaire annuel brut</span><b>41 400 €</b></div></div>`)
+    + `<div class="grid2">${card('Contrat et avenants', '', rows('1fr auto', ['Document', 'Statut'], [[two('Contrat de travail · CDI', 'Signé le 20 oct. 2024'), pl('Signé', 'ok')], [two('Avenant télétravail', '2 jours par semaine'), pl('Signé', 'ok')], [two('Avenant salaire', 'Révision annuelle 2026'), pl('À signer', 'warn')]]))}
+    ${card('Documents RH', bt('Attestation', 'g', 'plus'), rows('1fr auto', ['Document', ''], [[two('Attestation employeur', '3 févr. 2026'), bt('Consulter', 'g')], [two('Bulletin de paie · Septembre', '2 494,28 € net'), bt('Consulter', 'g')], [two('Mutuelle · attestation', '1 janv. 2026'), bt('Consulter', 'g')]]))}</div>`
+    + card('Changements de situation', pl('1 à valider', 'warn'), rows('1.2fr 1.6fr 1fr auto', ['Demande', 'Détail', 'Envoyée le', ''], [[two('Changement d’adresse', 'Léa Martin'), '18 rue des Martyrs, 75009 Paris', '2 oct. 2026', bt('Valider', 'okb', 'check')]]))),
+
+  // 07 · Temps de travail et absences
+  appPage('Absences', 'Absences',
+    kpis([['Absents aujourd’hui', '2', 'lundi 5 octobre'], ['Demandes à valider', '4', 'en attente'], ['En télétravail', '5', 'cette semaine'], ['Arrêts en cours', '1', 'retour le 9 oct.']])
+    + `<div style="height:20px"></div>` + tabs(['À valider 4', 'Planning', 'Historique'])
+    + card('', '', rows('1.4fr 1.6fr auto', ['Collaborateur', 'Demande', ''], [
+      [who('ED', 'Brand Designer · solde CP 3 j · RTT 1 j'), two('Télétravail · 2 jours', '8 oct. → 9 oct. 2026'), `${bt('Valider', 'okb', 'check')} ${bt('Refuser', 'nob')}`],
+      [who('IH', 'Développeuse front-end · solde CP 11 j'), two('RTT · 1 jour', '16 oct. 2026 · « Pont personnel »'), `${bt('Valider', 'okb', 'check')} ${bt('Refuser', 'nob')}`],
+      [who('HL', 'Senior Product Designer · solde CP 12 j'), two('Congés payés · 5 jours', '26 oct. → 30 oct. · « Vacances de la Toussaint »'), `${bt('Valider', 'okb', 'check')} ${bt('Refuser', 'nob')}`],
+      [who('SC', 'Comptable · solde CP 22 j · RTT 6 j'), two('Congés payés · 8 jours', '21 déc. → 31 déc. · « Fêtes de fin d’année »'), `${bt('Valider', 'okb', 'check')} ${bt('Refuser', 'nob')}`]]))),
+
+  // 08 · Rémunération et avantages
+  appPage('Paie', 'Paie',
+    card('', '', `<div style="display:flex;align-items:center;gap:14px;padding:16px 22px"><b style="font-size:19px">Paie d’octobre 2026</b>${pl('En cours de préparation', 'warn')}<span style="margin-left:auto">${bt('Valider la paie et générer les bulletins', '', 'check')}</span></div>`)
+    + kpis([['Bulletins', '18', 'collaborateurs payés'], ['Masse salariale brute', '79 450 €', 'dont 3 200 € de primes'], ['Cotisations salariales', '17 352 €', 'taux moyen 21,8 %'], ['Net à verser', '57 441 €', 'après prélèvement à la source']])
+    + `<div style="height:18px"></div>` + card('', '', rows('1.5fr 0.7fr 1fr 0.8fr 1fr', ['Collaborateur', 'Contrat', 'Salaire de base', 'Prime', 'Net à payer'], [
+      [who('OB', 'Responsable RH'), 'CDI', '5 166,67 €', '—', '<b>3 735,40 €</b>'], [who('JB', 'Alternante marketing'), 'Alternance', '1 750,00 €', '—', '<b>1 265,22 €</b>'],
+      [who('JC', 'Lead Developer'), 'CDI', '6 000,00 €', '800 €', '<b>4 962,88 €</b>'], [who('SC', 'Comptable'), 'CDI', '3 666,67 €', '—', '<b>2 650,93 €</b>'],
+      [who('ED', 'Brand Designer'), 'CDI', '3 583,33 €', '400 €', '<b>2 902,68 €</b>']]))),
+
+  // 09 · Performance et entretiens
+  appPage('Entretiens', 'Entretiens',
+    tabs(['Campagne 2026', 'Entretiens professionnels 10', 'Objectifs'])
+    + kpis([['Entretiens créés', '5', '10 collaborateurs sans entretien'], ['Signés', '1', '20 % de la campagne'], ['En cours', '3', 'auto-évaluation ou signature'], ['À planifier', '1', 'date à fixer par le manager']])
+    + `<div style="height:18px"></div>` + card('Suivi de la campagne', bt('Lancer la campagne', '', 'plus'), rows('1.4fr 1.2fr 1fr 1fr auto', ['Collaborateur', 'Manager', 'Date', 'Statut', ''], [
+      [who('LM', 'UX Designer'), 'Thomas Petit', '18 nov. 2026', pl('Planifié', 'inf'), bt('Ouvrir', 'g')],
+      [who('HL', 'Senior Product Designer'), 'Thomas Petit', '12 nov. 2026', pl('Auto-évaluation faite', 'accent'), bt('Ouvrir', 'g')],
+      [who('ED', 'Brand Designer'), 'Thomas Petit', '—', pl('À planifier', 'warn'), bt('Ouvrir', 'g')],
+      [who('NW', 'Data Analyst'), 'Claire Durand', '29 sept. 2026', pl('Signé', 'ok'), bt('Ouvrir', 'g')],
+      [who('IH', 'Développeuse front-end'), 'James Carter', '21 oct. 2026', pl('À signer', 'accent'), bt('Ouvrir', 'g')]]))),
+
+  // 10 · Formation et compétences
+  appPage('Formation', 'Formation',
+    tabs(['Plan de formation', 'À valider 2', 'Catalogue'])
+    + card('Budget formation 2026', '<b style="font-size:17px;color:#5f6589">25 000 €</b>', `<div style="padding:4px 22px 20px"><div class="bar" style="height:16px"><i style="width:4%;background:#10b981"></i><i style="width:10%;background:#4f46e5"></i><i style="width:7%;background:#d97706"></i></div>
+      <div style="display:flex;gap:22px;margin-top:12px;font-size:14px;color:#5f6589;font-weight:600"><span>● Réalisé 950 €</span><span style="color:#4f46e5">● Engagé 2 490 €</span><span style="color:#d97706">● En attente 1 850 €</span><b style="color:#151935">Restant 19 710 €</b></div></div>`)
+    + card('Toutes les formations', '', rows('1.3fr 2fr auto', ['Collaborateur', 'Formation', 'Statut'], [
+      [who('ED', 'Brand Designer'), two('Recherche utilisateur avancée', 'Session du 7 déc. 2026 · 14 h · 1 200 €'), pl('Validée manager', 'inf')],
+      [who('SR', 'Responsable marketing'), two('Prise de parole en public', 'Session du 19 nov. 2026 · 7 h · 690 €'), pl('Inscrite', 'accent')],
+      [who('HL', 'Senior Product Designer'), two('Manager en situation hybride', 'Session du 9 nov. 2026 · 21 h · 1 800 €'), pl('Inscrit', 'accent')],
+      [who('IH', 'Développeuse front-end'), two('Accessibilité numérique (RGAA)', 'Session du 22 oct. 2026 · 7 h · 650 €'), pl('Demandée', 'warn')],
+      [who('LS', 'Ingénieur DevOps'), two('Sauveteur secouriste du travail (SST)', 'Session du 4 juin 2026 · 14 h · 300 €'), pl('Terminée', 'ok')]]))),
+
+  // 11 · Mobilité et évolution
+  appPage('Mobilité', 'Mobilité',
+    tabs(['Souhaits d’évolution 2', 'Changements de poste', 'Offres internes 3'])
+    + card('Souhaits d’évolution', '', rows('1.2fr 2fr auto', ['Collaborateur', 'Souhait', 'Statut'], [
+      [who('LS', 'Ingénieur DevOps · Tech'), two('Mobilité géographique : bureaux de Paris', 'En 2027 · exprimé le 21 sept. 2026 · « Rapprochement familial »'), pl('Exprimé', 'warn')],
+      [who('SC', 'Comptable · Finance'), two('Changement de service : contrôle de gestion', 'Dans 6 mois · exprimé le 8 sept. 2026'), pl('Exprimé', 'warn')],
+      [who('HL', 'Senior Product Designer · Design'), two('Évolution de poste : Lead Designer avec encadrement', 'Dans 12 mois · avis du manager : favorable'), pl('En étude', 'inf')]]))
+    + card('Offres internes', bt('Publier une offre', '', 'plus'), `<div class="tiles2">${[['briefcase', 'Lead Designer', 'Design'], ['briefcase', 'Contrôleur de gestion', 'Finance'], ['briefcase', 'Chef de projet data', 'Tech']]
+      .map(([i, t, s]) => `<div>${ico(i)}<div>${t}<small class="sub">${s} · CDI</small></div>${pl('Ouverte', 'ok')}</div>`).join('')}</div>`)),
+
+  // 12 · Santé, sécurité et QVT
+  appPage('Santé & QVT', 'Santé & QVT',
+    tabs(['Visites médicales 4', 'Accidents et incidents 1', 'Document unique (DUERP)', 'Baromètre QVT', 'Aménagements de poste 1'])
+    + card('À organiser', pl('4', 'bad'), rows('1.3fr 1.6fr auto auto', ['Collaborateur', 'Visite', '', ''], [
+      [who('SC', 'Dernière visite le 1 mars 2021'), two('Visite périodique', 'Avant le 1 mars 2026'), pl('En retard', 'bad'), bt('Planifier')],
+      [who('ED', 'Embauchée le 31 août 2026'), two('Visite d’information et de prévention', 'Avant le 1 déc. 2026'), pl('À planifier', 'warn'), bt('Planifier')],
+      [who('NL', 'Embauché le 1 oct. 2026'), two('Visite d’information et de prévention', 'Avant le 1 janv. 2027'), pl('À planifier', 'warn'), bt('Planifier')],
+      [who('AP', 'Embauchée le 2 nov. 2026'), two('Visite d’information et de prévention', 'Avant le 2 févr. 2027'), pl('À planifier', 'warn'), bt('Planifier')]]))
+    + card('Baromètre QVT · septembre 2026', pl('Participation 84 %', 'ok'), `<div class="kp" style="padding:4px 22px 20px">${[['Charge de travail', '3,4'], ['Ambiance d’équipe', '4,3'], ['Équilibre vie pro / perso', '3,9'], ['Reconnaissance', '3,7']]
+      .map(([l, v]) => `<div><span>${l}</span><b>${v}<small style="display:inline;font-size:16px"> / 5</small></b></div>`).join('')}</div>`)),
+
+  // 13 · Relations individuelles et disciplinaires
+  appPage('Relations individuelles', 'Relations individuelles',
+    card('', '', `<div class="banner">${pl('Confidentiel', 'bad')}Ces dossiers ne sont visibles que par les RH. Le collaborateur ne voit que les réponses qui lui sont adressées.</div>`)
+    + `<div style="display:flex;justify-content:flex-end;margin-bottom:18px">${bt('Ouvrir un dossier', '', 'plus')}</div>`
+    + card('Dossiers', '<b style="color:#8d92b0">3</b>', rows('1.2fr 1.2fr 1.8fr 1fr auto', ['Collaborateur', 'Nature', 'Objet', 'Ouvert le', 'Statut'], [
+      [who('LM', 'UX Designer'), 'Demande d’échange', 'Échanger sur ma charge de travail', '2 oct. 2026', pl('Ouvert', 'warn')],
+      [who('LO', 'Account Executive'), 'Procédure disciplinaire', 'Non-respect répété de la procédure de facturation', '30 sept. 2026', pl('En cours', 'inf')],
+      [who('SC', 'Comptable'), 'Situation individuelle', 'Aménagement horaire · proche aidant', '10 sept. 2026', pl('En cours', 'inf')]]))
+    + card('Suivi de la procédure · Liam O’Connor', pl('Étape 2 / 4', 'accent'), `<div class="tl"><div class="tl-f" style="width:28%"></div>
+      ${[['ok', 'Convocation', '30 sept.'], ['wip', 'Entretien préalable', '12 oct.'], ['', 'Délai de réflexion', '2 jours ouvrables'], ['', 'Notification', 'avant le 12 nov.']]
+        .map(([s, t, d]) => `<div><i class="${s}">${s === 'ok' ? ico('check', 3) : ''}</i><b>${t}</b><small>${d}</small></div>`).join('')}</div>`)),
+
+  // 14 · Préparation du départ
+  appPage('Collaborateurs', 'Préparation du départ · Yanis Morel',
+    kpis([['Motif', '<span style="font-size:24px">Démission</span>', 'reçue le 27 oct. 2026'], ['Préavis', '1 mois', 'non dispensé'], ['Dernier jour', '27 nov.', '2026'], ['Congés restants', '9 j', 'à solder']])
+    + card('Préavis', pl('En cours', 'inf'), `<div class="tl"><div class="tl-f" style="width:30%"></div>
+      ${[['ok', 'Démission reçue', '27 oct.'], ['ok', 'Préavis confirmé', '28 oct.'], ['wip', 'Passation', 'jusqu’au 20 nov.'], ['', 'Dernier jour', '27 nov.']]
+        .map(([s, t, d]) => `<div><i class="${s}">${s === 'ok' ? ico('check', 3) : ''}</i><b>${t}</b><small>${d}</small></div>`).join('')}</div>`)
+    + card('Documents de sortie', pl('1 / 4 prêt', 'warn'), rows('1.6fr 1fr auto', ['Document', 'Statut', ''], [
+      [two('Certificat de travail', 'Généré automatiquement'), pl('Prêt', 'ok'), bt('Consulter', 'g')],
+      [two('Solde de tout compte', 'Calculé avec la paie de novembre'), pl('En préparation', 'warn'), bt('Ouvrir', 'g')],
+      [two('Attestation France Travail', 'Transmise au dernier jour'), pl('À générer', 'neutral'), bt('Générer')],
+      [two('Reçu pour solde de tout compte', 'Signature du collaborateur'), pl('À générer', 'neutral'), bt('Générer')]]))),
+
+  // 15 · Départ / Offboarding
+  appPage('Collaborateurs', 'Départ · Yanis Morel',
+    `<div class="grid2">${card('Entretien de départ', pl('Planifié', 'inf'), `<div class="igrid"><div><span>Date</span><b>25 nov. 2026 · 14 h</b></div><div><span>Avec</span><b>Olivia Bennett</b></div>
+      <div><span>Format</span><b>Questionnaire + échange</b></div><div><span>Questionnaire</span><b style="color:#0c8a5f">Rempli</b></div></div>`)}
+    ${card('Passation', pl('3 / 4', 'accent'), chk('ok', 'Comptes clients transférés') + chk('ok', 'Documentation à jour') + chk('ok', 'Successeur présenté') + chk('wip', 'Dossiers en cours', pl('En cours', 'warn')))}</div>`
+    + card('Restitution du matériel', pl('2 / 3', 'accent'), `<div class="tiles2">${[['laptop', 'Ordinateur', 'ok', 'Rendu'], ['badge', 'Badge', 'ok', 'Rendu'], ['phone', 'Téléphone', 'warn', 'Attendu']]
+      .map(([i, t, k, s]) => `<div>${ico(i)}${t}${pl(s, k)}</div>`).join('')}</div>`)
+    + card('Fin des accès · 27 nov. 2026 à 18 h', pl('Programmée', 'inf'), `<div class="tiles2">${[['mail', 'Messagerie'], ['lock', 'Teamora'], ['briefcase', 'Outils métier']]
+      .map(([i, t]) => `<div>${ico(i)}${t}${pl('Programmée', 'inf')}</div>`).join('')}</div>`)),
+
+  // 16 · Après le départ
+  appPage('Collaborateurs', 'Anciens collaborateurs',
+    kpis([['Dossiers archivés', '24', 'conservation légale suivie'], ['Demandes en cours', '2', 'attestations, documents'], ['Réseau alumni', '31', 'membres'], ['Retours', '3', 'anciens réembauchés']])
+    + `<div style="height:18px"></div>` + card('Anciens collaborateurs', '', rows('1.4fr 1fr 1.3fr 1.2fr auto', ['Collaborateur', 'Sorti le', 'Dossier', 'Demande', 'Alumni'], [
+      [who('YM', 'Business Developer'), '27 nov. 2026', pl('Archivé · 5 ans', 'neutral'), '—', pl('Membre', 'accent')],
+      [who('AM', 'UX Designer Senior'), '31 juil. 2026', pl('Archivé · 5 ans', 'neutral'), pl('Attestation envoyée', 'ok'), pl('Membre', 'accent')],
+      [who('CL', 'Chargée de communication'), '15 mars 2026', pl('Archivé · 5 ans', 'neutral'), pl('Certificat demandé', 'warn'), pl('Membre', 'accent')],
+      [who('NW', 'Data Analyst'), '30 nov. 2025', pl('Archivé · 5 ans', 'neutral'), '—', pl('Réembauché', 'ok')]]))
+    + card('Demandes postérieures', pl('2', 'warn'), chk('ok', 'Attestation employeur · Antoine Mercier', pl('Envoyée le 2 oct.', 'ok')) + chk('wip', 'Duplicata du certificat de travail · Camille Leroy', pl('À traiter', 'warn')))),
+];
+
+// Tunnel geometry (world units; the camera looks down +z, focal length P3)
+const P3 = 1000, VD = 1300, GAP = 3200, DRIFT = 220, TRAV = 0.55, HX = 1750, HY = 1000, FS = 700, FAR = 9000;
+const PX = (k) => (k % 2 ? 1 : -1) * 420;
+const TDUR = [2.0, 1.8, 1.6, 1.45, 1.3, 1.15, 1.0, 0.88, 0.78, 0.68, 0.6, 0.54, 0.5];
+const TSEG = []; { let s = 0; TDUR.forEach((d) => { TSEG.push([s, d]); s += d; }); }
+const TEND = TSEG[12][0] + TDUR[12], RUSH = 0.6, TTOTAL = TEND + RUSH;
+const TLEN = 12 * GAP + DRIFT + 2.4 * GAP + VD + FAR;
+const secOf = (z) => Math.max(0, Math.min(12, Math.ceil((z - VD) / GAP)));
+let world = '';
+PAGE_HTML.forEach((h, k) => {
   const i = k + 3;
-  return `<div class="wcard" id="wc${i}"><div class="wi" style="background:${COLORS[i]};color:${COLORS[i]}">${icon(i)}</div><div class="wn" style="color:${COLORS[i]}">ÉTAPE ${pad(i + 1)}</div><h2>${s[1]}</h2><div class="wc">${s[2].map((x) => `<span>${x}</span>`).join('')}</div></div>`;
-}).join('');
-const STREAKS = 70;
-$('#streaks').innerHTML = Array.from({ length: STREAKS }, (_, k) => `<div class="streak" style="background:linear-gradient(90deg, #ffffff00, ${COLORS[k % 16]})"></div>`).join('');
+  world += `<div class="pg" id="pg${k}"><div class="pg-h"><div class="pi" style="background:${COLORS[i]};box-shadow:0 0 60px ${COLORS[i]}">${icon(i)}</div><div><small style="color:${COLORS[i]}">ÉTAPE ${pad(i + 1)}</small><b>${STAGES[i][1]}</b></div></div>${h}</div>`;
+});
+const NF = Math.ceil(TLEN / FS);
+for (let j = 0; j < NF; j++) world += `<div class="tf" id="tf${j}" style="border-color:${COLORS[secOf(j * FS) + 3]}66"></div>`;
+const STREAK_DATA = Array.from({ length: 240 }, (_, n) => {
+  const wall = n % 4, v = rnd() * 2 - 1, z = rnd() * TLEN, L = 500 + 2800 * Math.pow(z / TLEN, 2);
+  const x = wall === 0 ? -HX : wall === 1 ? HX : v * HX, y = wall === 2 ? -HY : wall === 3 ? HY : v * HY;
+  return { x, y, z, L, c: COLORS[secOf(z) + 3] };
+});
+STREAK_DATA.forEach((s, n) => { world += `<div class="ts" id="ts${n}" style="background:linear-gradient(90deg, ${s.c}, ${s.c}00)"></div>`; });
+$('#t-world').innerHTML = world;
+const PG_EL = PAGE_HTML.map((_, k) => $(`#pg${k}`));
+const TF_EL = Array.from({ length: NF }, (_, j) => $(`#tf${j}`));
+const TS_EL = STREAK_DATA.map((_, n) => $(`#ts${n}`));
 
 // Fit each widget to its content and center it vertically (left column follows).
 $$('.detail').forEach((det) => {
@@ -594,51 +874,89 @@ zoomOut(T, 2, '#det2');
 hide(T, '#dots, #step-count', 0.3);
 nodeDone(T + 0.9, 2);
 
-// ================= 4-16. Acceleration =================
+// ================= 4-16. Tunnel through the software pages =================
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+const inOut3 = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+function camAt(t) {
+  if (t >= TEND) {
+    const u = clamp01((t - TEND) / RUSH);
+    return { z: 12 * GAP + DRIFT + 2.4 * GAP * u * u, x: PX(12) * (1 - u), k: 12 };
+  }
+  let k = 0; while (k < 12 && t >= TSEG[k + 1][0]) k++;
+  const [st, d] = TSEG[k], u = Math.max(0, (t - st) / d);
+  const zA = k ? (k - 1) * GAP + DRIFT : -GAP, xA = k ? PX(k - 1) : 0;
+  if (u < TRAV) { const e = inOut3(u / TRAV); return { z: zA + (k * GAP - zA) * e, x: xA + (PX(k) - xA) * e, k }; }
+  return { z: k * GAP + DRIFT * (u - TRAV) / (1 - TRAV), x: PX(k), k };
+}
+let glowK = -1;
+function tunnel(t) {
+  const c = camAt(t);
+  if (c.k !== glowK) { glowK = c.k; $('#t-glow').style.background = `radial-gradient(circle, ${COLORS[c.k + 3]}66 0%, ${COLORS[c.k + 3]}00 60%)`; }
+  PG_EL.forEach((el, k) => {
+    const d = k * GAP + VD - c.z;
+    if (d < 300 || d > 8000) { el.style.display = 'none'; return; }
+    const s = P3 / d, sx = 960 + (PX(k) - c.x) * s;
+    el.style.display = 'block';
+    el.style.opacity = clamp01((8000 - d) / 2500) * clamp01((d - 300) / 650);
+    el.style.zIndex = Math.round(20000 - d);
+    el.style.transform = `translate(${sx - 750}px, ${540 - 512}px) scale(${s})`;
+  });
+  TF_EL.forEach((el, j) => {
+    const d = j * FS - c.z;
+    if (d < 300 || d > FAR) { el.style.display = 'none'; return; }
+    const s = P3 / d;
+    el.style.display = 'block';
+    el.style.opacity = clamp01((FAR - d) / 3000) * clamp01((d - 300) / 500);
+    el.style.zIndex = Math.round(20000 - d);
+    el.style.width = 2 * HX * s + 'px'; el.style.height = 2 * HY * s + 'px';
+    el.style.borderWidth = Math.min(12, Math.max(1, 5 * s)) + 'px';
+    el.style.borderRadius = 60 * s + 'px';
+    el.style.transform = `translate(${960 + (-HX - c.x) * s}px, ${540 - HY * s}px)`;
+  });
+  STREAK_DATA.forEach((sd, n) => {
+    const el = TS_EL[n], df = sd.z + sd.L - c.z;
+    let dn = sd.z - c.z;
+    if (df < 200 || dn > FAR) { el.style.display = 'none'; return; }
+    dn = Math.max(dn, 160);
+    const s1 = P3 / dn, s2 = P3 / df;
+    const x1 = 960 + (sd.x - c.x) * s1, y1 = 540 + sd.y * s1, x2 = 960 + (sd.x - c.x) * s2, y2 = 540 + sd.y * s2;
+    const h = Math.min(6, Math.max(1.5, 2.5 * s1));
+    el.style.display = 'block';
+    el.style.opacity = clamp01((FAR - dn) / 3000) * 0.9;
+    el.style.zIndex = Math.round(20000 - dn);
+    el.style.width = Math.hypot(x2 - x1, y2 - y1) + 'px'; el.style.height = h + 'px';
+    el.style.transform = `translate(${x1}px, ${y1 - h / 2}px) rotate(${Math.atan2(y2 - y1, x2 - x1)}rad)`;
+  });
+}
+tunnel(0);
+
 T += 1.3;
 cursorIn(T, { x: CX + 220, y: CY + 20 });
 moveCursor(T, scr(3), 0.5);
 nodeHover(T + 0.4, 3);
 click(T + 0.7, scr(3));
 cursorOut(T + 0.75);
-zoomIn(T + 0.8, 3, '#warp');
+zoomIn(T + 0.8, 3, '#tunnel');
 const W0 = T + 1.45;
 show(W0, '#dots, #step-count', { y: -10 }, 0.3);
-const DUR = [1.55, 1.3, 1.12, 0.98, 0.86, 0.76, 0.67, 0.6, 0.53, 0.47, 0.42, 0.38, 0.36];
-let s = W0;
-const starts = DUR.map((d) => { const st = s; s += d; return st; });
-const W1 = s + 0.35;
-DUR.forEach((d, k) => {
-  const i = k + 3, st = starts[k], card = `#wc${i}`;
-  tl.fromTo(card, { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1, duration: d * 0.45, ease: 'power2.out' }, st)
-    .to(card, { opacity: 0, scale: 2.6, duration: d * 0.5, ease: 'power2.in' }, st + d * 0.62);
-  setText(st, '#sc-n', pad(i + 1));
-  dotsTo(st, i, Math.min(0.3, d * 0.4));
+TSEG.forEach(([st, d], k) => {
+  setText(W0 + st, '#sc-n', pad(k + 4));
+  dotsTo(W0 + st, k + 3, Math.min(0.3, d * 0.4));
 });
-// Streaks get faster as the stages speed by
-$$('.streak').forEach((el) => {
-  const a = rnd() * Math.PI * 2, cos = Math.cos(a), sin = Math.sin(a);
-  const d0 = 60 + rnd() * 140;
-  let t = W0 - 0.4 + rnd() * 0.9;
-  tl.set(el, { rotation: a * 180 / Math.PI }, W0 - 0.5);
-  while (t < W1) {
-    const prog = Math.min(1, Math.max(0, (t - W0) / (W1 - W0)));
-    const d = 1.2 - 0.95 * Math.pow(prog, 1.2);
-    tl.fromTo(el, { x: cos * d0, y: sin * d0, opacity: 0, scaleX: 0.3 },
-      { x: cos * 1300, y: sin * 1300, opacity: 0.35 + prog * 0.6, scaleX: 0.8 + prog * 2.2, duration: d, ease: 'power2.in' }, t);
-    t += d * (0.9 + rnd() * 0.3);
-  }
-});
-// Flash back to the wheel: every step is done
-tl.to('#flash', { opacity: 0.9, duration: 0.25, ease: 'power2.in' }, W1 - 0.1)
-  .set('#warp', { opacity: 0 }, W1 + 0.15)
-  .to('#flash', { opacity: 0, duration: 0.6, ease: 'power2.out' }, W1 + 0.15);
-hide(W1 + 0.15, '#dots, #step-count', 0.3);
-for (let i = 3; i < 16; i++) {
-  tl.to(`#n${i}`, { scale: 1, boxShadow: '0 10px 30px #0006, inset 0 0 0 3px #ffffff30', duration: 0.2 }, W1 + 0.1);
-  tl.to(`#n${i} .ck`, { scale: 1, duration: 0.4, ease: 'back.out(3)' }, W1 + 0.4 + (i - 3) * 0.06);
-}
+const tp = { t: 0 };
+tl.fromTo(tp, { t: 0 }, { t: TTOTAL, duration: TTOTAL, ease: 'none', onUpdate: () => tunnel(tp.t), onComplete: () => tunnel(tp.t) }, W0);
+const W1 = W0 + TTOTAL;
+window.TUNNEL = { W0, W1, TSEG };
 
+// Flash back to the wheel: every step is done
+tl.to('#flash', { opacity: 0.9, duration: 0.25, ease: 'power2.in' }, W1 - 0.2)
+  .set('#tunnel', { opacity: 0 }, W1 + 0.05)
+  .to('#flash', { opacity: 0, duration: 0.6, ease: 'power2.out' }, W1 + 0.05);
+hide(W1 + 0.05, '#dots, #step-count', 0.3);
+for (let i = 3; i < 16; i++) {
+  tl.to(`#n${i}`, { scale: 1, boxShadow: '0 10px 30px #0006, inset 0 0 0 3px #ffffff30', duration: 0.2 }, W1);
+  tl.to(`#n${i} .ck`, { scale: 1, duration: 0.4, ease: 'back.out(3)' }, W1 + 0.3 + (i - 3) * 0.06);
+}
 // ================= Finale: steps return into the hub, the logo emerges =================
 const F = W1 + 2.0;
 tl.to('.lab-in', { opacity: 0, duration: 0.4, stagger: { each: 0.02, from: 'end' } }, F);

@@ -142,7 +142,7 @@
     const box = document.getElementById('toasts');
     const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status');
     t.innerHTML = (kind === 'ok' ? ic('check') : '') + `<span>${esc(msg)}</span>`;
-    box.appendChild(t); setTimeout(() => t.remove(), 3600);
+    box.appendChild(t); while (box.children.length > 3) box.firstChild.remove(); setTimeout(() => t.remove(), 3600);
   }
   function journeyOf(id, stage) {
     const n = STAGES[stage].steps.length, who = emp(id);
@@ -159,13 +159,24 @@
   function payMonths() { const last = monthKey(TODAY) > '2026-10' ? monthKey(TODAY) : '2026-10'; const out = []; for (let m = PAY_FIRST; m <= last; m = shiftMonth(m, 1)) out.push(m); return out; }
   const payrollOf = (m) => (db.payroll[m] = db.payroll[m] || { closed: false, bonus: {} });
   function inPayroll(e, m) { const start = m + '-01', end = monthEnd(m); if (e.startDate > end) return false; if (e.exit && e.exit.lastDay < start) return false; return e.stage >= 2 || e.startDate <= end; }
+  // A raise or a job change can take effect later: until then the current salary applies.
+  const salaryAt = (e, m) => (e.salaryNext && `${m}-01` >= e.salaryNext.from ? e.salaryNext.amount : e.salary);
+  function normalizeEmployees() {
+    db.employees.forEach((e) => {
+      if (!e.category) e.category = e.contract === 'Alternance' || e.contract === 'Stage' ? 'Employé' : e.salary >= 45000 ? 'Cadre' : 'Employé';
+      if (e.zone === undefined) e.zone = 'France'; if (e.nationality === undefined) e.nationality = '';
+      if (e.sex === undefined) e.sex = null; if (!e.family) e.family = 'Célibataire'; if (e.iban === undefined) e.iban = '—';
+      if (e.registeredAt === undefined) e.registeredAt = e.stage >= 3 ? e.startDate : null;
+    });
+  }
+  function applyDueSalaries() { db.employees.forEach((e) => { if (e.salaryNext && e.salaryNext.from <= TODAY) { e.salary = e.salaryNext.amount; delete e.salaryNext; } }); }
   function calcPay(e, m) {
-    const start = m + '-01', end = monthEnd(m);
-    let base = e.salary / 12;
+    const start = m + '-01', end = monthEnd(m), sal = salaryAt(e, m);
+    let base = sal / 12;
     if (e.startDate > start) base *= workDays(e.startDate, end) / Math.max(1, workDays(start, end));
     if (e.exit && e.exit.lastDay < end) base *= workDays(start, e.exit.lastDay) / Math.max(1, workDays(start, end));
     const bonus = Number(payrollOf(m).bonus[e.id] || 0);
-    const ot = overtimePay(e, m), ppv = Number((payrollOf(m).ppv || {})[e.id] || 0);
+    const ot = overtimePay(Object.assign({}, e, { salary: sal }), m), ppv = Number((payrollOf(m).ppv || {})[e.id] || 0);
     const gross = base + bonus + ot.amount;
     const lines = RATES.map(([l, r]) => [l, r, gross * r]);
     const contrib = lines.reduce((s, x) => s + x[2], 0);
@@ -264,7 +275,7 @@
         ${k('Demandes à valider', pendingForMe().length, 'Congés, RTT, télétravail')}${k('Candidats en cours', scopeCandidates().filter(activeCand).length, `Équipe ${esc(me().dept)}`)}</div>`;
     }
     const open = db.jobs.filter((j) => j.status === 'Ouverte').length, drafts = needsToDo().length;
-    return `<div class="kpis">${k('Effectif', employed.length, `dont ${trial} en période d’essai · ${db.employees.filter((e) => e.stage === 2).length} arrivées prévues`)}${k('Absents aujourd’hui', away, fmtDate(TODAY, { weekday: 'long', day: 'numeric', month: 'long' }))}
+    return `<div class="kpis">${k('Effectif', employed.length, `dont ${trial} en période d’essai · ${plural(db.employees.filter((e) => e.stage === 2).length, 'arrivée prévue', 'arrivées prévues')}`)}${k('Absents aujourd’hui', away, fmtDate(TODAY, { weekday: 'long', day: 'numeric', month: 'long' }))}
       ${k('Demandes à valider', pendingForMe().length, 'Absences en attente')}${k('Postes ouverts', open, drafts ? `${plural(drafts, 'besoin', 'besoins')} à traiter` : 'Aucun besoin en attente')}</div>`;
   }
   function wheelHTML() {
@@ -282,8 +293,8 @@
       return `<div class="lab" style="left:${W.cx + p.x}px;top:${W.cy + p.y}px;transform:${tr};text-align:${align}"><div class="lab-in"><b>${esc(s.short)}</b>${mod && mod !== s.short ? `<em>${esc(mod)}</em>` : ''}</div></div>`;
     }).join('');
     const hubText = sal ? `<small>MON PARCOURS</small><b>Étape<br>en cours</b><span class="hub-n">${esc(STAGES[m.stage].short)}</span>`
-      : ui.profile === 'manager' ? `<small>PARCOURS</small><b>Équipe ${esc(m.dept)}</b><span class="hub-n num">${plural(scopeEmployees().length, 'personne', 'personnes')}</span>`
-        : `<small>PARCOURS</small><b>Collaborateur</b><span class="hub-n num">${plural(db.employees.filter((e) => e.stage < 15).length, 'collaborateur', 'collaborateurs')}</span>`;
+      : ui.profile === 'manager' ? `<small>PARCOURS</small><b>Équipe ${esc(m.dept)}</b><span class="hub-n num">${plural(scopeEmployees().filter(isEmployed).length, 'personne', 'personnes')}</span>`
+        : `<small>PARCOURS</small><b>Collaborateur</b><span class="hub-n num">${plural(db.employees.filter(isEmployed).length, 'collaborateur', 'collaborateurs')}</span>`;
     return `<div class="wheel-box" id="wheel-box"><div class="wheel" id="wheel">${labels}${nodes}
       <button type="button" class="hub" data-act="hub" aria-expanded="${ui.wheelOpen}" aria-label="${ui.wheelOpen ? 'Replier' : 'Déplier'} le menu du parcours">${hubText}</button></div></div>
       <p class="wheel-hint" id="wheel-hint">${ui.wheelOpen ? HINT_OPEN : HINT_CLOSED}</p>`;
@@ -328,7 +339,7 @@
             <button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir la fiche</button>${done < arr.length ? `<span class="hint">${plural(arr.length - done, 'sous-étape restante', 'sous-étapes restantes')}</span>` : ''}</div>
             ${ui.profile === 'manager' ? '<p class="hint" style="margin:10px 0 0">Les RH font passer le collaborateur à l’étape suivante.</p>' : ''}</div>` : ''}`; }).join('')
         : '<p class="muted" style="margin:0">Aucun collaborateur à cette étape pour le moment.</p>'}</div></div></div>
-        ${i === 14 ? exitStats() : ''}<div class="card"><div class="card-h"><h3>Sous-étapes de référence</h3></div><div class="card-b">${stepsList(s.steps.map(() => false), s.steps, false)}</div></div>${moduleBtn(i)}`;
+        ${i === 14 ? exitStats() : ''}${people.length ? '' : `<div class="card"><div class="card-h"><h3>Sous-étapes de l’étape</h3></div><div class="card-b">${stepsList(s.steps.map(() => false), s.steps, false)}</div></div>`}${moduleBtn(i)}`;
     }
     return `<div class="card card-b">${stageHead(i)}</div>${body}`;
   }
@@ -362,10 +373,12 @@
     }
     scopeEmployees().filter((e) => e.stage >= 13 && ui.profile === 'rh').forEach((e) => { const a = departActions(e); if (a.length) todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(STAGES[e.stage].short)} : ${esc(fullName(e))}</b><small>${a.slice(0, 3).join(' · ')}${a.length > 3 ? ' · …' : ''}</small></div><button type="button" class="btn ghost sm" data-act="open-dossier" data-id="${e.id}">Ouvrir</button></div>`); });
     scopeEmployees().filter((e) => ui.profile !== 'rh' && (e.stage === 13 || e.stage === 14)).forEach((e) => todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>Départ : ${esc(fullName(e))}</b><small>${e.exit ? `${esc(e.exit.reason)} · dernier jour le ${fmtDate(e.exit.lastDay)}` : 'Départ en préparation'}</small></div><button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir</button></div>`));
-    return `<div class="card"><div class="card-h"><h3>À traiter</h3><span class="pill ${todos.length ? 'warn' : 'ok'} num">${todos.length}</span></div><div class="card-b">${todos.length ? todos.join('') : '<p class="muted" style="margin:0">Rien à traiter pour le moment.</p>'}</div></div>
+    return `<div class="card"><div class="card-h"><h3>À traiter</h3><span class="pill ${todos.length ? 'warn' : 'ok'} num">${todos.length}</span></div><div class="card-b">${todos.length ? (ui.todoAll ? todos : todos.slice(0, 8)).join('') : '<p class="muted" style="margin:0">Rien à traiter pour le moment.</p>'}
+      ${todos.length > 8 ? `<button type="button" class="btn ghost sm todo-more" data-act="todo-all">${ui.todoAll ? 'Réduire la liste' : `Afficher les ${todos.length - 8} autres`}</button>` : ''}</div></div>
       <div class="card card-b"><p class="muted" style="margin:0">La roue est le menu de Teamora : chaque étape du parcours collaborateur ouvre le module qui la gère (recrutement, absences, paie, entretiens…). Le chiffre blanc indique combien de personnes, de besoins ou de candidats s’y trouvent ; le chiffre orange, ce qui vous attend.</p></div>`;
   }
-  const viewHome = () => `${kpiStrip()}<div class="home"><div class="card wheel-card">${wheelHTML()}</div><div class="panel" id="panel">${defaultPanel()}</div></div>`;
+  const viewHome = () => `${kpiStrip()}<div class="home"><div class="card wheel-card">${wheelHTML()}<nav class="stage-grid" aria-label="Étapes du parcours">${visibleStages().map((i) => { const v = stageView(i);
+    return `<button type="button" data-act="stage" data-i="${i}" style="--c:${STAGE_COLORS[i]}"><span class="sg-ic">${ic(STAGES[i].icon)}${stageBadge(i)}</span><span>${esc(STAGES[i].short)}</span></button>`; }).join('')}</nav></div><div class="panel" id="panel">${defaultPanel()}</div></div>`;
   // Stage page (pre-hire, hiring, onboarding, departure…): who is at this stage and their tasks.
   const viewStage = () => `<div class="panel stage-page" id="panel">${stagePanel(ui.stage)}</div>`;
 
@@ -1014,7 +1027,8 @@
       if (v.title.trim() !== e.title) parts.push(`${e.title} → ${v.title.trim()}`);
       if (v.dept !== e.dept) parts.push(`service ${e.dept} → ${v.dept}`);
       if (salary !== e.salary) parts.push(`salaire ${eur0(e.salary)} → ${eur0(salary)}`);
-      Object.assign(e, { title: v.title.trim(), dept: v.dept, managerId: v.managerId || null, salary });
+      Object.assign(e, { title: v.title.trim(), dept: v.dept, managerId: v.managerId || null });
+      if (v.date > TODAY && salary !== e.salary) e.salaryNext = { amount: salary, from: v.date }; else { e.salary = salary; delete e.salaryNext; }
       db.history.push({ id: uid('h'), empId: e.id, date: v.date, label: v.label, detail: parts.join(' · ') || 'Mise à jour du contrat' });
       db.documents.push({ id: uid('doc'), empId: e.id, kind: 'avenant', title: `Avenant · ${e.title}`, date: TODAY, data: { title: e.title, dept: e.dept, salary, effective: v.date } });
       if (ui.modal.wishId) db.wishes.find((x) => x.id === ui.modal.wishId).status = 'Réalisé';
@@ -1577,7 +1591,7 @@
     if (internal) { Object.assign(internal, { title: o.title, dept: job.dept, managerId: o.managerId, salary: o.salary }); db.history.push({ id: uid('h'), empId: id, date: o.startDate, label: 'Mobilité interne', detail: `${o.title} · ${job.dept}` }); }
     else db.employees.push({ id, firstName: first, lastName: rest.join(' ') || first, title: o.title, dept: job.dept, managerId: o.managerId, stage: 2, startDate: o.startDate, contract: o.contract, salary: o.salary,
       email: c.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, '').replace(/ +/g, '.') + '@novastudio.fr', phone: c.phone, location: job.location.split(' ')[0], birthDate: '', address: '', emergency: '', cp: 0, rtt: 0, exit: null });
-    Object.assign(o, { status: 'Acceptée', answeredAt: TODAY });
+    normalizeEmployees(); Object.assign(o, { status: 'Acceptée', answeredAt: TODAY });
     Object.assign(c, { stage: 'Embauché', empId: id, hiredAt: TODAY });
     job.status = 'Pourvue';
     notify(o.managerId, `${c.name} a accepté la proposition : arrivée le ${fmtDate(o.startDate)} (${o.title}).`);
@@ -1694,6 +1708,7 @@
   const candJob = (c) => db.jobs.find((j) => j.id === c.jobId);
   Object.assign(MOD_ACT, {
     'open-pool'() { ui.recJob = 'vivier'; render(); },
+    'todo-all'() { ui.todoAll = !ui.todoAll; document.getElementById('panel').innerHTML = defaultPanel(); },
     'go-pay-tab'(d) { Object.assign(ui, { view: 'paie', stage: null, payTab: d.t }); window.scrollTo(0, 0); render(); },
     'go-admin-tab'(d) { Object.assign(ui, { view: 'collaborateurs', stage: null, adminTab: d.t }); window.scrollTo(0, 0); render(); },
     'iv-eval'(d) { ui.modal = { type: 'iv-eval', id: d.id, iv: d.iv }; render(); },
@@ -2153,7 +2168,7 @@
       <div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th class="r">Salaire actuel</th><th class="r">Positionnement</th><th>Dernière évolution</th><th class="r">Augmentation</th><th>Motif</th><th class="r">Nouveau salaire</th><th>Statut</th></tr></thead><tbody>
       ${people.map((e) => { const p = R.proposals[e.id], med = median(medByCat[e.category] || []), last = db.history.filter((h) => h.empId === e.id && /Augmentation|Promotion|Mobilité/.test(h.label)).sort((a, b) => b.date.localeCompare(a.date))[0];
         const ed = canEdit(e);
-        return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)} · ${esc(e.category)}</small></div></div></td><td class="r num">${eur0(e.salary)}</td>
+        return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)} · ${esc(e.category)}</small></div></div></td><td class="r num">${eur0(e.salary)}${e.salaryNext ? `<small class="hint" style="display:block">${eur0(e.salaryNext.amount)} au ${fmtShort(e.salaryNext.from)}</small>` : ''}</td>
           <td class="r"><span class="num ${e.salary < med * 0.9 ? 'warn-t' : ''}" title="Par rapport au salaire médian de la catégorie (${eur0(med)})">${Math.round((e.salary / med) * 100)} %</span></td><td>${last ? `${esc(last.label)} · ${fmtShort(last.date)}` : `Embauche · ${fmtShort(e.startDate)}`}</td>
           <td class="r">${ed ? `<span class="pct-in"><label class="sr" for="rp-${e.id}">Augmentation de ${esc(fullName(e))} (%)</label><input id="rp-${e.id}" class="input cell-input num" type="number" min="0" max="20" step="0.5" value="${p ? p.pct : ''}" placeholder="0" data-change="raise-pct" data-id="${e.id}">%</span>` : p ? `<span class="num">${String(p.pct).replace('.', ',')} %</span>` : '—'}</td>
           <td>${ed && p ? `<select class="select" data-change="raise-reason" data-id="${e.id}" aria-label="Motif">${RAISE_REASONS.map((r) => `<option ${p && p.reason === r ? 'selected' : ''}>${r}</option>`).join('')}</select>` : p ? esc(p.reason) : '—'}</td>
@@ -2231,8 +2246,8 @@
     'raise-close'() {
       const R = db.raises; let n = 0;
       Object.entries(R.proposals).forEach(([id, p]) => { const e = emp(id); if (!e) return;
-        if (p.status === 'Validée') { const old = e.salary; e.salary = Math.round(old * (1 + p.pct / 100) / 100) * 100; db.history.push({ id: uid('h'), empId: id, date: R.effective, label: 'Augmentation', detail: `Salaire ${eur0(old)} → ${eur0(e.salary)} (+${String(p.pct).replace('.', ',')} %, ${p.reason.toLowerCase()})` });
-          p.status = 'Appliquée'; n += 1; tickJourney(id, 7, 0); notify(id, `Votre salaire passe à ${eur0(e.salary)} bruts annuels au ${fmtDate(R.effective)}.`); }
+        if (p.status === 'Validée') { const old = e.salary, amount = Math.round(old * (1 + p.pct / 100) / 100) * 100; e.salaryNext = { amount, from: R.effective }; db.history.push({ id: uid('h'), empId: id, date: R.effective, label: 'Augmentation', detail: `Salaire ${eur0(old)} → ${eur0(amount)} (+${String(p.pct).replace('.', ',')} %, ${p.reason.toLowerCase()})` });
+          p.status = 'Appliquée'; n += 1; tickJourney(id, 7, 0); notify(id, `Votre salaire passera à ${eur0(amount)} bruts annuels au ${fmtDate(R.effective)}.`); }
         else if (p.status === 'Proposée') p.status = 'Refusée'; });
       R.status = 'Clôturée'; toast(`Campagne clôturée · ${plural(n, 'augmentation appliquée', 'augmentations appliquées')}`); commit();
     },
@@ -2370,7 +2385,7 @@
     return { retract, request, homol, earliest: addDays(homol, 1) };
   }
   function exitIndemnities(e) {
-    const r = e.exit.reason, m = e.salary / 12, years = Math.max(0, dayDiff(e.startDate, e.exit.lastDay) / 365.25);
+    const x = e.exit || { reason: '', lastDay: TODAY }, r = x.reason, m = e.salary / 12, years = Math.max(0, dayDiff(e.startDate, x.lastDay) / 365.25);
     const legal = /Licenciement|conventionnelle/.test(r) && years >= 8 / 12 ? m * (Math.min(years, 10) / 4 + Math.max(0, years - 10) / 3) : 0;
     return { years, legal, cpPay: e.cp * (e.salary / 12 / 21.67), precarite: e.contract === 'CDD' && /CDD/.test(r) ? e.salary * years * 0.1 : 0 };
   }
@@ -2635,6 +2650,8 @@
 
   function advance(id) {
     const e = emp(id); if (!e || e.stage >= 15) return;
+    // A departure needs its reason and last day: entering « Préparation du départ » goes through the departure form.
+    if (e.stage === 12 && !e.exit) { ui.modal = { type: 'exit', id }; render(); return; }
     db.journey[e.id] = db.journey[e.id] || {};
     db.journey[e.id][e.stage] = STAGES[e.stage].steps.map(() => true);
     e.stage += 1;
@@ -2712,7 +2729,7 @@
     'cand-new'(d) { ui.modal = { type: 'cand', jobId: d.id }; render(); },
     'cand-move'(d) { moveCandidate(d.id, d.s); },
     reset() { ui.modal = { type: 'reset' }; render(); },
-    'reset-ok'() { db = window.TEAMORA_SEED(); purgeCandidates(); save(); ui = Object.assign({ profile: ui.profile, view: 'accueil' }, freshUI()); render(); toast('Démo réinitialisée'); },
+    'reset-ok'() { db = window.TEAMORA_SEED(); normalizeEmployees(); purgeCandidates(); save(); ui = Object.assign({ profile: ui.profile, view: 'accueil' }, freshUI()); render(); toast('Démo réinitialisée'); },
   };
   const CHG = {
     fDept(v) { ui.fDept = v; render(); },
@@ -2762,7 +2779,7 @@
       else {
         const id = uid('e');
         const email = `${data.firstName}.${data.lastName}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z.]/g, '') + '@novastudio.fr';
-        db.employees.push(Object.assign({ id, email, birthDate: '', address: '', emergency: '', cp: 0, rtt: 0, exit: null, stage: Number(v.stage) }, data));
+        db.employees.push(Object.assign({ id, email, birthDate: '', address: '', emergency: '', cp: 0, rtt: 0, exit: null, stage: Number(v.stage), registeredAt: Number(v.stage) >= 3 ? TODAY : null }, data)); normalizeEmployees();
         if (data.managerId) notify(data.managerId, `${data.firstName} ${data.lastName} rejoint votre équipe le ${fmtDate(data.startDate)}.`);
         toast(`${data.firstName} ${data.lastName} ajouté·e à l’étape « ${STAGES[Number(v.stage)].short} »`);
       }
@@ -2771,7 +2788,7 @@
     exit(v) {
       if (!v.lastDay) return formError('Indiquez le dernier jour travaillé.');
       const e = emp(ui.modal.id);
-      e.exit = { reason: v.reason, lastDay: v.lastDay, comment: (v.comment || '').trim() };
+      e.exit = { reason: v.reason, lastDay: v.lastDay, comment: (v.comment || '').trim() }; offb(e).notifiedAt = TODAY;
       e.stage = 13; db.journey[e.id] = db.journey[e.id] || {}; db.journey[e.id][13] = [true, false, false, false, false];
       notify(e.id, `Votre départ est enregistré : dernier jour le ${fmtDate(v.lastDay)}.`);
       if (e.managerId) notify(e.managerId, `Départ de ${fullName(e)} (${v.reason}) le ${fmtDate(v.lastDay)}.`);
@@ -2836,6 +2853,6 @@
   });
   window.addEventListener('resize', fitWheel);
 
-  purgeCandidates();
+  normalizeEmployees(); applyDueSalaries(); purgeCandidates();
   render();
 })();

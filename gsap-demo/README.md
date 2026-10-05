@@ -10,3 +10,12 @@ node render.js 30 demo.mp4   # fps, fichier de sortie
 ```
 
 Prérequis : Chromium (chemin configurable via `CHROMIUM_PATH`) et `ffmpeg`.
+
+## Vidéo « Teamora HR »
+
+`hr-system.html` présente un logiciel RH fictif (tableau des employés, recherche, fiche employé, fonctionnalités).
+Toutes les données sont inventées.
+
+```bash
+node render.js hr-system.html hr-system.mp4 30 4   # page, sortie, fps, workers en parallèle
+```

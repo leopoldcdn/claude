@@ -67,12 +67,16 @@ window.TEAMORA_SEED = function () {
     E('e17', 'Camille', 'Roux', 'Office Manager', 'RH', 'e1', 12, '2021-05-17', 'CDI', 36000, { cp: 13, rtt: 5 }),
     E('e18', 'Nathan', 'Lefebvre', 'Développeur back-end', 'Tech', 'e6', 3, '2026-10-01', 'CDI', 46000, { cp: 0, rtt: 0 }),
     E('e19', 'Julie', 'Bernard', 'Alternante marketing', 'Marketing', 'e7', 4, '2026-09-07', 'Alternance', 21000, { cp: 2, rtt: 0 }),
+    E('e20', 'Clara', 'Fontaine', 'Product Designer', 'Design', 'e2', 15, '2021-01-04', 'CDI', 47000, { cp: 0, rtt: 0, exit: { reason: 'Démission', lastDay: '2025-06-30' } }),
+    E('e21', 'Mehdi', 'Bouaziz', 'Key Account Manager', 'Sales', 'e8', 14, '2021-03-01', 'CDI', 48000, { cp: 9, rtt: 2, exit: { reason: 'Rupture conventionnelle', lastDay: '2026-10-09' } }),
   ];
   // Sexe (mention obligatoire du registre unique du personnel) et nationalités particulières.
-  const MALE = ['e2', 'e4', 'e6', 'e8', 'e9', 'e11', 'e14', 'e16', 'e18'];
+  const MALE = ['e2', 'e4', 'e6', 'e8', 'e9', 'e11', 'e14', 'e16', 'e18', 'e21'];
   employees.forEach((e) => { e.sex = MALE.includes(e.id) ? 'H' : 'F'; });
   Object.assign(employees.find((e) => e.id === 'e12'), { nationality: 'Indienne', zone: 'Hors UE', birthDate: '1995-03-21' });
   Object.assign(employees.find((e) => e.id === 'e6'), { nationality: 'Britannique', zone: 'Hors UE' });
+  Object.assign(employees.find((e) => e.id === 'e5'), { birthDate: '1981-03-14' });
+  Object.assign(employees.find((e) => e.id === 'e9'), { birthDate: '1967-11-02' });
   Object.assign(employees.find((e) => e.id === 'e8'), { nationality: 'Irlandaise', zone: 'UE' });
   Object.assign(employees.find((e) => e.id === 'e7'), { nationality: 'Espagnole', zone: 'UE' });
   employees.find((e) => e.id === 'e18').registeredAt = null;
@@ -103,6 +107,19 @@ window.TEAMORA_SEED = function () {
     e15: { pct: 4.5, reason: 'Rattrapage égalité', by: 'e9', status: 'Proposée', date: '2026-10-01' } } };
   const valueShare = { years: [[2023, 1800000, 40000], [2024, 2100000, 52000], [2025, 2400000, 61000]], total: 12000, rule: 'salaire', paidMonth: null };
   const payInfoReqs = [];
+  // Départs : dossiers de préparation, de départ et d'après-départ.
+  const offboarding = {
+    e16: { notifiedAt: '2026-09-28' },
+    e21: { notifiedAt: '2026-08-25', rc: { interview: '2026-08-25', signed: '2026-08-28' }, noticeOk: '2026-08-28', calcOk: '2026-09-01', returnPlan: '2026-09-15', docsReady: '2026-10-01' },
+    e20: { notifiedAt: '2025-04-28', noticeOk: '2025-04-28', calcOk: '2025-06-01', returnPlan: '2025-06-02', docsReady: '2025-06-25', successor: 'e4', transfer: { dossiers: '2025-06-20', acces: '2025-06-27', doc: '2025-06-27' },
+      returned: { ordinateur: '2025-06-30', badge: '2025-06-30', telephone: '2025-06-30' }, accessOff: '2025-06-30', portability: '2025-06-30', docsGiven: '2025-06-30',
+      exitInterview: { date: '2025-06-20', reason: 'Évolution de carrière', enps: 8, good: 'Équipe bienveillante et projets variés.', improve: 'Peu de perspectives vers le management.', back: 'Oui' },
+      requests: [{ id: 'pr1', kind: 'attestation', label: 'Attestation employeur', date: '2026-09-30', status: 'En attente' }] },
+  };
+  // Revue des talents (performance × potentiel) et plan de succession des postes clés.
+  const talent = { e4: { pot: 3, risk: 'Moyen' }, e13: { pot: 3, risk: 'Faible' }, e3: { pot: 2, risk: 'Faible' }, e14: { pot: 2, risk: 'Élevé' }, e11: { pot: 2, risk: 'Moyen' } };
+  const succession = { e2: { succ: 'e4', ready: 'D’ici 1 à 2 ans' }, e6: { succ: 'e13', ready: 'D’ici 3 ans ou plus' }, e1: { succ: null, ready: null } };
+  const duerp = [{ date: '2024-09-12', by: 'e1', note: 'Mise à jour annuelle' }, { date: '2025-09-15', by: 'e1', note: 'Mise à jour annuelle · ajout du risque routier' }];
   // Dossiers d'arrivée (pré-embauche, embauche, intégration) des recrues en cours.
   const ALLDOCS = (d) => ({ identite: d, secu: d, rib: d, domicile: d, diplome: d });
   const onboarding = {
@@ -130,6 +147,7 @@ window.TEAMORA_SEED = function () {
     { id: 'l5', empId: 'e7', type: 'Congés payés', start: '2026-10-05', end: '2026-10-09', days: 5, status: 'Approuvée', comment: '', createdAt: '2026-09-10' },
     { id: 'l6', empId: 'e6', type: 'Congés payés', start: '2026-11-02', end: '2026-11-06', days: 5, status: 'Approuvée', comment: '', createdAt: '2026-09-15' },
     { id: 'l7', empId: 'e11', type: 'Maladie', start: '2026-10-05', end: '2026-10-06', days: 2, status: 'Approuvée', comment: 'Arrêt de travail transmis', createdAt: '2026-10-05', receivedAt: '2026-10-05', dsnAt: null, subrogation: false },
+    { id: 'l11', empId: 'e17', type: 'Maladie', start: '2026-07-06', end: '2026-09-18', days: 54, status: 'Approuvée', comment: 'Arrêt de travail', createdAt: '2026-07-06', receivedAt: '2026-07-06', dsnAt: '2026-07-08', subrogation: true },
     { id: 'l10', empId: 'e15', type: 'Maladie', start: '2026-09-14', end: '2026-09-25', days: 10, status: 'Approuvée', comment: 'Arrêt de travail', createdAt: '2026-09-15', receivedAt: '2026-09-15', dsnAt: '2026-09-17', subrogation: true },
     { id: 'l8', empId: 'e2', type: 'RTT', start: '2026-10-23', end: '2026-10-23', days: 1, status: 'Approuvée', comment: '', createdAt: '2026-09-20' },
     { id: 'l9', empId: 'e15', type: 'Congés payés', start: '2026-12-21', end: '2026-12-31', days: 8, status: 'En attente', comment: 'Fêtes de fin d’année', createdAt: '2026-10-03' },
@@ -271,6 +289,7 @@ window.TEAMORA_SEED = function () {
     { id: 't6', title: 'Prise de parole en public', provider: 'Oratio', category: 'Compétences transverses', hours: 7, cost: 690, mode: 'Présentiel', sessions: ['2026-11-19', '2027-02-04'] },
   ];
   const enrollments = [
+    { id: 'f9', empId: 'e14', trainingId: 't2', session: '2026-05-12', status: 'Terminée', reason: 'Rendre nos offres accessibles', createdAt: '2026-04-02', rating: 4, fund: 'OPCO' },
     { id: 'f1', empId: 'e4', trainingId: 't3', session: '2026-11-09', status: 'Validée', reason: 'Préparer une évolution vers le management', createdAt: '2026-09-15' },
     { id: 'f2', empId: 'e13', trainingId: 't2', session: '2026-10-22', status: 'Demandée', reason: 'Rendre nos écrans conformes', createdAt: '2026-10-01' },
     { id: 'f3', empId: 'e10', trainingId: 't1', session: '2026-12-07', status: 'Validée manager', reason: 'Monter en compétence sur la recherche', createdAt: '2026-09-25' },
@@ -333,10 +352,13 @@ window.TEAMORA_SEED = function () {
   ];
   // ---- Documents RH
   const documents = [
+    { id: 'doc-e21a', empId: 'e21', kind: 'certificat', title: 'Certificat de travail', date: '2026-10-01' }, { id: 'doc-e21b', empId: 'e21', kind: 'solde', title: 'Reçu pour solde de tout compte', date: '2026-10-01' },
+    { id: 'doc-e21c', empId: 'e21', kind: 'france-travail', title: 'Attestation employeur France Travail', date: '2026-10-01' },
+    { id: 'doc-e20a', empId: 'e20', kind: 'certificat', title: 'Certificat de travail', date: '2025-06-30' }, { id: 'doc-e20b', empId: 'e20', kind: 'solde', title: 'Reçu pour solde de tout compte', date: '2025-06-30' },
     { id: 'doc1', empId: 'e3', kind: 'contrat', title: 'Contrat de travail · CDI', date: '2024-10-20' },
     { id: 'doc2', empId: 'e3', kind: 'attestation', title: 'Attestation employeur', date: '2026-02-03' },
     { id: 'doc3', empId: 'e4', kind: 'avenant', title: 'Avenant · Senior Product Designer', date: '2023-12-15', data: { title: 'Senior Product Designer', dept: 'Design', salary: 54000, effective: '2024-01-01' } },
   ];
-  return { version: 6, employees, journey, leaves, jobs, candidates, notifications, payroll, objectives, reviews, feedback, trainings, enrollments, trainingBudget: 25000, purgeLog: [], onboarding, changeReqs, timesheets, raises, valueShare, payInfoReqs,
+  return { version: 7, employees, journey, leaves, jobs, candidates, notifications, payroll, objectives, reviews, feedback, trainings, enrollments, trainingBudget: 25000, purgeLog: [], onboarding, changeReqs, timesheets, raises, valueShare, payInfoReqs, offboarding, talent, succession, duerp,
     wishes, history, visits, incidents, risks, survey, adjustments, cases, documents };
 };

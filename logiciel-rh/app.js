@@ -47,7 +47,7 @@
   // ---------------------------------------------------------------- Storage
   const STORE = 'teamora-demo-v1', UI_STORE = 'teamora-ui-v1';
   function load() {
-    try { const d = JSON.parse(localStorage.getItem(STORE)); if (d && d.version === 6) return d; } catch (e) { /* ignore */ }
+    try { const d = JSON.parse(localStorage.getItem(STORE)); if (d && d.version === 7) return d; } catch (e) { /* ignore */ }
     return window.TEAMORA_SEED();
   }
   function save() { try { localStorage.setItem(STORE, JSON.stringify(db)); } catch (e) { /* storage unavailable */ } }
@@ -147,6 +147,7 @@
   function journeyOf(id, stage) {
     const n = STAGES[stage].steps.length, who = emp(id);
     if (who && who.stage === stage && stage >= 2 && stage <= 4) return arrivalSteps(who, stage);
+    if (who && who.stage === stage && stage >= 13) return departSteps(who, stage);
     const arr = (db.journey[id] && db.journey[id][stage]) || [];
     return Array.from({ length: n }, (_, k) => !!arr[k]);
   }
@@ -322,12 +323,12 @@
       body = `<div class="card"><div class="card-h"><h3>Collaborateurs à cette étape</h3><span class="pill accent num">${people.length}</span></div><div class="card-b"><div class="people">${people.length ? people.map((e) => {
         const arr = journeyOf(e.id, i), done = arr.filter(Boolean).length, open = ui.selPerson === e.id;
         return `<button type="button" class="person-row" data-act="person" data-id="${e.id}" aria-expanded="${open}">${avatar(e)}<span class="who"><b>${esc(fullName(e))}</b><small>${esc(e.title)} · ${done}/${arr.length} tâches</small></span><span class="mini-bar"><i style="width:${(done / arr.length) * 100}%"></i></span></button>
-          ${open ? `<div class="card card-b">${stepsList(arr, s.steps, !(i >= 2 && i <= 4), e.id, i)}${i >= 2 && i <= 4 ? arrivalDossier(e, i) : ''}<div class="toolbar" style="margin-top:16px">
+          ${open ? `<div class="card card-b">${stepsList(arr, s.steps, !(i >= 2 && i <= 4) && i < 13, e.id, i)}${i >= 2 && i <= 4 ? arrivalDossier(e, i) : i >= 13 ? departDossier(e, i) : ''}<div class="toolbar" style="margin-top:16px">
             ${ui.profile === 'rh' && i < 15 ? `<button type="button" class="btn ${done === arr.length ? 'primary' : 'ghost'} sm" data-act="advance" data-id="${e.id}">Passer à « ${esc(STAGES[i + 1].short)} »${ic('arrow')}</button>` : ''}
             <button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir la fiche</button>${done < arr.length ? `<span class="hint">${plural(arr.length - done, 'sous-étape restante', 'sous-étapes restantes')}</span>` : ''}</div>
             ${ui.profile === 'manager' ? '<p class="hint" style="margin:10px 0 0">Les RH font passer le collaborateur à l’étape suivante.</p>' : ''}</div>` : ''}`; }).join('')
         : '<p class="muted" style="margin:0">Aucun collaborateur à cette étape pour le moment.</p>'}</div></div></div>
-        <div class="card"><div class="card-h"><h3>Sous-étapes de référence</h3></div><div class="card-b">${stepsList(s.steps.map(() => false), s.steps, false)}</div></div>${moduleBtn(i)}`;
+        ${i === 14 ? exitStats() : ''}<div class="card"><div class="card-h"><h3>Sous-étapes de référence</h3></div><div class="card-b">${stepsList(s.steps.map(() => false), s.steps, false)}</div></div>${moduleBtn(i)}`;
     }
     return `<div class="card card-b">${stageHead(i)}</div>${body}`;
   }
@@ -359,7 +360,8 @@
       const late = scopeCandidates().filter((c) => waitingDays(c) > ANSWER_DAYS);
       if (late.length) todos.push(`<div class="todo"><div class="t"><b>${plural(late.length, 'candidat sans nouvelles', 'candidats sans nouvelles')} depuis plus de ${ANSWER_DAYS} jours</b><small>${late.slice(0, 3).map((c) => esc(c.name)).join(', ')}${late.length > 3 ? '…' : ''}</small></div><button type="button" class="btn ghost sm" data-act="go" data-v="recrutement">Voir</button></div>`);
     }
-    scopeEmployees().filter((e) => e.stage === 13 || e.stage === 14).forEach((e) => todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>Départ : ${esc(fullName(e))}</b><small>${e.exit ? `${esc(e.exit.reason)} · dernier jour le ${fmtDate(e.exit.lastDay)}` : 'Départ en préparation'}</small></div><button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir</button></div>`));
+    scopeEmployees().filter((e) => e.stage >= 13 && ui.profile === 'rh').forEach((e) => { const a = departActions(e); if (a.length) todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(STAGES[e.stage].short)} : ${esc(fullName(e))}</b><small>${a.slice(0, 3).join(' · ')}${a.length > 3 ? ' · …' : ''}</small></div><button type="button" class="btn ghost sm" data-act="open-dossier" data-id="${e.id}">Ouvrir</button></div>`); });
+    scopeEmployees().filter((e) => ui.profile !== 'rh' && (e.stage === 13 || e.stage === 14)).forEach((e) => todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>Départ : ${esc(fullName(e))}</b><small>${e.exit ? `${esc(e.exit.reason)} · dernier jour le ${fmtDate(e.exit.lastDay)}` : 'Départ en préparation'}</small></div><button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir</button></div>`));
     return `<div class="card"><div class="card-h"><h3>À traiter</h3><span class="pill ${todos.length ? 'warn' : 'ok'} num">${todos.length}</span></div><div class="card-b">${todos.length ? todos.join('') : '<p class="muted" style="margin:0">Rien à traiter pour le moment.</p>'}</div></div>
       <div class="card card-b"><p class="muted" style="margin:0">La roue est le menu de Teamora : chaque étape du parcours collaborateur ouvre le module qui la gère (recrutement, absences, paie, entretiens…). Le chiffre blanc indique combien de personnes, de besoins ou de candidats s’y trouvent ; le chiffre orange, ce qui vous attend.</p></div>`;
   }
@@ -657,7 +659,7 @@
   const REVIEW_FLOW = ['À planifier', 'Planifié', 'Auto-évaluation faite', 'À signer', 'Signé'];
   const REVIEW_PILL = { 'À planifier': 'warn', Planifié: 'info', 'Auto-évaluation faite': 'accent', 'À signer': 'accent', Signé: 'ok' };
   const reviewPill = (r) => `<span class="pill ${REVIEW_PILL[r.status]}">${r.status}</span>`;
-  const proDue = (e) => addYears(e.lastPro || e.startDate, 2);
+  const proDue = (e) => addYears(e.lastPro || e.startDate, 4);
   function proState(e) { const due = proDue(e); if (due < TODAY) return ['En retard', 'bad']; if (due < addDays(TODAY, 90)) return ['À prévoir', 'warn']; return ['À jour', 'ok']; }
   const stepper = (r) => { const k = REVIEW_FLOW.indexOf(r.status); return `<ol class="stepper">${REVIEW_FLOW.map((s, i) => `<li class="${i < k ? 'done' : i === k ? 'now' : ''}">${s}</li>`).join('')}</ol>`; };
   const annualOf = (empId) => db.reviews.find((r) => r.empId === empId && r.kind === 'Entretien annuel' && r.year === CAMPAIGN);
@@ -717,7 +719,7 @@
     const annual = db.reviews.filter((r) => r.kind === 'Entretien annuel' && r.year === CAMPAIGN);
     const missing = employed().filter((e) => e.stage >= 5 && e.stage < 13 && !annualOf(e.id));
     const late = employed().filter((e) => proState(e)[0] !== 'À jour').length;
-    const tabs = [['campagne', `Campagne ${CAMPAIGN}`], ['pro', 'Entretiens professionnels', late], ['objectifs', 'Objectifs']]; pickTab('revTab', tabs);
+    const tabs = [['campagne', `Campagne ${CAMPAIGN}`], ['pro', 'Entretiens de parcours professionnel', late], ['objectifs', 'Objectifs']]; pickTab('revTab', tabs);
     let body;
     if (ui.revTab === 'campagne') {
       const signed = annual.filter((r) => r.status === 'Signé').length;
@@ -725,12 +727,12 @@
         ['En cours', annual.filter((r) => !['Signé', 'À planifier'].includes(r.status)).length, 'Auto-évaluation ou signature'], ['À planifier', annual.filter((r) => r.status === 'À planifier').length, 'Date à fixer par le manager']].map(([l, v, s]) => `<div class="card kpi"><span class="l">${l}</span><span class="v num">${v}</span><span class="s">${s}</span></div>`).join('')}</div>
         ${missing.length ? `<div class="card card-b toolbar"><span>${missing.length} collaborateur(s) n’ont pas encore d’entretien annuel ${CAMPAIGN}.</span><button type="button" class="btn primary" style="margin-left:auto" data-act="campaign">${ic('plus')}Lancer la campagne pour eux</button></div>` : ''}
         ${card('Suivi de la campagne', '', `<div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Manager</th><th>Date</th><th>Statut</th><th></th></tr></thead><tbody>${annual.map((r) => { const e = emp(r.empId);
-          return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div></td><td>${esc(fullName(emp(e.managerId)))}</td><td>${r.date ? fmtDate(r.date) : '—'}</td><td>${reviewPill(r)}</td><td class="r"><button type="button" class="btn ghost sm" data-act="review" data-id="${r.id}">Ouvrir</button></td></tr>`; }).join('') || '<tr><td colspan="5" class="empty">Aucun entretien.</td></tr>'}</tbody></table></div>`)}`;
+          return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div></td><td>${esc(fullName(emp(e.managerId)))}</td><td>${r.date ? fmtDate(r.date) : '—'}</td><td>${reviewPill(r)}${e.category === 'Cadre' ? (r.workload ? ' <span class="pill ok">Charge de travail abordée</span>' : ` <button type="button" class="btn ghost sm" data-act="workload" data-id="${r.id}" title="Obligatoire chaque année pour les salariés au forfait jours (art. L3121-65)">Volet forfait jours fait</button>`) : ''}</td><td class="r"><button type="button" class="btn ghost sm" data-act="review" data-id="${r.id}">Ouvrir</button></td></tr>`; }).join('') || '<tr><td colspan="5" class="empty">Aucun entretien.</td></tr>'}</tbody></table></div>`)}`;
     } else if (ui.revTab === 'pro') {
       const list = employed().map((e) => [e, proState(e)]).sort((a, b) => proDue(a[0]).localeCompare(proDue(b[0])));
-      body = `<p class="hint" style="margin:0">L’entretien professionnel a lieu tous les 2 ans, avec un état des lieux récapitulatif tous les 6 ans (art. L6315-1 du Code du travail).</p>
+      body = `<p class="hint" style="margin:0">Depuis la loi du 24 octobre 2025, l’entretien de parcours professionnel a lieu tous les 4 ans, avec un état des lieux récapitulatif tous les 8 ans. Deux rendez-vous s’ajoutent : à mi-carrière (vers 45 ans) et en fin de carrière (avant 60 ans).</p>
         ${card('Échéances', '', `<div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Dernier entretien</th><th>À réaliser avant le</th><th>Statut</th><th></th></tr></thead><tbody>${list.map(([e, [st, cls]]) => { const open = db.reviews.find((r) => r.empId === e.id && r.kind === 'Entretien professionnel' && r.status !== 'Signé');
-          return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small></div></div></td><td>${e.lastPro ? fmtDate(e.lastPro) : 'Aucun'}</td><td class="num">${fmtDate(proDue(e))}</td><td><span class="pill ${cls}">${st}</span></td>
+          return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}${careerMeeting(e) ? ` · <b class="warn-t">${careerMeeting(e)}</b>` : ''}</small></div></div></td><td>${e.lastPro ? fmtDate(e.lastPro) : 'Aucun'}</td><td class="num">${fmtDate(proDue(e))}</td><td><span class="pill ${cls}">${st}</span></td>
           <td class="r">${open ? `<button type="button" class="btn ghost sm" data-act="review" data-id="${open.id}">${open.status}</button>` : `<button type="button" class="btn ghost sm" data-act="pro-new" data-id="${e.id}">Programmer</button>`}</td></tr>`; }).join('')}</tbody></table></div>`)}`;
     } else {
       body = `<div class="toolbar"><button type="button" class="btn primary" data-act="objective-new">${ic('plus')}Fixer un objectif</button></div>${employed().filter((e) => db.objectives.some((o) => o.empId === e.id)).map((e) => card(`${avatar(e, 'sm')} ${esc(fullName(e))}`, `<span class="muted">${esc(e.title)} · manager : ${esc(fullName(emp(e.managerId)))}</span>`, `<div class="card-b">${objectivesList(db.objectives.filter((o) => o.empId === e.id), false)}</div>`)).join('')}`;
@@ -854,11 +856,12 @@
     const p = ui.profile, m = me();
     let tabs;
     if (p === 'salarie') tabs = [['catalogue', 'Catalogue'], ['mes', 'Mes formations']];
-    else if (p === 'manager') { const ids = scopeSet(); tabs = [['valider', 'À valider', db.enrollments.filter((x) => x.status === 'Demandée' && ids.has(x.empId)).length], ['equipe', 'Formations de l’équipe'], ['catalogue', 'Catalogue'], ['mes', 'Mes formations']]; }
-    else tabs = [['plan', 'Plan de formation'], ['valider', 'À valider', db.enrollments.filter((x) => ['Demandée', 'Validée manager'].includes(x.status)).length], ['catalogue', 'Catalogue']];
+    else if (p === 'manager') { const ids = scopeSet(); tabs = [['valider', 'À valider', db.enrollments.filter((x) => x.status === 'Demandée' && ids.has(x.empId)).length], ['equipe', 'Formations de l’équipe'], ['impact', 'Efficacité', db.enrollments.filter((x) => coldDue(x) && ids.has(x.empId)).length], ['catalogue', 'Catalogue'], ['mes', 'Mes formations']]; }
+    else tabs = [['plan', 'Plan de formation'], ['valider', 'À valider', db.enrollments.filter((x) => ['Demandée', 'Validée manager'].includes(x.status)).length], ['impact', 'Efficacité et financement', db.enrollments.filter(coldDue).length], ['catalogue', 'Catalogue']];
     pickTab('trTab', tabs);
     let body;
-    if (ui.trTab === 'catalogue') body = catalogue();
+    if (ui.trTab === 'impact') body = trainingImpact();
+    else if (ui.trTab === 'catalogue') body = catalogue();
     else if (ui.trTab === 'mes') body = myTrainings(m);
     else if (ui.trTab === 'valider') {
       const ids = scopeSet();
@@ -945,11 +948,13 @@
     const p = ui.profile, m = me();
     let tabs;
     if (p === 'salarie') tabs = [['offres', 'Offres internes'], ['souhaits', 'Mes souhaits d’évolution']];
-    else if (p === 'manager') { const ids = scopeSet(); tabs = [['souhaits', 'Souhaits de l’équipe', db.wishes.filter((w) => ids.has(w.empId) && !w.mgrOpinion && ['Exprimé', 'En étude'].includes(w.status)).length], ['offres', 'Offres internes']]; }
-    else tabs = [['souhaits', 'Souhaits d’évolution', db.wishes.filter((w) => w.status === 'Exprimé').length], ['changements', 'Changements de poste'], ['offres', 'Offres internes']];
+    else if (p === 'manager') { const ids = scopeSet(); tabs = [['souhaits', 'Souhaits de l’équipe', db.wishes.filter((w) => ids.has(w.empId) && !w.mgrOpinion && ['Exprimé', 'En étude'].includes(w.status)).length], ['offres', 'Offres internes'], ['talents', 'Revue des talents']]; }
+    else tabs = [['souhaits', 'Souhaits d’évolution', db.wishes.filter((w) => w.status === 'Exprimé').length], ['changements', 'Changements de poste'], ['talents', 'Revue des talents'], ['succession', 'Plan de succession', employed().filter((e) => !e.exit && db.employees.some((x) => x.managerId === e.id && x.stage < 15) && !((db.succession || {})[e.id] || {}).succ).length], ['offres', 'Offres internes']];
     pickTab('mobTab', tabs);
     let body;
-    if (ui.mobTab === 'offres') body = internalOffers();
+    if (ui.mobTab === 'talents') body = talentReview();
+    else if (ui.mobTab === 'succession') body = successionView();
+    else if (ui.mobTab === 'offres') body = internalOffers();
     else if (ui.mobTab === 'changements') {
       const h = db.history.slice().sort((a, b) => b.date.localeCompare(a.date));
       body = `<div class="toolbar"><button type="button" class="btn primary" data-act="move-new">${ic('plus')}Enregistrer un changement de poste</button><span class="hint">Un avenant est généré automatiquement dans les documents du collaborateur.</span></div>
@@ -1063,12 +1068,13 @@
     const answered = db.survey.some((s) => s.empId === m.id && s.month === monthKey(TODAY));
     if (p === 'salarie') tabs = [['qvt', 'Baromètre du mois', answered ? 0 : 1], ['visites', 'Mes visites médicales'], ['accidents', 'Accidents et incidents'], ['amenagements', 'Aménagement de poste']];
     else if (p === 'manager') tabs = [['qvt', 'Baromètre de l’équipe'], ['accidents', 'Accidents et incidents'], ['amenagements', 'Aménagements de poste']];
-    else tabs = [['visites', 'Visites médicales', visitsDue(db.employees).filter((x) => x.deadline < TODAY).length], ['accidents', 'Accidents et incidents', db.incidents.filter((x) => x.status === 'Déclaré').length], ['risques', 'Document unique (DUERP)'], ['qvt', 'Baromètre QVT'], ['amenagements', 'Aménagements de poste', db.adjustments.filter((x) => x.status === 'Demandé').length]];
+    else tabs = [['visites', 'Visites médicales', visitsDue(db.employees).filter((x) => x.deadline < TODAY).length], ['accidents', 'Accidents et incidents', db.incidents.filter((x) => x.status === 'Déclaré').length], ['risques', 'Document unique (DUERP)'], ['qvt', 'Baromètre QVT'], ['amenagements', 'Aménagements de poste', db.adjustments.filter((x) => x.status === 'Demandé').length], ['retours', 'Retours d’absence', longAbsences().filter((a) => a.need && !db.visits.some((x) => x.empId === a.e.id && x.kind === 'Visite de reprise' && x.date >= a.start)).length]];
     pickTab('healthTab', tabs);
     const ids = p === 'rh' ? null : p === 'manager' ? scopeSet() : new Set([m.id]);
     const inScope = (id) => !ids || ids.has(id) || (p === 'manager' && id === m.id);
     let body;
-    if (ui.healthTab === 'qvt') {
+    if (ui.healthTab === 'retours') body = returnsView();
+    else if (ui.healthTab === 'qvt') {
       if (p === 'salarie') {
         body = answered ? `<div class="card card-b"><b>Merci, votre réponse de ${monthLabel(monthKey(TODAY)).toLowerCase()} est enregistrée.</b><p class="muted" style="margin:4px 0 0">Les réponses sont anonymes : les RH ne voient que des moyennes, jamais en dessous de 3 répondants.</p></div>${qvtResults(null, 'toute l’entreprise')}`
           : `<form class="card" data-form="survey" novalidate><div class="card-h"><h3>Baromètre de ${monthLabel(monthKey(TODAY)).toLowerCase()}</h3><span class="muted" style="font-size:13px">Anonyme · 1 minute</span></div><div class="card-b">${QVT_Q.map((q, k) => `<fieldset class="likert"><legend>${q}</legend><div>${[1, 2, 3, 4, 5].map((v) => `<label><input type="radio" name="q${k}" value="${v}" ${v === 4 ? 'checked' : ''}><span>${v}</span></label>`).join('')}</div><small class="muted">1 = pas du tout d’accord · 5 = tout à fait d’accord</small></fieldset>`).join('')}
@@ -1103,6 +1109,7 @@
           return `<div class="req"><div class="who-cell">${avatar(e)}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small></div></div><div class="what"><b>${esc(x.kind)}</b><small>${fmtDate(x.createdAt)}${x.comment ? ` · « ${esc(x.comment)} »` : ''}</small></div><span class="pill ${ADJ_PILL[x.status]}">${x.status}</span>
           ${p === 'rh' && x.status === 'Demandé' ? `<div class="acts"><button type="button" class="btn ok sm" data-act="adjust-step" data-id="${x.id}" data-s="Accordé">Accorder</button><button type="button" class="btn bad sm" data-act="adjust-step" data-id="${x.id}" data-s="Refusé">Refuser</button></div>` : ''}</div>`; }).join('') || '<div class="empty">Aucune demande.</div>'}</div>`)}`;
     }
+    if (ui.healthTab === 'risques') body = duerpCard() + body;
     return tabsBar('healthTab', tabs) + body;
   }
   MODALS.visit = (m, shell, formShell, opt, f) => formShell(`Planifier une visite · ${esc(fullName(emp(m.id)))}`, 'visit', `<div class="form-grid">${f('vi-kind', 'Type de visite', `<select id="vi-kind" name="kind" class="select">${opt(VISIT_KINDS, m.kind)}</select>`, true)}
@@ -1199,7 +1206,8 @@
     const e = emp(c.empId), disc = c.kind === 'Procédure disciplinaire';
     const dl = disc ? `<div class="card card-b"><h3 style="font-size:15px">Repères de procédure</h3><div class="info-grid" style="margin-top:8px">
       <div><span>Faits connus le</span>${c.facts ? fmtDate(c.facts) : '—'}</div><div><span>Engager la procédure avant le</span>${c.facts ? `<b class="${addMonths(c.facts, 2) < TODAY ? 'err' : ''}">${fmtDate(addMonths(c.facts, 2))}</b>` : '—'}</div>
-      <div><span>Entretien préalable</span>${c.interview ? fmtDate(c.interview) : 'À fixer'}</div><div><span>Sanction notifiable</span>${c.interview ? `du ${fmtDate(addOuvrables(c.interview, 2))} au ${fmtDate(addMonths(c.interview, 1))}` : '—'}</div></div>
+      <div><span>Convocation présentée le</span><input type="date" class="input" value="${c.convocAt || ''}" data-change="case-convoc" data-id="${c.id}" aria-label="Date de présentation de la convocation"></div>
+      <div><span>Entretien préalable</span>${c.interview ? fmtDate(c.interview) : 'À fixer'}${c.convocAt && c.interview && c.interview < addOuvrables(c.convocAt, 5) ? `<small class="warn-t" style="display:block">Pour un licenciement, au moins 5 jours ouvrables après la présentation de la convocation (au plus tôt le ${fmtDate(addOuvrables(c.convocAt, 5))})</small>` : ''}</div><div><span>Sanction notifiable</span>${c.interview ? `du ${fmtDate(addOuvrables(c.interview, 2))} au ${fmtDate(addMonths(c.interview, 1))}` : '—'}</div></div>
       <form data-form="case-interview" class="toolbar" style="margin-top:12px" novalidate><div class="field" style="flex:1"><label for="ci-date">Date de l’entretien préalable</label><input id="ci-date" name="interview" type="date" class="input" value="${c.interview || addOuvrables(TODAY, 6)}"></div><button class="btn ghost" style="align-self:flex-end">Enregistrer</button></form>
       <p class="hint" style="margin:10px 0 0">Repères indicatifs (Code du travail, art. L1332-2 et L1332-4) : prescription de 2 mois, sanction au plus tôt 2 jours ouvrables et au plus tard 1 mois après l’entretien. À valider avec votre conseil juridique.</p></div>` : '';
     return `<div class="drawer-h">${avatar(e, 'lg')}<div style="min-width:0"><h2>${esc(c.title)}</h2><p>${esc(fullName(e))} · ${esc(e.title)}</p><div class="toolbar" style="margin-top:6px"><span class="pill neutral">${esc(c.kind)}</span><span class="pill ${CASE_PILL[c.status]}">${c.status}</span></div></div>
@@ -2267,6 +2275,207 @@
     'chg-ko'(v) { const r = db.changeReqs.find((x) => x.id === ui.modal.id); if (!v.reason.trim()) return formError('Indiquez le motif du refus.'); Object.assign(r, { status: 'Refusée', reason: v.reason.trim(), decidedAt: TODAY }); notify(r.empId, `Votre demande (${r.label.toLowerCase()}) est refusée : ${v.reason.trim()}`); ui.modal = null; toast('Demande refusée'); commit(); },
   });
   MODALS['chg-ko'] = (m, shell, formShell, opt, f) => formShell('Refuser la demande', 'chg-ko', f('ck-r', 'Motif communiqué au salarié', '<input id="ck-r" name="reason" class="input" maxlength="160" placeholder="Ex. justificatif illisible ou de plus de 3 mois">', true), 'Refuser');
+
+  // ================================================================ Performance (étape 9) : parcours professionnel et forfait jours
+  const ageAt = (e, d = TODAY) => (e.birthDate ? Math.floor(dayDiff(e.birthDate, d) / 365.25) : null);
+  function careerMeeting(e) { const a = ageAt(e); if (a === null) return null; if (a >= 44 && a <= 46) return 'Entretien de mi-carrière (45 ans)'; if (a >= 58 && a < 60) return 'Entretien de fin de carrière (avant 60 ans)'; return null; }
+
+  // ================================================================ Formation (étape 10) : financement et évaluation à froid
+  const FUNDS = ['Plan de l’entreprise', 'OPCO', 'CPF du salarié'];
+  const COLD = { 1: 'Pas mise en pratique', 2: 'Partiellement appliquée', 3: 'Appliquée au quotidien', 4: 'Maîtrisée et transmise' };
+  const coldDue = (x) => x.status === 'Terminée' && !x.cold && x.session <= addDays(TODAY, -90);
+  function trainingImpact() {
+    const ids = ui.profile === 'rh' ? null : scopeSet(), mine = db.enrollments.filter((x) => !ids || ids.has(x.empId));
+    const due = mine.filter(coldDue), done = mine.filter((x) => x.cold), hot = mine.filter((x) => x.rating);
+    const avg = (a, k) => (a.length ? (a.reduce((s, x) => s + x[k], 0) / a.length).toFixed(1).replace('.', ',') : '—');
+    const byFund = FUNDS.map((f) => [f, mine.filter((x) => (x.fund || FUNDS[0]) === f && ['Validée', 'Terminée'].includes(x.status)).reduce((s, x) => s + training(x.trainingId).cost, 0)]);
+    return `<div class="kpis">${[['Satisfaction à chaud', `${avg(hot, 'rating')} / 5`, plural(hot.length, 'avis', 'avis')], ['Mise en pratique à 3 mois', `${avg(done, 'cold')} / 4`, plural(done.length, 'évaluation', 'évaluations')], ['Évaluations à froid à faire', due.length, 'Formations terminées depuis plus de 3 mois']].map(([l, v, s2]) => `<div class="card kpi"><span class="l">${l}</span><span class="v num">${v}</span><span class="s">${s2}</span></div>`).join('')}</div>
+      ${card('Évaluer la mise en pratique (à froid)', '', `<div class="req-list">${due.length ? due.map((x) => enrRow(x, `<label class="sr" for="cold-${x.id}">Mise en pratique</label><select id="cold-${x.id}" class="select" data-change="train-cold" data-id="${x.id}"><option value="">Mise en pratique…</option>${Object.entries(COLD).map(([k, l]) => `<option value="${k}">${k} · ${l}</option>`).join('')}</select>`)).join('') : '<div class="empty">Aucune évaluation à froid en attente.</div>'}</div>`)}
+      ${ui.profile === 'rh' ? card('Financement du plan', '', `<div class="card-b">${byFund.map(([f, v]) => `<div class="crit-row"><span>${f}</span><b class="num">${eur0(v)}</b></div>`).join('')}
+        <p class="hint" style="margin:10px 0 0">Entreprise de moins de 50 salariés : le plan de développement des compétences peut être financé par l’OPCO (Atlas pour la convention Syntec). La formation d’adaptation au poste reste à la charge de l’employeur.</p></div>
+        <div class="req-list">${db.enrollments.filter((x) => ['Validée', 'Terminée', 'Validée manager'].includes(x.status)).map((x) => enrRow(x, `<label class="sr" for="fund-${x.id}">Financement</label><select id="fund-${x.id}" class="select" data-change="train-fund" data-id="${x.id}">${FUNDS.map((f) => `<option ${f === (x.fund || FUNDS[0]) ? 'selected' : ''}>${f}</option>`).join('')}</select>`)).join('')}</div>`) : ''}`;
+  }
+
+  // ================================================================ Mobilité (étape 11) : revue des talents et succession
+  const BOX = { '3-3': 'Talents clés', '3-2': 'Fort potentiel', '3-1': 'Potentiel à révéler', '2-3': 'Performeurs solides', '2-2': 'Contributeurs clés', '2-1': 'À faire progresser', '1-3': 'Experts confirmés', '1-2': 'Contributeurs fiables', '1-1': 'À accompagner' };
+  const RISKS = ['Faible', 'Moyen', 'Élevé'], READY = ['Prêt maintenant', 'D’ici 1 à 2 ans', 'D’ici 3 ans ou plus'];
+  function talentOf(e) {
+    const t = (db.talent = db.talent || {})[e.id] || {}, r = db.reviews.filter((x) => x.empId === e.id && x.kind === 'Entretien annuel' && (x.mgr || x.self)).sort((a, b) => b.year - a.year)[0];
+    const rating = r ? (r.mgr || r.self).rating : 3;
+    return { perf: t.perf || (rating >= 4 ? 3 : rating >= 3 ? 2 : 1), pot: t.pot || 2, risk: t.risk || 'Faible', fromReview: !!r && !t.perf };
+  }
+  function talentReview() {
+    const people = (ui.profile === 'rh' ? employed() : scopeEmployees().filter(isEmployed)).filter((e) => e.stage >= 4 && !e.exit);
+    const cell = (pot, perf) => { const list = people.filter((e) => { const t = talentOf(e); return t.pot === pot && t.perf === perf; });
+      return `<div class="box b${pot}${perf}"><b>${BOX[`${pot}-${perf}`]}</b>${list.map((e) => `<button type="button" class="box-p" data-act="open-emp" data-id="${e.id}" title="${esc(e.title)}">${avatar(e, 'sm')}<span>${esc(e.firstName)}</span></button>`).join('')}</div>`; };
+    const sel = (e, k, list, v) => `<select class="select" data-change="talent" data-id="${e.id}" data-k="${k}" aria-label="${k}">${list.map(([x, l]) => `<option value="${x}" ${String(x) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+    return `<div class="ninebox-wrap"><div class="ninebox-axis">Potentiel →</div><div class="ninebox">${[3, 2, 1].map((pot) => [1, 2, 3].map((perf) => cell(pot, perf)).join('')).join('')}</div><div class="ninebox-x">Performance (entretien annuel) →</div></div>
+      ${card('Positionnement', '<span class="muted" style="font-size:13px">confidentiel · RH et managers</span>', `<div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Performance</th><th>Potentiel</th><th>Risque de départ</th></tr></thead><tbody>
+        ${people.map((e) => { const t = talentOf(e); return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small></div></div></td><td>${sel(e, 'perf', [[1, 'En dessous des attentes'], [2, 'Conforme'], [3, 'Au-delà des attentes']], t.perf)}${t.fromReview ? '<small class="hint" style="display:block">d’après l’entretien annuel</small>' : ''}</td>
+          <td>${sel(e, 'pot', [[1, 'Limité'], [2, 'Évolutif'], [3, 'Élevé']], t.pot)}</td><td>${sel(e, 'risk', RISKS.map((r) => [r, r]), t.risk)}</td></tr>`; }).join('')}</tbody></table></div>`)}`;
+  }
+  function successionView() {
+    const keys = db.employees.filter((e) => isEmployed(e) && !e.exit && db.employees.some((x) => x.managerId === e.id && x.stage < 15));
+    return `<p class="hint" style="margin:0">Postes clés : la direction et les managers. Pour chacun, un successeur identifié et sa maturité, croisés avec le risque de départ du titulaire.</p>
+      ${card('Plan de succession', `<span class="muted num">${keys.filter((e) => !(db.succession[e.id] || {}).succ).length} sans successeur</span>`, `<div class="table-wrap"><table><thead><tr><th>Poste clé</th><th>Titulaire</th><th>Risque de départ</th><th>Successeur</th><th>Maturité</th></tr></thead><tbody>
+        ${keys.map((e) => { const s = (db.succession = db.succession || {})[e.id] || {}, cands = employed().filter((x) => x.id !== e.id && !x.exit), risk = talentOf(e).risk;
+          return `<tr><td><b>${esc(e.title)}</b><small class="hint" style="display:block">${esc(e.dept)}</small></td><td><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div></td><td><span class="pill ${risk === 'Élevé' ? 'bad' : risk === 'Moyen' ? 'warn' : 'ok'}">${risk}</span></td>
+            <td><select class="select" data-change="succ" data-id="${e.id}" data-k="succ" aria-label="Successeur"><option value="">Aucun identifié</option>${cands.map((x) => `<option value="${x.id}" ${x.id === s.succ ? 'selected' : ''}>${esc(fullName(x))}</option>`).join('')}</select></td>
+            <td><select class="select" data-change="succ" data-id="${e.id}" data-k="ready" aria-label="Maturité" ${s.succ ? '' : 'disabled'}><option value="">—</option>${READY.map((r) => `<option ${r === s.ready ? 'selected' : ''}>${r}</option>`).join('')}</select></td></tr>`; }).join('')}</tbody></table></div>`)}`;
+  }
+
+  // ================================================================ Santé (étape 12) : retours d'absence et DUERP
+  const calDays = (a, b) => dayDiff(a, b) + 1;
+  function longAbsences() {
+    const out = [];
+    db.leaves.filter((l) => l.type === 'Maladie' && calDays(l.start, l.end) >= 30).forEach((l) => out.push({ e: emp(l.empId), kind: 'Maladie', start: l.start, end: l.end, days: calDays(l.start, l.end), need: calDays(l.start, l.end) >= 60, src: l }));
+    db.incidents.filter((x) => x.kind === 'Accident du travail' && x.stopDays >= 30).forEach((x) => out.push({ e: emp(x.empId), kind: 'Accident du travail', start: x.date, end: addDays(x.date, x.stopDays - 1), days: x.stopDays, need: true, src: x }));
+    return out.sort((a, b) => b.end.localeCompare(a.end));
+  }
+  function returnsView() {
+    const list = longAbsences();
+    return `<p class="hint" style="margin:0">Au-delà de 30 jours d’absence, un rendez-vous de liaison peut être proposé au salarié. La visite de reprise est obligatoire après 60 jours d’arrêt pour maladie ou 30 jours pour accident du travail, dans les 8 jours qui suivent la reprise.</p>
+      ${card('Retours après une longue absence', '', `<div class="card-b">${list.length ? list.map((a) => { const ret = addDays(a.end, 1), due = addDays(ret, 8), v = db.visits.find((x) => x.empId === a.e.id && x.kind === 'Visite de reprise' && x.date >= a.start);
+        return `<div class="todo">${avatar(a.e, 'sm')}<div class="t"><b>${esc(fullName(a.e))} · ${a.kind}, ${a.days} jours</b><small>Du ${fmtShort(a.start)} au ${fmtShort(a.end)} · reprise le ${fmtDate(ret)}</small>
+          <small>${a.src.liaison ? `Rendez-vous de liaison proposé le ${fmtShort(a.src.liaison)}` : 'Rendez-vous de liaison : non proposé'}</small></div>
+          ${a.src.liaison || ret <= TODAY ? '' : `<button type="button" class="btn ghost sm" data-act="liaison" data-k="${a.kind === 'Maladie' ? 'leave' : 'incident'}" data-id="${a.src.id}">Proposer le rendez-vous</button>`}
+          ${a.need ? (v ? `<span class="pill ${v.status === 'Réalisée' ? 'ok' : 'info'}">Visite de reprise · ${fmtShort(v.date)}</span>` : `<button type="button" class="btn ${TODAY > due ? 'bad' : 'primary'} sm" data-act="reprise" data-id="${a.e.id}" data-d="${ret}">Visite de reprise (avant le ${fmtShort(due)})</button>`) : '<span class="pill neutral">Visite de reprise non obligatoire</span>'}</div>`; }).join('') : '<p class="muted" style="margin:0">Aucune absence de plus de 30 jours.</p>'}</div>`)}`;
+  }
+  function duerpCard() {
+    const v = (db.duerp || []).slice().sort((a, b) => b.date.localeCompare(a.date)), last = v[0], next = last ? addYears(last.date, 1) : TODAY;
+    return card('Mises à jour du document unique', `<span class="pill ${next < TODAY ? 'bad' : 'ok'}">${next < TODAY ? `Mise à jour en retard depuis le ${fmtShort(next)}` : `Prochaine avant le ${fmtShort(next)}`}</span>`, `<div class="card-b">
+      <p class="hint" style="margin:0 0 10px">À partir de 11 salariés, le DUERP est mis à jour au moins une fois par an, et à chaque changement important. Chaque version est conservée 40 ans et tenue à disposition des salariés.</p>
+      ${v.map((x) => `<div class="todo"><div class="t"><b>Version du ${fmtDate(x.date)}</b><small>${esc(x.note)} · ${esc(fullName(emp(x.by)))} · ${plural(x.count || db.risks.length, 'risque', 'risques')}</small></div><span class="pill neutral">Conservée jusqu’en ${Number(x.date.slice(0, 4)) + 40}</span></div>`).join('')}
+      ${ui.profile === 'rh' ? `<div class="toolbar" style="margin-top:10px"><button type="button" class="btn primary sm" data-act="duerp-version">${ic('check')}Enregistrer la mise à jour annuelle</button></div>` : ''}</div>`);
+  }
+
+  // ================================================================ Départ (étapes 14 à 16)
+  const RETURN_ITEMS = [['ordinateur', 'Ordinateur et chargeur'], ['badge', 'Badge d’accès'], ['telephone', 'Téléphone professionnel']];
+  const TRANSFER = [['dossiers', 'Dossiers en cours transmis au successeur'], ['acces', 'Accès partagés et mots de passe transférés'], ['doc', 'Documentation des processus à jour']];
+  const EXIT_REASONS = ['Évolution de carrière', 'Rémunération', 'Management', 'Charge de travail', 'Projet personnel', 'Mobilité géographique', 'Autre'];
+  function offb(e) { db.offboarding = db.offboarding || {}; const d = db.offboarding[e.id] = db.offboarding[e.id] || {}; return Object.assign(d, { transfer: d.transfer || {}, returned: d.returned || {}, requests: d.requests || [], rc: d.rc || {} }); }
+  function noticeInfo(e) {
+    const r = (e.exit && e.exit.reason) || '', yrs = dayDiff(e.startDate, TODAY) / 365.25, cadre = e.category === 'Cadre', base = cadre ? 3 : yrs >= 2 ? 2 : 1;
+    if (/Démission/.test(r)) return { months: base, label: `${base} mois (convention Syntec, ${cadre ? 'cadre' : 'ETAM'})` };
+    if (/Licenciement/.test(r)) return { months: base, label: `${base} mois de préavis de licenciement (Syntec)` };
+    if (/retraite/i.test(r)) { const m = yrs >= 2 ? 2 : 1; return { months: m, label: `${m} mois (départ volontaire à la retraite)` }; }
+    if (/conventionnelle/.test(r)) return { months: 0, rc: true, label: 'Pas de préavis : la date de fin est fixée dans la convention' };
+    if (/CDD/.test(r)) return { months: 0, label: 'Fin au terme du contrat' };
+    if (/essai/.test(r)) return { months: 0, label: 'Délai de prévenance de la période d’essai' };
+    return { months: 0, label: '—' };
+  }
+  function rcCalendar(d) {
+    if (!d.rc.signed) return null;
+    const retract = addDays(d.rc.signed, 15), request = addDays(retract, 1), homol = addWorkDays(request, 15);
+    return { retract, request, homol, earliest: addDays(homol, 1) };
+  }
+  function exitIndemnities(e) {
+    const r = e.exit.reason, m = e.salary / 12, years = Math.max(0, dayDiff(e.startDate, e.exit.lastDay) / 365.25);
+    const legal = /Licenciement|conventionnelle/.test(r) && years >= 8 / 12 ? m * (Math.min(years, 10) / 4 + Math.max(0, years - 10) / 3) : 0;
+    return { years, legal, cpPay: e.cp * (e.salary / 12 / 21.67), precarite: e.contract === 'CDD' && /CDD/.test(r) ? e.salary * years * 0.1 : 0 };
+  }
+  const exitDocs = (e) => ['certificat', 'solde', 'france-travail'].map((k) => db.documents.find((x) => x.empId === e.id && x.kind === k));
+  function departSteps(e, stage) {
+    const d = offb(e), all = (o, list) => list.every(([k]) => o[k]);
+    if (stage === 13) return [!!e.exit, !!d.noticeOk, !!d.calcOk, exitDocs(e).every(Boolean), !!d.returnPlan];
+    if (stage === 14) return [!!d.exitInterview, !!d.successor && all(d.transfer, TRANSFER), all(d.returned, RETURN_ITEMS), !!d.accessOff && !!d.portability, !!d.docsGiven];
+    return [!!d.archivedAt, !!d.retentionOk, !d.requests.some((x) => x.status === 'En attente'), d.rehire !== undefined && d.rehire !== null];
+  }
+  function departActions(e) {
+    if (ui.profile !== 'rh') return [];
+    const s = departSteps(e, e.stage), d = offb(e);
+    const labels = { 13: ['', 'préavis à valider', 'indemnités à chiffrer', 'documents de sortie à préparer', 'restitution à planifier'], 14: ['entretien de départ', 'passation', 'matériel à récupérer', 'accès et portabilité', 'documents à remettre'], 15: ['dossier à archiver', 'durées de conservation', 'demande d’un ancien salarié', 'décision de réembauche'] }[e.stage];
+    const out = s.map((v, k) => (v ? '' : labels[k])).filter(Boolean);
+    if (e.stage === 14 && e.exit && e.exit.lastDay <= TODAY && !d.accessOff) out.unshift('accès à couper aujourd’hui');
+    return out;
+  }
+  function departDossier(e, i) {
+    const d = offb(e), rh = ui.profile === 'rh', x = e.exit || {};
+    const row = (label, sub, state) => `<div class="todo"><div class="t"><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div>${state}</div>`;
+    const ok = (date, txt = 'Fait') => `<span class="pill ok">${txt}${date ? ` · ${fmtShort(date)}` : ''}</span>`;
+    const b = (act, label, extra = '', cls = 'ghost') => (rh ? `<button type="button" class="btn ${cls} sm" data-act="${act}" data-id="${e.id}" ${extra}>${label}</button>` : '<span class="pill warn">À faire</span>');
+    const sec = (title, body) => `<h4 class="sub" style="margin-top:18px">${title}</h4>${body}`;
+    let html = `<p class="hint" style="margin:12px 0 0">${esc(x.reason || '—')} · dernier jour ${x.lastDay ? `le ${fmtDate(x.lastDay)}` : 'à fixer'} · ${esc(e.contract)} · ${esc(e.category || '')} · entré·e le ${fmtDate(e.startDate)} (${seniority(e.startDate)})</p>`;
+    if (i === 13) {
+      const n = noticeInfo(e), rc = rcCalendar(d);
+      let notice = row('Préavis', `${n.label}${n.months && d.notifiedAt ? ` · notifié le ${fmtDate(d.notifiedAt)}, fin le ${fmtDate(addDays(addMonths(d.notifiedAt, n.months), -1))}` : ''}. Les congés pris pendant le préavis ne le prolongent pas.`, d.noticeOk ? ok(d.noticeOk, 'Validé') : b('dep-set', 'Valider', 'data-k="noticeOk"'));
+      if (n.rc) notice += row('Calendrier de la rupture conventionnelle', rc ? `Signée le ${fmtDate(d.rc.signed)} · rétractation jusqu’au ${fmtDate(rc.retract)} (15 jours calendaires) · demande d’homologation le ${fmtDate(rc.request)} · réponse de la DREETS au plus tard le ${fmtDate(rc.homol)} · fin du contrat au plus tôt le ${fmtDate(rc.earliest)}${x.lastDay < rc.earliest ? ' <b class="warn-t">· la date de fin prévue est trop tôt</b>' : ''}` : 'Entretien(s), puis signature de la convention : les délais de rétractation et d’homologation démarrent à la signature.',
+        rc ? ok(d.rc.signed, 'Signée') : `${rh ? `<input type="date" class="input" data-change="rc-signed" data-id="${e.id}" aria-label="Date de signature">` : ''}`);
+      html += sec('Motif et préavis', notice);
+      const ind = exitIndemnities(e);
+      html += sec('Chiffrage de la fin de contrat', row('Indemnités', `${ind.legal ? `Indemnité ${/conventionnelle/.test(x.reason) ? 'de rupture (au moins l’indemnité légale)' : 'légale de licenciement'} : <b class="num">${eur0(ind.legal)}</b> (1/4 de mois par année jusqu’à 10 ans, 1/3 au-delà) · ` : ''}Indemnité compensatrice de congés payés (${e.cp} j) : <b class="num">${eur0(ind.cpPay)}</b>${ind.precarite ? ` · Indemnité de fin de CDD (10 %) : <b class="num">${eur0(ind.precarite)}</b>` : ''}. Vérifier l’indemnité conventionnelle Syntec si plus favorable.`, d.calcOk ? ok(d.calcOk, 'Validé') : b('dep-set', 'Valider le chiffrage', 'data-k="calcOk"')));
+      const docs = exitDocs(e);
+      html += sec('Documents de sortie', row('Certificat de travail, reçu pour solde de tout compte, attestation France Travail', 'Remis le dernier jour ; l’attestation France Travail est transmise via la DSN.', docs.every(Boolean) ? ok(d.docsReady, 'Préparés') : b('dep-docs', 'Préparer les documents', '', 'primary')));
+      html += sec('Restitution et accès', row('Matériel et accès', `${RETURN_ITEMS.map(([, l]) => l).join(', ')} à récupérer le ${x.lastDay ? fmtDate(x.lastDay) : '—'} ; comptes désactivés le soir même.`, d.returnPlan ? ok(d.returnPlan, 'Planifié') : b('dep-set', 'Planifier', 'data-k="returnPlan"')));
+    }
+    if (i === 14) {
+      const xi = d.exitInterview;
+      html += sec('Entretien de départ', xi ? row(`Motif principal : ${esc(xi.reason)} · recommande l’entreprise ${xi.enps}/10 · prêt·e à revenir : ${esc(xi.back)}`, `Points forts : ${esc(xi.good || '—')} · À améliorer : ${esc(xi.improve || '—')}`, ok(xi.date)) : rh ? `<form data-form="exit-int" data-id="${e.id}" class="exit-form"><div class="form-grid">
+          <div class="field"><label for="xi-r">Motif principal du départ</label><select id="xi-r" name="reason" class="select">${EXIT_REASONS.map((r) => `<option>${r}</option>`).join('')}</select></div>
+          <div class="field"><label for="xi-n">Recommanderiez-vous Nova Studio ? (0 à 10)</label><input id="xi-n" name="enps" type="number" min="0" max="10" class="input num" value="7"></div>
+          <div class="field"><label for="xi-g">Ce qui a bien fonctionné</label><input id="xi-g" name="good" class="input"></div><div class="field"><label for="xi-i">Ce qui serait à améliorer</label><input id="xi-i" name="improve" class="input"></div>
+          <div class="field"><label for="xi-b">Prêt·e à revenir un jour ?</label><select id="xi-b" name="back" class="select"><option>Oui</option><option>Peut-être</option><option>Non</option></select></div></div>
+          <div class="toolbar" style="margin-top:10px"><span class="hint">Mené par les RH plutôt que par le manager, pour des réponses franches.</span><button class="btn primary sm" style="margin-left:auto">Enregistrer</button></div></form>` : row('Entretien de départ', 'Mené par les RH', '<span class="pill neutral">À venir</span>'));
+      const cands = employed().filter((y) => y.id !== e.id && !y.exit && (y.dept === e.dept || y.id === e.managerId));
+      html += sec('Transmission', row('Successeur ou relais', 'Personne qui reprend les dossiers', `<select class="select" data-change="dep-succ" data-id="${e.id}" ${rh || ui.profile === 'manager' ? '' : 'disabled'} aria-label="Successeur"><option value="">Choisir…</option>${cands.map((y) => `<option value="${y.id}" ${y.id === d.successor ? 'selected' : ''}>${esc(fullName(y))}</option>`).join('')}</select>`)
+        + TRANSFER.map(([k, l]) => row(l, '', d.transfer[k] ? ok(d.transfer[k]) : rh || ui.profile === 'manager' ? `<button type="button" class="btn ghost sm" data-act="dep-transfer" data-id="${e.id}" data-k="${k}">Fait</button>` : '')).join(''));
+      html += sec('Restitution du matériel', RETURN_ITEMS.map(([k, l]) => row(l, '', d.returned[k] ? ok(d.returned[k], 'Rendu') : b('dep-return', 'Rendu', `data-k="${k}"`))).join(''));
+      html += sec('Fin des accès et des dispositifs', row('Comptes, messagerie et accès aux locaux', 'À désactiver le dernier jour, après la passation', d.accessOff ? ok(d.accessOff, 'Désactivés') : b('dep-set', 'Désactiver', 'data-k="accessOff"', x.lastDay && x.lastDay <= TODAY ? 'bad' : 'ghost'))
+        + row('Portabilité de la mutuelle et de la prévoyance', 'Maintien gratuit jusqu’à 12 mois si le salarié est indemnisé par France Travail (sauf faute lourde) : notice à remettre', d.portability ? ok(d.portability, 'Notice remise') : b('dep-set', 'Notice remise', 'data-k="portability"')));
+      const docs = exitDocs(e);
+      html += sec('Documents de fin de contrat', `${docs.filter(Boolean).map((doc) => row(esc(doc.title), doc.kind === 'solde' ? 'Peut être dénoncé par le salarié dans les 6 mois suivant sa signature' : doc.kind === 'france-travail' ? 'Transmise à France Travail via la DSN' : 'Remis le dernier jour', `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${doc.id}">Voir</button>`)).join('') || row('Documents non préparés', 'À générer à l’étape « Préparation du départ »', b('dep-docs', 'Préparer'))}
+        ${row('Remise au salarié', '', d.docsGiven ? ok(d.docsGiven, 'Remis') : b('dep-set', 'Remis au salarié', 'data-k="docsGiven"'))}`);
+    }
+    if (i === 15) {
+      const out = x.lastDay || TODAY;
+      html += sec('Archivage', row('Dossier du salarié', 'Accès restreint aux RH après archivage', d.archivedAt ? ok(d.archivedAt, 'Archivé') : b('dep-set', 'Archiver le dossier', 'data-k="archivedAt"', 'primary')));
+      html += sec('Durées de conservation', [['Contrat, avenants, dossier du personnel', 5], ['Copie des bulletins de paie', 5], ['Registre unique du personnel (mentions)', 5], ['Déclarations d’accident du travail', 10]].map(([l, y]) => row(l, `${y} ans après le départ`, `<span class="pill neutral">Jusqu’au ${fmtShort(addYears(out, y))}</span>`)).join('')
+        + row('Application des durées', 'Les pièces sont supprimées automatiquement à l’échéance', d.retentionOk ? ok(d.retentionOk, 'Programmé') : b('dep-set', 'Programmer', 'data-k="retentionOk"')));
+      html += sec('Demandes après le départ', d.requests.length ? d.requests.map((r) => row(esc(r.label), `Reçue le ${fmtDate(r.date)}`, r.status === 'Traitée' ? ok(r.doneAt, 'Envoyée') : b('dep-request', 'Générer et envoyer', `data-r="${r.id}"`, 'primary'))).join('') : '<p class="muted" style="margin:0">Aucune demande.</p>');
+      const xi = d.exitInterview;
+      html += sec('Lien avec l’ancien collaborateur', row('Réembauche possible', `${xi ? `Prêt·e à revenir : ${esc(xi.back)} · ` : ''}Les « salariés boomerang » connaissent déjà la culture de l’entreprise.`, rh ? `<select class="select" data-change="dep-rehire" data-id="${e.id}" aria-label="Réembauche"><option value="">À décider</option>${['Oui', 'Non'].map((y) => `<option ${d.rehire === y ? 'selected' : ''}>${y}</option>`).join('')}</select>` : '')
+        + (d.rehire === 'Oui' && rh ? row('Proposer une offre ouverte', 'Ajoute l’ancien collaborateur aux candidats, source « Ancien salarié »', `<select class="select" data-change="boomerang" data-id="${e.id}" aria-label="Offre"><option value="">Choisir une offre…</option>${db.jobs.filter((j) => j.status === 'Ouverte').map((j) => `<option value="${j.id}">${esc(j.title)}</option>`).join('')}</select>`) : ''));
+    }
+    return html;
+  }
+  function exitStats() {
+    const list = Object.entries(db.offboarding || {}).map(([id, d]) => d.exitInterview).filter(Boolean);
+    if (!list.length) return '';
+    const counts = {}; list.forEach((x) => { counts[x.reason] = (counts[x.reason] || 0) + 1; });
+    const prom = list.filter((x) => x.enps >= 9).length, det = list.filter((x) => x.enps <= 6).length, back = list.filter((x) => x.back === 'Oui').length;
+    return card('Enseignements des entretiens de départ', `<span class="muted num">${plural(list.length, 'entretien', 'entretiens')}</span>`, `<div class="card-b"><div class="crit">${Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([r, n]) => `<div class="crit-row"><span>${esc(r)}</span><b class="num">${n}</b></div>`).join('')}
+      <div class="crit-row total"><span>eNPS des partants</span><b class="num">${Math.round(((prom - det) / list.length) * 100)}</b></div><div class="crit-row"><span>Prêts à revenir</span><b class="num">${Math.round((back / list.length) * 100)} %</b></div></div></div>`);
+  }
+  Object.assign(MOD_ACT, {
+    workload(d) { const r = db.reviews.find((x) => x.id === d.id); r.workload = TODAY; toast('Volet charge de travail enregistré'); commit(); },
+    'dep-set'(d) { const e = emp(d.id); offb(e)[d.k] = TODAY; if (d.k === 'accessOff') notify(e.managerId, `Accès de ${fullName(e)} désactivés.`); toast('Enregistré'); commit(); },
+    'dep-docs'(d) { const e = emp(d.id); ['certificat', 'solde', 'france-travail'].forEach((k) => { if (!db.documents.some((x) => x.empId === e.id && x.kind === k)) addDoc(e.id, k); }); offb(e).docsReady = TODAY; toast('Documents de sortie préparés'); commit(); },
+    'dep-transfer'(d) { offb(emp(d.id)).transfer[d.k] = TODAY; toast('Passation enregistrée'); commit(); },
+    'dep-return'(d) { offb(emp(d.id)).returned[d.k] = TODAY; toast('Matériel restitué'); commit(); },
+    'dep-request'(d) { const e = emp(d.id), r = offb(e).requests.find((x) => x.id === d.r), doc = addDoc(e.id, r.kind); Object.assign(r, { status: 'Traitée', doneAt: TODAY }); ui.modal = { type: 'doc', id: doc.id }; toast('Document envoyé à l’ancien collaborateur'); commit(); },
+    liaison(d) { const x = (d.k === 'leave' ? db.leaves : db.incidents).find((y) => y.id === d.id); x.liaison = TODAY; notify(x.empId, 'Un rendez-vous de liaison vous est proposé pour préparer votre retour, avec le service de santé au travail.'); toast('Rendez-vous de liaison proposé'); commit(); },
+    reprise(d) { const date = d.d > TODAY ? addDays(d.d, 3) : addDays(TODAY, 2); db.visits.push({ id: uid('v'), empId: d.id, kind: 'Visite de reprise', date, status: 'Planifiée', result: null }); notify(d.id, `Visite de reprise prévue le ${fmtDate(date)}.`); toast('Visite de reprise planifiée'); commit(); },
+    'duerp-version'() { db.duerp = db.duerp || []; db.duerp.push({ date: TODAY, by: me().id, note: 'Mise à jour annuelle', count: db.risks.length }); toast('Nouvelle version du DUERP enregistrée'); commit(); },
+  });
+  Object.assign(MOD_CHG, {
+    'case-convoc'(v, d) { const c = db.cases.find((x) => x.id === d.id); c.convocAt = v || null; if (v) c.events.push({ date: v, type: 'Convocation envoyée', note: 'Convocation à l’entretien préalable présentée au salarié.', by: me().id, visible: false }); commit(); },
+    'train-cold'(v, d) { if (!v) return; const x = db.enrollments.find((y) => y.id === d.id); x.cold = Number(v); x.coldAt = TODAY; toast('Évaluation à froid enregistrée'); commit(); },
+    'train-fund'(v, d) { db.enrollments.find((y) => y.id === d.id).fund = v; save(); toast('Financement enregistré'); },
+    talent(v, d) { db.talent = db.talent || {}; const t = db.talent[d.id] = db.talent[d.id] || {}; t[d.k] = d.k === 'risk' ? v : Number(v); commit(); },
+    succ(v, d) { db.succession = db.succession || {}; const s = db.succession[d.id] = db.succession[d.id] || {}; s[d.k] = v || null; if (d.k === 'succ' && !v) s.ready = null; commit(); },
+    'rc-signed'(v, d) { if (!v) return; const x = offb(emp(d.id)); x.rc.signed = v; toast('Date de signature enregistrée'); commit(); },
+    'dep-succ'(v, d) { const e = emp(d.id); offb(e).successor = v || null; if (v) notify(v, `Vous reprenez les dossiers de ${fullName(e)}.`); commit(); },
+    'dep-rehire'(v, d) { offb(emp(d.id)).rehire = v || null; commit(); },
+    boomerang(v, d) {
+      if (!v) return; const e = emp(d.id), j = db.jobs.find((x) => x.id === v);
+      const c = { id: uid('c'), jobId: v, name: fullName(e), email: e.email.replace('@novastudio.fr', '@mail.fr'), phone: e.phone, source: 'Ancien salarié', experience: `${e.title} chez Nova Studio de ${e.startDate.slice(0, 4)} à ${(e.exit.lastDay || '').slice(0, 4)}`, stage: 'Présélection', score: 0, notes: '', interviews: [], appliedAt: TODAY, messages: [], offer: null, refusal: null, pool: false };
+      db.candidates.push(c); sendMsg(c, 'point', 'Une nouvelle opportunité chez Nova Studio', `Bonjour ${e.firstName},\n\nNous avons pensé à vous pour le poste de ${j.title}. Seriez-vous partant·e pour en discuter ?${SIGN}`);
+      toast(`${fullName(e)} est proposé·e pour « ${j.title} »`); commit();
+    },
+  });
+  Object.assign(MOD_FORMS, {
+    'exit-int'(v, form) { const e = emp(form.dataset.id); offb(e).exitInterview = { date: TODAY, reason: v.reason, enps: Math.max(0, Math.min(10, Number(v.enps) || 0)), good: v.good.trim(), improve: v.improve.trim(), back: v.back }; toast('Entretien de départ enregistré'); commit(); },
+  });
 
   // ---------------------------------------------------------------- Documents RH
   const DOC_LABEL = { contrat: 'Contrat de travail', info7: 'Informations essentielles sur la relation de travail', info1m: 'Informations complémentaires sur la relation de travail', essai: 'Confirmation de fin de période d’essai', attestation: 'Attestation employeur', avenant: 'Avenant au contrat', certificat: 'Certificat de travail', solde: 'Reçu pour solde de tout compte', 'france-travail': 'Attestation employeur France Travail' };

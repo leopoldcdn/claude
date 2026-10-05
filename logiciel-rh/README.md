@@ -1,7 +1,7 @@
 # Teamora — aperçu du logiciel RH
 
 Prototype fonctionnel, sans serveur ni base de données : ouvrez `index.html` dans un navigateur.
-Les données de départ (`data.js`, schéma version 6) sont fictives ; vos modifications sont conservées dans le navigateur
+Les données de départ (`data.js`, schéma version 7) sont fictives ; vos modifications sont conservées dans le navigateur
 (localStorage) et le bouton « Réinitialiser la démo » restaure l'état initial.
 
 - **La roue est le menu** : il n'y a plus de barre latérale. Chaque étape du parcours collaborateur ouvre le module
@@ -51,6 +51,17 @@ Les données de départ (`data.js`, schéma version 6) sont fictives ; vos modif
   révision salariale (enveloppe, propositions des managers, validation RH, application), écarts femmes-hommes par
   catégorie (seuil de 5 %), partage de la valeur pour les 11-49 salariés, avantages sociaux. Côté salarié : rémunération
   globale et demande d'information sur les salaires moyens de sa catégorie.
+- **Performance** : entretien de parcours professionnel tous les 4 ans (loi du 24 octobre 2025), rendez-vous de
+  mi-carrière (45 ans) et de fin de carrière (avant 60 ans), volet charge de travail obligatoire pour les cadres au forfait.
+- **Formation** : efficacité (satisfaction à chaud, mise en pratique à 3 mois) et financement (plan, OPCO, CPF).
+- **Mobilité** : revue des talents (matrice performance × potentiel, risque de départ) et plan de succession des postes clés.
+- **Santé** : retours après une longue absence (rendez-vous de liaison, visite de reprise dans les 8 jours) et versions
+  annuelles du DUERP conservées 40 ans.
+- **Relations individuelles** : date de présentation de la convocation et contrôle du délai de 5 jours ouvrables.
+- **Préparation du départ, Départ, Après le départ** (pages d'étape) : préavis Syntec, calendrier de la rupture
+  conventionnelle (rétractation, homologation), chiffrage des indemnités, documents de sortie, restitution ; entretien de
+  départ et enseignements, passation, fin des accès, portabilité ; archivage, durées de conservation, demandes des anciens
+  salariés, réembauche (« boomerang ») vers une offre ouverte.
 - **Entretiens** : campagne d'entretiens annuels (planification, auto-évaluation, évaluation manager, signature),
   échéances des entretiens professionnels (tous les 2 ans), objectifs avec avancement, feedback entre collègues.
 - **Formation** : catalogue, demande, double validation manager puis RH, budget du plan (réalisé, engagé, restant), évaluation.

@@ -18,15 +18,15 @@ window.TEAMORA_STAGES = [
     steps: ['Gestion du temps de travail', 'Congés et RTT', 'Absences et arrêts', 'Télétravail et autres modalités de travail'] },
   { short: 'Rémunération', title: 'Rémunération et avantages', icon: 'euro', module: 'paie',
     steps: ['Salaire et évolution de la rémunération', 'Primes et variables', 'Avantages sociaux', 'Épargne salariale et dispositifs collectifs'] },
-  { short: 'Performance', title: 'Performance et entretiens', icon: 'star', module: null,
+  { short: 'Performance', title: 'Performance et entretiens', icon: 'star', module: 'entretiens',
     steps: ['Fixation des objectifs', 'Entretiens de suivi', 'Entretien annuel', 'Entretien professionnel', 'Évaluation et feedback'] },
-  { short: 'Formation', title: 'Formation et développement des compétences', icon: 'cap', module: null,
+  { short: 'Formation', title: 'Formation et développement des compétences', icon: 'cap', module: 'formation',
     steps: ['Identification des besoins', 'Planification des formations', 'Réalisation et suivi des formations', 'Évaluation des acquis', 'Développement des compétences'] },
-  { short: 'Mobilité', title: 'Mobilité et évolution professionnelle', icon: 'trend', module: null,
+  { short: 'Mobilité', title: 'Mobilité et évolution professionnelle', icon: 'trend', module: 'mobilite',
     steps: ["Identification des souhaits d'évolution", 'Mobilité interne', 'Changement de poste ou de responsabilités', 'Évolution de carrière'] },
-  { short: 'Santé & QVT', title: 'Santé, sécurité et qualité de vie au travail', icon: 'heart', module: null,
+  { short: 'Santé & QVT', title: 'Santé, sécurité et qualité de vie au travail', icon: 'heart', module: 'sante',
     steps: ['Suivi de la santé au travail', 'Prévention des risques', 'Accidents et incidents', 'Aménagements éventuels du poste', 'Actions de qualité de vie et des conditions de travail'] },
-  { short: 'Relations indiv.', title: 'Relations individuelles et disciplinaires', icon: 'chat', module: null,
+  { short: 'Relations indiv.', title: 'Relations individuelles et disciplinaires', icon: 'chat', module: 'relations',
     steps: ['Gestion des situations individuelles', 'Entretiens et échanges avec le collaborateur', 'Mesures disciplinaires éventuelles', 'Suivi des procédures'] },
   { short: 'Prépa. départ', title: 'Préparation du départ', icon: 'hourglass', module: 'collaborateurs',
     steps: ['Identification du motif de départ', 'Gestion du préavis', 'Organisation de la fin de contrat', 'Préparation des documents de sortie', 'Organisation de la restitution du matériel et des accès'] },
@@ -116,5 +116,110 @@ window.TEAMORA_SEED = function () {
     '2026-08': { closed: true, bonus: { e8: 1200 } },
     '2026-09': { closed: true, bonus: { e8: 900, e6: 500 } },
   };
-  return { version: 1, employees, journey, leaves, jobs, candidates, notifications, payroll };
+
+  // ---- Performance & entretiens
+  const lastPro = { e1: '2025-02-10', e2: '2024-06-12', e4: '2023-05-30', e5: '2025-01-15', e6: '2024-09-03', e7: '2023-03-20', e8: '2024-02-14', e9: '2024-11-20',
+    e11: '2024-07-04', e13: '2025-04-03', e14: '2024-10-10', e15: '2022-01-10', e16: '2025-09-04', e17: '2025-05-17' };
+  employees.forEach((e) => { e.lastPro = lastPro[e.id] || null; });
+  const objectives = [
+    { id: 'o1', empId: 'e3', title: 'Refondre le parcours d’inscription de l’app mobile', due: '2026-12-15', progress: 70 },
+    { id: 'o2', empId: 'e3', title: 'Livrer 20 composants du design system', due: '2026-12-31', progress: 45 },
+    { id: 'o3', empId: 'e3', title: 'Mener 8 sessions de tests utilisateurs', due: '2026-11-30', progress: 50 },
+    { id: 'o4', empId: 'e4', title: 'Lancer la version 2 du design system', due: '2026-12-31', progress: 80 },
+    { id: 'o5', empId: 'e4', title: 'Accompagner Emma pendant sa période d’essai', due: '2026-11-30', progress: 60 },
+    { id: 'o6', empId: 'e10', title: 'Refondre la charte graphique', due: '2027-01-31', progress: 20 },
+    { id: 'o7', empId: 'e13', title: 'Migrer le front-end vers la nouvelle architecture', due: '2026-12-31', progress: 35 },
+    { id: 'o8', empId: 'e8', title: 'Signer 12 nouveaux comptes', due: '2026-12-31', progress: 75 },
+  ];
+  const reviews = [
+    { id: 'r1', empId: 'e3', kind: 'Entretien annuel', year: 2026, date: '2026-11-18', status: 'Planifié', self: null, mgr: null },
+    { id: 'r2', empId: 'e4', kind: 'Entretien annuel', year: 2026, date: '2026-11-12', status: 'Auto-évaluation faite', self: { rating: 4, comment: 'Lancement réussi du design system v1, j’aimerais encadrer davantage.' }, mgr: null },
+    { id: 'r3', empId: 'e10', kind: 'Entretien annuel', year: 2026, date: null, status: 'À planifier', self: null, mgr: null },
+    { id: 'r4', empId: 'e9', kind: 'Entretien annuel', year: 2026, date: '2026-09-29', status: 'Signé', self: { rating: 4, comment: 'Clôtures mensuelles tenues dans les délais.' }, mgr: { rating: 4, comment: 'Fiable et rigoureux. Prochaine étape : piloter le budget 2027.', proposal: 'Augmentation' }, signedAt: '2026-10-01' },
+    { id: 'r5', empId: 'e13', kind: 'Entretien annuel', year: 2026, date: '2026-10-21', status: 'À signer', self: { rating: 4, comment: 'Montée en compétence sur l’architecture front.' }, mgr: { rating: 5, comment: 'Excellente année, référente technique de l’équipe.', proposal: 'Promotion' } },
+    { id: 'r6', empId: 'e4', kind: 'Entretien professionnel', year: 2026, date: '2026-11-12', status: 'Planifié', self: null, mgr: null },
+  ];
+  const feedback = [
+    { id: 'fb1', from: 'e4', to: 'e3', text: 'Merci pour l’organisation des tests utilisateurs, les retours ont changé notre façon de voir l’onboarding.', date: '2026-09-30' },
+    { id: 'fb2', from: 'e2', to: 'e3', text: 'Très belle présentation au comité produit, claire et bien argumentée.', date: '2026-09-12' },
+    { id: 'fb3', from: 'e3', to: 'e10', text: 'Bienvenue Emma ! Ta proposition de moodboard a mis tout le monde d’accord.', date: '2026-09-18' },
+  ];
+  // ---- Formation
+  const trainings = [
+    { id: 't1', title: 'Recherche utilisateur avancée', provider: 'UX Academy', category: 'Métier', hours: 14, cost: 1200, mode: 'Présentiel', sessions: ['2026-11-16', '2026-12-07'] },
+    { id: 't2', title: 'Accessibilité numérique (RGAA)', provider: 'Access Formation', category: 'Métier', hours: 7, cost: 650, mode: 'Distanciel', sessions: ['2026-10-22', '2026-11-26'] },
+    { id: 't3', title: 'Manager en situation hybride', provider: 'Leadership & Co', category: 'Management', hours: 21, cost: 1800, mode: 'Présentiel', sessions: ['2026-11-09', '2027-01-18'] },
+    { id: 't4', title: 'Anglais professionnel', provider: 'Lingua Pro', category: 'Langues', hours: 30, cost: 1500, mode: 'Distanciel', sessions: ['2026-11-02', '2027-01-04'] },
+    { id: 't5', title: 'Sauveteur secouriste du travail (SST)', provider: 'Prévention Santé', category: 'Sécurité', hours: 14, cost: 300, mode: 'Présentiel', sessions: ['2026-10-29', '2026-12-03'] },
+    { id: 't6', title: 'Prise de parole en public', provider: 'Oratio', category: 'Compétences transverses', hours: 7, cost: 690, mode: 'Présentiel', sessions: ['2026-11-19', '2027-02-04'] },
+  ];
+  const enrollments = [
+    { id: 'f1', empId: 'e4', trainingId: 't3', session: '2026-11-09', status: 'Validée', reason: 'Préparer une évolution vers le management', createdAt: '2026-09-15' },
+    { id: 'f2', empId: 'e13', trainingId: 't2', session: '2026-10-22', status: 'Demandée', reason: 'Rendre nos écrans conformes', createdAt: '2026-10-01' },
+    { id: 'f3', empId: 'e10', trainingId: 't1', session: '2026-12-07', status: 'Validée manager', reason: 'Monter en compétence sur la recherche', createdAt: '2026-09-25' },
+    { id: 'f4', empId: 'e11', trainingId: 't5', session: '2026-06-04', status: 'Terminée', reason: 'Devenir SST du site de Lyon', createdAt: '2026-04-10', rating: 5 },
+    { id: 'f5', empId: 'e3', trainingId: 't2', session: '2026-04-16', status: 'Terminée', reason: 'Bonnes pratiques d’accessibilité', createdAt: '2026-03-02', rating: 4 },
+    { id: 'f6', empId: 'e7', trainingId: 't6', session: '2026-11-19', status: 'Validée', reason: 'Conférences clients 2027', createdAt: '2026-09-02' },
+  ];
+  // ---- Mobilité
+  const wishes = [
+    { id: 'w1', empId: 'e4', kind: 'Évolution de poste', target: 'Lead Designer avec encadrement', horizon: 'Dans 12 mois', comment: 'Je souhaite encadrer une petite équipe.', status: 'En étude', mgrOpinion: 'Favorable', createdAt: '2026-06-20' },
+    { id: 'w2', empId: 'e15', kind: 'Changement de service', target: 'Contrôle de gestion', horizon: 'Dans 6 mois', comment: 'Envie d’évoluer vers l’analyse financière.', status: 'Exprimé', mgrOpinion: null, createdAt: '2026-09-08' },
+    { id: 'w3', empId: 'e11', kind: 'Mobilité géographique', target: 'Bureaux de Paris', horizon: 'En 2027', comment: 'Rapprochement familial.', status: 'Exprimé', mgrOpinion: null, createdAt: '2026-09-21' },
+  ];
+  const history = [
+    { id: 'h1', empId: 'e4', date: '2024-01-01', label: 'Promotion', detail: 'Product Designer → Senior Product Designer · salaire 48 000 € → 54 000 €' },
+    { id: 'h2', empId: 'e13', date: '2025-01-01', label: 'Augmentation', detail: 'Salaire 43 500 € → 47 000 €' },
+    { id: 'h3', empId: 'e14', date: '2024-03-01', label: 'Mobilité interne', detail: 'Assistant RH → Chargé de recrutement' },
+  ];
+  // ---- Santé & QVT
+  const visits = [
+    { id: 'v1', empId: 'e3', kind: "Visite d'information et de prévention", date: '2024-12-10', status: 'Réalisée', result: 'Apte' },
+    { id: 'v2', empId: 'e19', kind: "Visite d'information et de prévention", date: '2026-10-14', status: 'Planifiée', result: null },
+    { id: 'v3', empId: 'e15', kind: 'Visite périodique', date: '2021-03-01', status: 'Réalisée', result: 'Apte' },
+    { id: 'v4', empId: 'e11', kind: 'Visite périodique', date: '2024-05-14', status: 'Réalisée', result: 'Apte avec aménagement' },
+  ];
+  employees.forEach((e, k) => {
+    if (['e3', 'e10', 'e12', 'e15', 'e18', 'e19', 'e11'].includes(e.id)) return;
+    const d = e.startDate > '2022-06-01' ? e.startDate.slice(0, 8) + '28' : `202${3 + (k % 3)}-0${1 + (k % 8)}-15`;
+    visits.push({ id: 'v' + (10 + k), empId: e.id, kind: e.startDate > '2022-06-01' ? "Visite d'information et de prévention" : 'Visite périodique', date: d, status: 'Réalisée', result: 'Apte' });
+  });
+  const incidents = [
+    { id: 'i1', empId: 'e11', date: '2026-10-02', kind: 'Accident de trajet', description: 'Chute à vélo sur le trajet domicile-travail, entorse du poignet.', stopDays: 2, status: 'Déclaré', createdAt: '2026-10-02' },
+    { id: 'i2', empId: 'e17', date: '2026-06-11', kind: 'Accident du travail', description: 'Coupure légère en déballant une livraison.', stopDays: 0, status: 'Clos', createdAt: '2026-06-11' },
+  ];
+  const risks = [
+    { id: 'k1', unit: 'Bureaux · Paris', risk: 'Travail prolongé sur écran', g: 2, p: 4, measure: 'Écrans réglables, pauses, formation aux postures', status: 'En place' },
+    { id: 'k2', unit: 'Toutes équipes', risk: 'Charge de travail et risques psychosociaux', g: 3, p: 3, measure: 'Baromètre QVT mensuel, entretiens de charge', status: 'En cours' },
+    { id: 'k3', unit: 'Commerciaux', risk: 'Risque routier lors des déplacements', g: 4, p: 2, measure: 'Politique voyage, train privilégié', status: 'En place' },
+    { id: 'k4', unit: 'Bureaux · Lyon', risk: 'Chute de plain-pied (escaliers)', g: 2, p: 2, measure: 'Bandes antidérapantes', status: 'À lancer' },
+    { id: 'k5', unit: 'Télétravail', risk: 'Isolement', g: 2, p: 3, measure: 'Jour d’équipe hebdomadaire sur site', status: 'En cours' },
+  ];
+  const survey = [];
+  employees.forEach((e, k) => {
+    if (e.stage < 3 || e.stage > 13) return;
+    survey.push({ id: 'q9' + k, empId: e.id, month: '2026-09', answers: [3 + (k % 3 === 0 ? -1 : k % 2), 4 + (k % 4 === 0 ? -1 : 0), 3 + (k % 2), 4 + (k % 5 === 0 ? 1 : 0) - (k % 7 === 0 ? 1 : 0)] });
+    if (k % 3 !== 1 && e.id !== 'e3') survey.push({ id: 'q10' + k, empId: e.id, month: '2026-10', answers: [3 + (k % 2), 4, 3 + (k % 3 === 0 ? 1 : 0), 4] });
+  });
+  const adjustments = [
+    { id: 'a1', empId: 'e9', kind: 'Siège ergonomique', comment: 'Douleurs lombaires, préconisé par la médecine du travail.', status: 'Demandé', createdAt: '2026-09-29' },
+    { id: 'a2', empId: 'e11', kind: 'Horaires aménagés', comment: 'Suite à la visite périodique.', status: 'Accordé', createdAt: '2024-05-20' },
+  ];
+  // ---- Relations individuelles (dossiers confidentiels RH)
+  const cases = [
+    { id: 'd1', empId: 'e15', kind: 'Situation individuelle', title: 'Aménagement horaire · proche aidant', openedAt: '2026-09-10', status: 'En cours', facts: null, interview: null, measure: null, openedBy: 'e1',
+      events: [{ date: '2026-09-10', type: 'Échange', note: 'Sarah explique accompagner un parent dépendant.', by: 'e1', visible: false }, { date: '2026-09-17', type: 'Réponse au collaborateur', note: 'Proposition : départ à 16h30 deux jours par semaine pendant 6 mois.', by: 'e1', visible: true }] },
+    { id: 'd2', empId: 'e8', kind: 'Procédure disciplinaire', title: 'Non-respect répété de la procédure de facturation', openedAt: '2026-09-30', status: 'En cours', facts: '2026-09-28', interview: '2026-10-13', measure: null, openedBy: 'e1',
+      events: [{ date: '2026-10-01', type: 'Convocation envoyée', note: 'Lettre remise en main propre contre décharge, entretien préalable le 13 octobre.', by: 'e1', visible: false }] },
+    { id: 'd3', empId: 'e3', kind: 'Demande d’échange', title: 'Échanger sur ma charge de travail', openedAt: '2026-10-02', status: 'Ouvert', facts: null, interview: null, measure: null, openedBy: 'e3',
+      events: [{ date: '2026-10-02', type: 'Demande du collaborateur', note: 'Beaucoup de projets en parallèle depuis septembre, j’aimerais en parler.', by: 'e3', visible: true }] },
+  ];
+  // ---- Documents RH
+  const documents = [
+    { id: 'doc1', empId: 'e3', kind: 'contrat', title: 'Contrat de travail · CDI', date: '2024-10-20' },
+    { id: 'doc2', empId: 'e3', kind: 'attestation', title: 'Attestation employeur', date: '2026-02-03' },
+    { id: 'doc3', empId: 'e4', kind: 'avenant', title: 'Avenant · Senior Product Designer', date: '2023-12-15', data: { title: 'Senior Product Designer', dept: 'Design', salary: 54000, effective: '2024-01-01' } },
+  ];
+  return { version: 2, employees, journey, leaves, jobs, candidates, notifications, payroll, objectives, reviews, feedback, trainings, enrollments, trainingBudget: 25000,
+    wishes, history, visits, incidents, risks, survey, adjustments, cases, documents };
 };

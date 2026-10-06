@@ -610,7 +610,20 @@ a.btn { text-decoration: none; }
 .plan-day { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: var(--muted); } .plan-day .input { width: 64px; }
 
 /* Modèles de documents : éditeur, champs automatiques et à saisir */
-.tpl-page .jobs .sub { margin: 10px 4px 2px; }
+.tpl-list { display: flex; flex-direction: column; gap: 2px; position: sticky; top: 96px; max-height: calc(100vh - 120px); overflow-y: auto; padding-right: 4px; }
+.tpl-list .sub { margin: 12px 8px 4px; } .tpl-list .sub:first-child { margin-top: 0; }
+.tpl-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border: 0; background: none; padding: 7px 10px; border-radius: 9px; font-size: 13.5px; font-weight: 600; color: var(--fg); }
+.tpl-item svg { width: 15px; height: 15px; color: var(--faint); flex: none; }
+.tpl-item:hover { background: var(--surface-2); }
+.tpl-item[aria-current="true"] { background: var(--accent-soft); color: var(--accent); } .tpl-item[aria-current="true"] svg { color: var(--accent); }
+.tpl-main { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.tpl-group .sub { margin: 4px 0 10px; }
+.tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.tpl-tile { display: flex; align-items: center; gap: 10px; text-align: left; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 14px; }
+.tpl-tile svg { width: 18px; height: 18px; color: var(--accent); flex: none; }
+.tpl-tile:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+.tpl-none { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 420px; color: var(--muted); }
+.tpl-none svg { width: 36px; height: 36px; color: var(--faint); } .tpl-none b { color: var(--fg); font-size: 16px; }
 .ed-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; border: 1px solid var(--line); border-bottom: 0; border-radius: 12px 12px 0 0; background: var(--surface-2); }
 .ed-bar .input.sm { width: 220px; }
 .ed-combo { position: relative; display: inline-flex; }

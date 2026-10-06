@@ -3266,19 +3266,21 @@
   // ---- Écran « Modèles de documents » (RH)
   function viewTemplates() {
     const keys = Object.keys(DEFAULT_TPL);
-    if (!DEFAULT_TPL[ui.tplSel]) ui.tplSel = keys[0];
+    if (!DEFAULT_TPL[ui.tplSel]) ui.tplSel = null;
+    // Tous les titres ; un modèle ne s'ouvre que lorsqu'on le sélectionne.
+    const list = TPL_GROUPS.map((g) => `<h4 class="sub">${g}</h4>${keys.filter((k) => DEFAULT_TPL[k].group === g).map((k) => `<button type="button" class="tpl-item" data-act="tpl-sel" data-k="${k}" aria-current="${k === ui.tplSel}">${ic('file')}<span>${esc(tplOf(k).label)}</span></button>`).join('')}`).join('');
+    if (!ui.tplSel) return `<p class="muted" style="margin:0">Sélectionne un modèle pour le relire et le modifier.</p>${TPL_GROUPS.map((g) => `<section class="tpl-group"><h4 class="sub">${g}</h4><div class="tpl-grid">${keys.filter((k) => DEFAULT_TPL[k].group === g).map((k) => { const x = tplOf(k);
+      return `<button type="button" class="tpl-tile" data-act="tpl-sel" data-k="${k}">${ic('file')}<b>${esc(x.label)}</b></button>`; }).join('')}</div></section>`).join('')}`;
     const key = ui.tplSel, t = tplOf(key), draft = ui.tplDraft && ui.tplDraft.key === key ? ui.tplDraft : null;
     const body = draft ? draft.body : t.body, fields = draft ? draft.fields : t.fields, subject = draft ? draft.subject : t.subject;
     const chip = (k) => { const s = k.startsWith('saisie:'), f = s && fields.find((x) => x.id === k.slice(7)); return `<span class="tk ${s ? 'saisie' : ''}" contenteditable="false" data-k="${esc(k)}">${esc(s ? (f ? f.label : k.slice(7)) : TOKEN_LABEL[k] || k)}</span>`; };
     const toChips = (h) => h.replace(/\{\{((?:saisie:)?[\w-]+)\}\}/g, (a, k) => chip(k));
     const groups = [...new Set(TOKENS.map((x) => x[2]))].filter((g) => (t.group === 'Courriers aux candidats' ? !['Salarié', 'Contrat', 'Avenant', 'Départ'].includes(g) : g !== 'Candidat'));
-    const list = TPL_GROUPS.map((g) => `<h4 class="sub">${g}</h4>${keys.filter((k) => DEFAULT_TPL[k].group === g).map((k) => { const x = tplOf(k);
-      return `<button type="button" class="job" data-act="tpl-sel" data-k="${k}" aria-current="${k === key}"><b>${esc(x.label)}</b><span class="meta">${x.kind === 'msg' ? 'Message' : 'Document'} · version ${x.v}${(db.templates || {})[k] ? ' · personnalisé' : ''}</span></button>`; }).join('')}`).join('');
     const miss = tplMissing(body, t.required);
     const versions = (t.versions || []).slice().reverse();
-    return `<div class="rec tpl-page"><div class="jobs">${list}</div>
+    return `<div class="rec tpl-page"><div class="tpl-list">${list}</div><div class="tpl-main">
       <div class="card"><div class="job-head"><div><div class="toolbar"><span class="pill accent">${t.kind === 'msg' ? 'Message au candidat' : 'Document'}</span><span class="muted" style="font-size:13px">Version ${t.v}${t.versions.length ? ` · enregistrée le ${fmtDate(t.versions[t.versions.length - 1].date)} par ${esc(fullName(emp(t.versions[t.versions.length - 1].by)))}` : ' · modèle d’origine'}</span>${draft ? '<span class="pill warn">Modifications non enregistrées</span>' : ''}</div><h2 style="margin-top:8px">${esc(t.label)}</h2></div>
-        <div class="toolbar"><button type="button" class="btn ghost" data-act="tpl-preview">Aperçu</button><button type="button" class="btn ghost" data-act="tpl-cancel">Annuler les modifications</button><button type="button" class="btn primary" data-act="tpl-save">${ic('check')}Enregistrer une nouvelle version</button></div></div>
+        <div class="toolbar"><button type="button" class="btn ghost" data-act="tpl-preview">Aperçu</button><button type="button" class="btn ghost" data-act="tpl-cancel">Annuler les modifications</button><button type="button" class="btn primary" data-act="tpl-save">${ic('check')}Enregistrer une nouvelle version</button><button type="button" class="icon-btn" data-act="tpl-close" aria-label="Fermer le modèle" title="Fermer">${ic('x')}</button></div></div>
         <div class="card-b" style="border-top:1px solid var(--line)">
           ${t.kind === 'msg' ? `<div class="field" style="margin-bottom:12px"><label for="tpl-subj">Objet du message</label><input id="tpl-subj" class="input" value="${esc(subject || '')}" data-tpl-subj></div>` : `<div class="field" style="margin-bottom:12px"><label for="tpl-title">Titre du document</label><input id="tpl-title" class="input" value="${esc(draft ? draft.title : t.title)}" data-tpl-title></div>`}
           <div class="ed-bar" role="toolbar" aria-label="Mise en forme">
@@ -3289,7 +3291,7 @@
           <div id="tpl-lint">${tplLintHTML(miss)}</div>
           <p class="hint" style="margin:10px 0 0"><span class="tk sm">Champ automatique</span> rempli depuis le dossier · <span class="tk saisie sm">Champ à saisir</span> complété par les RH à la création du document. Un document déjà remis ou signé garde la version qui a servi.</p></div></div>
       ${card('Versions', `<span class="muted num" style="font-size:13px">${plural(t.v, 'version', 'versions')}</span>`, `<div class="card-b">${versions.map((x) => `<div class="todo"><div class="t"><b>Version ${x.v}${x.v === t.v ? ' · en vigueur' : ''}</b><small>${fmtDate(x.date)} · ${esc(fullName(emp(x.by)))}${x.note ? ` · ${esc(x.note)}` : ''}</small></div>${x.v === t.v ? '' : `<button type="button" class="btn ghost sm" data-act="tpl-restore" data-v="${x.v}">Rétablir</button>`}</div>`).join('')}
-        <div class="todo"><div class="t"><b>Version 1 · modèle d’origine</b><small>Fourni avec Teamora</small></div>${t.v === 1 ? '' : '<button type="button" class="btn ghost sm" data-act="tpl-restore" data-v="0">Rétablir</button>'}</div></div>`)}</div>`;
+        <div class="todo"><div class="t"><b>Version 1 · modèle d’origine</b><small>Fourni avec Teamora</small></div>${t.v === 1 ? '' : '<button type="button" class="btn ghost sm" data-act="tpl-restore" data-v="0">Rétablir</button>'}</div></div>`)}</div></div>`;
   }
   const tplLintHTML = (miss) => (miss.length ? `<div class="lint bad"><b>${ic('x')}Mentions obligatoires manquantes</b>${miss.map(([k, l]) => `<p>${esc(l)}${k.startsWith('kw:') ? ` (mention « ${esc(k.slice(3))} »)` : ''}</p>`).join('')}</div>` : `<div class="lint ok"><b>${ic('check')}Toutes les mentions obligatoires sont présentes</b></div>`);
   // Lecture de l'éditeur : pastilles → {{clé}}.
@@ -3363,7 +3365,8 @@
     ed.dispatchEvent(new Event('input'));
   }
   Object.assign(MOD_ACT, {
-    'tpl-sel'(d) { if (ui.tplDraft && ui.tplDraft.key !== d.k) ui.tplDraft = null; ui.tplSel = d.k; render(); },
+    'tpl-sel'(d) { if (ui.tplSel === d.k) { ui.tplSel = null; ui.tplDraft = null; render(); return; } if (ui.tplDraft && ui.tplDraft.key !== d.k) ui.tplDraft = null; ui.tplSel = d.k; render(); },
+    'tpl-close'() { ui.tplSel = null; ui.tplDraft = null; render(); },
     'tpl-cancel'() { ui.tplDraft = null; render(); },
     'ed-cmd'(d) {
       const ed = document.getElementById('tpl-ed'); if (!ed) return; ed.focus();

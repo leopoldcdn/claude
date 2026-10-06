@@ -1320,7 +1320,7 @@
     ['Sexe', 'Mot genré : utilisez une forme neutre ou inclusive (ex. « assistant·e »), ou ajoutez « H/F ».',
       ['un homme', 'une femme', 'hommes? uniquement', 'femmes? uniquement', 'assistante', 'hôtesse', 'vendeuse', 'serveuse', 'développeuse']],
     ['Origine', 'Mention liée à l’origine ou à la nationalité interdite : précisez plutôt le niveau de langue (ex. « français courant »).',
-      ['langue maternelle', 'natifs?', 'natives?', 'sans accent', 'de nationalité', 'nationalité française', 'européen(?:ne)?s?']],
+      ['langue maternelle', '(?<!react\\s)(?<!applications?\\s)(?<!apps?\\s)(?<!code\\s)natifs?', '(?<!react\\s)(?<!applications?\\s)(?<!apps?\\s)(?<!code\\s)natives?', 'sans accent', 'de nationalité', 'nationalité française', 'européen(?:ne)?s?']],
     ['Santé et apparence', 'Critère lié à la santé ou à l’apparence interdit : décrivez les exigences réelles du poste.',
       ['bonne santé', 'bonne condition physique', 'physique agréable', 'bonne présentation', 'apparence']],
     ['Situation de famille', 'Critère lié à la situation de famille interdit.', ['célibataire', 'sans enfants?', 'mariée?', 'situation de famille', 'enceinte']],
@@ -1332,8 +1332,10 @@
   }
   function adLintHTML(title, desc, publishing) {
     const l = lintAd(title, desc);
-    const head = l.issues.length ? `<b>${ic('x')}${publishing ? 'À corriger avant de publier' : 'Mentions à corriger avant la publication de l’offre'}</b>` : `<b>${ic('check')}Aucune mention discriminatoire détectée</b>`;
-    return `<div class="lint ${l.issues.length ? 'bad' : 'ok'}">${head}${l.issues.map((i) => `<p><b>${esc(i.cat)}</b> · « ${i.words.map(esc).join(' », « ')} » — ${esc(i.why)}</p>`).join('')}
+    // Alerte, jamais blocage : l'analyse est automatique et peut se tromper (ex. « React Native »).
+    const n = l.issues.reduce((x, i) => x + i.words.length, 0);
+    const head = l.issues.length ? `<b>${ic('x')}${plural(n, 'terme à vérifier', 'termes à vérifier')}</b><p class="muted">Ces mots peuvent être discriminants selon le contexte. L’analyse est automatique et peut se tromper : relis-les, puis corrige-les ou publie tel quel.</p>` : `<b>${ic('check')}Aucune mention discriminatoire détectée</b>`;
+    return `<div class="lint ${l.issues.length ? 'warn' : 'ok'}">${head}${l.issues.map((i) => `<p><b>${esc(i.cat)}</b> · « ${i.words.map(esc).join(' », « ')} » — ${esc(i.why)}</p>`).join('')}
       ${l.inclusive ? '' : '<p class="muted">Conseil : ajoutez « H/F » ou une forme inclusive à l’intitulé (ex. « Chef·fe de projet »).</p>'}</div>`;
   }
 
@@ -1542,9 +1544,10 @@
     'need-publish'(v) {
       const j = db.jobs.find((x) => x.id === ui.modal.id);
       if (!v.title.trim()) return formError('Indiquez l’intitulé de l’offre.');
-      if (lintAd(v.title, v.description).issues.length) return formError('Corrigez les mentions signalées avant de publier l’offre.');
+      const flagged = lintAd(v.title, v.description).issues.flatMap((i) => i.words);
       j.title = v.title.trim(); j.description = v.description.trim(); j.status = 'Ouverte'; j.publishedAt = TODAY;
       j.approvals.push({ step: 'publication', by: me().id, decision: 'Publiée', date: TODAY, comment: '' });
+      if (flagged.length) logTo(j, `Publiée malgré ${plural(flagged.length, 'terme signalé', 'termes signalés')} : « ${flagged.join(' », « ')} »`);
       notify(j.requestedBy, `L’offre « ${j.title} » est publiée : les candidatures peuvent arriver.`);
       Object.assign(ui, { modal: null, recJob: j.id }); toast(`Offre publiée sous la référence ${jobRef(j)} · à suivre dans Recrutement`); commit();
     },

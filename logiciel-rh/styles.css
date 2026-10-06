@@ -408,6 +408,8 @@ h4.sub { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transfor
 .lint.ok p { color: var(--muted); }
 .lint.bad { background: var(--bad-soft); color: var(--fg); }
 .lint.bad > b { color: var(--bad); }
+.lint.warn { background: var(--warn-soft); color: var(--fg); }
+.lint.warn > b { color: var(--warn); }
 .crit { display: flex; flex-direction: column; gap: 8px; }
 .crit-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; }
 .crit-row .stars svg { width: 20px; height: 20px; }

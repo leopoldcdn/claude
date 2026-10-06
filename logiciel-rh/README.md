@@ -40,8 +40,9 @@ Les données de départ (`data.js`, schéma version 8) sont fictives ; vos modif
   issus des souhaits de mobilité, fiche de cadrage (3 à 4 compétences indispensables, atouts, nombre d'entretiens).
   Circuit de validation : RH, puis direction pour une création de poste ou un poste hors budget (la RH saisit la décision
   de la direction dans la démo) ; chaque décision (valider, demander une modification, refuser avec commentaire obligatoire)
-  est historisée. À la publication, l'annonce est vérifiée : mentions discriminatoires interdites (âge, sexe, origine,
-  santé, situation de famille) bloquantes, conseil « H/F ».
+  est historisée. À la rédaction de l'offre, les termes potentiellement discriminatoires (âge, sexe, origine, santé,
+  situation de famille) sont signalés en orange, sans bloquer la publication : l'analyse automatique peut se tromper
+  (« React Native » n'est plus signalé). Une offre publiée malgré une alerte le garde dans son historique ; conseil « H/F ».
 - **Recrutement** : trois onglets. « À traiter » (vue par défaut) regroupe les actions qui vous attendent, toutes offres
   confondues : candidatures à trier, évaluations à remplir, propositions à préparer, candidats sans nouvelles depuis plus
   de 7 jours ; son total est la pastille de la roue. « Offres » : tableau triable (référence, poste, service, manager,

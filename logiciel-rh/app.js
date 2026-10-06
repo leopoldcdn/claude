@@ -61,7 +61,7 @@
     manager: { emp: 'e2', label: 'Manager' },
     salarie: { emp: 'e3', label: 'Salarié' },
   };
-  const freshUI = () => ({ wheelOpen: false, selPerson: null, q: '', fDept: '', fStatus: '', sort: 'name', sortDir: 1,
+  const freshUI = () => ({ tplSel: null, tplDraft: null, wheelOpen: false, selPerson: null, q: '', fDept: '', fStatus: '', sort: 'name', sortDir: 1,
     absTab: 'valider', histStatus: '', planMonth: null, payMonth: null, recJob: null, drawer: null, modal: null, notif: false,
     needTab: 'all', needSel: null, nq: '', nDept: '', nStatus: '', nFrom: '', rq: '', rDept: '', rStatus: '', rFrom: '', adminTab: 'annuaire', payTab: 'paie', tsWeek: null, revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
   let ui = Object.assign({ profile: 'rh', view: 'accueil', stage: null }, loadUI(), freshUI());
@@ -189,6 +189,15 @@
       if (e.registeredAt === undefined) e.registeredAt = e.stage >= 3 ? e.startDate : null;
     });
   }
+  // Statut des documents de départ : remis ou signés, sauf contrat en attente et documents de sortie pas encore remis.
+  function normalizeDocs() {
+    db.documents.forEach((d) => {
+      if (d.status) return;
+      const c = db.onboarding && db.onboarding[d.empId] && db.onboarding[d.empId].contract, o = db.offboarding && db.offboarding[d.empId];
+      d.status = d.kind === 'contrat' && c && c.docId === d.id && c.status !== 'Signé' ? (c.status === 'Envoyé' ? 'Envoyé' : 'Brouillon')
+        : ['certificat', 'solde', 'france-travail'].includes(d.kind) && o && !o.docsGiven ? 'Brouillon' : d.kind === 'contrat' ? 'Signé' : 'Remis';
+    });
+  }
   function applyDueSalaries() { db.employees.forEach((e) => { if (e.salaryNext && e.salaryNext.from <= TODAY) { e.salary = e.salaryNext.amount; delete e.salaryNext; } }); }
   function calcPay(e, m) {
     const start = m + '-01', end = monthEnd(m), sal = salaryAt(e, m);
@@ -215,7 +224,7 @@
     salarie: [null, null, 'arrivee', 'contrat', 'etape-moi', 'profil', 'absences', 'bulletins', 'entretiens', 'formation', 'mobilite', 'sante', 'relations', 'etape-moi', 'etape-moi', 'etape-moi'],
   };
   const VIEW_LABELS = {
-    rh: { accueil: 'Accueil', reporting: 'Reporting RH', besoins: 'Besoins de recrutement', collaborateurs: 'Collaborateurs', absences: 'Absences', paie: 'Paie', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Relations individuelles' },
+    rh: { accueil: 'Accueil', reporting: 'Reporting RH', modeles: 'Modèles de documents', besoins: 'Besoins de recrutement', collaborateurs: 'Collaborateurs', absences: 'Absences', paie: 'Paie', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Relations individuelles' },
     manager: { accueil: 'Accueil', besoins: 'Besoins de recrutement', collaborateurs: 'Mon équipe', absences: 'Absences', paie: 'Rémunération de l’équipe', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Signalements' },
     salarie: { accueil: 'Mon parcours', arrivee: 'Mon arrivée', contrat: 'Contrat de travail', profil: 'Mon profil', absences: 'Mes absences', bulletins: 'Mes bulletins', entretiens: 'Mes entretiens', formation: 'Formations', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Échanges RH' },
   };
@@ -226,7 +235,7 @@
     return STAGES.map((s, i) => i).filter((i) => { const v = STAGE_VIEW[ui.profile][i]; return v === 'etape-moi' ? m.stage === i : v === 'arrivee' ? inArrival(m) : !!v; });
   }
   const stageView = (i) => (STAGE_VIEW[ui.profile][i] === 'etape-moi' ? 'etape' : STAGE_VIEW[ui.profile][i]);
-  const canView = (v) => v === 'accueil' || (v === 'reporting' && ui.profile === 'rh') || (v === 'etape' ? visibleStages().includes(ui.stage) : visibleStages().some((i) => stageView(i) === v));
+  const canView = (v) => v === 'accueil' || (['reporting', 'modeles'].includes(v) && ui.profile === 'rh') || (v === 'etape' ? visibleStages().includes(ui.stage) : visibleStages().some((i) => stageView(i) === v));
   function navCount(v) {
     const p = ui.profile, m = me(), ids = new Set(scopeEmployees().map((e) => e.id));
     if (v === 'absences') return pendingForMe().length + pendingSheets().length + (p === 'rh' ? db.leaves.filter((l) => l.type === 'Maladie' && !l.dsnAt).length : 0);
@@ -264,7 +273,7 @@
       <div class="top-right"><div class="persona" role="group" aria-label="Voir l’application en tant que">${Object.entries(PROFILES).map(([k, p]) => { const e = profileEmp(k);
         return `<button type="button" data-act="persona" data-p="${k}" aria-pressed="${ui.profile === k}">${avatar(e)}<span class="who-name">${esc(e.firstName)} ·</span> ${p.label}</button>`; }).join('')}</div>
       ${ui.profile === 'salarie' ? asEmpSelect() : ''}
-      ${ui.profile === 'rh' ? `<button type="button" class="btn ${ui.view === 'reporting' ? 'primary' : 'ghost'} sm rep-btn" data-act="go" data-v="reporting">${ic('chart')}Reporting RH</button>` : ''}
+      ${ui.profile === 'rh' ? `<button type="button" class="btn ${ui.view === 'modeles' ? 'primary' : 'ghost'} sm rep-btn" data-act="go" data-v="modeles">${ic('file')}Modèles</button><button type="button" class="btn ${ui.view === 'reporting' ? 'primary' : 'ghost'} sm rep-btn" data-act="go" data-v="reporting">${ic('chart')}Reporting RH</button>` : ''}
       <button type="button" class="icon-btn" data-act="notif" aria-label="Notifications (${unread} non lues)" aria-expanded="${ui.notif}">${ic('bell')}${unread ? `<span class="dot num">${unread}</span>` : ''}</button></div>
       ${ui.notif ? `<div class="card notif-pop" data-act="noop"><div class="card-h"><h3>Notifications</h3>${unread ? '<button type="button" class="btn ghost sm" data-act="notif-read">Tout marquer comme lu</button>' : ''}</div>
         ${mine.length ? mine.slice(0, 8).map((n) => `<div class="notif ${n.read ? '' : 'unread'}"><div>${esc(n.text)}<small>${fmtDate(n.date)}</small></div></div>`).join('') : '<div class="empty">Aucune notification.</div>'}</div>` : ''}</header>`;
@@ -272,7 +281,7 @@
   // Outside the home page, the wheel's stages stay reachable as a strip, in the same order and colours.
   function stageRail() {
     if (ui.view === 'accueil') return '';
-    return `<nav class="rail" aria-label="Étapes du parcours"><button type="button" class="rail-home" data-act="go" data-v="accueil" aria-label="Retour à la roue" title="Retour à la roue">${ic('home')}</button>${ui.profile === 'rh' ? `<button type="button" class="rail-home rail-rep" data-act="go" data-v="reporting" aria-label="Reporting RH" title="Reporting RH" ${ui.view === 'reporting' ? 'aria-current="page"' : ''}>${ic('chart')}</button><span class="rail-sep"></span>` : ''}
+    return `<nav class="rail" aria-label="Étapes du parcours"><button type="button" class="rail-home" data-act="go" data-v="accueil" aria-label="Retour à la roue" title="Retour à la roue">${ic('home')}</button>${ui.profile === 'rh' ? `<button type="button" class="rail-home rail-rep" data-act="go" data-v="reporting" aria-label="Reporting RH" title="Reporting RH" ${ui.view === 'reporting' ? 'aria-current="page"' : ''}>${ic('chart')}</button><button type="button" class="rail-home rail-rep" data-act="go" data-v="modeles" aria-label="Modèles de documents" title="Modèles de documents" ${ui.view === 'modeles' ? 'aria-current="page"' : ''}>${ic('file')}</button><span class="rail-sep"></span>` : ''}
       ${visibleStages().map((i) => { const v = stageView(i), name = `${STAGES[i].short}${v === 'etape' ? '' : ` — ${VIEW_LABELS[ui.profile][v]}`}`;
         return `<button type="button" data-act="stage" data-i="${i}" style="--c:${STAGE_COLORS[i]}" aria-label="${esc(name)}" title="${esc(name)}" ${ui.stage === i ? 'aria-current="page"' : ''}>${ic(STAGES[i].icon)}${stageBadge(i)}</button>`; }).join('')}</nav>`;
   }
@@ -1010,11 +1019,11 @@
       Object.assign(e, { title: v.title.trim(), dept: v.dept, managerId: v.managerId || null });
       if (v.date > TODAY && salary !== e.salary) e.salaryNext = { amount: salary, from: v.date }; else { e.salary = salary; delete e.salaryNext; }
       db.history.push({ id: uid('h'), empId: e.id, date: v.date, label: v.label, detail: parts.join(' · ') || 'Mise à jour du contrat' });
-      db.documents.push({ id: uid('doc'), empId: e.id, kind: 'avenant', title: `Avenant · ${e.title}`, date: TODAY, data: { title: e.title, dept: e.dept, salary, effective: v.date } });
+      const av = addDoc(e.id, 'avenant', { title: `Avenant · ${e.title}`, data: { title: e.title, dept: e.dept, salary, effective: v.date } }); av.html = fillTpl(tplOf('avenant').body, docCtx(e, av), tplOf('avenant').fields);
       if (ui.modal.wishId) db.wishes.find((x) => x.id === ui.modal.wishId).status = 'Réalisé';
       tickJourney(e.id, 10, 2); tickJourney(e.id, 5, 0);
-      notify(e.id, `${v.label} à compter du ${fmtDate(v.date)} : votre avenant est disponible dans vos documents.`); if (e.managerId) notify(e.managerId, `${v.label} de ${fullName(e)} au ${fmtDate(v.date)}.`);
-      ui.modal = null; toast('Changement enregistré · avenant généré'); commit();
+      notify(e.id, `${v.label} à compter du ${fmtDate(v.date)} : votre avenant vous sera remis par les RH.`); if (e.managerId) notify(e.managerId, `${v.label} de ${fullName(e)} au ${fmtDate(v.date)}.`);
+      ui.modal = { type: 'doc-edit', id: av.id }; toast('Changement enregistré · relisez l’avenant avant de le remettre'); commit();
     },
   });
 
@@ -1606,16 +1615,15 @@
   const RGPD_NOTE = 'Vos données sont utilisées uniquement pour nos recrutements. Elles sont supprimées automatiquement 2 ans après notre dernier échange. Vous pouvez à tout moment demander leur suppression ou vous opposer à leur conservation en écrivant à rh@novastudio.fr.';
   const firstName = (c) => c.name.split(' ')[0];
   const SIGN = '\n\nL’équipe RH de Nova Studio';
+  // Les textes viennent des modèles rédigés par les RH (écran « Modèles de documents »).
   const MSG_TPL = {
-    ack: ['Accusé de réception', 'Nous avons bien reçu votre candidature', (c, j) => `Bonjour ${firstName(c)},\n\nMerci pour votre candidature au poste de ${j.title}. Nous l’étudions et reviendrons vers vous sous ${ANSWER_DAYS} jours.\n\n${RGPD_NOTE}${SIGN}`],
-    point: ['Point d’étape', 'Votre candidature est toujours à l’étude', (c, j) => `Bonjour ${firstName(c)},\n\nNous revenons vers vous au sujet de votre candidature au poste de ${j.title} : elle est toujours à l’étude. Nous vous tiendrons informé·e de la suite d’ici une semaine.${SIGN}`],
-    libre: ['Message libre', '', (c) => `Bonjour ${firstName(c)},\n\n${SIGN.trim()}`],
+    ack: ['Accusé de réception', (c, j) => tplMsg('msg-ack', candCtx(c, j))],
+    point: ['Point d’étape', (c, j) => tplMsg('msg-point', candCtx(c, j))],
+    libre: ['Message libre', (c) => ['', `Bonjour ${firstName(c)},\n\n${SIGN.trim()}`]],
   };
-  const convocBody = (c, j, iv) => `Bonjour ${firstName(c)},\n\nNous avons le plaisir de vous inviter à un ${iv.kind.toLowerCase()} pour le poste de ${j.title}, le ${fmtDate(iv.date.slice(0, 10), { weekday: 'long', day: 'numeric', month: 'long' })} à ${iv.date.slice(11, 16)}, avec ${fullName(emp(iv.with))}.\n\nMerci de nous confirmer votre disponibilité.${SIGN}`;
-  const refusBody = (c, j, reason, pool) => `Bonjour ${firstName(c)},\n\nMerci pour l’intérêt que vous portez à Nova Studio. Après étude, nous ne donnons pas suite à votre candidature au poste de ${j.title}. ${reason ? `Motif : ${reason.charAt(0).toLowerCase() + reason.slice(1)}.` : ''}\n\n${pool
-    ? `Nous conservons votre dossier dans notre vivier pour vous proposer de futures opportunités. Il sera supprimé automatiquement le ${fmtDate(addYears(TODAY, RETENTION_YEARS))}, sauf nouvel échange. Vous pouvez vous y opposer en répondant simplement à ce message.`
-    : `Nous ne vous recontacterons pas pour d’autres offres. Votre dossier sera supprimé automatiquement au plus tard le ${fmtDate(addYears(TODAY, RETENTION_YEARS))}.`}${SIGN}`;
-  const offerBody = (c, o) => `Bonjour ${firstName(c)},\n\nNous avons le plaisir de vous proposer le poste de ${o.title} (${o.contract}), avec une rémunération annuelle brute de ${eur0(o.salary)} et une prise de poste le ${fmtDate(o.startDate)}. Vous trouverez notre proposition détaillée ci-jointe.\n\nMerci de nous faire part de votre réponse avant le ${fmtDate(o.deadline)}.${SIGN}`;
+  const convocMsg = (c, j, iv) => tplMsg('msg-convocation', candCtx(c, j, { iv }));
+  const refusBody = (c, j, reason, pool) => tplText('msg-refus', candCtx(c, j, { reason, pool }));
+  const offerMsg = (c, o) => tplMsg('msg-proposition', candCtx(c, candJob(c), { offer: o }));
   const REFUS_REASONS = ['Les compétences indispensables ne sont pas réunies', 'L’expérience ne correspond pas encore au poste', 'Un autre candidat a été retenu', 'Les prétentions salariales sont hors budget', 'Autre motif'];
   function sendMsg(c, kind, subject, body) { c.messages = c.messages || []; c.messages.push({ date: TODAY, kind, subject, body }); }
 
@@ -1810,8 +1818,8 @@
     'offer-doc'(d) { ui.modal = { type: 'offer-doc', id: d.id }; render(); },
     'offer-accept'(d) { hireFromOffer(findCand(d.id)); commit(); },
     'offer-decline'(d) { ui.modal = { type: 'offer-decline', id: d.id }; render(); },
-    'offer-extend'(d) { const c = findCand(d.id); Object.assign(c.offer, { deadline: addDays(TODAY, 7), status: 'Envoyée' }); sendMsg(c, 'relance', 'Notre proposition est prolongée', `Bonjour ${firstName(c)},\n\nNotre proposition reste valable jusqu’au ${fmtDate(c.offer.deadline)}. N’hésitez pas à nous contacter pour en parler.${SIGN}`); toast('Proposition prolongée de 7 jours'); commit(); },
-    'offer-withdraw'(d) { const c = findCand(d.id); c.offer.status = 'Retirée'; c.stage = 'Entretien'; sendMsg(c, 'retrait', 'Retrait de notre proposition', `Bonjour ${firstName(c)},\n\nNous vous informons que nous retirons notre proposition pour le poste de ${c.offer.title}. Nous reviendrons vers vous rapidement.${SIGN}`); toast('Proposition retirée'); commit(); },
+    'offer-extend'(d) { const c = findCand(d.id); Object.assign(c.offer, { deadline: addDays(TODAY, 7), status: 'Envoyée' }); sendMsg(c, 'relance', ...tplMsg('msg-prolongation', candCtx(c, candJob(c)))); toast('Proposition prolongée de 7 jours'); commit(); },
+    'offer-withdraw'(d) { const c = findCand(d.id); c.offer.status = 'Retirée'; c.stage = 'Entretien'; sendMsg(c, 'retrait', ...tplMsg('msg-retrait', candCtx(c, candJob(c)))); toast('Proposition retirée'); commit(); },
   });
   Object.assign(MOD_CHG, {
     rDept(v) { ui.rDept = v; render(); }, rStatus(v) { ui.rStatus = v; render(); }, rFrom(v) { ui.rFrom = v; render(); },
@@ -1822,12 +1830,12 @@
     'pool-propose'(v, d) {
       if (!v) return; const c = findCand(d.id), j = db.jobs.find((x) => x.id === v);
       Object.assign(c, { jobId: v, stage: 'Présélection', refusal: null, interviews: [], offer: null, pool: false, source: `Vivier · ${c.source.replace(/^Vivier · /, '')}` });
-      sendMsg(c, 'point', 'Une nouvelle opportunité chez Nova Studio', `Bonjour ${firstName(c)},\n\nVotre profil nous a marqués lors d’un précédent recrutement. Le poste de ${j.title} pourrait vous intéresser : seriez-vous disponible pour en parler ?${SIGN}`);
+      sendMsg(c, 'point', ...tplMsg('msg-opportunite', candCtx(c, j)));
       logCand(c, `Proposé·e depuis le vivier pour « ${j.title} »`); ui.recJob = v; toast(`${c.name} est proposé·e pour « ${j.title} »`); commit();
     },
   });
   Object.assign(MOD_LIVE, {
-    msg(form) { const t = MSG_TPL[new FormData(form).get('tpl')], c = findCand(ui.modal.id); document.getElementById('ms-subj').value = t[1]; document.getElementById('ms-body').value = t[2](c, candJob(c)); },
+    msg(form) { const c = findCand(ui.modal.id), [subj, body] = MSG_TPL[new FormData(form).get('tpl')][1](c, candJob(c)); document.getElementById('ms-subj').value = subj; document.getElementById('ms-body').value = body; },
     refus(form) { const fd = new FormData(form), c = findCand(ui.modal.id), r = fd.get('reason') === 'Autre motif' ? fd.get('other') : fd.get('reason'); document.getElementById('rf-body').value = refusBody(c, candJob(c), r, fd.get('pool') === 'on'); document.getElementById('rf-other').hidden = fd.get('reason') !== 'Autre motif'; },
     offer(form) { const c = findCand(ui.modal.id), j = candJob(c), s = Number(new FormData(form).get('salary')) || 0;
       document.getElementById('of-warn').innerHTML = s > j.salaryMax ? `<p class="lint bad" style="margin:0">Au-dessus de la fourchette validée à l’étape « Besoin RH » (${esc(j.budget)}) : prévoyez l’accord de la direction.</p>` : s && s < j.salaryMin ? `<p class="hint" style="margin:0">En dessous de la fourchette validée (${esc(j.budget)}).</p>` : `<p class="hint" style="margin:0">Dans la fourchette validée (${esc(j.budget)}).</p>`; },
@@ -1853,7 +1861,7 @@
       const c = findCand(ui.modal.id), reason = v.reason === 'Autre motif' ? (v.other || '').trim() : v.reason;
       if (!reason) return formError('Précisez le motif du refus.');
       c.refusal = { date: TODAY, reason, from: c.stage }; c.pool = v.pool === 'on'; c.stage = 'Refusé'; logCand(c, `Candidature non retenue : ${reason}`);
-      if (v.send === 'on') sendMsg(c, 'refus', 'Votre candidature chez Nova Studio', v.body.trim());
+      if (v.send === 'on') sendMsg(c, 'refus', tplMsg('msg-refus', candCtx(c, candJob(c)))[0], v.body.trim());
       ui.modal = null; toast(`${c.name} : candidature non retenue${v.send === 'on' ? ' · réponse envoyée' : ''}`); commit();
     },
     offer(v) {
@@ -1863,7 +1871,8 @@
       if (!v.deadline || v.deadline < TODAY) return formError('Indiquez une date limite de réponse à venir.');
       c.offer = { title: v.title.trim() || j.title, contract: j.contract, salary, startDate: v.startDate, managerId: v.managerId, deadline: v.deadline, status: 'Envoyée', sentAt: TODAY };
       c.stage = 'Proposition'; logCand(c, `Proposition envoyée : ${eur0(salary)}, entrée le ${fmtDate(v.startDate)}`);
-      sendMsg(c, 'proposition', 'Notre proposition d’embauche', offerBody(c, c.offer));
+      c.offer.html = fillTpl(tplOf('proposition').body, candCtx(c, j, { offer: c.offer })); c.offer.tplV = tplOf('proposition').v;
+      sendMsg(c, 'proposition', ...offerMsg(c, c.offer));
       if (salary > j.salaryMax) notify('e5', `Proposition à ${c.name} au-dessus de la fourchette validée pour « ${j.title} » (${eur0(salary)}).`);
       if (v.managerId !== me().id) notify(v.managerId, `Proposition d’embauche envoyée à ${c.name} (${j.title}) : réponse attendue avant le ${fmtDate(v.deadline)}.`);
       ui.modal = null; toast('Proposition envoyée au candidat'); commit();
@@ -1885,9 +1894,9 @@
       <div style="margin-top:12px">${f('ev-c', 'Commentaire (facultatif)', '<textarea id="ev-c" name="comment" class="input" style="min-height:70px"></textarea>', true)}</div>`, 'Enregistrer l’évaluation', true);
   };
   MODALS['cand-msg'] = (m, shell, formShell, opt, f) => {
-    const c = findCand(m.id), t = MSG_TPL.point;
+    const c = findCand(m.id), t = ['', ...MSG_TPL.point[1](c, candJob(c))];
     return formShell(`Écrire à ${esc(c.name)}`, 'cand-msg', `<div class="form-grid">${f('ms-tpl', 'Modèle', `<select id="ms-tpl" name="tpl" class="select" data-live="msg">${opt(Object.entries(MSG_TPL).map(([k, x]) => [k, x[0]]), 'point')}</select>`)}
-      ${f('ms-subj', 'Objet', `<input id="ms-subj" name="subject" class="input" value="${esc(t[1])}">`)}${f('ms-body', 'Message', `<textarea id="ms-body" name="body" class="input" style="min-height:180px">${esc(t[2](c, candJob(c)))}</textarea>`, true)}</div>
+      ${f('ms-subj', 'Objet', `<input id="ms-subj" name="subject" class="input" value="${esc(t[1])}">`)}${f('ms-body', 'Message', `<textarea id="ms-body" name="body" class="input" style="min-height:180px">${esc(t[2])}</textarea>`, true)}</div>
       <p class="hint" style="margin:8px 0 0">Envoyé à ${esc(c.email)} · le message est conservé dans la fiche du candidat.</p>`, 'Envoyer', true);
   };
   MODALS['cand-refuse'] = (m, shell, formShell, opt, f) => {
@@ -1908,14 +1917,8 @@
       <div class="full" id="of-warn"><p class="hint" style="margin:0">Fourchette validée : ${esc(j.budget)}.</p></div></div>`, 'Envoyer la proposition', true);
   };
   MODALS['offer-doc'] = (m, shell) => {
-    const c = findCand(m.id), o = c.offer, j = candJob(c);
-    return shell('Proposition d’embauche', `<div class="modal-b"><article class="letter"><header><b>Nova Studio</b><span>Paris, le ${fmtDate(o.sentAt)}</span></header>
-      <p><b>À l’attention de ${esc(c.name)}</b></p><p><b>Objet : proposition d’embauche – offre de contrat de travail</b></p>
-      <p>Madame, Monsieur,</p><p>Suite à nos échanges, nous avons le plaisir de vous proposer de rejoindre Nova Studio aux conditions suivantes :</p>
-      <ul><li>Poste : ${esc(o.title)}, au sein du service ${esc(j.dept)}, rattaché à ${esc(fullName(emp(o.managerId)))}</li><li>Contrat : ${esc(o.contract)}</li><li>Lieu de travail : ${esc(j.location)}</li>
-      <li>Rémunération annuelle brute : ${eur0(o.salary)}, versée en 12 mensualités</li><li>Date d’entrée : ${fmtDate(o.startDate)}</li></ul>
-      <p>Une période d’essai s’appliquera conformément à la convention collective. Cette offre est valable jusqu’au ${fmtDate(o.deadline)}. Elle peut être retirée tant que vous ne l’avez pas acceptée ; votre acceptation avant cette date vaut conclusion du contrat de travail.</p>
-      <p>Nous serions ravis de vous compter parmi nous.</p><p>Olivia Bennett<br>Responsable RH</p></article></div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true);
+    const c = findCand(m.id), o = c.offer, j = candJob(c), html = o.html || fillTpl(tplOf('proposition').body, candCtx(c, j, { offer: o }));
+    return shell('Proposition d’embauche', `<div class="modal-b"><article class="letter locked"><header><b>${COMPANY.entreprise}</b><span>${COMPANY.ville}, le ${fmtDate(o.sentAt)}</span></header>${unmark(html)}</article></div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true);
   };
   MODALS['offer-decline'] = (m, shell, formShell, opt, f) => formShell(`Proposition déclinée · ${esc(findCand(m.id).name)}`, 'offer-decline', `${f('od-r', 'Raison donnée par le candidat', `<select id="od-r" name="reason" class="select">${opt(['Rémunération insuffisante', 'A accepté une autre offre', 'Projet personnel', 'Autre raison'])}</select>`, true)}
     <label style="display:flex;gap:8px;align-items:center;font-size:14px;margin-top:12px"><input type="checkbox" name="pool" checked> Garder le dossier dans le vivier</label>`, 'Enregistrer');
@@ -2037,8 +2040,8 @@
           + (needsTitre(e) ? row('Vérification du titre auprès de la préfecture', `Au plus tard le ${fmtDate(subWorkDays(start, 2))}, 2 jours ouvrables avant l’embauche (art. R5221-41)`, d.titreCheck ? ok(d.titreCheck, 'Demande envoyée') : b('arr-titre', 'Demande envoyée')) : ''));
         const c = d.contract, st = { 'À préparer': 'neutral', Prêt: 'info', Envoyé: 'warn', Signé: 'ok' }[c.status];
         html += sec('Contrat de travail', row(`Contrat ${esc(e.contract)} · ${esc(e.title)}`, `${e.contract === 'CDD' ? 'À transmettre au plus tard 2 jours ouvrables après l’embauche (art. L1242-13). ' : ''}${c.status === 'Envoyé' ? `Envoyé le ${fmtShort(c.sentAt)} : ${esc(e.firstName)} le signe à la main depuis l’onglet « Contrat de travail » de son espace.` : 'Poste, rémunération, durée du travail, période d’essai, convention collective Syntec.'}`,
-          `<span class="pill ${st}">${c.status === 'Envoyé' ? 'En attente de signature' : c.status}${c.signedAt ? ` · ${fmtShort(c.signedAt)}` : ''}</span>${c.docId ? `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${c.docId}">Voir</button>` : ''}
-          ${c.status === 'À préparer' ? b('arr-contract', 'Générer le contrat', 'data-s="Prêt"', 'primary') : c.status === 'Prêt' ? b('arr-contract', 'Envoyer pour signature', 'data-s="Envoyé"', 'primary') : c.status === 'Envoyé' ? b('arr-contract', 'Signé sur papier', 'data-s="Signé"') : ''}`));
+          `<span class="pill ${st}">${c.status === 'Envoyé' ? 'En attente de signature' : c.status}${c.signedAt ? ` · ${fmtShort(c.signedAt)}` : ''}</span>${c.docId ? docBtn(db.documents.find((x) => x.id === c.docId)) : ''}
+          ${c.status === 'À préparer' ? b('arr-contract', 'Générer le contrat', 'data-s="Prêt"', 'primary') : c.status === 'Prêt' ? b('arr-contract', 'Envoyer pour signature', 'data-s="Envoyé"') : c.status === 'Envoyé' ? b('arr-contract', 'Signé sur papier', 'data-s="Signé"') : ''}`));
       }
       const buddies = db.employees.filter((x) => isEmployed(x) && x.id !== e.id && x.id !== e.managerId && (x.dept === e.dept || x.dept === 'RH'));
       html += sec('Préparation de l’arrivée', PREP_TASKS.map(([k, l, o]) => row(l, OWNER[o], d.prep[k] ? ok(d.prep[k]) : can(o) ? b('arr-prep', 'Fait', `data-k="${k}"`) : pend('À faire', 'neutral'))).join('')
@@ -2050,7 +2053,8 @@
       html += sec('Formalités', row('Déclaration préalable à l’embauche (DPAE)', 'Auprès de l’Urssaf, au plus tôt 8 jours avant l’embauche et au plus tard avant la prise de poste. Elle vaut aussi adhésion au service de santé au travail.',
         d.dpae ? ok(d.dpae.date, `N° ${esc(d.dpae.ref)}`) : open ? b('arr-dpae', TODAY > start ? 'Faire la DPAE (en retard)' : 'Effectuer la DPAE', '', TODAY > start ? 'bad' : 'primary') : `<span class="pill neutral">Possible dès le ${fmtShort(addDays(start, -8))}</span>`)
         + row('Registre unique du personnel', 'Inscription obligatoire au moment de l’embauche', `${e.registeredAt ? ok(e.registeredAt, 'Inscrit') : b('arr-register', 'Inscrire')}<button type="button" class="btn ghost sm" data-act="register-view">Voir le registre</button>`));
-      const info = (k, l, sub, due) => row(l, `${sub} · à remettre avant le ${fmtDate(due)}`, d[k] ? `${ok(d[k], 'Remis')}${d[k + 'Doc'] ? `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${d[k + 'Doc']}">Voir</button>` : ''}` : b('arr-info', 'Générer et remettre', `data-k="${k}"`, TODAY > due ? 'bad' : 'ghost'));
+      const info = (k, l, sub, due) => { const doc = d[k + 'Doc'] && db.documents.find((x) => x.id === d[k + 'Doc']);
+        return row(l, `${sub} · à remettre avant le ${fmtDate(due)}`, d[k] ? `${ok(d[k], 'Remis')}${docBtn(doc)}` : doc ? `<span class="pill warn">Brouillon</span>${docBtn(doc)}` : b('arr-info', 'Rédiger', `data-k="${k}"`, TODAY > due ? 'bad' : 'ghost')); };
       html += sec('Informations obligatoires (décret du 30 octobre 2023)', info('info7', 'Informations essentielles', 'Identité des parties, lieu de travail, emploi, date d’embauche, période d’essai, rémunération, durée du travail', addDays(start, 7))
         + info('info1m', 'Informations complémentaires', 'Congés payés, procédure de rupture et préavis, droit à la formation, protection sociale, convention collective', addMonths(start, 1)));
       const t = trialInfo(e);
@@ -2075,7 +2079,7 @@
         const near = !d.trialDecision && dayDiff(TODAY, t.decideBy) <= 14;
         html += sec('Période d’essai', row(`${t.label} · fin le ${fmtDate(t.end)}`, t.alt ? 'Pour un apprenti, la rupture est libre pendant les 45 premiers jours de formation pratique en entreprise.'
           : `Pour y mettre fin, prévenez le salarié au plus tard le ${fmtDate(t.decideBy)} (délai de prévenance de ${NOTICE_LABEL[t.notice]}).${t.renewable ? ' Renouvellement possible une fois, avec l’accord écrit du salarié avant la fin de la période initiale.' : ''}`,
-          d.trialDecision ? `<span class="pill ${d.trialDecision === 'Rompue' ? 'bad' : 'ok'}">${d.trialDecision} · ${fmtShort(d.trialDecisionAt)}</span>${d.trialDoc ? `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${d.trialDoc}">Voir</button>` : ''}` : near ? pend(`Décision avant le ${fmtShort(t.decideBy)}`) : '<span class="pill neutral">En cours</span>')
+          d.trialDecision ? `<span class="pill ${d.trialDecision === 'Rompue' ? 'bad' : 'ok'}">${d.trialDecision} · ${fmtShort(d.trialDecisionAt)}</span>${d.trialDoc ? docBtn(db.documents.find((x) => x.id === d.trialDoc)) : ''}` : near ? pend(`Décision avant le ${fmtShort(t.decideBy)}`) : '<span class="pill neutral">En cours</span>')
           + (rh && (!d.trialDecision || d.trialDecision === 'Renouvelée') ? `<div class="toolbar" style="margin-top:10px">${b('arr-trial', `${ic('check')}Confirmer l’embauche`, 'data-v="Confirmée"', 'ok')}${t.renewable ? b('trial-renew', 'Renouveler') : ''}${b('trial-break', 'Mettre fin à la période d’essai', '', 'bad')}</div>` : ''));
       }
     }
@@ -2118,7 +2122,7 @@
         <h4 class="sub" style="margin-top:16px">Au programme</h4>${first.map(([, l, day]) => `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${day ? `J+${day}` : 'Premier jour'}</small></div></div>`).join('') || '<p class="muted" style="margin:0">Le programme sera bientôt disponible.</p>'}</div>`)}</div>`;
   }
   function viewContrat() {
-    const e = me(), d = dossier(e), c = d.contract, docs = db.documents.filter((x) => x.empId === e.id && ['contrat', 'avenant'].includes(x.kind)).sort((a, b) => a.date.localeCompare(b.date));
+    const e = me(), d = dossier(e), c = d.contract, docs = db.documents.filter((x) => x.empId === e.id && ['contrat', 'avenant'].includes(x.kind) && docVisible(x)).sort((a, b) => a.date.localeCompare(b.date));
     const pending = e.stage === 2 && c.status === 'Envoyé' && c.docId && db.documents.find((x) => x.id === c.docId);
     let main;
     if (pending) main = `<div class="card"><div class="card-h"><h3>Contrat à signer</h3><span class="pill warn">Envoyé le ${fmtShort(c.sentAt)}</span></div><div class="card-b"><article class="letter">${docBody(pending)}</article>
@@ -2172,20 +2176,22 @@
     'arr-titre'(d) { dossier(arrE(d)).titreCheck = TODAY; toast('Demande de vérification envoyée à la préfecture'); commit(); },
     'arr-contract'(d) {
       const e = arrE(d), c = dossier(e).contract;
-      if (d.s === 'Prêt') { db.documents = db.documents.filter((x) => x.id !== c.docId); c.docId = addDoc(e.id, 'contrat').id; }
-      if (d.s === 'Envoyé') { c.sentAt = TODAY; notify(e.id, 'Votre contrat de travail est prêt : signez-le dans l’onglet « Contrat de travail ».'); }
-      if (d.s === 'Signé') { c.signedAt = TODAY; c.paper = true; notify(e.managerId, `Le contrat de ${fullName(e)} est signé.`); }
-      c.status = d.s; toast(d.s === 'Prêt' ? 'Contrat généré' : d.s === 'Envoyé' ? `Contrat envoyé à ${fullName(e)} pour signature` : 'Contrat signé sur papier'); commit();
+      // Le contrat naît en brouillon depuis le modèle du type de contrat : les RH le relisent et le complètent avant de l'envoyer.
+      if (d.s === 'Prêt') { db.documents = db.documents.filter((x) => x.id !== c.docId); c.docId = addDoc(e.id, 'contrat').id; c.status = 'Prêt'; ui.modal = { type: 'doc-edit', id: c.docId }; toast('Contrat créé : complétez-le puis envoyez-le pour signature'); commit(); return; }
+      const doc = db.documents.find((x) => x.id === c.docId);
+      if (d.s === 'Envoyé') { const err = doc ? issueDoc(doc) : 'Contrat introuvable.'; if (err) { ui.modal = { type: 'doc-edit', id: doc.id, err }; render(); return; } toast(`Contrat envoyé à ${fullName(e)} pour signature`); commit(); return; }
+      if (d.s === 'Signé') { c.signedAt = TODAY; c.paper = true; if (doc) { doc.status = 'Signé'; doc.html = unmark(doc.html || ''); } notify(e.managerId, `Le contrat de ${fullName(e)} est signé.`); }
+      c.status = d.s; toast('Contrat signé sur papier'); commit();
     },
     'arr-prep'(d) { const e = arrE(d); dossier(e).prep[d.k] = TODAY; toast('Tâche terminée'); commit(); },
     'arr-dpae'(d) { const e = arrE(d); dossier(e).dpae = { date: TODAY, ref: `DPAE-75-${TODAY.slice(0, 4)}-${String(Math.floor(Math.random() * 9000) + 1000)}` }; toast('DPAE transmise à l’Urssaf · accusé de réception reçu'); commit(); },
     'arr-register'(d) { arrE(d).registeredAt = TODAY; toast('Inscrit au registre unique du personnel'); commit(); },
-    'arr-info'(d) { const e = arrE(d), x = dossier(e), doc = addDoc(e.id, d.k); x[d.k] = TODAY; x[d.k + 'Doc'] = doc.id; notify(e.id, `${DOC_LABEL[d.k]} : document disponible dans « Mon profil ».`); ui.modal = { type: 'doc', id: doc.id }; toast('Document remis au salarié'); commit(); },
+    'arr-info'(d) { const e = arrE(d), x = dossier(e), doc = addDoc(e.id, d.k); x[d.k + 'Doc'] = doc.id; ui.modal = { type: 'doc-edit', id: doc.id }; toast('Brouillon créé : relisez-le avant de le remettre'); commit(); },
     'arr-assign'(d) { const e = arrE(d); dossier(e).assignedAt = TODAY; toast('Affectation confirmée'); commit(); },
     'arr-prev'(d) { dossier(arrE(d)).prevoyance = true; toast('Affiliation à la prévoyance enregistrée'); commit(); },
     'arr-vip'(d) { const e = arrE(d), date = addDays(e.startDate > TODAY ? e.startDate : TODAY, 21); db.visits.push({ id: uid('v'), empId: e.id, kind: "Visite d'information et de prévention", date, status: 'Planifiée', result: null }); notify(e.id, `Visite d’information et de prévention prévue le ${fmtDate(date)}.`); toast('Visite planifiée · visible dans Santé & QVT'); commit(); },
     'arr-plan'(d) { dossier(arrE(d)).plan[d.k] = TODAY; toast('Étape du programme terminée'); commit(); },
-    'arr-trial'(d) { const e = arrE(d), x = dossier(e), doc = addDoc(e.id, 'essai'); Object.assign(x, { trialDecision: 'Confirmée', trialDecisionAt: TODAY, trialDoc: doc.id }); notify(e.id, 'Votre période d’essai est confirmée : bienvenue définitivement chez Nova Studio !'); if (e.managerId) notify(e.managerId, `Période d’essai de ${fullName(e)} confirmée.`); toast('Période d’essai confirmée'); commit(); },
+    'arr-trial'(d) { const e = arrE(d), x = dossier(e), doc = addDoc(e.id, 'essai'); ui.modal = { type: 'doc-edit', id: doc.id }; Object.assign(x, { trialDecision: 'Confirmée', trialDecisionAt: TODAY, trialDoc: doc.id }); notify(e.id, 'Votre période d’essai est confirmée : bienvenue définitivement chez Nova Studio !'); if (e.managerId) notify(e.managerId, `Période d’essai de ${fullName(e)} confirmée.`); toast('Période d’essai confirmée'); commit(); },
     'trial-renew'(d) { ui.modal = { type: 'trial-renew', id: d.id }; render(); },
     'trial-break'(d) { ui.modal = { type: 'trial-break', id: d.id }; render(); },
   });
@@ -2671,7 +2677,7 @@
       const ind = exitIndemnities(e);
       html += sec('Chiffrage de la fin de contrat', row('Indemnités', `${ind.legal ? `Indemnité ${/conventionnelle/.test(x.reason) ? 'de rupture (au moins l’indemnité légale)' : 'légale de licenciement'} : <b class="num">${eur0(ind.legal)}</b> (1/4 de mois par année jusqu’à 10 ans, 1/3 au-delà) · ` : ''}Indemnité compensatrice de congés payés (${e.cp} j) : <b class="num">${eur0(ind.cpPay)}</b>${ind.precarite ? ` · Indemnité de fin de CDD (10 %) : <b class="num">${eur0(ind.precarite)}</b>` : ''}. Vérifier l’indemnité conventionnelle Syntec si plus favorable.`, d.calcOk ? ok(d.calcOk, 'Validé') : b('dep-set', 'Valider le chiffrage', 'data-k="calcOk"')));
       const docs = exitDocs(e);
-      html += sec('Documents de sortie', row('Certificat de travail, reçu pour solde de tout compte, attestation France Travail', 'Remis le dernier jour ; l’attestation France Travail est transmise via la DSN.', docs.every(Boolean) ? ok(d.docsReady, 'Préparés') : b('dep-docs', 'Préparer les documents', '', 'primary')));
+      html += sec('Documents de sortie', row('Certificat de travail, reçu pour solde de tout compte, attestation France Travail', 'Remis le dernier jour ; l’attestation France Travail est transmise via la DSN.', docs.every(Boolean) ? `${ok(d.docsReady, 'Préparés')}${docs.map((doc) => docBtn(doc, 'Voir')).join('')}` : b('dep-docs', 'Préparer les documents', '', 'primary')));
       html += sec('Restitution et accès', row('Matériel et accès', `${RETURN_ITEMS.map(([, l]) => l).join(', ')} à récupérer le ${x.lastDay ? fmtDate(x.lastDay) : '—'} ; comptes désactivés le soir même.`, d.returnPlan ? ok(d.returnPlan, 'Planifié') : b('dep-set', 'Planifier', 'data-k="returnPlan"')));
     }
     if (i === 14) {
@@ -2689,7 +2695,7 @@
       html += sec('Fin des accès et des dispositifs', row('Comptes, messagerie et accès aux locaux', 'À désactiver le dernier jour, après la passation', d.accessOff ? ok(d.accessOff, 'Désactivés') : b('dep-set', 'Désactiver', 'data-k="accessOff"', x.lastDay && x.lastDay <= TODAY ? 'bad' : 'ghost'))
         + row('Portabilité de la mutuelle et de la prévoyance', 'Maintien gratuit jusqu’à 12 mois si le salarié est indemnisé par France Travail (sauf faute lourde) : notice à remettre', d.portability ? ok(d.portability, 'Notice remise') : b('dep-set', 'Notice remise', 'data-k="portability"')));
       const docs = exitDocs(e);
-      html += sec('Documents de fin de contrat', `${docs.filter(Boolean).map((doc) => row(esc(doc.title), doc.kind === 'solde' ? 'Peut être dénoncé par le salarié dans les 6 mois suivant sa signature' : doc.kind === 'france-travail' ? 'Transmise à France Travail via la DSN' : 'Remis le dernier jour', `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${doc.id}">Voir</button>`)).join('') || row('Documents non préparés', 'À générer à l’étape « Préparation du départ »', b('dep-docs', 'Préparer'))}
+      html += sec('Documents de fin de contrat', `${docs.filter(Boolean).map((doc) => row(esc(doc.title), doc.kind === 'solde' ? 'Peut être dénoncé par le salarié dans les 6 mois suivant sa signature' : doc.kind === 'france-travail' ? 'Transmise à France Travail via la DSN' : 'Remis le dernier jour', docBtn(doc))).join('') || row('Documents non préparés', 'À générer à l’étape « Préparation du départ »', b('dep-docs', 'Préparer'))}
         ${row('Remise au salarié', '', d.docsGiven ? ok(d.docsGiven, 'Remis') : b('dep-set', 'Remis au salarié', 'data-k="docsGiven"'))}`);
     }
     if (i === 15) {
@@ -2714,11 +2720,13 @@
   }
   Object.assign(MOD_ACT, {
     workload(d) { const r = db.reviews.find((x) => x.id === d.id); r.workload = TODAY; toast('Volet charge de travail enregistré'); commit(); },
-    'dep-set'(d) { const e = emp(d.id); offb(e)[d.k] = TODAY; if (d.k === 'accessOff') notify(e.managerId, `Accès de ${fullName(e)} désactivés.`); toast('Enregistré'); commit(); },
+    'dep-set'(d) { const e = emp(d.id);
+      if (d.k === 'docsGiven') { const docs = exitDocs(e).filter(Boolean), err = docs.filter((x) => !docLocked(x)).map((x) => issueDoc(x, true)).find(Boolean); if (err) { toast(err, 'info'); commit(); return; } notify(e.id, 'Vos documents de fin de contrat sont disponibles dans vos documents.'); }
+      offb(e)[d.k] = TODAY; if (d.k === 'accessOff') notify(e.managerId, `Accès de ${fullName(e)} désactivés.`); toast('Enregistré'); commit(); },
     'dep-docs'(d) { const e = emp(d.id); ['certificat', 'solde', 'france-travail'].forEach((k) => { if (!db.documents.some((x) => x.empId === e.id && x.kind === k)) addDoc(e.id, k); }); offb(e).docsReady = TODAY; toast('Documents de sortie préparés'); commit(); },
     'dep-transfer'(d) { offb(emp(d.id)).transfer[d.k] = TODAY; toast('Passation enregistrée'); commit(); },
     'dep-return'(d) { offb(emp(d.id)).returned[d.k] = TODAY; toast('Matériel restitué'); commit(); },
-    'dep-request'(d) { const e = emp(d.id), r = offb(e).requests.find((x) => x.id === d.r), doc = addDoc(e.id, r.kind); Object.assign(r, { status: 'Traitée', doneAt: TODAY }); ui.modal = { type: 'doc', id: doc.id }; toast('Document envoyé à l’ancien collaborateur'); commit(); },
+    'dep-request'(d) { const e = emp(d.id), r = offb(e).requests.find((x) => x.id === d.r), doc = addDoc(e.id, r.kind, { reqId: r.id }); ui.modal = { type: 'doc-edit', id: doc.id }; toast('Brouillon créé : relisez-le puis remettez-le'); commit(); },
     liaison(d) { const x = (d.k === 'leave' ? db.leaves : db.incidents).find((y) => y.id === d.id); x.liaison = TODAY; notify(x.empId, 'Un rendez-vous de liaison vous est proposé pour préparer votre retour, avec le service de santé au travail.'); toast('Rendez-vous de liaison proposé'); commit(); },
     reprise(d) { const date = d.d > TODAY ? addDays(d.d, 3) : addDays(TODAY, 2); db.visits.push({ id: uid('v'), empId: d.id, kind: 'Visite de reprise', date, status: 'Planifiée', result: null }); notify(d.id, `Visite de reprise prévue le ${fmtDate(date)}.`); toast('Visite de reprise planifiée'); commit(); },
     'duerp-version'() { db.duerp = db.duerp || []; db.duerp.push({ date: TODAY, by: me().id, note: 'Mise à jour annuelle', count: db.risks.length }); toast('Nouvelle version du DUERP enregistrée'); commit(); },
@@ -2735,7 +2743,7 @@
     boomerang(v, d) {
       if (!v) return; const e = emp(d.id), j = db.jobs.find((x) => x.id === v);
       const c = { id: uid('c'), jobId: v, name: fullName(e), email: e.email.replace('@novastudio.fr', '@mail.fr'), phone: e.phone, source: 'Ancien salarié', experience: `${e.title} chez Nova Studio de ${e.startDate.slice(0, 4)} à ${(e.exit.lastDay || '').slice(0, 4)}`, stage: 'Présélection', score: 0, notes: '', interviews: [], appliedAt: TODAY, messages: [], offer: null, refusal: null, pool: false };
-      db.candidates.push(c); sendMsg(c, 'point', 'Une nouvelle opportunité chez Nova Studio', `Bonjour ${e.firstName},\n\nNous avons pensé à vous pour le poste de ${j.title}. Seriez-vous partant·e pour en discuter ?${SIGN}`);
+      db.candidates.push(c); sendMsg(c, 'point', ...tplMsg('msg-opportunite', candCtx(c, j)));
       toast(`${fullName(e)} est proposé·e pour « ${j.title} »`); commit();
     },
   });
@@ -2837,33 +2845,164 @@
       <p class="hint">Indicateurs calculés sur les salariés en poste au ${fmtDate(TODAY)}, à partir des données du logiciel.</p>`;
   }
 
-  // ---------------------------------------------------------------- Documents RH
+  // ---------------------------------------------------------------- Documents RH et modèles
+  // Chaque document naît d'un modèle rédigé par les RH : texte libre, champs automatiques {{clé}} remplis depuis le dossier,
+  // champs à saisir {{saisie:id}} complétés à la création. Un document reste modifiable par les RH tant qu'il n'est ni remis ni signé.
   const DOC_LABEL = { contrat: 'Contrat de travail', info7: 'Informations essentielles sur la relation de travail', info1m: 'Informations complémentaires sur la relation de travail', essai: 'Confirmation de fin de période d’essai', attestation: 'Attestation employeur', avenant: 'Avenant au contrat', certificat: 'Certificat de travail', solde: 'Reçu pour solde de tout compte', 'france-travail': 'Attestation employeur France Travail' };
-  function docBody(d) {
-    const e = emp(d.empId), rh = emp('e1');
-    const head = `<header><b>Nova Studio SAS</b><span>12 rue de la Paix, 75002 Paris · SIRET 000 000 000 00000 (fictif)</span></header><h2>${DOC_LABEL[d.kind]}</h2>`;
-    const sign = `<p class="sig">Fait à Paris, le ${fmtDate(d.date, { day: 'numeric', month: 'long', year: 'numeric' })}<br><b>${esc(fullName(rh))}</b>, ${esc(rh.title)}</p>`;
-    const who = `${esc(fullName(e))}`;
-    if (d.kind === 'attestation') return `${head}<p>Je soussignée ${esc(fullName(rh))}, ${esc(rh.title)} de la société Nova Studio SAS, atteste que ${who} est employé·e au sein de notre société depuis le ${fmtDate(e.startDate, { day: 'numeric', month: 'long', year: 'numeric' })}, en qualité de ${esc(e.title)}, dans le cadre d’un contrat ${esc(e.contract)}${e.exit ? `, jusqu’au ${fmtDate(e.exit.lastDay)}` : ''}.</p><p>Cette attestation est délivrée à la demande de l’intéressé·e pour servir et valoir ce que de droit.</p>${sign}`;
-    if (d.kind === 'avenant') return `${head}<p>Entre la société Nova Studio SAS et ${who}, il est convenu ce qui suit.</p><p><b>Article 1.</b> À compter du ${fmtDate(d.data.effective, { day: 'numeric', month: 'long', year: 'numeric' })}, ${who} occupe le poste de ${esc(d.data.title)} au sein du service ${esc(d.data.dept)}.</p><p><b>Article 2.</b> Sa rémunération annuelle brute est portée à ${eur0(d.data.salary)}, versée en douze mensualités.</p><p><b>Article 3.</b> Les autres clauses du contrat de travail demeurent inchangées.</p>${sign}<p class="sig">Signature du collaborateur, précédée de la mention « lu et approuvé »</p>`;
-    const t = trialInfo(e);
-    if (d.kind === 'contrat') return `${head}<p>Entre la société Nova Studio SAS, représentée par ${esc(fullName(rh))}, ${esc(rh.title)}, et ${who}, de nationalité ${esc(e.nationality || '—')}, il est conclu ${{ CDI: 'un contrat de travail à durée indéterminée', CDD: 'un contrat de travail à durée déterminée', Alternance: 'un contrat d’apprentissage', Stage: 'une convention de stage, en lien avec l’établissement d’enseignement' }[e.contract] || 'un contrat de travail'}.</p>
-      <p><b>Article 1 · Engagement.</b> ${who} est engagé·e à compter du ${fmtDate(e.startDate, { day: 'numeric', month: 'long', year: 'numeric' })} en qualité de ${esc(e.title)}, catégorie ${esc(e.category || '—')}, au sein du service ${esc(e.dept)}, sous la responsabilité de ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}.</p>
-      <p><b>Article 2 · Période d’essai.</b> ${t ? `Le contrat ne deviendra définitif qu’à l’issue d’une période d’essai de ${t.label}${t.renewable ? ', renouvelable une fois pour une durée identique avec l’accord écrit du salarié' : ''}.` : 'Sans objet.'}</p>
-      <p><b>Article 3 · Lieu et durée du travail.</b> Lieu de travail : ${esc(e.location)}. Durée hebdomadaire : 35 heures.</p>
-      <p><b>Article 4 · Rémunération.</b> Rémunération annuelle brute de ${eur0(e.salary)}, versée en 12 mensualités.</p>
-      <p><b>Article 5 · Statut collectif.</b> Convention collective nationale des bureaux d’études techniques (Syntec). Retraite complémentaire Agirc-Arrco ; mutuelle et prévoyance selon les contrats collectifs de l’entreprise.</p>${sign}${contractSig(d, e)}`;
-    if (d.kind === 'info7') return `${head}<p>Conformément aux articles R1221-34 et suivants du Code du travail, voici les informations essentielles relatives à votre relation de travail.</p><ul><li>Employeur : Nova Studio SAS, 12 rue de la Paix, 75002 Paris · Salarié : ${who}</li><li>Lieu de travail : ${esc(e.location)}</li><li>Emploi : ${esc(e.title)} · catégorie ${esc(e.category || '—')}</li><li>Date d’embauche : ${fmtDate(e.startDate)} · contrat ${esc(e.contract)}</li><li>Période d’essai : ${t ? `${t.label}, jusqu’au ${fmtDate(t.end)}` : 'aucune'}</li><li>Rémunération : ${eur0(e.salary)} bruts annuels, versés mensuellement</li><li>Durée du travail : 35 heures par semaine ; heures supplémentaires selon la législation et la convention collective</li></ul>${sign}`;
-    if (d.kind === 'info1m') return `${head}<p>Informations complémentaires relatives à votre relation de travail (art. R1221-35 du Code du travail).</p><ul><li>Congés payés : 2,5 jours ouvrables par mois de travail effectif, période de référence du 1er juin au 31 mai</li><li>Rupture du contrat : procédure et préavis prévus par le Code du travail et la convention collective Syntec</li><li>Formation : droit à la formation, compte personnel de formation et entretien professionnel tous les 2 ans</li><li>Protection sociale : Urssaf, retraite complémentaire Agirc-Arrco, mutuelle et prévoyance collectives</li><li>Convention collective : bureaux d’études techniques (Syntec), consultable auprès des RH</li></ul>${sign}`;
-    if (d.kind === 'essai') return `${head}<p>Madame, Monsieur,</p><p>Nous avons le plaisir de vous confirmer que votre période d’essai au poste de ${esc(e.title)} a pris fin avec succès. Votre contrat de travail se poursuit donc de manière définitive.</p><p>Nous vous remercions pour votre engagement depuis votre arrivée le ${fmtDate(e.startDate)}.</p>${sign}`;
-    if (d.kind === 'certificat') return `${head}<p>Je soussignée ${esc(fullName(rh))}, ${esc(rh.title)}, certifie que ${who} a été employé·e par la société Nova Studio SAS du ${fmtDate(e.startDate, { day: 'numeric', month: 'long', year: 'numeric' })} au ${fmtDate(e.exit ? e.exit.lastDay : TODAY, { day: 'numeric', month: 'long', year: 'numeric' })}, en qualité de ${esc(e.title)}.</p><p>${who} quitte la société libre de tout engagement. Il·elle bénéficie du maintien de ses garanties santé et prévoyance dans les conditions prévues par la loi (portabilité).</p>${sign}`;
-    if (d.kind === 'solde') {
-      const lastM = monthKey(e.exit ? e.exit.lastDay : TODAY), p = calcPay(e, lastM), cpDays = e.cp, cpPay = cpDays * (e.salary / 12 / 21.67);
-      return `${head}<p>Je soussigné·e ${who} reconnais avoir reçu de la société Nova Studio SAS, pour solde de tout compte, la somme brute de <b>${eur(p.gross + cpPay)}</b>, détaillée ci-dessous :</p>
-        <table><tbody><tr><td>Salaire du dernier mois (${monthLabel(lastM).toLowerCase()})</td><td class="r num">${eur(p.gross)}</td></tr><tr><td>Indemnité compensatrice de congés payés (${cpDays} j)</td><td class="r num">${eur(cpPay)}</td></tr><tr><td><b>Total brut</b></td><td class="r num"><b>${eur(p.gross + cpPay)}</b></td></tr></tbody></table>
-        <p class="hint">Montants indicatifs de démonstration. Ce reçu peut être dénoncé dans les 6 mois suivant sa signature.</p>${sign}`;
+  const COMPANY = { entreprise: 'Nova Studio SAS', entreprise_adresse: '12 rue de la Paix, 75002 Paris', siret: '000 000 000 00000 (fictif)', convention: 'nationale des bureaux d’études techniques (Syntec)', ville: 'Paris' };
+  const longDate = (s) => (s ? fmtDate(s, { day: 'numeric', month: 'long', year: 'numeric' }) : '');
+  // Champs automatiques : [clé, libellé, groupe].
+  const TOKENS = [
+    ['salarie', 'Nom du salarié', 'Salarié'], ['prenom', 'Prénom', 'Salarié'], ['nom', 'Nom de famille', 'Salarié'], ['naissance', 'Date de naissance', 'Salarié'], ['nationalite', 'Nationalité', 'Salarié'], ['adresse', 'Adresse du salarié', 'Salarié'],
+    ['poste', 'Poste', 'Contrat'], ['service', 'Service', 'Contrat'], ['manager', 'Manager', 'Contrat'], ['contrat', 'Type de contrat', 'Contrat'], ['categorie', 'Catégorie', 'Contrat'], ['salaire', 'Salaire annuel brut', 'Contrat'], ['salaire_mensuel', 'Salaire mensuel brut', 'Contrat'],
+    ['date_entree', 'Date d’entrée', 'Contrat'], ['date_fin', 'Date de fin du contrat', 'Contrat'], ['lieu', 'Lieu de travail', 'Contrat'], ['essai', 'Durée de la période d’essai', 'Contrat'], ['essai_fin', 'Fin de la période d’essai', 'Contrat'], ['anciennete', 'Ancienneté', 'Contrat'],
+    ['nouveau_poste', 'Nouveau poste', 'Avenant'], ['nouveau_service', 'Nouveau service', 'Avenant'], ['nouveau_salaire', 'Nouveau salaire', 'Avenant'], ['date_effet', 'Date d’effet', 'Avenant'],
+    ['dernier_jour', 'Dernier jour travaillé', 'Départ'], ['motif_depart', 'Motif de fin de contrat', 'Départ'], ['solde_detail', 'Détail du solde de tout compte (tableau)', 'Départ'], ['solde_total', 'Total du solde de tout compte', 'Départ'],
+    ['candidat', 'Nom du candidat', 'Candidat'], ['candidat_prenom', 'Prénom du candidat', 'Candidat'], ['offre', 'Poste de l’offre', 'Candidat'], ['offre_service', 'Service de l’offre', 'Candidat'], ['offre_lieu', 'Lieu de l’offre', 'Candidat'],
+    ['entretien_type', 'Type d’entretien', 'Candidat'], ['entretien_date', 'Date de l’entretien', 'Candidat'], ['entretien_heure', 'Heure de l’entretien', 'Candidat'], ['entretien_avec', 'Interlocuteur de l’entretien', 'Candidat'],
+    ['motif_refus', 'Motif du refus', 'Candidat'], ['vivier', 'Phrase sur le vivier et la conservation des données', 'Candidat'], ['suppression_donnees', 'Date de suppression des données', 'Candidat'], ['rgpd', 'Information sur les données personnelles', 'Candidat'], ['delai_reponse', 'Délai de réponse annoncé', 'Candidat'],
+    ['proposition_contrat', 'Contrat proposé', 'Candidat'], ['proposition_salaire', 'Salaire proposé', 'Candidat'], ['proposition_date_entree', 'Date d’entrée proposée', 'Candidat'], ['proposition_limite', 'Date limite de réponse', 'Candidat'], ['proposition_manager', 'Manager du poste proposé', 'Candidat'],
+    ['entreprise', 'Nom de l’entreprise', 'Entreprise'], ['entreprise_adresse', 'Adresse de l’entreprise', 'Entreprise'], ['siret', 'SIRET', 'Entreprise'], ['convention', 'Convention collective', 'Entreprise'], ['signataire', 'Signataire RH', 'Entreprise'], ['signataire_titre', 'Fonction du signataire', 'Entreprise'], ['ville', 'Ville', 'Entreprise'], ['date_jour', 'Date du document', 'Entreprise'],
+  ];
+  const TOKEN_LABEL = Object.fromEntries(TOKENS.map(([k, l]) => [k, l]));
+  const SIG = '<p class="sig">Fait à {{ville}}, le {{date_jour}}<br><b>{{signataire}}</b>, {{signataire_titre}}</p>';
+  const paras = (...xs) => xs.map((x) => (/^<(h3|ul|table|p)/.test(x) ? x : `<p>${x}</p>`)).join('');
+  const contractCore = (nature, extra) => paras(`Entre la société {{entreprise}}, {{entreprise_adresse}}, SIRET {{siret}}, représentée par {{signataire}}, {{signataire_titre}}, d’une part,`,
+    `et {{salarie}}, né·e le {{naissance}}, de nationalité {{nationalite}}, demeurant {{adresse}}, d’autre part,`, `il est conclu ${nature}, régi par la convention collective {{convention}}.`, ...extra,
+    '<h3>Lieu et durée du travail</h3>', 'Lieu de travail : {{lieu}}. Durée hebdomadaire : 35 heures, selon les horaires collectifs en vigueur dans l’entreprise.',
+    '<h3>Rémunération</h3>', 'Rémunération annuelle brute de {{salaire}}, versée en 12 mensualités de {{salaire_mensuel}}.',
+    '<h3>Congés payés</h3>', '2,5 jours ouvrables par mois de travail effectif, dans les conditions légales et conventionnelles.',
+    '<h3>Protection sociale</h3>', 'Retraite complémentaire Agirc-Arrco ; mutuelle et prévoyance selon les contrats collectifs de l’entreprise, dont la notice est remise au salarié.') + SIG;
+  // Modèles d'origine. kind 'doc' = document mis en page ; 'msg' = message au candidat (texte, avec un objet).
+  const DEFAULT_TPL = {
+    'contrat-cdi': { label: 'Contrat de travail · CDI', group: 'Documents salariés', kind: 'doc', title: 'Contrat de travail à durée indéterminée',
+      body: contractCore('un contrat de travail à durée indéterminée', ['<h3>Engagement</h3>', '{{salarie}} est engagé·e à compter du {{date_entree}} en qualité de {{poste}}, catégorie {{categorie}}, au sein du service {{service}}, sous la responsabilité de {{manager}}.',
+        '<h3>Période d’essai</h3>', 'Le contrat ne deviendra définitif qu’à l’issue d’une période d’essai de {{essai}}, renouvelable une fois avec l’accord écrit du salarié. Pendant cette période, chaque partie peut y mettre fin en respectant le délai de prévenance légal.',
+        '<h3>Rupture du contrat</h3>', 'Après la période d’essai, le contrat peut être rompu dans les conditions prévues par le Code du travail et la convention collective, notamment quant au préavis.']),
+      required: [['salarie', 'Identité du salarié'], ['poste', 'Emploi occupé'], ['date_entree', 'Date d’entrée'], ['salaire', 'Rémunération'], ['lieu', 'Lieu de travail'], ['convention', 'Convention collective']] },
+    'contrat-cdd': { label: 'Contrat de travail · CDD', group: 'Documents salariés', kind: 'doc', title: 'Contrat de travail à durée déterminée', fields: [{ id: 'motif', label: 'Motif précis du recours au CDD' }],
+      body: contractCore('un contrat de travail à durée déterminée, en application de l’article L1242-2 du Code du travail', ['<h3>Motif du recours</h3>', 'Le présent contrat est conclu pour le motif suivant : {{saisie:motif}}.',
+        '<h3>Durée</h3>', 'Le contrat prend effet le {{date_entree}} et prendra fin le {{date_fin}}. {{salarie}} occupe le poste de {{poste}}, catégorie {{categorie}}, au sein du service {{service}}, sous la responsabilité de {{manager}}.',
+        '<h3>Période d’essai</h3>', 'Le contrat comporte une période d’essai de {{essai}}.', '<h3>Fin du contrat</h3>', 'À l’échéance, le salarié perçoit une indemnité de fin de contrat égale à 10 % de la rémunération totale brute, sauf exceptions légales.']),
+      required: [['salarie', 'Identité du salarié'], ['saisie:motif', 'Motif précis du recours (sinon le contrat est réputé à durée indéterminée)'], ['date_fin', 'Terme du contrat'], ['poste', 'Emploi occupé'], ['salaire', 'Rémunération'], ['convention', 'Convention collective']] },
+    'contrat-apprentissage': { label: 'Contrat d’apprentissage', group: 'Documents salariés', kind: 'doc', title: 'Contrat d’apprentissage · conditions d’accueil', fields: [{ id: 'ecole', label: 'Établissement de formation' }, { id: 'maitre', label: 'Maître d’apprentissage' }],
+      body: paras('Le contrat d’apprentissage est conclu sur le formulaire Cerfa officiel, visé par l’établissement de formation et transmis à l’OPCO. Le présent document en reprend les conditions pour {{salarie}}.',
+        '<h3>Formation</h3>', 'Établissement : {{saisie:ecole}}. Maître d’apprentissage : {{saisie:maitre}}.', '<h3>Durée</h3>', 'Du {{date_entree}} au {{date_fin}}, en qualité de {{poste}} au sein du service {{service}}.',
+        '<h3>Rémunération</h3>', 'Rémunération annuelle brute de {{salaire}}, conforme au barème légal de l’apprentissage.', '<h3>Rupture</h3>', 'Pendant les 45 premiers jours de formation pratique en entreprise, le contrat peut être rompu librement par chacune des parties.') + SIG,
+      required: [['salarie', 'Identité de l’apprenti'], ['date_fin', 'Fin du contrat'], ['saisie:ecole', 'Établissement de formation'], ['saisie:maitre', 'Maître d’apprentissage']] },
+    'convention-stage': { label: 'Convention de stage · conditions d’accueil', group: 'Documents salariés', kind: 'doc', title: 'Conditions d’accueil en stage', fields: [{ id: 'ecole', label: 'Établissement d’enseignement' }, { id: 'tuteur', label: 'Tuteur dans l’entreprise' }],
+      body: paras('La convention de stage tripartite est établie par l’établissement d’enseignement ({{saisie:ecole}}). Le présent document récapitule les conditions d’accueil de {{salarie}}.',
+        '<h3>Période</h3>', 'Du {{date_entree}} au {{date_fin}}, au sein du service {{service}}. Tuteur : {{saisie:tuteur}}.', '<h3>Gratification</h3>', 'Gratification annuelle de {{salaire}}, au moins égale au minimum légal pour un stage de plus de deux mois.') + SIG,
+      required: [['salarie', 'Identité du stagiaire'], ['date_fin', 'Fin du stage'], ['saisie:tuteur', 'Tuteur']] },
+    info7: { label: 'Informations essentielles (7 jours)', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.info7,
+      body: paras('Conformément aux articles R1221-34 et suivants du Code du travail, voici les informations essentielles relatives à votre relation de travail.',
+        '<ul><li>Employeur : {{entreprise}}, {{entreprise_adresse}} · Salarié : {{salarie}}</li><li>Lieu de travail : {{lieu}}</li><li>Emploi : {{poste}} · catégorie {{categorie}}</li><li>Date d’embauche : {{date_entree}} · contrat {{contrat}}</li><li>Période d’essai : {{essai}}, jusqu’au {{essai_fin}}</li><li>Rémunération : {{salaire}} bruts annuels, versés mensuellement</li><li>Durée du travail : 35 heures par semaine ; heures supplémentaires selon la loi et la convention collective</li></ul>') + SIG,
+      required: [['salarie', 'Identité des parties'], ['lieu', 'Lieu de travail'], ['poste', 'Emploi'], ['date_entree', 'Date d’embauche'], ['essai', 'Période d’essai'], ['salaire', 'Rémunération']] },
+    info1m: { label: 'Informations complémentaires (1 mois)', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.info1m,
+      body: paras('Informations complémentaires relatives à votre relation de travail (art. R1221-35 du Code du travail).',
+        '<ul><li>Congés payés : 2,5 jours ouvrables par mois de travail effectif, période de référence du 1er juin au 31 mai</li><li>Rupture du contrat : procédure et préavis prévus par le Code du travail et la convention collective</li><li>Formation : droit à la formation, compte personnel de formation et entretien de parcours professionnel</li><li>Protection sociale : Urssaf, retraite complémentaire Agirc-Arrco, mutuelle et prévoyance collectives</li><li>Convention collective : {{convention}}, consultable auprès des RH</li></ul>') + SIG,
+      required: [['convention', 'Convention collective']] },
+    essai: { label: 'Confirmation de fin de période d’essai', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.essai,
+      body: paras('{{salarie}},', 'Nous avons le plaisir de vous confirmer que votre période d’essai au poste de {{poste}} a pris fin avec succès. Votre contrat de travail se poursuit donc de manière définitive.', 'Nous vous remercions pour votre engagement depuis votre arrivée le {{date_entree}}.') + SIG, required: [['salarie', 'Destinataire']] },
+    avenant: { label: 'Avenant au contrat', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.avenant,
+      body: paras('Entre la société {{entreprise}} et {{salarie}}, il est convenu ce qui suit.', '<b>Article 1.</b> À compter du {{date_effet}}, {{salarie}} occupe le poste de {{nouveau_poste}} au sein du service {{nouveau_service}}.',
+        '<b>Article 2.</b> Sa rémunération annuelle brute est portée à {{nouveau_salaire}}, versée en douze mensualités.', '<b>Article 3.</b> Les autres clauses du contrat de travail demeurent inchangées.') + SIG + '<p class="sig">Signature du collaborateur, précédée de la mention « lu et approuvé »</p>',
+      required: [['date_effet', 'Date d’effet'], ['nouveau_poste', 'Poste'], ['nouveau_salaire', 'Rémunération']] },
+    attestation: { label: 'Attestation employeur', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.attestation,
+      body: paras('Je soussigné·e {{signataire}}, {{signataire_titre}} de la société {{entreprise}}, atteste que {{salarie}} est employé·e au sein de notre société depuis le {{date_entree}}, en qualité de {{poste}}, dans le cadre d’un contrat {{contrat}}.', 'Cette attestation est délivrée à la demande de l’intéressé·e pour servir et valoir ce que de droit.') + SIG,
+      required: [['salarie', 'Salarié'], ['date_entree', 'Date d’entrée'], ['poste', 'Emploi']] },
+    certificat: { label: 'Certificat de travail', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.certificat,
+      body: paras('Je soussigné·e {{signataire}}, {{signataire_titre}}, certifie que {{salarie}} a été employé·e par la société {{entreprise}} du {{date_entree}} au {{dernier_jour}}, en qualité de {{poste}}.',
+        '{{salarie}} quitte la société libre de tout engagement. Il·elle bénéficie du maintien de ses garanties santé et prévoyance dans les conditions prévues par la loi (portabilité).') + SIG,
+      required: [['salarie', 'Salarié'], ['date_entree', 'Date d’entrée'], ['dernier_jour', 'Date de sortie'], ['poste', 'Emploi occupé'], ['kw:portabilité', 'Mention de la portabilité des garanties']] },
+    solde: { label: 'Reçu pour solde de tout compte', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.solde,
+      body: paras('Je soussigné·e {{salarie}} reconnais avoir reçu de la société {{entreprise}}, pour solde de tout compte, la somme brute de {{solde_total}}, détaillée ci-dessous :', '{{solde_detail}}',
+        'Ce reçu peut être dénoncé dans les six mois qui suivent sa signature, délai au-delà duquel il devient libératoire pour l’employeur pour les sommes qui y sont mentionnées.') + SIG + '<p class="sig">Signature du salarié</p>',
+      required: [['solde_detail', 'Détail des sommes versées'], ['kw:six mois', 'Délai de dénonciation de six mois']] },
+    'france-travail': { label: 'Attestation employeur France Travail', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL['france-travail'],
+      body: paras('Attestation destinée à France Travail concernant {{salarie}}, employé·e du {{date_entree}} au {{dernier_jour}} en qualité de {{poste}}. Motif de fin de contrat : {{motif_depart}}.', 'En pratique, cette attestation est transmise par voie dématérialisée via la DSN.') + SIG,
+      required: [['dernier_jour', 'Date de fin de contrat'], ['motif_depart', 'Motif de la rupture']] },
+    proposition: { label: 'Proposition d’embauche (lettre)', group: 'Courriers aux candidats', kind: 'doc', title: 'Proposition d’embauche',
+      body: paras('<b>À l’attention de {{candidat}}</b>', '<b>Objet : proposition d’embauche – offre de contrat de travail</b>', 'Madame, Monsieur,', 'Suite à nos échanges, nous avons le plaisir de vous proposer de rejoindre {{entreprise}} aux conditions suivantes :',
+        '<ul><li>Poste : {{offre}}, au sein du service {{offre_service}}, rattaché à {{proposition_manager}}</li><li>Contrat : {{proposition_contrat}}</li><li>Lieu de travail : {{offre_lieu}}</li><li>Rémunération annuelle brute : {{proposition_salaire}}, versée en 12 mensualités</li><li>Date d’entrée : {{proposition_date_entree}}</li></ul>',
+        'Une période d’essai s’appliquera conformément à la convention collective. Cette offre est valable jusqu’au {{proposition_limite}}. Elle peut être retirée tant que vous ne l’avez pas acceptée ; votre acceptation avant cette date vaut conclusion du contrat de travail.', 'Nous serions ravis de vous compter parmi nous.') + '<p class="sig"><b>{{signataire}}</b><br>{{signataire_titre}}</p>',
+      required: [['offre', 'Emploi proposé'], ['proposition_salaire', 'Rémunération'], ['proposition_date_entree', 'Date d’entrée'], ['proposition_limite', 'Délai de réponse']] },
+    'msg-ack': { label: 'Accusé de réception', group: 'Courriers aux candidats', kind: 'msg', subject: 'Nous avons bien reçu votre candidature',
+      body: paras('Bonjour {{candidat_prenom}},', 'Merci pour votre candidature au poste de {{offre}}. Nous l’étudions et reviendrons vers vous sous {{delai_reponse}}.', '{{rgpd}}', 'L’équipe RH de {{entreprise}}'), required: [['rgpd', 'Information sur les données personnelles (RGPD)']] },
+    'msg-point': { label: 'Point d’étape', group: 'Courriers aux candidats', kind: 'msg', subject: 'Votre candidature est toujours à l’étude',
+      body: paras('Bonjour {{candidat_prenom}},', 'Nous revenons vers vous au sujet de votre candidature au poste de {{offre}} : elle est toujours à l’étude. Nous vous tiendrons informé·e de la suite d’ici une semaine.', 'L’équipe RH de {{entreprise}}') },
+    'msg-convocation': { label: 'Convocation à un entretien', group: 'Courriers aux candidats', kind: 'msg', subject: 'Invitation à un entretien',
+      body: paras('Bonjour {{candidat_prenom}},', 'Nous avons le plaisir de vous inviter à un {{entretien_type}} pour le poste de {{offre}}, le {{entretien_date}} à {{entretien_heure}}, avec {{entretien_avec}}.', 'Merci de nous confirmer votre disponibilité.', 'L’équipe RH de {{entreprise}}'),
+      required: [['entretien_date', 'Date de l’entretien'], ['entretien_heure', 'Heure']] },
+    'msg-refus': { label: 'Réponse négative', group: 'Courriers aux candidats', kind: 'msg', subject: 'Votre candidature chez {{entreprise}}',
+      body: paras('Bonjour {{candidat_prenom}},', 'Merci pour l’intérêt que vous portez à {{entreprise}}. Après étude, nous ne donnons pas suite à votre candidature au poste de {{offre}}. Motif : {{motif_refus}}.', '{{vivier}}', 'L’équipe RH de {{entreprise}}'),
+      required: [['vivier', 'Information sur la conservation des données']] },
+    'msg-proposition': { label: 'Envoi de la proposition', group: 'Courriers aux candidats', kind: 'msg', subject: 'Notre proposition d’embauche',
+      body: paras('Bonjour {{candidat_prenom}},', 'Nous avons le plaisir de vous proposer le poste de {{offre}} ({{proposition_contrat}}), avec une rémunération annuelle brute de {{proposition_salaire}} et une prise de poste le {{proposition_date_entree}}. Vous trouverez notre proposition détaillée ci-jointe.', 'Merci de nous faire part de votre réponse avant le {{proposition_limite}}.', 'L’équipe RH de {{entreprise}}') },
+    'msg-prolongation': { label: 'Prolongation de la proposition', group: 'Courriers aux candidats', kind: 'msg', subject: 'Notre proposition est prolongée',
+      body: paras('Bonjour {{candidat_prenom}},', 'Notre proposition reste valable jusqu’au {{proposition_limite}}. N’hésitez pas à nous contacter pour en parler.', 'L’équipe RH de {{entreprise}}') },
+    'msg-retrait': { label: 'Retrait de la proposition', group: 'Courriers aux candidats', kind: 'msg', subject: 'Retrait de notre proposition',
+      body: paras('Bonjour {{candidat_prenom}},', 'Nous vous informons que nous retirons notre proposition pour le poste de {{offre}}. Nous reviendrons vers vous rapidement.', 'L’équipe RH de {{entreprise}}') },
+    'msg-opportunite': { label: 'Nouvelle opportunité (vivier)', group: 'Courriers aux candidats', kind: 'msg', subject: 'Une nouvelle opportunité chez {{entreprise}}',
+      body: paras('Bonjour {{candidat_prenom}},', 'Votre profil nous a marqués lors d’un précédent recrutement. Le poste de {{offre}} pourrait vous intéresser : seriez-vous disponible pour en parler ?', 'L’équipe RH de {{entreprise}}') },
+  };
+  const TPL_GROUPS = ['Documents salariés', 'Courriers aux candidats'];
+  // Modèle en vigueur : version enregistrée par les RH, sinon le modèle d'origine.
+  function tplOf(key) {
+    const base = DEFAULT_TPL[key], own = (db.templates || {})[key];
+    return Object.assign({ fields: [], required: [], v: 1, versions: [] }, base, own ? { body: own.body, subject: own.subject ?? base.subject, fields: own.fields, v: own.v, versions: own.versions, title: own.title || base.title } : {});
+  }
+  const CONTRACT_TPL = { CDI: 'contrat-cdi', CDD: 'contrat-cdd', Alternance: 'contrat-apprentissage', Stage: 'convention-stage' };
+  const tplKeyFor = (kind, e) => (kind === 'contrat' ? CONTRACT_TPL[e.contract] || 'contrat-cdi' : kind);
+  // Valeurs des champs automatiques pour un salarié (et un document) ou un candidat.
+  function docCtx(e, d = {}) {
+    const rh = emp('e1'), t = e && trialInfo(e), m = e && e.exit;
+    const ctx = Object.assign({}, COMPANY, { signataire: fullName(rh), signataire_titre: rh.title, date_jour: longDate(d.date || TODAY) });
+    if (e) Object.assign(ctx, { salarie: fullName(e), prenom: e.firstName, nom: e.lastName, naissance: longDate(e.birthDate), nationalite: e.nationality, adresse: e.address, poste: e.title, service: e.dept, manager: e.managerId ? fullName(emp(e.managerId)) : '',
+      contrat: e.contract, categorie: e.category, salaire: eur0(e.salary), salaire_mensuel: eur(e.salary / 12), date_entree: longDate(e.startDate), date_fin: longDate(e.endDate), lieu: e.location, essai: t ? t.label : 'aucune', essai_fin: t ? longDate(t.end) : '',
+      anciennete: seniority(e.startDate), dernier_jour: m ? longDate(m.lastDay) : '', motif_depart: m ? m.reason : '' });
+    if (d.data) Object.assign(ctx, { nouveau_poste: d.data.title, nouveau_service: d.data.dept, nouveau_salaire: eur0(d.data.salary), date_effet: longDate(d.data.effective) });
+    if (e && d.kind === 'solde') {
+      const lastM = monthKey(m ? m.lastDay : TODAY), p = calcPay(e, lastM), ind = exitIndemnities(e);
+      const rows = [[`Salaire du dernier mois (${monthLabel(lastM).toLowerCase()})`, p.gross], [`Indemnité compensatrice de congés payés (${e.cp} j)`, ind.cpPay]].concat(ind.legal ? [['Indemnité de rupture', ind.legal]] : [], ind.precarite ? [['Indemnité de fin de contrat (10 %)', ind.precarite]] : []);
+      const tot = rows.reduce((s, r) => s + r[1], 0);
+      ctx.solde_total = eur(tot);
+      ctx.solde_detail = { html: `<table><tbody>${rows.map(([l, v]) => `<tr><td>${esc(l)}</td><td class="r num">${eur(v)}</td></tr>`).join('')}<tr><td><b>Total brut</b></td><td class="r num"><b>${eur(tot)}</b></td></tr></tbody></table>` };
     }
-    return `${head}<p>Attestation destinée à France Travail concernant ${who}, employé·e du ${fmtDate(e.startDate)} au ${fmtDate(e.exit ? e.exit.lastDay : TODAY)} en qualité de ${esc(e.title)}. Motif de fin de contrat : ${esc(e.exit ? e.exit.reason : '—')}.</p><p class="hint">En pratique, cette attestation est transmise par voie dématérialisée.</p>${sign}`;
+    return ctx;
+  }
+  function candCtx(c, j, x = {}) {
+    const o = x.offer || c.offer, iv = x.iv;
+    return Object.assign(docCtx(null), { candidat: c.name, candidat_prenom: firstName(c), offre: (o && o.title) || j.title, offre_service: j.dept, offre_lieu: j.location, rgpd: RGPD_NOTE, delai_reponse: `${ANSWER_DAYS} jours`, suppression_donnees: longDate(addYears(TODAY, RETENTION_YEARS)),
+      motif_refus: x.reason ? x.reason.charAt(0).toLowerCase() + x.reason.slice(1) : '',
+      vivier: x.pool ? `Nous conservons votre dossier dans notre vivier pour vous proposer de futures opportunités. Il sera supprimé automatiquement le ${longDate(addYears(TODAY, RETENTION_YEARS))}, sauf nouvel échange. Vous pouvez vous y opposer en répondant simplement à ce message.`
+        : `Nous ne vous recontacterons pas pour d’autres offres. Votre dossier sera supprimé automatiquement au plus tard le ${longDate(addYears(TODAY, RETENTION_YEARS))}.`,
+      entretien_type: iv ? iv.kind.toLowerCase() : '', entretien_date: iv ? fmtDate(iv.date.slice(0, 10), { weekday: 'long', day: 'numeric', month: 'long' }) : '', entretien_heure: iv ? iv.date.slice(11, 16) : '', entretien_avec: iv ? fullName(emp(iv.with)) : '',
+      proposition_contrat: o ? o.contract : '', proposition_salaire: o ? eur0(o.salary) : '', proposition_date_entree: o ? longDate(o.startDate) : '', proposition_limite: o ? longDate(o.deadline) : '', proposition_manager: o ? fullName(emp(o.managerId)) : '' });
+  }
+  // Remplace les champs : valeur connue → texte ; valeur manquante ou champ à saisir → zone jaune à compléter.
+  function fillTpl(body, ctx, fields = []) {
+    return body.replace(/\{\{(saisie:)?([\w-]+)\}\}/g, (all, s, k) => {
+      if (s) { const f = fields.find((x) => x.id === k); const l = f ? f.label : k; return `<mark class="fill" data-f="saisie:${k}" data-l="${esc(l)}">[${esc(l)}]</mark>`; }
+      const v = ctx[k];
+      if (v && typeof v === 'object') return v.html;
+      return v ? esc(v) : `<mark class="fill" data-f="${k}" data-l="${esc(TOKEN_LABEL[k] || k)}">[${esc(TOKEN_LABEL[k] || k)}]</mark>`;
+    });
+  }
+  const htmlToText = (h) => { const div = document.createElement('div'); div.innerHTML = h.replace(/<\/(p|h3|li)>/g, '\n\n').replace(/<br\s*\/?>/g, '\n'); return div.textContent.replace(/\n{3,}/g, '\n\n').trim(); };
+  // Message au candidat issu de son modèle : [objet, texte].
+  const tplMsg = (key, ctx) => { const t = tplOf(key); return [htmlToText(fillTpl(esc(t.subject || ''), ctx)), htmlToText(fillTpl(t.body, ctx, t.fields))]; };
+  const tplText = (key, ctx) => tplMsg(key, ctx)[1];
+  // Champs requis manquants dans un modèle.
+  const tplMissing = (body, req) => req.filter(([k]) => (k.startsWith('kw:') ? !body.toLowerCase().includes(k.slice(3)) : !body.includes(`{{${k}}}`)));
+
+  const docLocked = (d) => ['Remis', 'Signé'].includes(d.status || 'Remis');
+  const docVisible = (d) => (d.status || 'Remis') !== 'Brouillon';
+  const DOC_STATUS_PILL = { Brouillon: 'warn', Envoyé: 'info', Remis: 'ok', Signé: 'ok' };
+  function docBody(d) {
+    const e = emp(d.empId), t = tplOf(tplKeyFor(d.kind, e));
+    const head = `<header><b>${COMPANY.entreprise}</b><span>${COMPANY.entreprise_adresse} · SIRET ${COMPANY.siret}</span></header><h2>${esc(d.docTitle || t.title || DOC_LABEL[d.kind])}</h2>`;
+    return `${head}${d.html || fillTpl(t.body, docCtx(e, d), t.fields)}${d.kind === 'contrat' ? contractSig(d, e) : ''}`;
   }
   // Signature du salarié apposée sur son contrat (tracé manuscrit), ou mention de l'exemplaire signé.
   function contractSig(d, e) {
@@ -2872,20 +3011,185 @@
     if (c && c.docId === d.id && c.status !== 'Signé') return '<div class="sig-block wait"><span>Le salarié, « lu et approuvé »</span><small>Signature en attente</small></div>';
     return `<div class="sig-block"><span>Le salarié, « lu et approuvé »</span><small>Exemplaire signé${c && c.paper ? ' sur papier' : ''}, conservé au dossier du personnel</small></div>`;
   }
+  // Nouveau document : le texte du modèle est copié et rempli ; il reste un brouillon modifiable jusqu'à sa remise.
   function addDoc(empId, kind, extra = {}) {
-    const d = Object.assign({ id: uid('doc'), empId, kind, title: DOC_LABEL[kind], date: TODAY }, extra);
+    const e = emp(empId), key = tplKeyFor(kind, e), t = tplOf(key);
+    const d = Object.assign({ id: uid('doc'), empId, kind, title: DOC_LABEL[kind], date: TODAY, status: 'Brouillon', tpl: key, tplV: t.v, docTitle: t.title }, extra);
+    if (kind === 'contrat') d.title = t.title;
+    d.html = fillTpl(t.body, docCtx(e, d), t.fields);
     db.documents.push(d); return d;
   }
-  function docsList(e, canGenerate) {
-    const list = db.documents.filter((d) => d.empId === e.id).sort((a, b) => b.date.localeCompare(a.date));
-    return `${canGenerate ? `<div class="toolbar"><button type="button" class="btn ghost sm" data-act="doc-gen" data-id="${e.id}" data-k="attestation">${ic('plus')}Attestation employeur</button>${ui.profile === 'rh' && e.stage >= 13 ? `<button type="button" class="btn ghost sm" data-act="doc-gen" data-id="${e.id}" data-k="certificat">${ic('plus')}Certificat de travail</button>` : ''}</div>` : ''}
-      <div class="card"><div class="req-list">${list.map((d) => `<div class="req"><span class="doc-ic">${ic('file')}</span><div class="what"><b>${esc(d.title)}</b><small>${fmtDate(d.date)}</small></div><button type="button" class="btn ghost sm" data-act="doc-view" data-id="${d.id}">Consulter</button></div>`).join('') || '<div class="empty">Aucun document.</div>'}</div></div>`;
+  const docGaps = (html) => { const div = document.createElement('div'); div.innerHTML = html; return [...div.querySelectorAll('mark.fill')].filter((m) => !m.textContent.trim() || m.textContent.trim() === `[${m.dataset.l}]`).map((m) => m.dataset.l); };
+  const unmark = (html) => html.replace(/<mark class="fill"[^>]*>([\s\S]*?)<\/mark>/g, '$1');
+  // Remise (ou envoi pour signature) d'un document : il devient visible du salarié ; une fois remis ou signé, il est figé.
+  function issueDoc(d, quiet) {
+    const gaps = docGaps(d.html || ''); if (gaps.length) return `Complétez d’abord : ${gaps.slice(0, 3).join(', ')}${gaps.length > 3 ? '…' : ''}.`;
+    const e = emp(d.empId), x = e && db.onboarding && db.onboarding[e.id];
+    d.html = unmark(d.html); d.issuedAt = TODAY; d.issuedBy = me().id;
+    if (d.kind === 'contrat') { d.status = 'Envoyé'; const c = dossier(e).contract; Object.assign(c, { status: 'Envoyé', sentAt: TODAY }); notify(e.id, 'Votre contrat de travail est prêt : signez-le dans l’onglet « Contrat de travail ».'); return ''; }
+    d.status = 'Remis';
+    if (['info7', 'info1m'].includes(d.kind) && x) { x[d.kind] = TODAY; x[d.kind + 'Doc'] = d.id; }
+    if (d.reqId) { const r = offb(e).requests.find((q) => q.id === d.reqId); if (r) Object.assign(r, { status: 'Traitée', doneAt: TODAY }); }
+    if (!quiet) notify(e.id, `${d.title} : document disponible dans vos documents.`);
+    return '';
   }
-  MODALS.doc = (m, shell) => { const d = db.documents.find((x) => x.id === m.id); return shell(esc(d.title), `<div class="modal-b"><article class="letter">${docBody(d)}</article></div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true); };
+  function docsList(e, canGenerate) {
+    const rh = ui.profile === 'rh', list = db.documents.filter((d) => d.empId === e.id && (rh || docVisible(d))).sort((a, b) => b.date.localeCompare(a.date));
+    return `${canGenerate ? `<div class="toolbar"><button type="button" class="btn ghost sm" data-act="doc-gen" data-id="${e.id}" data-k="attestation">${ic('plus')}Attestation employeur</button>${rh && e.stage >= 13 ? `<button type="button" class="btn ghost sm" data-act="doc-gen" data-id="${e.id}" data-k="certificat">${ic('plus')}Certificat de travail</button>` : ''}</div>` : ''}
+      <div class="card"><div class="req-list">${list.map((d) => `<div class="req"><span class="doc-ic">${ic('file')}</span><div class="what"><b>${esc(d.title)}</b><small>${fmtDate(d.date)}</small></div>${rh ? `<span class="pill ${DOC_STATUS_PILL[d.status || 'Remis']}">${d.status || 'Remis'}</span>` : ''}
+        ${rh && !docLocked(d) ? `<button type="button" class="btn primary sm" data-act="doc-edit" data-id="${d.id}">${ic('edit')}Relire et modifier</button>` : `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${d.id}">Consulter</button>`}</div>`).join('') || '<div class="empty">Aucun document.</div>'}</div></div>`;
+  }
+  const docBtn = (d, label = 'Voir') => (d ? (ui.profile === 'rh' && !docLocked(d) ? `<button type="button" class="btn ${d.status === 'Brouillon' ? 'primary' : 'ghost'} sm" data-act="doc-edit" data-id="${d.id}">${ic('edit')}${d.status === 'Brouillon' ? 'Relire et remettre' : 'Modifier'}</button>` : `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${d.id}">${label}</button>`) : '');
+  MODALS.doc = (m, shell) => { const d = db.documents.find((x) => x.id === m.id);
+    return shell(esc(d.title), `<div class="modal-b"><article class="letter locked">${docBody(d)}</article>${d.issuedAt ? `<p class="hint" style="margin:10px 0 0">${d.status === 'Signé' ? 'Signé' : d.status === 'Envoyé' ? 'Envoyé pour signature' : 'Remis'} le ${fmtDate(d.issuedAt)}${d.tplV ? ` · modèle version ${d.tplV}` : ''} · ${docLocked(d) ? 'document figé' : 'encore modifiable par les RH'}</p>` : ''}</div>`,
+      `<div class="modal-f">${ui.profile === 'rh' && !docLocked(d) ? `<button type="button" class="btn ghost" data-act="doc-edit" data-id="${d.id}">${ic('edit')}Modifier</button>` : ''}<button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>`, true); };
+  // Édition d'un document par les RH : champs à compléter en haut, texte librement modifiable en dessous.
+  MODALS['doc-edit'] = (m, shell) => {
+    const d = db.documents.find((x) => x.id === m.id), e = emp(d.empId), div = document.createElement('div'); div.innerHTML = d.html || '';
+    const marks = [...new Map([...div.querySelectorAll('mark.fill')].map((x) => [x.dataset.f, x])).values()];
+    const fields = marks.map((x) => { const val = x.textContent.trim() === `[${x.dataset.l}]` ? '' : x.textContent.trim();
+      return `<div class="field"><label for="df-${esc(x.dataset.f)}">${esc(x.dataset.l)}</label><input id="df-${esc(x.dataset.f)}" class="input" value="${esc(val)}" data-docf="${esc(x.dataset.f)}" placeholder="À compléter"></div>`; }).join('');
+    const issue = d.kind === 'contrat' ? (d.status === 'Envoyé' ? '' : 'Envoyer pour signature') : 'Valider et remettre au salarié';
+    return shell(`${esc(d.title)} · ${esc(fullName(e))}`, `<div class="modal-b"><p class="hint" style="margin:0 0 12px">${d.status === 'Envoyé' ? 'Envoyé pour signature : vous pouvez encore le modifier tant que le salarié ne l’a pas signé ; il sera prévenu de la mise à jour.' : 'Brouillon visible des RH seulement. Complétez les zones jaunes et retouchez le texte si besoin ; une fois remis ou signé, le document ne pourra plus être modifié.'}</p>
+      ${fields ? `<div class="form-grid doc-fields">${fields}</div>` : ''}<article class="letter doc-ed"><header><b>${COMPANY.entreprise}</b><span>${COMPANY.entreprise_adresse}</span></header><h2>${esc(d.docTitle || d.title)}</h2><div id="doc-ed" contenteditable="true" spellcheck="true">${d.html || ''}</div></article><p class="err" id="m-err" aria-live="polite">${m.err ? esc(m.err) : ''}</p></div>`,
+      `<div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="button" class="btn ghost" data-act="doc-save" data-id="${d.id}">Enregistrer</button>${issue ? `<button type="button" class="btn primary" data-act="doc-issue" data-id="${d.id}">${issue}</button>` : ''}</div>`, true);
+  };
+  function bindDocEditor() {
+    const ed = document.getElementById('doc-ed'); if (!ed) return;
+    document.querySelectorAll('[data-docf]').forEach((inp) => inp.addEventListener('input', () => {
+      ed.querySelectorAll(`mark.fill[data-f="${CSS.escape(inp.dataset.docf)}"]`).forEach((mk) => { mk.textContent = inp.value.trim() || `[${mk.dataset.l}]`; });
+    }));
+  }
+  function saveDocEditor(d) { const ed = document.getElementById('doc-ed'); if (ed) d.html = sanitizeHTML(ed.innerHTML); d.editedAt = TODAY; d.editedBy = me().id; }
+  // Ne garde que la mise en forme simple (paragraphes, titres, gras, listes, tableaux, zones à compléter).
+  function sanitizeHTML(html) {
+    const OK = new Set(['P', 'H3', 'H4', 'B', 'STRONG', 'I', 'EM', 'U', 'UL', 'OL', 'LI', 'BR', 'TABLE', 'TBODY', 'TR', 'TD', 'TH', 'MARK', 'SPAN', 'DIV', 'Q']);
+    const root = document.createElement('div'); root.innerHTML = html;
+    const walk = (n) => [...n.childNodes].forEach((c) => {
+      if (c.nodeType === 8) { c.remove(); return; }
+      if (c.nodeType !== 1) return;
+      if (!OK.has(c.tagName)) { walk(c); c.replaceWith(...c.childNodes); return; }
+      [...c.attributes].forEach((a) => { if (!['class', 'data-f', 'data-l', 'data-k'].includes(a.name)) c.removeAttribute(a.name); });
+      if (c.tagName === 'DIV' && !c.className) { const p = document.createElement('p'); p.append(...c.childNodes); c.replaceWith(p); walk(p); return; }
+      walk(c);
+    });
+    walk(root); return root.innerHTML;
+  }
   Object.assign(MOD_ACT, {
     'doc-view'(d) { ui.modal = { type: 'doc', id: d.id }; render(); },
-    'doc-gen'(d) { const doc = addDoc(d.id, d.k); tickJourney(d.id, 5, 2); if (ui.profile === 'salarie') notify('e1', `${fullName(me())} a généré une ${DOC_LABEL[d.k].toLowerCase()}.`); ui.modal = { type: 'doc', id: doc.id }; toast('Document généré'); commit(); },
+    'doc-edit'(d) { ui.modal = { type: 'doc-edit', id: d.id }; render(); },
+    'doc-save'(d) { const doc = db.documents.find((x) => x.id === d.id); saveDocEditor(doc); if (doc.status === 'Envoyé') notify(doc.empId, `Votre ${doc.title.toLowerCase()} a été mis à jour par les RH : relisez-le avant de signer.`); ui.modal = null; toast('Document enregistré'); commit(); },
+    'doc-issue'(d) {
+      const doc = db.documents.find((x) => x.id === d.id); saveDocEditor(doc);
+      const err = issueDoc(doc); if (err) { ui.modal = { type: 'doc-edit', id: doc.id, err }; save(); render(); return; }
+      ui.modal = null; toast(doc.kind === 'contrat' ? 'Contrat envoyé pour signature' : 'Document remis au salarié · il est désormais figé'); commit();
+    },
+    'doc-gen'(d) {
+      const doc = addDoc(d.id, d.k); tickJourney(d.id, 5, 2);
+      if (ui.profile === 'salarie') { issueDoc(doc, true); notify('e1', `${fullName(me())} a généré une ${DOC_LABEL[d.k].toLowerCase()}.`); ui.modal = { type: 'doc', id: doc.id }; toast('Document généré'); }
+      else { ui.modal = { type: 'doc-edit', id: doc.id }; toast('Brouillon créé : relisez-le avant de le remettre'); }
+      commit();
+    },
   });
+
+  // ---- Écran « Modèles de documents » (RH)
+  function viewTemplates() {
+    const keys = Object.keys(DEFAULT_TPL);
+    if (!DEFAULT_TPL[ui.tplSel]) ui.tplSel = keys[0];
+    const key = ui.tplSel, t = tplOf(key), draft = ui.tplDraft && ui.tplDraft.key === key ? ui.tplDraft : null;
+    const body = draft ? draft.body : t.body, fields = draft ? draft.fields : t.fields, subject = draft ? draft.subject : t.subject;
+    const chip = (k) => { const s = k.startsWith('saisie:'), f = s && fields.find((x) => x.id === k.slice(7)); return `<span class="tk ${s ? 'saisie' : ''}" contenteditable="false" data-k="${esc(k)}">${esc(s ? (f ? f.label : k.slice(7)) : TOKEN_LABEL[k] || k)}</span>`; };
+    const toChips = (h) => h.replace(/\{\{((?:saisie:)?[\w-]+)\}\}/g, (a, k) => chip(k));
+    const groups = [...new Set(TOKENS.map((x) => x[2]))].filter((g) => (t.group === 'Courriers aux candidats' ? !['Salarié', 'Contrat', 'Avenant', 'Départ'].includes(g) : g !== 'Candidat'));
+    const list = TPL_GROUPS.map((g) => `<h4 class="sub">${g}</h4>${keys.filter((k) => DEFAULT_TPL[k].group === g).map((k) => { const x = tplOf(k);
+      return `<button type="button" class="job" data-act="tpl-sel" data-k="${k}" aria-current="${k === key}"><b>${esc(x.label)}</b><span class="meta">${x.kind === 'msg' ? 'Message' : 'Document'} · version ${x.v}${(db.templates || {})[k] ? ' · personnalisé' : ''}</span></button>`; }).join('')}`).join('');
+    const miss = tplMissing(body, t.required);
+    const versions = (t.versions || []).slice().reverse();
+    return `<div class="rec tpl-page"><div class="jobs">${list}</div>
+      <div class="card"><div class="job-head"><div><div class="toolbar"><span class="pill accent">${t.kind === 'msg' ? 'Message au candidat' : 'Document'}</span><span class="muted" style="font-size:13px">Version ${t.v}${t.versions.length ? ` · enregistrée le ${fmtDate(t.versions[t.versions.length - 1].date)} par ${esc(fullName(emp(t.versions[t.versions.length - 1].by)))}` : ' · modèle d’origine'}</span>${draft ? '<span class="pill warn">Modifications non enregistrées</span>' : ''}</div><h2 style="margin-top:8px">${esc(t.label)}</h2></div>
+        <div class="toolbar"><button type="button" class="btn ghost" data-act="tpl-preview">Aperçu</button><button type="button" class="btn ghost" data-act="tpl-cancel">Annuler les modifications</button><button type="button" class="btn primary" data-act="tpl-save">${ic('check')}Enregistrer une nouvelle version</button></div></div>
+        <div class="card-b" style="border-top:1px solid var(--line)">
+          ${t.kind === 'msg' ? `<div class="field" style="margin-bottom:12px"><label for="tpl-subj">Objet du message</label><input id="tpl-subj" class="input" value="${esc(subject || '')}" data-tpl-subj></div>` : `<div class="field" style="margin-bottom:12px"><label for="tpl-title">Titre du document</label><input id="tpl-title" class="input" value="${esc(draft ? draft.title : t.title)}" data-tpl-title></div>`}
+          <div class="ed-bar" role="toolbar" aria-label="Mise en forme">
+            <button type="button" class="btn ghost sm" data-act="ed-cmd" data-c="h3">Titre</button><button type="button" class="btn ghost sm" data-act="ed-cmd" data-c="p">Paragraphe</button><button type="button" class="btn ghost sm" data-act="ed-cmd" data-c="bold"><b>G</b></button><button type="button" class="btn ghost sm" data-act="ed-cmd" data-c="ul">Liste</button>
+            <span class="ed-sep"></span><label class="sr" for="ed-token">Insérer un champ automatique</label><select id="ed-token" class="select sm" data-change="ed-token"><option value="">Insérer un champ…</option>${groups.map((g) => `<optgroup label="${g}">${TOKENS.filter((x) => x[2] === g).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join('')}</optgroup>`).join('')}</select>
+            <span class="ed-sep"></span><label class="sr" for="ed-field">Nouveau champ à saisir</label><input id="ed-field" class="input sm" placeholder="Champ à saisir, ex. Horaires" maxlength="60"><button type="button" class="btn ghost sm" data-act="ed-field">${ic('plus')}Ajouter</button></div>
+          <div id="tpl-ed" class="tpl-ed ${t.kind === 'msg' ? 'msg' : 'letter'}" contenteditable="true" spellcheck="true" data-key="${key}">${toChips(body)}</div>
+          <div id="tpl-lint">${tplLintHTML(miss)}</div>
+          <p class="hint" style="margin:10px 0 0"><span class="tk sm">Champ automatique</span> rempli depuis le dossier · <span class="tk saisie sm">Champ à saisir</span> complété par les RH à la création du document. Un document déjà remis ou signé garde la version qui a servi.</p></div></div>
+      ${card('Versions', `<span class="muted num" style="font-size:13px">${plural(t.v, 'version', 'versions')}</span>`, `<div class="card-b">${versions.map((x) => `<div class="todo"><div class="t"><b>Version ${x.v}${x.v === t.v ? ' · en vigueur' : ''}</b><small>${fmtDate(x.date)} · ${esc(fullName(emp(x.by)))}${x.note ? ` · ${esc(x.note)}` : ''}</small></div>${x.v === t.v ? '' : `<button type="button" class="btn ghost sm" data-act="tpl-restore" data-v="${x.v}">Rétablir</button>`}</div>`).join('')}
+        <div class="todo"><div class="t"><b>Version 1 · modèle d’origine</b><small>Fourni avec Teamora</small></div>${t.v === 1 ? '' : '<button type="button" class="btn ghost sm" data-act="tpl-restore" data-v="0">Rétablir</button>'}</div></div>`)}</div>`;
+  }
+  const tplLintHTML = (miss) => (miss.length ? `<div class="lint bad"><b>${ic('x')}Mentions obligatoires manquantes</b>${miss.map(([k, l]) => `<p>${esc(l)}${k.startsWith('kw:') ? ` (mention « ${esc(k.slice(3))} »)` : ''}</p>`).join('')}</div>` : `<div class="lint ok"><b>${ic('check')}Toutes les mentions obligatoires sont présentes</b></div>`);
+  // Lecture de l'éditeur : pastilles → {{clé}}.
+  function readTplEditor() {
+    const ed = document.getElementById('tpl-ed'); if (!ed) return null;
+    const clone = ed.cloneNode(true); clone.querySelectorAll('.tk').forEach((s) => s.replaceWith(`{{${s.dataset.k}}}`));
+    const prev = ui.tplDraft && ui.tplDraft.key === ed.dataset.key ? ui.tplDraft : tplOf(ed.dataset.key);
+    const subj = document.querySelector('[data-tpl-subj]'), title = document.querySelector('[data-tpl-title]');
+    return { key: ed.dataset.key, body: sanitizeHTML(clone.innerHTML), fields: (prev.fields || []).slice(), subject: subj ? subj.value : prev.subject, title: title ? title.value : prev.title };
+  }
+  let edRange = null;
+  function bindTplEditor() {
+    const ed = document.getElementById('tpl-ed'); if (!ed) return;
+    const keep = () => { const s = window.getSelection(); if (s.rangeCount && ed.contains(s.anchorNode)) edRange = s.getRangeAt(0).cloneRange(); };
+    ed.addEventListener('keyup', keep); ed.addEventListener('mouseup', keep);
+    const sync = () => { const r = readTplEditor(); ui.tplDraft = r; document.getElementById('tpl-lint').innerHTML = tplLintHTML(tplMissing(r.body, tplOf(r.key).required)); };
+    ed.addEventListener('input', sync);
+    document.querySelectorAll('[data-tpl-subj], [data-tpl-title]').forEach((x) => x.addEventListener('input', sync));
+  }
+  function insertAtCaret(node) {
+    const ed = document.getElementById('tpl-ed'); if (!ed) return;
+    let r = edRange && ed.contains(edRange.startContainer) ? edRange : null;
+    if (!r) { r = document.createRange(); r.selectNodeContents(ed); r.collapse(false); }
+    r.deleteContents(); r.insertNode(node); const sp = document.createTextNode(' '); node.after(sp);
+    r.setStartAfter(sp); r.collapse(true); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); edRange = r.cloneRange();
+    ed.dispatchEvent(new Event('input'));
+  }
+  Object.assign(MOD_ACT, {
+    'tpl-sel'(d) { if (ui.tplDraft && ui.tplDraft.key !== d.k) ui.tplDraft = null; ui.tplSel = d.k; render(); },
+    'tpl-cancel'() { ui.tplDraft = null; render(); },
+    'ed-cmd'(d) {
+      const ed = document.getElementById('tpl-ed'); if (!ed) return; ed.focus();
+      if (edRange) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(edRange); }
+      if (d.c === 'bold') document.execCommand('bold'); else if (d.c === 'ul') document.execCommand('insertUnorderedList'); else document.execCommand('formatBlock', false, d.c);
+      ed.dispatchEvent(new Event('input'));
+    },
+    'ed-field'() {
+      const inp = document.getElementById('ed-field'), label = inp.value.trim(); if (!label) { toast('Nommez le champ à saisir.', 'info'); return; }
+      const r = readTplEditor(), id = label.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || uid('f');
+      if (!r.fields.some((f) => f.id === id)) r.fields.push({ id, label }); ui.tplDraft = r;
+      const s = document.createElement('span'); s.className = 'tk saisie'; s.contentEditable = 'false'; s.dataset.k = `saisie:${id}`; s.textContent = label; insertAtCaret(s); inp.value = '';
+    },
+    'tpl-save'() {
+      const r = readTplEditor(), base = tplOf(r.key), miss = tplMissing(r.body, base.required);
+      if (miss.length) { toast(`Mention obligatoire manquante : ${miss[0][1]}`, 'info'); return; }
+      r.fields = r.fields.filter((f) => r.body.includes(`{{saisie:${f.id}}}`));
+      db.templates = db.templates || {};
+      const v = base.v + 1, versions = (base.versions || []).concat([{ v, date: TODAY, by: me().id, body: r.body, fields: r.fields, subject: r.subject, title: r.title }]);
+      db.templates[r.key] = { body: r.body, fields: r.fields, subject: r.subject, title: r.title, v, versions };
+      ui.tplDraft = null; toast(`Version ${v} enregistrée · elle servira aux prochains documents`); commit();
+    },
+    'tpl-restore'(d) {
+      const key = ui.tplSel, base = tplOf(key), from = Number(d.v) ? base.versions.find((x) => x.v === Number(d.v)) : Object.assign({ fields: [] }, DEFAULT_TPL[key]);
+      const v = base.v + 1; db.templates = db.templates || {};
+      db.templates[key] = { body: from.body, fields: from.fields || [], subject: from.subject, title: from.title, v, versions: base.versions.concat([{ v, date: TODAY, by: me().id, body: from.body, fields: from.fields || [], subject: from.subject, title: from.title, note: `reprise de la version ${Number(d.v) || 1}` }]) };
+      ui.tplDraft = null; toast(`Version ${Number(d.v) || 1} rétablie (version ${v})`); commit();
+    },
+    'tpl-preview'() { const r = readTplEditor(); ui.tplDraft = r; ui.modal = { type: 'tpl-preview' }; render(); },
+  });
+  Object.assign(MOD_CHG, {
+    'ed-token'(v, d, t) { if (!v) return; const s = document.createElement('span'); s.className = 'tk'; s.contentEditable = 'false'; s.dataset.k = v; s.textContent = TOKEN_LABEL[v]; insertAtCaret(s); t.value = ''; },
+  });
+  MODALS['tpl-preview'] = (m, shell) => {
+    const r = ui.tplDraft, t = tplOf(r.key), sample = r.key === 'avenant' ? emp('e4') : ['certificat', 'solde', 'france-travail'].includes(r.key) ? emp('e21') : r.key === 'contrat-cdd' ? emp('e12') : emp('e3');
+    const c = db.candidates.find((x) => x.id === 'c4'), j = candJob(c);
+    const ctx = t.group === 'Courriers aux candidats' ? candCtx(c, j, { iv: c.interviews[0], reason: REFUS_REASONS[0], pool: true }) : docCtx(sample, { kind: r.key, date: TODAY, data: r.key === 'avenant' ? { title: 'Lead Designer', dept: 'Design', salary: 60000, effective: '2027-01-01' } : null });
+    const html = fillTpl(r.body, ctx, r.fields);
+    const who = t.group === 'Courriers aux candidats' ? c.name : fullName(sample);
+    return shell(`Aperçu · ${esc(t.label)}`, `<div class="modal-b"><p class="hint" style="margin:0 0 10px">Exemple avec ${esc(who)}. Les zones jaunes seront à compléter à la création du document.</p>${t.kind === 'msg' ? `<div class="msg-prev"><b>${esc(htmlToText(fillTpl(esc(r.subject || ''), ctx)))}</b><p>${esc(htmlToText(html)).replace(/\n/g, '<br>')}</p></div>` : `<article class="letter"><header><b>${COMPANY.entreprise}</b><span>${COMPANY.entreprise_adresse}</span></header><h2>${esc(r.title || t.title)}</h2>${html}</article>`}</div>`,
+      '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true);
+  };
 
   // ---------------------------------------------------------------- Modals
   function modalHTML() {
@@ -2940,7 +3244,7 @@
 
   // ---------------------------------------------------------------- Render
   const VIEWS = { accueil: viewHome, reporting: viewReporting, etape: viewStage, besoins: viewNeeds, collaborateurs: viewAdmin, absences: viewAbsences, paie: viewRemu, recrutement: viewRecruitment, profil: viewProfile, bulletins: viewMyPay,
-    entretiens: viewReviews, formation: viewTraining, mobilite: viewMobility, sante: viewHealth, relations: viewRelations, arrivee: viewArrivee, contrat: viewContrat };
+    entretiens: viewReviews, formation: viewTraining, mobilite: viewMobility, sante: viewHealth, relations: viewRelations, arrivee: viewArrivee, contrat: viewContrat, modeles: viewTemplates };
   let drawerAnim = false;
   let rendering = false;
   function render() {
@@ -2967,14 +3271,14 @@
     const cur = document.querySelector('.rail [aria-current]'); if (cur) cur.parentElement.scrollLeft = cur.offsetLeft - 80;
     if (ui.view === 'accueil') bindWheel();
     if (ui.view === 'recrutement') bindBoard();
-    bindSignature();
+    bindSignature(); bindTplEditor(); bindDocEditor();
     saveUI();
   }
   const commit = () => { syncArrivals(); arrivalReminders(); save(); render(); };
   // Keep (view, stage) consistent with what the profile is allowed to open.
   function route() {
     if (ui.view === 'accueil' || !VIEWS[ui.view]) { ui.view = 'accueil'; ui.stage = null; return; }
-    if (ui.view === 'reporting') { if (ui.profile !== 'rh') ui.view = 'accueil'; ui.stage = null; return; }
+    if (ui.view === 'reporting' || ui.view === 'modeles') { if (ui.profile !== 'rh') ui.view = 'accueil'; ui.stage = null; return; }
     const vis = visibleStages();
     if (ui.view === 'etape') { if (!vis.includes(ui.stage) || stageView(ui.stage) !== 'etape') { ui.view = 'accueil'; ui.stage = null; } return; }
     if (!vis.includes(ui.stage) || stageView(ui.stage) !== ui.view) ui.stage = vis.find((i) => stageView(i) === ui.view) ?? null;
@@ -3013,7 +3317,6 @@
     db.journey[e.id][e.stage] = stageSteps(e.stage).map(() => true);
     e.stage = inArrival(e) ? 4 : e.stage + 1;
     if (e.stage === 14) ['certificat', 'solde', 'france-travail'].forEach((k) => { if (!db.documents.some((d) => d.empId === e.id && d.kind === k)) addDoc(e.id, k); });
-    if (e.stage === 14) notify(e.id, 'Vos documents de fin de contrat sont disponibles dans « Mon profil ».');
     notify(e.id, `Votre parcours passe à l’étape « ${STAGES[e.stage].title} ».`);
     if (e.managerId && e.managerId !== me().id) notify(e.managerId, `${fullName(e)} passe à l’étape « ${STAGES[e.stage].short} ».`);
     toast(`${fullName(e)} passe à l’étape « ${STAGES[e.stage].short} »`);
@@ -3086,7 +3389,7 @@
     'cand-new'(d) { ui.modal = { type: 'cand', jobId: d.id }; render(); },
     'cand-move'(d) { moveCandidate(d.id, d.s); },
     reset() { ui.modal = { type: 'reset' }; render(); },
-    'reset-ok'() { db = window.TEAMORA_SEED(); normalizeEmployees(); purgeCandidates(); syncArrivals(); save(); ui = Object.assign({ profile: ui.profile, view: 'accueil' }, freshUI()); render(); toast('Démo réinitialisée'); },
+    'reset-ok'() { db = window.TEAMORA_SEED(); normalizeEmployees(); normalizeDocs(); purgeCandidates(); syncArrivals(); save(); ui = Object.assign({ profile: ui.profile, view: 'accueil' }, freshUI()); render(); toast('Démo réinitialisée'); },
   };
   const CHG = {
     fDept(v) { ui.fDept = v; render(); },
@@ -3159,7 +3462,7 @@
       for (const k of ['cv', 'lm', 'autre']) { const f = v['f_' + k]; if (f && f.name) files.push(Object.assign({ kind: k, uploaded: true }, await readFile(f))); }
       const c = { id: uid('c'), jobId: ui.modal.jobId, name: v.name.trim(), email: v.email.trim() || '—', phone: v.phone.trim() || '—', source: v.source, experience: v.experience.trim(), stage: 'Reçue', score: 0, notes: '', interviews: [], appliedAt: TODAY, messages: [], offer: null, refusal: null, pool: false, files, log: [] };
       db.candidates.push(c); logCand(c, `Candidature ajoutée${files.length ? ` avec ${plural(files.length, 'document', 'documents')}` : ''}`);
-      if (v.ack === 'on') sendMsg(c, 'ack', MSG_TPL.ack[1], MSG_TPL.ack[2](c, candJob(c)));
+      if (v.ack === 'on') sendMsg(c, 'ack', ...MSG_TPL.ack[1](c, candJob(c)));
       ui.modal = null; toast(v.ack === 'on' ? 'Candidat ajouté · accusé de réception envoyé' : 'Candidat ajouté'); commit();
     },
     interview(v, form) {
@@ -3167,7 +3470,7 @@
       if (!v.date) { toast('Choisissez une date d’entretien.', 'info'); return; }
       const iv = { id: uid('i'), date: v.date, with: v.with, kind: v.kind, eval: null };
       c.interviews = c.interviews || []; c.interviews.push(iv);
-      if (v.convoc === 'on') sendMsg(c, 'convocation', `Invitation à un ${v.kind.toLowerCase()}`, convocBody(c, candJob(c), iv));
+      if (v.convoc === 'on') sendMsg(c, 'convocation', ...convocMsg(c, candJob(c), iv));
       if (['Reçue', 'Présélection'].includes(c.stage)) c.stage = 'Entretien';
       logCand(c, `${v.kind} planifié le ${fmtDate(v.date.slice(0, 10))} avec ${fullName(emp(v.with))}`);
       if (v.with !== me().id) notify(v.with, `${v.kind} avec ${c.name} le ${fmtDate(v.date.slice(0, 10))} à ${v.date.slice(11, 16)}.`);
@@ -3223,6 +3526,6 @@
   document.addEventListener('mouseover', (ev) => { const t = ev.target.closest && ev.target.closest('[data-tip]'); if (!t) { tip.classList.remove('on'); return; } tip.textContent = t.dataset.tip; tip.classList.add('on'); });
   document.addEventListener('mousemove', (ev) => { if (!tip.classList.contains('on')) return; const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8); tip.style.transform = `translate(${x}px, ${ev.clientY + 16}px)`; });
 
-  normalizeEmployees(); applyDueSalaries(); purgeCandidates(); syncArrivals(); arrivalReminders(); save();
+  normalizeEmployees(); normalizeDocs(); applyDueSalaries(); purgeCandidates(); syncArrivals(); arrivalReminders(); save();
   render();
 })();

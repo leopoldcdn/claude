@@ -93,8 +93,18 @@ Les données de départ (`data.js`, schéma version 8) sont fictives ; vos modif
   CPAM de 48 h, document unique des risques, baromètre QVT anonyme (masqué sous 3 réponses), aménagements de poste.
 - **Relations individuelles** : dossiers confidentiels RH avec chronologie et repères de procédure disciplinaire,
   signalements des managers, demandes d'échange des salariés avec réponses.
-- **Documents RH** : attestation employeur, avenant, et documents de sortie (certificat de travail, solde de tout
-  compte, attestation France Travail) générés au passage à l'étape « Départ ».
+- **Modèles de documents** (profil RH, bouton « Modèles ») : les RH rédigent eux-mêmes chaque document et chaque
+  courrier aux candidats : contrats (CDI, CDD, apprentissage, stage), informations à 7 jours et à 1 mois, fin de période
+  d'essai, avenant, attestation employeur, certificat de travail, solde de tout compte, attestation France Travail,
+  proposition d'embauche et 8 messages aux candidats (accusé de réception, convocation, refus…). Éditeur avec titres,
+  gras et listes ; champs automatiques insérés d'un clic (nom, poste, salaire, dates…), remplis depuis le dossier ;
+  champs à saisir créés par les RH (ex. motif du CDD), complétés à la création du document. Les mentions obligatoires
+  manquantes sont signalées et bloquent l'enregistrement. Chaque enregistrement crée une version ; on peut prévisualiser
+  avec un exemple et rétablir une version précédente ou le modèle d'origine.
+- **Documents RH** : chaque document naît en brouillon, visible des RH seulement : zones jaunes à compléter, texte
+  modifiable. Remis au salarié (ou signé pour un contrat), il est figé et garde la version du modèle qui a servi.
+  Un contrat envoyé pour signature reste modifiable jusqu'à la signature (le salarié est prévenu). Les documents de
+  sortie sont préparés en brouillon et remis ensemble au dernier jour.
 - **Reporting RH** (profil RH, bouton en haut à droite et dans le bandeau) : indicateurs du jour (absents, absences à
   valider, postes ouverts, arrivées en cours), suivi des offres (délai, candidatures, passage en entretien, meilleure
   source, entonnoir), effectif, entrées, turnover, absentéisme,

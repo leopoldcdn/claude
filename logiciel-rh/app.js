@@ -410,6 +410,11 @@
   function bindWheel() {
     const box = document.getElementById('wheel-box'); if (!box) return;
     fitWheel(); placeWheel();
+    // Survol : léger agrandissement sur place ; « auto » n'interrompt que l'échelle, jamais le déplacement en cours.
+    box.querySelectorAll('.node').forEach((n) => {
+      n.addEventListener('mouseenter', () => tw(n, { scale: 1.14, duration: 0.2, overwrite: 'auto' }));
+      n.addEventListener('mouseleave', () => tw(n, { scale: 1, duration: 0.2, overwrite: 'auto' }));
+    });
     box.addEventListener('mouseenter', () => { clearTimeout(closeTimer); openWheel(); });
     box.addEventListener('mouseleave', () => { closeTimer = setTimeout(closeWheel, 700); });
     box.addEventListener('focusin', () => { clearTimeout(closeTimer); openWheel(); });

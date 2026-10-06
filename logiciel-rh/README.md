@@ -42,13 +42,17 @@ Les données de départ (`data.js`, schéma version 8) sont fictives ; vos modif
   de la direction dans la démo) ; chaque décision (valider, demander une modification, refuser avec commentaire obligatoire)
   est historisée. À la publication, l'annonce est vérifiée : mentions discriminatoires interdites (âge, sexe, origine,
   santé, situation de famille) bloquantes, conseil « H/F ».
-- **Recrutement** : offres publiées (recherche par référence, intitulé, nom de candidat, service, statut, date de
-  publication) et pipeline en glisser-déposer. Le manager à l'origine du besoin est rattaché automatiquement à l'offre ;
-  les RH peuvent inviter d'autres évaluateurs. Le manager et les RH traitent les candidatures ensemble : le manager
-  évalue et fait avancer, les RH font la proposition et les refus. Un clic sur un candidat ouvre sa visionneuse : CV,
-  lettre de motivation et autre document à gauche, flèches (ou ← →) pour passer aux autres candidats de la colonne,
-  commandes à droite (étape suivante, entretien, message, refus) et historique. Les indicateurs par offre sont dans le
-  Reporting RH. Entretiens structurés : après chaque entretien,
+- **Recrutement** : trois onglets. « À traiter » (vue par défaut) regroupe les actions qui vous attendent, toutes offres
+  confondues : candidatures à trier, évaluations à remplir, propositions à préparer, candidats sans nouvelles depuis plus
+  de 7 jours ; son total est la pastille de la roue. « Offres » : tableau triable (référence, poste, service, manager,
+  candidats actifs, à traiter, en ligne depuis, statut) avec recherche par référence, intitulé ou nom de candidat. Une
+  offre s'ouvre sur toute la largeur : en-tête sur une ligne, onglets Candidats (tableau en colonnes, « Embauché » et
+  « Refusé » repliées) et L'offre (description, fiche de cadrage, équipe de recrutement). « Vivier » (RH). Le manager à
+  l'origine du besoin est rattaché à l'offre ; les RH peuvent inviter d'autres évaluateurs ; le manager évalue et fait
+  avancer, les RH font la proposition et les refus. La fiche d'un candidat montre ses documents à gauche (CV, lettre,
+  autre document, flèches ← → pour passer au suivant de la colonne) et, à droite, un bandeau « Prochaine étape » avec
+  l'action principale (trier, planifier un entretien, évaluer, préparer la proposition, enregistrer la réponse), puis les
+  onglets Évaluation, Entretiens, Échanges, Profil et Historique. Les indicateurs par offre sont dans le Reporting RH. Entretiens structurés : après chaque entretien,
   l'interviewer note chaque compétence de la fiche de cadrage avec une preuve et donne un avis (favorable, réservé,
   défavorable) ; la note du candidat en découle. Échanges tracés avec le candidat (accusé de réception avec information
   RGPD, convocation, point d'étape, refus motivé) et alerte au-delà de 7 jours sans nouvelles. Proposition d'embauche

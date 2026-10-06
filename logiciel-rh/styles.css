@@ -686,6 +686,35 @@ mark.fill { background: #fff1b8; color: #6b4a00; border-radius: 4px; padding: 0 
 .recap-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; } .recap-h .sub { margin: 0; }
 .modal-f .autosave { margin-right: auto; display: inline-flex; align-items: center; gap: 6px; } .modal-f .autosave svg { width: 14px; height: 14px; color: var(--ok); }
 
+/* ---------- Recrutement : onglets, page d'offre, tableau, fiche candidat ---------- */
+.rec-tabs { margin-bottom: -6px; }
+.tabs .count.warn-c { background: var(--warn); color: #fff; }
+.offer-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+.offer-head h2 { font-size: 21px; }
+.offer-acts { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+details.more { position: relative; }
+details.more summary { list-style: none; cursor: pointer; letter-spacing: .1em; }
+details.more summary::-webkit-details-marker { display: none; }
+.more-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 25; display: flex; flex-direction: column; gap: 8px; padding: 10px; min-width: 260px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-lg); }
+.board { padding: 16px 20px 20px; }
+.col.folded { min-height: 240px; border: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; color: var(--muted); }
+.col.folded b { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 13px; letter-spacing: .02em; }
+.col.folded span { min-width: 26px; height: 26px; border-radius: 99px; background: var(--surface); display: grid; place-items: center; font-size: 12px; font-weight: 800; color: var(--fg); }
+.col.folded:hover { box-shadow: inset 0 0 0 2px var(--accent); }
+.col h4 .col-x { border: 0; background: none; padding: 0; width: 18px; height: 18px; color: var(--faint); display: grid; place-items: center; margin-right: 4px; }
+.col h4 .col-x svg { width: 12px; height: 12px; }
+.col-empty { margin: 4px; font-size: 12.5px; color: var(--faint); }
+.kc-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
+.kc-top .stars svg { width: 11px; height: 11px; }
+.kc-state { margin-top: 4px; font-size: 12px; font-weight: 650; padding: 3px 8px; border-radius: 7px; line-height: 1.35; }
+.kc-state.ok { background: var(--ok-soft); color: var(--ok); } .kc-state.warn { background: var(--warn-soft); color: var(--warn); } .kc-state.bad { background: var(--bad-soft); color: var(--bad); }
+.kc-state.info { background: var(--info-soft); color: var(--info); } .kc-state.accent { background: var(--accent-soft); color: var(--accent); } .kc-state.neutral { background: var(--surface-2); color: var(--muted); }
+.next-step.closed { background: var(--surface-2); }
+.offer-box { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; }
+.offer-box > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; } .offer-box small { color: var(--muted); font-size: 12.5px; }
+.cand-side > .tabs, .cand-side > .next-step, .cand-side > .offer-box { flex: none; }
+.plan-form { margin-top: 12px; padding: 14px; border-radius: 12px; background: var(--surface-2); }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1180px) {
   .kpis.six { grid-template-columns: repeat(3, minmax(0, 1fr)); }

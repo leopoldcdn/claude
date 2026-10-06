@@ -65,7 +65,7 @@ window.TEAMORA_SEED = function () {
     E('e15', 'Sarah', 'Cohen', 'Comptable', 'Finance', 'e9', 11, '2020-01-06', 'CDI', 44000, { cp: 22, rtt: 6 }),
     E('e16', 'Yanis', 'Morel', 'Business Developer', 'Sales', 'e8', 13, '2023-09-04', 'CDI', 40000, { cp: 8, rtt: 3, exit: { reason: 'Démission', lastDay: '2026-11-27' } }),
     E('e17', 'Camille', 'Roux', 'Office Manager', 'RH', 'e1', 12, '2021-05-17', 'CDI', 36000, { cp: 13, rtt: 5 }),
-    E('e18', 'Nathan', 'Lefebvre', 'Développeur back-end', 'Tech', 'e6', 3, '2026-10-01', 'CDI', 46000, { cp: 0, rtt: 0 }),
+    E('e18', 'Nathan', 'Lefebvre', 'Développeur back-end', 'Tech', 'e6', 2, '2026-10-01', 'CDI', 46000, { cp: 0, rtt: 0 }),
     E('e19', 'Julie', 'Bernard', 'Alternante marketing', 'Marketing', 'e7', 4, '2026-09-07', 'Alternance', 21000, { cp: 2, rtt: 0 }),
     E('e20', 'Clara', 'Fontaine', 'Product Designer', 'Design', 'e2', 15, '2021-01-04', 'CDI', 47000, { cp: 0, rtt: 0, exit: { reason: 'Démission', lastDay: '2025-06-30' } }),
     E('e21', 'Mehdi', 'Bouaziz', 'Key Account Manager', 'Sales', 'e8', 14, '2021-03-01', 'CDI', 48000, { cp: 9, rtt: 2, exit: { reason: 'Rupture conventionnelle', lastDay: '2026-10-09' } }),
@@ -123,7 +123,7 @@ window.TEAMORA_SEED = function () {
   // Dossiers d'arrivée (pré-embauche, embauche, intégration) des recrues en cours.
   const ALLDOCS = (d) => ({ identite: d, secu: d, rib: d, domicile: d, diplome: d });
   const onboarding = {
-    e12: { docs: { identite: '2026-10-02', rib: '2026-10-02' }, titreCheck: null, contract: { status: 'À préparer' }, prep: {}, buddy: null },
+    e12: { docs: { identite: '2026-10-02', rib: '2026-10-02' }, files: { identite: { name: 'passeport-patel.pdf', date: '2026-10-01' }, rib: { name: 'rib-patel.pdf', date: '2026-10-01' }, secu: { name: 'attestation-vitale.pdf', date: '2026-10-05' } }, titreCheck: null, contract: { status: 'À préparer' }, prep: {}, buddy: null },
     e18: { docs: ALLDOCS('2026-09-15'), contract: { status: 'Signé', sentAt: '2026-09-18', signedAt: '2026-09-22' }, prep: { poste: '2026-09-25', ordinateur: '2026-09-29', comptes: '2026-09-29', badge: '2026-09-30', bienvenue: '2026-09-26' }, buddy: 'e13',
       dpae: { date: '2026-09-28', ref: 'DPAE-75-2026-0918' } },
     e10: { docs: ALLDOCS('2026-08-10'), contract: { status: 'Signé', sentAt: '2026-08-05', signedAt: '2026-08-07' }, prep: { poste: '2026-08-25', ordinateur: '2026-08-28', comptes: '2026-08-28', badge: '2026-08-28', bienvenue: '2026-08-26' }, buddy: 'e4',
@@ -134,10 +134,16 @@ window.TEAMORA_SEED = function () {
       dpae: { date: '2026-09-01', ref: 'DPAE-75-2026-0907' }, info7: '2026-09-10', info1m: '2026-10-01', mutuelle: 'Dispense', assignedAt: '2026-09-07',
       plan: { accueil: '2026-09-07', materiel: '2026-09-07', entreprise: '2026-09-09', equipe: '2026-09-11' } },
   };
+  // Programme d'intégration : modèle commun à toute l'entreprise, modifiable par les RH (jour = J+n après l'arrivée).
+  const onboardingPlan = [
+    { k: 'accueil', label: 'Accueil par le manager et visite des locaux', day: 0, owner: 'manager' }, { k: 'materiel', label: 'Remise du matériel et des accès', day: 0, owner: 'rh' },
+    { k: 'entreprise', label: 'Présentation de l’entreprise, des valeurs et de l’organisation', day: 2, owner: 'rh' }, { k: 'equipe', label: 'Déjeuner d’équipe et rencontre des interlocuteurs clés', day: 4, owner: 'parrain' },
+    { k: 'mission', label: 'Première mission courte et valorisante', day: 10, owner: 'manager' }, { k: 'formation', label: 'Formations de prise de poste (outils, sécurité, RGPD)', day: 15, owner: 'rh' },
+  ];
   // Some checklist progress so the stage panels look lived-in.
   const journey = {
     e3: { 6: [true, true, false, false] }, e10: { 4: [true, true, true, false, false, false] }, e12: { 2: [true, false, false] },
-    e18: { 3: [true, true, false, false] }, e16: { 13: [true, true, false, false, false] }, e19: { 4: [true, true, true, true, false, false] },
+    e16: { 13: [true, true, false, false, false] }, e19: { 4: [true, true, true, true, false, false] },
   };
   const leaves = [
     { id: 'l1', empId: 'e3', type: 'Congés payés', start: '2026-08-10', end: '2026-08-21', days: 10, status: 'Approuvée', comment: 'Vacances d’été', createdAt: '2026-06-02' },
@@ -156,7 +162,8 @@ window.TEAMORA_SEED = function () {
   const SC = (must, nice, rounds) => ({ must, nice, rounds });
   const A = (step, by, decision, date, comment = '') => ({ step, by, decision, date, comment });
   const J = (id, o) => Object.assign({ id, contract: 'CDI', location: 'Paris', priority: 'Normale', budgeted: true, replaces: null, pending: null, refusedAt: null,
-    alternatives: { mobilite: true, taches: false, interim: false, auto: false, note: '' }, scorecard: null, approvals: [] }, o,
+    alternatives: { mobilite: true, taches: false, interim: false, auto: false, note: '' }, scorecard: null, approvals: [], comments: [], log: [], reviewers: [] }, o,
+    { managerId: o.managerId || o.requestedBy },
     { budget: o.budget || `${new Intl.NumberFormat('fr-FR').format(o.salaryMin)} – ${new Intl.NumberFormat('fr-FR').format(o.salaryMax)} €` });
   const jobs = [
     J('j1', { title: 'UX Designer Senior', dept: 'Design', status: 'Ouverte', createdAt: '2026-09-01', requestedBy: 'e2', salaryMin: 48000, salaryMax: 54000, startWanted: '2026-12-01', reason: 'Création de poste', budgeted: true,
@@ -198,6 +205,10 @@ window.TEAMORA_SEED = function () {
       description: 'Prospecter les PME de la région lyonnaise.', scorecard: SC(['Prospection téléphonique', 'Connaissance des PME'], [], 2),
       approvals: [A('demande', 'e8', 'Soumise', '2026-09-05'), A('rh', 'e1', 'Validée', '2026-09-08'), A('direction', 'e5', 'Refusée', '2026-09-12', 'Hors budget 2026 : à représenter lors du plan 2027.')] }),
   ];
+  // Référence BES-AAAA-NNN (besoin) / OFF-AAAA-NNN (offre publiée) : numéro attribué à l'émission du besoin.
+  jobs.slice().sort((a, b) => a.createdAt.localeCompare(b.createdAt)).forEach((j, k) => { j.num = k + 1; });
+  jobs.find((j) => j.id === 'j1').reviewers = ['e4'];
+  jobs.find((j) => j.id === 'j4').comments = [{ by: 'e1', date: '2026-10-03', text: 'Peux-tu confirmer la durée exacte du renfort (9 mois) ? Je prépare le passage en direction.' }];
   // Candidats. Chaque entretien passé porte une évaluation structurée (note + preuve par compétence de la fiche de cadrage).
   // Les messages tracent les échanges ; un candidat non embauché est supprimé automatiquement 2 ans après le dernier contact.
   const ACK = (date) => ({ date, kind: 'ack', subject: 'Nous avons bien reçu votre candidature' });
@@ -206,15 +217,16 @@ window.TEAMORA_SEED = function () {
     email: name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, '').replace(' ', '.') + '@mail.fr',
     phone: extra.phone || '07 00 00 00 00', experience: extra.experience || '', notes: extra.notes || '', interviews: extra.interviews || [],
     appliedAt: extra.appliedAt || '2026-09-15', messages: extra.messages || [ACK(extra.appliedAt || '2026-09-15')],
-    offer: extra.offer || null, refusal: extra.refusal || null, pool: !!extra.pool, hiredAt: extra.hiredAt || null });
+    offer: extra.offer || null, refusal: extra.refusal || null, pool: !!extra.pool, hiredAt: extra.hiredAt || null, log: [],
+    files: extra.files || [{ kind: 'cv', name: `CV-${name.split(' ').pop()}.pdf` }, { kind: 'lm', name: `Lettre-motivation-${name.split(' ').pop()}.pdf` }] });
   const candidates = [
-    C('c1', 'j1', 'Manon Lefèvre', 'Entretien', 4, 'Site carrière', { appliedAt: '2026-09-12', experience: '7 ans · agence et produit SaaS', notes: 'Très bon portfolio, à l’aise en recherche utilisateur.',
+    C('c1', 'j1', 'Manon Lefèvre', 'Entretien', 4, 'Site carrière', { appliedAt: '2026-09-12', files: [{ kind: 'cv', name: 'CV-Lefevre.pdf' }, { kind: 'lm', name: 'Lettre-motivation-Lefevre.pdf' }, { kind: 'autre', name: 'Portfolio-Lefevre.pdf', label: 'Portfolio' }], experience: '7 ans · agence et produit SaaS', notes: 'Très bon portfolio, à l’aise en recherche utilisateur.',
       interviews: [{ id: 'i1', date: '2026-09-29T14:00', with: 'e1', kind: 'Entretien RH', eval: EV('2026-09-29', [5, 4, 3], ['A mené 12 tests utilisateurs sur son dernier projet, méthode claire.', 'Montre des prototypes Figma testés en itérations courtes.', 'Connaît les design systems sans en avoir construit un.'], 'Favorable') },
         { id: 'i2', date: '2026-10-08T10:00', with: 'e2', kind: 'Entretien manager', eval: null }],
       messages: [ACK('2026-09-12'), { date: '2026-09-24', kind: 'convocation', subject: 'Invitation à un entretien RH' }, { date: '2026-10-01', kind: 'convocation', subject: 'Invitation à un entretien manager' }] }),
     C('c2', 'j1', 'Karim Benali', 'Présélection', 3, 'Jobboard', { appliedAt: '2026-09-16', experience: '5 ans · e-commerce' }),
-    C('c3', 'j1', 'Chloé Garnier', 'Reçue', 0, 'Réseaux sociaux', { appliedAt: '2026-10-03', experience: '6 ans · fintech' }),
-    C('c4', 'j1', 'Antoine Mercier', 'Proposition', 5, 'Cooptation', { appliedAt: '2026-09-08', experience: '8 ans · design system', notes: 'Coopté par Hugo. Excellent entretien final.',
+    C('c3', 'j1', 'Chloé Garnier', 'Reçue', 0, 'Réseaux sociaux', { appliedAt: '2026-10-03', experience: '6 ans · fintech', files: [{ kind: 'cv', name: 'CV-Garnier.pdf' }] }),
+    C('c4', 'j1', 'Antoine Mercier', 'Proposition', 5, 'Cooptation', { appliedAt: '2026-09-08', files: [{ kind: 'cv', name: 'CV-Mercier.pdf' }, { kind: 'lm', name: 'Lettre-motivation-Mercier.pdf' }, { kind: 'autre', name: 'Portfolio-Mercier.pdf', label: 'Portfolio' }], experience: '8 ans · design system', notes: 'Coopté par Hugo. Excellent entretien final.',
       interviews: [{ id: 'i3', date: '2026-09-25T14:00', with: 'e2', kind: 'Entretien manager', eval: EV('2026-09-25', [5, 5, 5], ['Présente une étude de 30 entretiens qui a réorienté une roadmap.', 'Prototype interactif testé en direct pendant l’entretien.', 'A construit et maintenu le design system de son employeur actuel.'], 'Favorable') },
         { id: 'i4', date: '2026-09-30T11:00', with: 'e1', kind: 'Entretien RH', eval: EV('2026-09-30', [5, 4, 5], ['Exemples concrets de recherche avec des utilisateurs B2B.', 'Bon niveau, moins d’expérience des tests à distance.', 'Anime la guilde design de 15 personnes.'], 'Favorable', 'Disponible début décembre, préavis de 2 mois.') }],
       messages: [ACK('2026-09-08'), { date: '2026-09-18', kind: 'convocation', subject: 'Invitation à un entretien manager' }, { date: '2026-09-26', kind: 'convocation', subject: 'Invitation à un entretien RH' }, { date: '2026-10-01', kind: 'proposition', subject: 'Notre proposition d’embauche' }],
@@ -359,6 +371,6 @@ window.TEAMORA_SEED = function () {
     { id: 'doc2', empId: 'e3', kind: 'attestation', title: 'Attestation employeur', date: '2026-02-03' },
     { id: 'doc3', empId: 'e4', kind: 'avenant', title: 'Avenant · Senior Product Designer', date: '2023-12-15', data: { title: 'Senior Product Designer', dept: 'Design', salary: 54000, effective: '2024-01-01' } },
   ];
-  return { version: 7, employees, journey, leaves, jobs, candidates, notifications, payroll, objectives, reviews, feedback, trainings, enrollments, trainingBudget: 25000, purgeLog: [], onboarding, changeReqs, timesheets, raises, valueShare, payInfoReqs, offboarding, talent, succession, duerp,
+  return { version: 8, onboardingPlan, employees, journey, leaves, jobs, candidates, notifications, payroll, objectives, reviews, feedback, trainings, enrollments, trainingBudget: 25000, purgeLog: [], onboarding, changeReqs, timesheets, raises, valueShare, payInfoReqs, offboarding, talent, succession, duerp,
     wishes, history, visits, incidents, risks, survey, adjustments, cases, documents };
 };

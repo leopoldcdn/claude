@@ -48,12 +48,12 @@
   // ---------------------------------------------------------------- Storage
   const STORE = 'teamora-demo-v1', UI_STORE = 'teamora-ui-v1';
   function load() {
-    try { const d = JSON.parse(localStorage.getItem(STORE)); if (d && d.version === 7) return d; } catch (e) { /* ignore */ }
+    try { const d = JSON.parse(localStorage.getItem(STORE)); if (d && d.version === 8) return d; } catch (e) { /* ignore */ }
     return window.TEAMORA_SEED();
   }
   function save() { try { localStorage.setItem(STORE, JSON.stringify(db)); } catch (e) { /* storage unavailable */ } }
   function loadUI() { try { return JSON.parse(localStorage.getItem(UI_STORE)) || {}; } catch (e) { return {}; } }
-  function saveUI() { try { localStorage.setItem(UI_STORE, JSON.stringify({ profile: ui.profile, view: ui.view, stage: ui.stage })); } catch (e) { /* ignore */ } }
+  function saveUI() { try { localStorage.setItem(UI_STORE, JSON.stringify({ profile: ui.profile, view: ui.view, stage: ui.stage, asEmp: ui.asEmp })); } catch (e) { /* ignore */ } }
 
   let db = load();
   const PROFILES = {
@@ -63,7 +63,7 @@
   };
   const freshUI = () => ({ wheelOpen: false, selPerson: null, q: '', fDept: '', fStatus: '', sort: 'name', sortDir: 1,
     absTab: 'valider', histStatus: '', planMonth: null, payMonth: null, recJob: null, drawer: null, modal: null, notif: false,
-    needTab: 'cours', needSel: null, adminTab: 'annuaire', payTab: 'paie', tsWeek: null, revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
+    needTab: 'all', needSel: null, nq: '', nDept: '', nStatus: '', nFrom: '', rq: '', rDept: '', rStatus: '', rFrom: '', adminTab: 'annuaire', payTab: 'paie', tsWeek: null, revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
   let ui = Object.assign({ profile: 'rh', view: 'accueil', stage: null }, loadUI(), freshUI());
   if (!PROFILES[ui.profile]) ui.profile = 'rh';
 
@@ -87,6 +87,12 @@
   const eur = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n);
   const eur0 = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
   const uid = (p) => p + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
+  // Lit un fichier joint : gardé dans le navigateur s'il est léger (pour l'aperçu), sinon seul son nom l'est.
+  const readFile = (f) => new Promise((ok) => {
+    const base = { name: f.name, type: f.type, date: TODAY, data: null };
+    if (f.size > 700 * 1024 || !/^(image\/|application\/pdf)/.test(f.type)) { ok(base); return; }
+    const r = new FileReader(); r.onload = () => ok(Object.assign(base, { data: r.result })); r.onerror = () => ok(base); r.readAsDataURL(f);
+  });
   const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
   function seniority(start) {
     if (start > TODAY) return 'Arrivée prévue';
@@ -98,7 +104,9 @@
   function nextMonday(from, weeks = 0) { let s = addDays(from, 1); while (parse(s).getDay() !== 1) s = addDays(s, 1); return addDays(s, weeks * 7); }
 
   const emp = (id) => db.employees.find((e) => e.id === id);
-  const me = () => emp(PROFILES[ui.profile].emp);
+  // Le profil « Salarié » peut être vu sous les traits de n'importe quel collaborateur, dont une nouvelle recrue.
+  const profileEmp = (k) => emp(k === 'salarie' && ui.asEmp && emp(ui.asEmp) ? ui.asEmp : PROFILES[k].emp);
+  const me = () => profileEmp(ui.profile);
   const fullName = (e) => (e ? `${e.firstName} ${e.lastName}` : '—');
   const initials = (e) => (e.firstName[0] + e.lastName[0]).toUpperCase();
   const AV_COLORS = ['#6366f1', '#db2777', '#0891b2', '#d97706', '#059669', '#7c3aed', '#e11d48', '#0284c7', '#c026d3', '#0d9488'];
@@ -113,14 +121,18 @@
   function statusOf(e) {
     if (e.stage >= 15) return ['Sorti', 'neutral'];
     if (e.stage >= 13) return ['Préavis', 'bad'];
-    if (e.stage === 2) return ['Pré-embauche', 'accent'];
+    if (e.stage === 2 && e.startDate > TODAY) return ['Arrivée prévue', 'accent'];
     if (e.stage <= 4) return ["Période d'essai", 'accent'];
     const l = leaveOn(e, TODAY);
     if (l) return l.type === 'Télétravail' ? ['Télétravail', 'info'] : ['Absent', 'warn'];
     return ['Actif', 'ok'];
   }
   const statusPill = (e) => { const [t, c] = statusOf(e); return `<span class="pill ${c}">${t}</span>`; };
-  const isEmployed = (e) => e.stage >= 3 && e.stage < 15;
+  // Pendant l'arrivée (étape 2 : pré-embauche et embauche menées en parallèle), la recrue est salariée dès son premier jour.
+  const isEmployed = (e) => (e.stage >= 3 && e.stage < 15) || (e.stage === 2 && e.startDate <= TODAY);
+  const inArrival = (e) => e.stage === 2 || e.stage === 3;
+  // Avant son premier jour, une recrue n'a accès qu'à la pré-embauche et à l'embauche.
+  const locked = (e) => inArrival(e) && e.startDate > TODAY;
 
   function scopeEmployees() {
     const m = me();
@@ -128,7 +140,11 @@
     if (ui.profile === 'manager') return db.employees.filter((e) => e.managerId === m.id);
     return [m];
   }
-  const scopeJobs = () => (ui.profile === 'rh' ? db.jobs : ui.profile === 'manager' ? db.jobs.filter((j) => j.dept === me().dept) : []);
+  // Un manager ne voit que ses propres besoins ; en recrutement, il voit aussi les offres où il est évaluateur invité.
+  const jobManager = (j) => j.managerId || j.requestedBy;
+  const scopeNeeds = () => (ui.profile === 'rh' ? db.jobs : ui.profile === 'manager' ? db.jobs.filter((j) => jobManager(j) === me().id || j.requestedBy === me().id) : []);
+  const scopeJobs = () => (ui.profile === 'rh' ? db.jobs : ui.profile === 'manager' ? db.jobs.filter((j) => jobManager(j) === me().id || j.requestedBy === me().id || (j.reviewers || []).includes(me().id)) : []);
+  const jobRef = (j) => `${NEED_OPEN.includes(j.status) ? 'OFF' : 'BES'}-${j.createdAt.slice(0, 4)}-${String(j.num || 0).padStart(3, '0')}`;
   const activeCand = (c) => !['Embauché', 'Refusé'].includes(c.stage);
   const scopeCandidates = () => { const ids = new Set(scopeJobs().filter((j) => j.status === 'Ouverte').map((j) => j.id)); return db.candidates.filter((c) => ids.has(c.jobId)); };
   function pendingForMe() {
@@ -145,9 +161,12 @@
     t.innerHTML = (kind === 'ok' ? ic('check') : '') + `<span>${esc(msg)}</span>`;
     box.appendChild(t); while (box.children.length > 3) box.firstChild.remove(); setTimeout(() => t.remove(), 3600);
   }
+  // Sous-étapes d'une étape ; celles de l'intégration suivent le programme défini par les RH.
+  const CHECK_STEPS = ['Point de suivi à 30 jours', 'Rapport d’étonnement', 'Fin de période d’essai'];
+  const stageSteps = (i) => (i === 4 ? (db.onboardingPlan || []).map((x) => x.label).concat(CHECK_STEPS) : STAGES[i].steps);
   function journeyOf(id, stage) {
-    const n = STAGES[stage].steps.length, who = emp(id);
-    if (who && who.stage === stage && stage >= 2 && stage <= 4) return arrivalSteps(who, stage);
+    const who = emp(id), n = stageSteps(stage).length;
+    if (who && ((who.stage === 2 && (stage === 2 || stage === 3)) || (who.stage === 4 && stage === 4))) return arrivalSteps(who, stage);
     if (who && who.stage === stage && stage >= 13) return departSteps(who, stage);
     const arr = (db.journey[id] && db.journey[id][stage]) || [];
     return Array.from({ length: n }, (_, k) => !!arr[k]);
@@ -193,40 +212,47 @@
   const STAGE_VIEW = {
     rh: ['besoins', 'recrutement', 'etape', 'etape', 'etape', 'collaborateurs', 'absences', 'paie', 'entretiens', 'formation', 'mobilite', 'sante', 'relations', 'etape', 'etape', 'etape'],
     manager: ['besoins', 'recrutement', 'etape', 'etape', 'etape', 'collaborateurs', 'absences', 'paie', 'entretiens', 'formation', 'mobilite', 'sante', 'relations', 'etape', 'etape', 'etape'],
-    salarie: [null, null, 'etape-moi', 'etape-moi', 'etape-moi', 'profil', 'absences', 'bulletins', 'entretiens', 'formation', 'mobilite', 'sante', 'relations', 'etape-moi', 'etape-moi', 'etape-moi'],
+    salarie: [null, null, 'arrivee', 'contrat', 'etape-moi', 'profil', 'absences', 'bulletins', 'entretiens', 'formation', 'mobilite', 'sante', 'relations', 'etape-moi', 'etape-moi', 'etape-moi'],
   };
   const VIEW_LABELS = {
     rh: { accueil: 'Accueil', reporting: 'Reporting RH', besoins: 'Besoins de recrutement', collaborateurs: 'Collaborateurs', absences: 'Absences', paie: 'Paie', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Relations individuelles' },
     manager: { accueil: 'Accueil', besoins: 'Besoins de recrutement', collaborateurs: 'Mon équipe', absences: 'Absences', paie: 'Rémunération de l’équipe', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Signalements' },
-    salarie: { accueil: 'Mon parcours', profil: 'Mon profil', absences: 'Mes absences', bulletins: 'Mes bulletins', entretiens: 'Mes entretiens', formation: 'Formations', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Échanges RH' },
+    salarie: { accueil: 'Mon parcours', arrivee: 'Mon arrivée', contrat: 'Contrat de travail', profil: 'Mon profil', absences: 'Mes absences', bulletins: 'Mes bulletins', entretiens: 'Mes entretiens', formation: 'Formations', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Échanges RH' },
   };
   // Stage indexes shown in the wheel for the current profile, in journey order.
   function visibleStages() {
-    return STAGES.map((s, i) => i).filter((i) => { const v = STAGE_VIEW[ui.profile][i]; return v === 'etape-moi' ? me().stage === i : !!v; });
+    const m = me();
+    if (ui.profile === 'salarie' && locked(m)) return [2, 3];
+    return STAGES.map((s, i) => i).filter((i) => { const v = STAGE_VIEW[ui.profile][i]; return v === 'etape-moi' ? m.stage === i : v === 'arrivee' ? inArrival(m) : !!v; });
   }
   const stageView = (i) => (STAGE_VIEW[ui.profile][i] === 'etape-moi' ? 'etape' : STAGE_VIEW[ui.profile][i]);
   const canView = (v) => v === 'accueil' || (v === 'reporting' && ui.profile === 'rh') || (v === 'etape' ? visibleStages().includes(ui.stage) : visibleStages().some((i) => stageView(i) === v));
   function navCount(v) {
-    if (v === 'absences') return pendingForMe().length + pendingSheets().length;
-    if (v === 'paie') return ui.profile === 'rh' ? Object.values(db.raises.proposals).filter((x) => x.status === 'Proposée').length : ui.profile === 'manager' && db.raises.status === 'Ouverte' ? scopeEmployees().filter((e) => raiseEligible(e) && !db.raises.proposals[e.id]).length : 0;
-    if (v === 'besoins') return needsToDo().length;
     const p = ui.profile, m = me(), ids = new Set(scopeEmployees().map((e) => e.id));
+    if (v === 'absences') return pendingForMe().length + pendingSheets().length + (p === 'rh' ? db.leaves.filter((l) => l.type === 'Maladie' && !l.dsnAt).length : 0);
+    if (v === 'paie') return p === 'rh' ? Object.values(db.raises.proposals).filter((x) => x.status === 'Proposée').length : p === 'manager' && db.raises.status === 'Ouverte' ? scopeEmployees().filter((e) => raiseEligible(e) && !db.raises.proposals[e.id]).length : 0;
+    if (v === 'besoins') return needsToDo().length;
+    if (v === 'recrutement') return recTodo().size;
+    if (v === 'collaborateurs') return p === 'rh' ? pendingChanges().length + adminDeadlines(db.employees).filter((x) => x.date <= addDays(TODAY, 14)).length : 0;
+    if (v === 'arrivee') return myArrivalTodo(m);
+    if (v === 'contrat') return m.stage === 2 && dossier(m).contract.status === 'Envoyé' ? 1 : 0;
     if (v === 'entretiens') return db.reviews.filter((r) => (p === 'salarie' ? r.empId === m.id && ['Planifié', 'À signer'].includes(r.status)
       : p === 'manager' ? ids.has(r.empId) && ['À planifier', 'Auto-évaluation faite'].includes(r.status) : r.status === 'À planifier')).length;
     if (v === 'formation') return p === 'rh' ? db.enrollments.filter((x) => x.status === 'Validée manager').length : p === 'manager' ? db.enrollments.filter((x) => x.status === 'Demandée' && ids.has(x.empId)).length : 0;
     if (v === 'mobilite') return p === 'rh' ? db.wishes.filter((w) => w.status === 'Exprimé').length : p === 'manager' ? db.wishes.filter((w) => ids.has(w.empId) && !w.mgrOpinion && ['Exprimé', 'En étude'].includes(w.status)).length : 0;
     if (v === 'sante') return p === 'rh' ? db.incidents.filter((x) => x.status === 'Déclaré').length + db.adjustments.filter((x) => x.status === 'Demandé').length
-      : p === 'salarie' && !db.survey.some((x) => x.empId === m.id && x.month === monthKey(TODAY)) ? 1 : 0;
+      : p === 'salarie' && !locked(m) && !db.survey.some((x) => x.empId === m.id && x.month === monthKey(TODAY)) ? 1 : 0;
     if (v === 'relations') return p === 'rh' ? db.cases.filter((c) => c.status === 'Ouvert').length : 0;
     return 0;
   }
-  // Badge on a stage: people (or needs, candidates) at that stage, or the module's items waiting for me.
-  function stageBadge(i) {
+  // Pastille d'une étape : le nombre de sujets qui attendent le profil courant (c'est la seule alerte de l'application).
+  function stageTodo(i) {
     const v = stageView(i);
-    if (ui.profile !== 'salarie' && ['etape', 'recrutement', 'collaborateurs'].includes(v)) { const n = stageCount(i); return n ? `<span class="badge num">${n}</span>` : ''; }
-    const n = v === 'etape' ? 0 : navCount(v);
-    return n ? `<span class="badge todo num" title="À traiter">${n}</span>` : '';
+    if (v !== 'etape') return navCount(v);
+    if (ui.profile === 'salarie') return i === 4 && me().stage === 4 && !dossier(me()).astonish && TODAY >= addDays(me().startDate, 20) ? 1 : 0;
+    return scopeEmployees().filter((e) => atStage(e, i) && (i <= 4 ? arrivalActions(e, i).length : ui.profile === 'rh' && departActions(e).length)).length;
   }
+  function stageBadge(i) { const n = stageTodo(i); return n ? `<span class="badge todo num" title="À traiter">${n}</span>` : ''; }
   function topbar() {
     const st = ui.view === 'accueil' ? null : ui.stage;
     const title = ui.view === 'etape' ? esc(STAGES[st].title) : VIEW_LABELS[ui.profile][ui.view];
@@ -235,8 +261,9 @@
     const unread = mine.filter((n) => !n.read).length;
     return `<header class="top"><button type="button" class="brand" data-act="go" data-v="accueil" aria-label="Teamora · retour à la roue"><span class="brand-mark">${LOGO}</span><span class="brand-t">Teamora<small>Nova Studio</small></span></button>
       <div class="top-title"><div class="crumb">${crumb}</div><h1>${title}</h1></div>
-      <div class="top-right"><div class="persona" role="group" aria-label="Voir l’application en tant que">${Object.entries(PROFILES).map(([k, p]) => { const e = emp(p.emp);
+      <div class="top-right"><div class="persona" role="group" aria-label="Voir l’application en tant que">${Object.entries(PROFILES).map(([k, p]) => { const e = profileEmp(k);
         return `<button type="button" data-act="persona" data-p="${k}" aria-pressed="${ui.profile === k}">${avatar(e)}<span class="who-name">${esc(e.firstName)} ·</span> ${p.label}</button>`; }).join('')}</div>
+      ${ui.profile === 'salarie' ? asEmpSelect() : ''}
       ${ui.profile === 'rh' ? `<button type="button" class="btn ${ui.view === 'reporting' ? 'primary' : 'ghost'} sm rep-btn" data-act="go" data-v="reporting">${ic('chart')}Reporting RH</button>` : ''}
       <button type="button" class="icon-btn" data-act="notif" aria-label="Notifications (${unread} non lues)" aria-expanded="${ui.notif}">${ic('bell')}${unread ? `<span class="dot num">${unread}</span>` : ''}</button></div>
       ${ui.notif ? `<div class="card notif-pop" data-act="noop"><div class="card-h"><h3>Notifications</h3>${unread ? '<button type="button" class="btn ghost sm" data-act="notif-read">Tout marquer comme lu</button>' : ''}</div>
@@ -257,28 +284,12 @@
   let wheelN = 16; // number of stages shown in the wheel for the current profile
   const ang = (k) => (-90 + k * 360 / wheelN) * Math.PI / 180;
   const nodePos = (i, r = W.R) => ({ x: Math.cos(ang(i)) * r, y: Math.sin(ang(i)) * r });
-  function stageCount(i) {
-    if (i === 1) return scopeCandidates().filter(activeCand).length;
-    return scopeEmployees().filter((e) => e.stage === i).length;
-  }
-  function kpiStrip() {
-    const k = (l, v, s) => `<div class="card kpi"><span class="l">${l}</span><span class="v num">${v}</span><span class="s">${s}</span></div>`;
-    if (ui.profile === 'salarie') {
-      const e = me(); const closed = payMonths().filter((m) => db.payroll[m] && db.payroll[m].closed && inPayroll(e, m)); const last = closed[closed.length - 1];
-      return `<div class="kpis">${k('Congés payés restants', `${e.cp} j`, 'Acquis : 2,08 j par mois')}${k('RTT restants', `${e.rtt} j`, 'Année 2026')}
-        ${k('Mon parcours', esc(STAGES[e.stage].short), esc(STAGES[e.stage].title))}${k('Dernier bulletin', last ? eur0(calcPay(e, last).net) : '—', last ? `Net payé · ${monthLabel(last)}` : 'Aucun bulletin')}</div>`;
-    }
-    const people = scopeEmployees();
-    const employed = people.filter(isEmployed);
-    const away = employed.filter((e) => { const l = leaveOn(e, TODAY); return l && l.type !== 'Télétravail'; }).length;
-    const trial = employed.filter((e) => e.stage <= 4).length;
-    if (ui.profile === 'manager') {
-      return `<div class="kpis">${k('Mon équipe', employed.length, `${plural(trial, 'personne', 'personnes')} en période d’essai`)}${k('Absents aujourd’hui', away, fmtDate(TODAY, { weekday: 'long', day: 'numeric', month: 'long' }))}
-        ${k('Demandes à valider', pendingForMe().length, 'Congés, RTT, télétravail')}${k('Candidats en cours', scopeCandidates().filter(activeCand).length, `Équipe ${esc(me().dept)}`)}</div>`;
-    }
-    const open = db.jobs.filter((j) => j.status === 'Ouverte').length, drafts = needsToDo().length;
-    return `<div class="kpis">${k('Effectif', employed.length, `dont ${trial} en période d’essai · ${plural(db.employees.filter((e) => e.stage === 2).length, 'arrivée prévue', 'arrivées prévues')}`)}${k('Absents aujourd’hui', away, fmtDate(TODAY, { weekday: 'long', day: 'numeric', month: 'long' }))}
-      ${k('Demandes à valider', pendingForMe().length, 'Absences en attente')}${k('Postes ouverts', open, drafts ? `${plural(drafts, 'besoin', 'besoins')} à traiter` : 'Aucun besoin en attente')}</div>`;
+  const atStage = (e, i) => (i === 3 ? e.stage === 2 : e.stage === i);
+  // Profil Salarié : choisir le collaborateur dont on voit l'espace (une nouvelle recrue y a accès dès son embauche).
+  function asEmpSelect() {
+    const cur = me().id, base = db.employees.filter((e) => e.id === PROFILES.salarie.emp), arrivals = db.employees.filter((e) => e.stage >= 2 && e.stage <= 4 && e.id !== PROFILES.salarie.emp).sort((x, y) => y.startDate.localeCompare(x.startDate));
+    const o = (e) => `<option value="${e.id}" ${e.id === cur ? 'selected' : ''}>${esc(fullName(e))}${e.stage === 2 ? ` · arrivée le ${fmtShort(e.startDate)}` : ''}</option>`;
+    return `<label class="sr" for="as-emp">Espace du collaborateur</label><select id="as-emp" class="select as-emp" data-change="as-emp">${base.map(o).join('')}<optgroup label="Nouvelles recrues">${arrivals.map(o).join('')}</optgroup></select>`;
   }
   function wheelHTML() {
     const sal = ui.profile === 'salarie', m = me(), vis = visibleStages();
@@ -294,7 +305,9 @@
       const mod = v === 'etape' ? '' : VIEW_LABELS[ui.profile][v];
       return `<div class="lab" style="left:${W.cx + p.x}px;top:${W.cy + p.y}px;transform:${tr};text-align:${align}"><div class="lab-in"><b>${esc(s.short)}</b>${mod && mod !== s.short ? `<em>${esc(mod)}</em>` : ''}</div></div>`;
     }).join('');
-    const hubText = sal ? `<small>MON PARCOURS</small><b>Étape<br>en cours</b><span class="hub-n">${esc(STAGES[m.stage].short)}</span>`
+    const days = dayDiff(TODAY, m.startDate);
+    const hubText = sal && locked(m) ? `<small>MON ARRIVÉE</small><b>${esc(fmtDate(m.startDate, { day: 'numeric', month: 'long' }))}</b><span class="hub-n num">J-${days}</span>`
+      : sal ? `<small>MON PARCOURS</small><b>Étape<br>en cours</b><span class="hub-n">${esc(STAGES[m.stage].short)}</span>`
       : ui.profile === 'manager' ? `<small>PARCOURS</small><b>Équipe ${esc(m.dept)}</b><span class="hub-n num">${plural(scopeEmployees().filter(isEmployed).length, 'personne', 'personnes')}</span>`
         : `<small>PARCOURS</small><b>Collaborateur</b><span class="hub-n num">${plural(db.employees.filter(isEmployed).length, 'collaborateur', 'collaborateurs')}</span>`;
     return `<div class="wheel-box" id="wheel-box"><div class="wheel" id="wheel">${labels}${nodes}
@@ -323,63 +336,28 @@
     return `<button type="button" class="btn ghost" data-act="go" data-v="${v}">${label}${ic('arrow')}</button>`;
   }
   function stagePanel(i) {
-    const s = STAGES[i];
+    const s = STAGES[i], steps = stageSteps(i);
     if (ui.profile === 'salarie') {
       const e = me();
-      const arr = i < e.stage ? s.steps.map(() => true) : i === e.stage ? journeyOf(e.id, i) : s.steps.map(() => false);
+      const arr = i < e.stage ? steps.map(() => true) : i === e.stage ? journeyOf(e.id, i) : steps.map(() => false);
       const state = i < e.stage ? '<span class="pill ok">Terminée</span>' : i === e.stage ? '<span class="pill accent">En cours</span>' : '<span class="pill neutral">À venir</span>';
-      return `<div class="card card-b">${stageHead(i)}</div><div class="card"><div class="card-h"><h3>Sous-étapes</h3>${state}</div><div class="card-b">${stepsList(arr, s.steps, false)}</div></div>${moduleBtn(i) ? `<div>${moduleBtn(i)}</div>` : ''}`;
+      return `<div class="card card-b">${stageHead(i)}</div><div class="card"><div class="card-h"><h3>Sous-étapes</h3>${state}</div><div class="card-b">${stepsList(arr, steps, false)}</div></div>${i === 4 ? myIntegration(e) : ''}${moduleBtn(i) ? `<div>${moduleBtn(i)}</div>` : ''}`;
     }
-    let body;
-    {
-      const people = scopeEmployees().filter((e) => e.stage === i);
-      body = `<div class="card"><div class="card-h"><h3>Collaborateurs à cette étape</h3><span class="pill accent num">${people.length}</span></div><div class="card-b"><div class="people">${people.length ? people.map((e) => {
-        const arr = journeyOf(e.id, i), done = arr.filter(Boolean).length, open = ui.selPerson === e.id;
-        return `<button type="button" class="person-row" data-act="person" data-id="${e.id}" aria-expanded="${open}">${avatar(e)}<span class="who"><b>${esc(fullName(e))}</b><small>${esc(e.title)} · ${done}/${arr.length} tâches</small></span><span class="mini-bar"><i style="width:${(done / arr.length) * 100}%"></i></span></button>
-          ${open ? `<div class="card card-b">${stepsList(arr, s.steps, !(i >= 2 && i <= 4) && i < 13, e.id, i)}${i >= 2 && i <= 4 ? arrivalDossier(e, i) : i >= 13 ? departDossier(e, i) : ''}<div class="toolbar" style="margin-top:16px">
-            ${ui.profile === 'rh' && i < 15 ? `<button type="button" class="btn ${done === arr.length ? 'primary' : 'ghost'} sm" data-act="advance" data-id="${e.id}">Passer à « ${esc(STAGES[i + 1].short)} »${ic('arrow')}</button>` : ''}
-            <button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir la fiche</button>${done < arr.length ? `<span class="hint">${plural(arr.length - done, 'sous-étape restante', 'sous-étapes restantes')}</span>` : ''}</div>
-            ${ui.profile === 'manager' ? '<p class="hint" style="margin:10px 0 0">Les RH font passer le collaborateur à l’étape suivante.</p>' : ''}</div>` : ''}`; }).join('')
-        : '<p class="muted" style="margin:0">Aucun collaborateur à cette étape pour le moment.</p>'}</div></div></div>
-        ${i === 14 ? exitStats() : ''}${people.length ? '' : `<div class="card"><div class="card-h"><h3>Sous-étapes de l’étape</h3></div><div class="card-b">${stepsList(s.steps.map(() => false), s.steps, false)}</div></div>`}${moduleBtn(i)}`;
-    }
+    const rh = ui.profile === 'rh', arrival = i >= 2 && i <= 4;
+    const people = scopeEmployees().filter((e) => atStage(e, i));
+    const body = `<div class="card"><div class="card-h"><h3>Collaborateurs à cette étape</h3><span class="pill accent num">${people.length}</span></div><div class="card-b"><div class="people">${people.length ? people.map((e) => {
+      const arr = journeyOf(e.id, i), done = arr.filter(Boolean).length, open = ui.selPerson === e.id, todo = i <= 4 ? arrivalActions(e, i).length : rh && departActions(e).length;
+      const next = i === 2 || i === 3 ? '' : rh && i < 15 ? `<button type="button" class="btn ${done === arr.length ? 'primary' : 'ghost'} sm" data-act="advance" data-id="${e.id}">Passer à « ${esc(STAGES[i + 1].short)} »${ic('arrow')}</button>` : '';
+      return `<button type="button" class="person-row" data-act="person" data-id="${e.id}" aria-expanded="${open}">${avatar(e)}<span class="who"><b>${esc(fullName(e))}</b><small>${esc(e.title)} · ${done}/${arr.length} sous-étapes${i === 2 || i === 3 ? ` · arrivée le ${fmtShort(e.startDate)}` : ''}</small></span>${todo ? `<span class="badge-dot num" title="À traiter">${todo}</span>` : ''}<span class="mini-bar"><i style="width:${(done / arr.length) * 100}%"></i></span></button>
+        ${open ? `<div class="card card-b">${stepsList(arr, steps, !arrival && i < 13, e.id, i)}${arrival ? arrivalDossier(e, i) : i >= 13 ? departDossier(e, i) : ''}<div class="toolbar" style="margin-top:16px">
+          ${next}<button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir la fiche</button>${done < arr.length ? `<span class="hint">${plural(arr.length - done, 'sous-étape restante', 'sous-étapes restantes')}</span>` : ''}</div>
+          ${i === 2 || i === 3 ? `<p class="hint" style="margin:10px 0 0">La pré-embauche et l’embauche avancent en parallèle. ${esc(e.firstName)} passe automatiquement en intégration quand les deux sont terminées et le contrat signé.</p>`
+            : ui.profile === 'manager' ? '<p class="hint" style="margin:10px 0 0">Les RH font passer le collaborateur à l’étape suivante.</p>' : ''}</div>` : ''}`; }).join('')
+      : '<p class="muted" style="margin:0">Aucun collaborateur à cette étape pour le moment.</p>'}</div></div></div>
+      ${i === 14 ? exitStats() : ''}${i === 4 && rh ? planConfig() : ''}${people.length ? '' : `<div class="card"><div class="card-h"><h3>Sous-étapes de l’étape</h3></div><div class="card-b">${stepsList(steps.map(() => false), steps, false)}</div></div>`}${moduleBtn(i)}`;
     return `<div class="card card-b">${stageHead(i)}</div>${body}`;
   }
-  function defaultPanel() {
-    if (ui.profile === 'salarie') {
-      const e = me(); const i = e.stage;
-      const next = db.leaves.filter((l) => l.empId === e.id && l.end >= TODAY && l.status !== 'Refusée').sort((a, b) => a.start.localeCompare(b.start));
-      return `<div class="card card-b">${stageHead(i, false)}</div><div class="card"><div class="card-h"><h3>Où j’en suis</h3><span class="pill accent">En cours</span></div><div class="card-b">${stepsList(journeyOf(e.id, i), STAGES[i].steps, false)}</div></div>
-        <div class="card"><div class="card-h"><h3>Mes prochaines absences</h3><button type="button" class="btn primary sm" data-act="go" data-v="absences">${ic('plus')}Poser une absence</button></div><div class="card-b">${next.length ? next.map((l) => `<div class="todo"><div class="t"><b>${esc(l.type)}</b><small>${fmtShort(l.start)} → ${fmtDate(l.end)} · ${plural(l.days, 'jour', 'jours')}</small></div>${leavePill(l)}</div>`).join('') : '<p class="muted" style="margin:0">Aucune absence prévue.</p>'}</div></div>`;
-    }
-    const todos = [];
-    pendingForMe().forEach((l) => { const e = emp(l.empId); todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(fullName(e))} · ${esc(l.type)}</b><small>${fmtShort(l.start)} → ${fmtShort(l.end)} · ${plural(l.days, 'jour', 'jours')}</small></div><button type="button" class="btn ok sm" data-act="leave-ok" data-id="${l.id}">Valider</button><button type="button" class="btn bad sm" data-act="leave-ko" data-id="${l.id}">Refuser</button></div>`); });
-    needsToDo().forEach((j) => { const what = j.status === 'Validée' ? 'Offre à publier' : j.status === 'En validation' ? (j.pending === 'direction' ? 'Décision de la direction à saisir' : 'Besoin à valider') : j.status === 'À modifier' ? 'Besoin à corriger' : 'Brouillon à envoyer';
-      todos.push(`<div class="todo"><div class="t"><b>${what} : ${esc(j.title)}</b><small>${esc(j.dept)} · ${esc(j.contract)} · demandé par ${esc(fullName(emp(j.requestedBy)))}</small></div><button type="button" class="btn ghost sm" data-act="open-need" data-id="${j.id}">Ouvrir</button></div>`); });
-    scopeEmployees().filter((e) => e.stage >= 2 && e.stage <= 4).forEach((e) => { const a = arrivalActions(e); if (a.length) todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(STAGES[e.stage].short)} : ${esc(fullName(e))}</b><small>${a.slice(0, 3).join(' · ')}${a.length > 3 ? ' · …' : ''}</small></div><button type="button" class="btn ghost sm" data-act="open-dossier" data-id="${e.id}">Ouvrir</button></div>`); });
-    pendingSheets().forEach((t) => { const e = emp(t.empId), w = weekStats(t); todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>Heures à valider : ${esc(fullName(e))}</b><small>Semaine du ${fmtShort(t.week)} · ${fmtH(w.total)}${w.alerts.length ? ' · alerte de durée maximale' : ''}</small></div><button type="button" class="btn ok sm" data-act="ts-ok" data-id="${t.id}">Valider</button></div>`); });
-    if (ui.profile === 'rh') {
-      pendingChanges().forEach((r) => todos.push(`<div class="todo">${avatar(emp(r.empId), 'sm')}<div class="t"><b>Modification à valider : ${esc(fullName(emp(r.empId)))}</b><small>${esc(r.label)} → ${esc(r.to)}</small></div><button type="button" class="btn ok sm" data-act="chg-ok" data-id="${r.id}">Valider</button></div>`));
-      db.leaves.filter((l) => l.type === 'Maladie' && !l.dsnAt).forEach((l) => todos.push(`<div class="todo">${avatar(emp(l.empId), 'sm')}<div class="t"><b>Attestation de salaire : ${esc(fullName(emp(l.empId)))}</b><small>Arrêt du ${fmtShort(l.start)} · à transmettre via la DSN avant le ${fmtShort(addDays(l.receivedAt || l.start, 5))}</small></div><button type="button" class="btn primary sm" data-act="sick-dsn" data-id="${l.id}">Transmettre</button></div>`));
-      const rp = Object.values(db.raises.proposals).filter((x) => x.status === 'Proposée').length;
-      if (rp && db.raises.status === 'Ouverte') todos.push(`<div class="todo"><div class="t"><b>Révision salariale : ${plural(rp, 'proposition à valider', 'propositions à valider')}</b><small>Campagne ${db.raises.year} · clôture le ${fmtShort(db.raises.deadline)}</small></div><button type="button" class="btn ghost sm" data-act="go-pay-tab" data-t="revision">Ouvrir</button></div>`);
-      const late = adminDeadlines(db.employees).filter((x) => x.date <= addDays(TODAY, 14));
-      if (late.length) todos.push(`<div class="todo"><div class="t"><b>${plural(late.length, 'échéance administrative', 'échéances administratives')} sous 15 jours</b><small>${late.slice(0, 2).map((x) => `${esc(fullName(x.e))} : ${esc(x.label.toLowerCase())}`).join(' · ')}</small></div><button type="button" class="btn ghost sm" data-act="go-admin-tab" data-t="echeances">Voir</button></div>`);
-    }
-    if (ui.profile === 'manager' && db.raises.status === 'Ouverte') { const left = scopeEmployees().filter((e) => raiseEligible(e) && !db.raises.proposals[e.id]).length; if (left) todos.push(`<div class="todo"><div class="t"><b>Révision salariale ${db.raises.year}</b><small>${plural(left, 'collaborateur', 'collaborateurs')} sans proposition · avant le ${fmtShort(db.raises.deadline)}</small></div><button type="button" class="btn ghost sm" data-act="go" data-v="paie">Proposer</button></div>`); }
-    pendingEvals().forEach(({ c, iv }) => todos.push(`<div class="todo">${avatarName(c.id, c.name, 'sm')}<div class="t"><b>Évaluation à remplir : ${esc(c.name)}</b><small>${esc(iv.kind)} du ${fmtShort(iv.date.slice(0, 10))} · ${esc(candJob(c).title)}${iv.with !== me().id ? ` · avec ${esc(fullName(emp(iv.with)))}` : ''}</small></div><button type="button" class="btn primary sm" data-act="iv-eval" data-id="${c.id}" data-iv="${iv.id}">Évaluer</button></div>`));
-    if (ui.profile === 'rh') {
-      scopeCandidates().filter((c) => c.stage === 'Proposition' && (!c.offer || ['Expirée', 'Retirée', 'Déclinée'].includes(offerStatus(c.offer)))).forEach((c) => todos.push(`<div class="todo">${avatarName(c.id, c.name, 'sm')}<div class="t"><b>${offerStatus(c.offer) === 'Expirée' ? 'Proposition expirée' : 'Proposition à préparer'} : ${esc(c.name)}</b><small>${esc(candJob(c).title)}</small></div><button type="button" class="btn ghost sm" data-act="open-cand" data-id="${c.id}">Ouvrir</button></div>`));
-      const late = scopeCandidates().filter((c) => waitingDays(c) > ANSWER_DAYS);
-      if (late.length) todos.push(`<div class="todo"><div class="t"><b>${plural(late.length, 'candidat sans nouvelles', 'candidats sans nouvelles')} depuis plus de ${ANSWER_DAYS} jours</b><small>${late.slice(0, 3).map((c) => esc(c.name)).join(', ')}${late.length > 3 ? '…' : ''}</small></div><button type="button" class="btn ghost sm" data-act="go" data-v="recrutement">Voir</button></div>`);
-    }
-    scopeEmployees().filter((e) => e.stage >= 13 && ui.profile === 'rh').forEach((e) => { const a = departActions(e); if (a.length) todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(STAGES[e.stage].short)} : ${esc(fullName(e))}</b><small>${a.slice(0, 3).join(' · ')}${a.length > 3 ? ' · …' : ''}</small></div><button type="button" class="btn ghost sm" data-act="open-dossier" data-id="${e.id}">Ouvrir</button></div>`); });
-    scopeEmployees().filter((e) => ui.profile !== 'rh' && (e.stage === 13 || e.stage === 14)).forEach((e) => todos.push(`<div class="todo">${avatar(e, 'sm')}<div class="t"><b>Départ : ${esc(fullName(e))}</b><small>${e.exit ? `${esc(e.exit.reason)} · dernier jour le ${fmtDate(e.exit.lastDay)}` : 'Départ en préparation'}</small></div><button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir</button></div>`));
-    return `<div class="card"><div class="card-h"><h3>À traiter</h3><span class="pill ${todos.length ? 'warn' : 'ok'} num">${todos.length}</span></div><div class="card-b">${todos.length ? (ui.todoAll ? todos : todos.slice(0, 8)).join('') : '<p class="muted" style="margin:0">Rien à traiter pour le moment.</p>'}
-      ${todos.length > 8 ? `<button type="button" class="btn ghost sm todo-more" data-act="todo-all">${ui.todoAll ? 'Réduire la liste' : `Afficher les ${todos.length - 8} autres`}</button>` : ''}</div></div>
-      <div class="card card-b"><p class="muted" style="margin:0">La roue est le menu de Teamora : chaque étape du parcours collaborateur ouvre le module qui la gère (recrutement, absences, paie, entretiens…). Le chiffre blanc indique combien de personnes, de besoins ou de candidats s’y trouvent ; le chiffre orange, ce qui vous attend.</p></div>`;
-  }
-  const viewHome = () => `${kpiStrip()}<div class="home"><div class="card wheel-card">${wheelHTML()}</div><div class="panel" id="panel">${defaultPanel()}</div></div>`;
+  const viewHome = () => `<div class="home-bg" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="home">${wheelHTML()}</div>`;
   // Stage page (pre-hire, hiring, onboarding, departure…): who is at this stage and their tasks.
   const viewStage = () => `<div class="panel stage-page" id="panel">${stagePanel(ui.stage)}</div>`;
 
@@ -470,8 +448,9 @@
     } else if (tab === 'parcours') {
       const canEdit = rh || (ui.profile === 'manager' && e.managerId === me().id);
       body = `<div class="journey-strip" aria-label="Étape en cours : ${esc(STAGES[e.stage].title)}">${STAGES.map((s, i) => `<i title="${esc(s.title)}" style="${i <= e.stage ? `background:${STAGE_COLORS[i]};` : ''}${i === e.stage ? 'outline:2px solid var(--fg);outline-offset:1px' : ''}"></i>`).join('')}</div>
-        <div class="card card-b">${stageHead(e.stage, false)}<div style="margin-top:12px">${stepsList(journeyOf(e.id, e.stage), STAGES[e.stage].steps, canEdit, e.id, e.stage)}</div>
-        ${rh && e.stage < 15 ? `<div class="toolbar" style="margin-top:12px"><button type="button" class="btn primary sm" data-act="advance" data-id="${e.id}">Passer à « ${esc(STAGES[e.stage + 1].short)} »${ic('arrow')}</button></div>` : ''}</div>`;
+        <div class="card card-b">${stageHead(e.stage, false)}<div style="margin-top:12px">${stepsList(journeyOf(e.id, e.stage), stageSteps(e.stage), canEdit && !inArrival(e) && e.stage !== 4, e.id, e.stage)}</div>
+        ${inArrival(e) ? `<div class="toolbar" style="margin-top:12px"><button type="button" class="btn primary sm" data-act="open-dossier" data-id="${e.id}">Ouvrir le dossier d’arrivée${ic('arrow')}</button></div>`
+          : rh && e.stage < 15 ? `<div class="toolbar" style="margin-top:12px"><button type="button" class="btn primary sm" data-act="advance" data-id="${e.id}">Passer à « ${esc(STAGES[e.stage + 1].short)} »${ic('arrow')}</button></div>` : ''}</div>`;
     } else if (tab === 'absences') {
       const ls = db.leaves.filter((l) => l.empId === e.id).sort((a, b) => b.start.localeCompare(a.start));
       body = `<div class="balances"><div class="card bal"><span class="l">Congés payés</span><div class="v num">${e.cp} <small>j</small></div></div><div class="card bal"><span class="l">RTT</span><div class="v num">${e.rtt} <small>j</small></div></div><div class="card bal"><span class="l">Demandes</span><div class="v num">${ls.length}</div></div></div>
@@ -1290,14 +1269,34 @@
   const needsDirection = (j) => j.reason === 'Création de poste' || !j.budgeted;
   const needSteps = (j) => [['demande', 'Demande', j.requestedBy], ['rh', 'Validation RH', 'e1']]
     .concat(needsDirection(j) ? [['direction', 'Validation direction', 'e5']] : []).concat([['publication', 'Publication de l’offre', 'e1']]);
-  const canEditNeed = (j) => ['Brouillon', 'À modifier'].includes(j.status) && (ui.profile === 'rh' || j.requestedBy === me().id);
+  // Le manager modifie son besoin tant qu'il est en brouillon ou renvoyé « À modifier » ; une fois envoyé, seuls les RH le modifient (jusqu'à la publication).
+  const draftLike = (j) => ['Brouillon', 'À modifier'].includes(j.status);
+  const canEditNeed = (j) => (ui.profile === 'rh' ? ['Brouillon', 'À modifier', 'En validation', 'Validée'].includes(j.status) : ui.profile === 'manager' && draftLike(j) && (jobManager(j) === me().id || j.requestedBy === me().id));
   function needsToDo() {
     if (ui.profile === 'rh') return db.jobs.filter((j) => ['En validation', 'Validée'].includes(j.status));
-    if (ui.profile === 'manager') return scopeJobs().filter((j) => ['Brouillon', 'À modifier'].includes(j.status));
+    if (ui.profile === 'manager') return scopeNeeds().filter(draftLike);
     return [];
   }
-  const NEED_GROUPS = { cours: (j) => ['Brouillon', 'En validation', 'À modifier', 'Validée'].includes(j.status), publies: (j) => NEED_OPEN.includes(j.status), refuses: (j) => j.status === 'Refusée' };
-  const needGroup = (j) => Object.keys(NEED_GROUPS).find((k) => NEED_GROUPS[k](j));
+  const NEED_STATUS = [['all', 'Tous'], ['emis', 'Émis'], ['En validation', 'En attente de validation'], ['À modifier', 'À modifier'], ['Validée', 'Validés, à publier'], ['publies', 'Publiés'], ['Refusée', 'Refusés'], ['Brouillon', 'Brouillons']];
+  const needMatch = (j, k) => k === 'all' || (k === 'emis' ? j.status !== 'Brouillon' : k === 'publies' ? NEED_OPEN.includes(j.status) : j.status === k);
+  const pubDate = (j) => j.publishedAt || ((j.approvals || []).find((a) => a.step === 'publication') || {}).date || null;
+  // Recherche commune aux besoins et aux offres : référence (BES ou OFF), intitulé, demandeur ; service ; date d'émission ou de publication.
+  function jobSearch(j, q, dept, from) {
+    const t = q.trim().toLowerCase(), num = String(j.num || 0).padStart(3, '0');
+    if (t && ![j.title, `bes-${j.createdAt.slice(0, 4)}-${num}`, `off-${j.createdAt.slice(0, 4)}-${num}`, fullName(emp(j.requestedBy))].some((x) => x.toLowerCase().includes(t))) return false;
+    if (dept && j.dept !== dept) return false;
+    if (from && (pubDate(j) || j.createdAt) < from) return false;
+    return true;
+  }
+  function searchBar(pfx, opts = {}) {
+    return `<div class="search-bar card"><label class="search-q">${ic('search')}<span class="sr">Rechercher</span><input class="input" type="search" value="${esc(ui[pfx + 'q'])}" placeholder="${opts.placeholder || 'Référence ou intitulé'}" data-input="${pfx}q"></label>
+      ${ui.profile === 'rh' ? `<label class="sr" for="${pfx}-dept">Service</label><select id="${pfx}-dept" class="select" data-change="${pfx}Dept"><option value="">Tous les services</option>${DEPTS.map((d) => `<option ${d === ui[pfx + 'Dept'] ? 'selected' : ''}>${d}</option>`).join('')}</select>` : ''}
+      ${opts.statuses ? `<label class="sr" for="${pfx}-st">Statut</label><select id="${pfx}-st" class="select" data-change="${pfx}Status"><option value="">Tous les statuts</option>${opts.statuses.map(([v, l]) => `<option value="${v}" ${v === ui[pfx + 'Status'] ? 'selected' : ''}>${l}</option>`).join('')}</select>` : ''}
+      <label class="search-from">${opts.fromLabel || 'Depuis le'}<input class="input" type="date" value="${esc(ui[pfx + 'From'])}" data-change="${pfx}From"></label>
+      ${ui[pfx + 'q'] || ui[pfx + 'Dept'] || ui[pfx + 'Status'] || ui[pfx + 'From'] ? `<button type="button" class="btn ghost sm" data-act="search-clear" data-p="${pfx}">Effacer</button>` : ''}</div>`;
+  }
+  // Journal : qui a fait quoi et quand, sur un besoin ou un candidat.
+  const logTo = (o, text) => { o.log = o.log || []; o.log.push({ date: TODAY, by: me().id, text }); };
   const ALT_LABELS = { mobilite: 'Mobilité interne', taches: 'Répartition des tâches dans l’équipe', interim: 'Intérim, freelance ou sous-traitance', auto: 'Automatisation ou nouvel outil' };
   const DECISION_LABEL = { Soumise: 'Demande envoyée', Validée: 'Validée', 'À modifier': 'Modification demandée', Refusée: 'Refusée', Publiée: 'Offre publiée' };
   const flowText = (reason, budgeted) => {
@@ -1361,9 +1360,10 @@
     if (ui.profile === 'rh') decideNeed(j, 'Validée', 'Besoin émis par les RH.', me().id);
     else notify('e1', `${fullName(me())} a envoyé un besoin de recrutement à valider : ${j.title} (${j.dept}).`);
   }
-  function decideNeed(j, decision, comment, by) {
+  function decideNeed(j, decision, comment, by, reason) {
     const step = j.pending;
-    j.approvals.push({ step, by, decision, date: TODAY, comment });
+    j.approvals.push({ step, by, decision, date: TODAY, comment: reason ? `${reason}${comment ? ` · ${comment}` : ''}` : comment });
+    comment = reason ? `${reason}${comment ? ` (${comment})` : ''}` : comment;
     const who = step === 'direction' ? 'La direction' : 'Les RH';
     if (decision === 'Validée') {
       if (step === 'rh' && needsDirection(j)) { j.pending = 'direction'; notify(j.requestedBy, `Votre besoin « ${j.title} » est validé par les RH et transmis à la direction.`); }
@@ -1396,16 +1396,19 @@
   function needDetail(j) {
     const rh = ui.profile === 'rh', req = emp(j.requestedBy), sc = j.scorecard || { must: [], nice: [], rounds: 0 };
     const done = [j.status !== 'Brouillon', !!(sc.must.length && (j.description || '').length >= 20), ['Validée', ...NEED_OPEN].includes(j.status)];
-    let acts = '';
-    if (canEditNeed(j)) acts = `<button type="button" class="btn ghost" data-act="need-edit" data-id="${j.id}">${ic('edit')}Modifier</button><button type="button" class="btn primary" data-act="need-submit" data-id="${j.id}">${ic('arrow')}${rh ? 'Valider le besoin' : 'Envoyer en validation'}</button>`;
-    else if (rh && j.status === 'En validation') acts = `${j.pending === 'direction' ? '<span class="hint" style="width:100%">Décision de Claire Durand (direction), saisie par les RH :</span>' : ''}
+    let acts = canEditNeed(j) ? `<button type="button" class="btn ghost" data-act="need-edit" data-id="${j.id}">${ic('edit')}Modifier</button>` : '';
+    if (canEditNeed(j) && draftLike(j)) acts += `<button type="button" class="btn primary" data-act="need-submit" data-id="${j.id}">${ic('arrow')}${rh ? 'Valider le besoin' : 'Envoyer en validation'}</button>`;
+    else if (rh && j.status === 'En validation') acts += `${j.pending === 'direction' ? '<span class="hint" style="width:100%">Décision de Claire Durand (direction), saisie par les RH :</span>' : ''}
       <button type="button" class="btn ok" data-act="need-decide" data-id="${j.id}" data-d="Validée">${ic('check')}Valider</button><button type="button" class="btn ghost" data-act="need-decide" data-id="${j.id}" data-d="À modifier">Demander une modification</button><button type="button" class="btn bad" data-act="need-decide" data-id="${j.id}" data-d="Refusée">Refuser</button>`;
-    else if (rh && j.status === 'Validée') acts = `<button type="button" class="btn primary" data-act="need-publish" data-id="${j.id}">${ic('file')}Rédiger et publier l’offre</button>`;
-    else if (NEED_OPEN.includes(j.status)) acts = `<button type="button" class="btn ghost" data-act="open-job" data-id="${j.id}">Voir l’offre et les candidats${ic('arrow')}</button>`;
+    else if (rh && j.status === 'Validée') acts += `<button type="button" class="btn primary" data-act="need-publish" data-id="${j.id}">${ic('file')}Rédiger et publier l’offre</button>`;
+    else if (NEED_OPEN.includes(j.status)) acts += `<button type="button" class="btn ghost" data-act="open-job" data-id="${j.id}">Voir l’offre et les candidats${ic('arrow')}</button>`;
+    const lock = !rh && !draftLike(j) && !NEED_OPEN.includes(j.status) && j.status !== 'Refusée' ? `<p class="hint lock">${ic('check')}Envoyé aux RH : seuls les RH peuvent désormais modifier ce besoin.</p>`
+      : NEED_OPEN.includes(j.status) ? `<p class="hint lock">${ic('arrow')}Offre publiée : elle se suit dans Recrutement. Ce besoin reste consultable ici.</p>` : '';
     const repl = j.replaces && emp(j.replaces);
     const alts = Object.entries(ALT_LABELS).map(([k, l]) => `<div class="step ${j.alternatives[k] ? 'done' : ''}"><span class="ckbox" aria-checked="${!!j.alternatives[k]}">${ic('check')}</span><span>${l}</span></div>`).join('');
-    return `<div class="card"><div class="job-head"><div style="min-width:0"><div class="toolbar">${jobPill(j)}<span class="pill ${j.priority === 'Urgente' ? 'bad' : j.priority === 'Anticipée' ? 'info' : 'neutral'}">Priorité ${j.priority.toLowerCase()}</span><span class="muted" style="font-size:13px">Demandé par ${esc(fullName(req))} le ${fmtDate(j.createdAt)}</span></div>
-        <h2 style="margin-top:8px">${esc(j.title)}</h2><p>${esc(j.dept)} · ${esc(j.contract)} · ${esc(j.location)} · arrivée souhaitée le ${fmtDate(j.startWanted)}</p><p>${esc(j.description)}</p></div><div class="toolbar">${acts}</div></div>
+    const mgr = emp(jobManager(j));
+    return `<div class="card"><div class="job-head"><div style="min-width:0"><div class="toolbar"><span class="ref num">${jobRef(j)}</span>${jobPill(j)}<span class="pill ${j.priority === 'Urgente' ? 'bad' : j.priority === 'Anticipée' ? 'info' : 'neutral'}">Priorité ${j.priority.toLowerCase()}</span><span class="muted" style="font-size:13px">Émis par ${esc(fullName(req))} le ${fmtDate(j.createdAt)}${mgr && mgr !== req ? ` · manager : ${esc(fullName(mgr))}` : ''}</span></div>
+        <h2 style="margin-top:8px">${esc(j.title)}</h2><p>${esc(j.dept)} · ${esc(j.contract)} · ${esc(j.location)} · arrivée souhaitée le ${fmtDate(j.startWanted)}</p><p>${esc(j.description)}</p>${lock}</div><div class="toolbar">${acts}</div></div>
       <div class="card-b" style="border-top:1px solid var(--line)"><h4 class="sub">Avancement de l’étape</h4>${stepsList(done, STAGES[0].steps, false)}</div></div>
       <div class="two">${card('Circuit de validation', '', `<div class="card-b">${needFlowHTML(j)}</div>`)}
         ${card('Justification', '', `<div class="card-b"><div class="info-grid"><div><span>Motif</span>${esc(j.reason)}${repl ? ` de ${esc(fullName(repl))}` : ''}</div><div><span>Salaire annuel brut</span><span class="num">${esc(j.budget)}</span></div>
@@ -1414,18 +1417,27 @@
       <div class="two">${card('Fiche de cadrage', `<span class="muted" style="font-size:13px">Sert à évaluer les candidats</span>`, `<div class="card-b"><h4 class="sub">Compétences indispensables</h4>${sc.must.length ? `<ol class="crit-list">${sc.must.map((m) => `<li>${esc(m)}</li>`).join('')}</ol>` : '<p class="muted" style="margin:0">À définir.</p>'}
           <h4 class="sub" style="margin-top:14px">Atouts appréciés</h4>${sc.nice.length ? `<div class="tags">${sc.nice.map((m) => `<span class="pill neutral">${esc(m)}</span>`).join('')}</div>` : '<p class="muted" style="margin:0">—</p>'}</div>`)}
         ${card('Talents internes', '', `<div class="card-b">${talentsHTML(j.title, j.dept)}</div>`)}</div>
-      ${card('Historique', '', `<div class="card-b">${j.approvals.length ? j.approvals.slice().reverse().map((a) => `<div class="todo">${avatar(emp(a.by), 'sm')}<div class="t"><b>${DECISION_LABEL[a.decision]} · ${esc(fullName(emp(a.by)))}</b><small>${fmtDate(a.date)}${a.comment ? ` · « ${esc(a.comment)} »` : ''}</small></div></div>`).join('') : '<p class="muted" style="margin:0">Brouillon pas encore envoyé.</p>'}</div>`)}`;
+      <div class="two">${commentsCard(j)}${card('Historique', '', `<div class="card-b">${historyRows(j.approvals.map((a) => ({ date: a.date, by: a.by, text: `${DECISION_LABEL[a.decision]}${a.comment ? ` · « ${a.comment} »` : ''}` })).concat(j.log || [])) || '<p class="muted" style="margin:0">Brouillon pas encore envoyé.</p>'}</div>`)}</div>`;
   }
+  const historyRows = (rows) => rows.slice().sort((a, b) => b.date.localeCompare(a.date)).map((a) => `<div class="todo">${avatar(emp(a.by), 'sm')}<div class="t"><b>${esc(a.text)}</b><small>${esc(fullName(emp(a.by)))} · ${fmtDate(a.date)}</small></div></div>`).join('');
+  // Échanges internes RH ↔ manager sur un besoin (le candidat ne les voit jamais).
+  function commentsCard(j) {
+    const list = j.comments || [];
+    return card('Commentaires RH et manager', `<span class="muted num" style="font-size:13px">${list.length || ''}</span>`, `<div class="card-b">${list.map((c) => `<div class="cmt ${c.by === me().id ? 'mine' : ''}">${avatar(emp(c.by), 'sm')}<div><b>${esc(fullName(emp(c.by)))}</b><small>${fmtDate(c.date)}</small><p>${esc(c.text)}</p></div></div>`).join('') || '<p class="muted" style="margin:0 0 8px">Aucun échange pour le moment.</p>'}
+      <form data-form="need-comment" data-id="${j.id}" class="cmt-form"><label class="sr" for="nc-${j.id}">Votre commentaire</label><textarea id="nc-${j.id}" name="text" class="input" maxlength="400" placeholder="Une question, une précision…"></textarea><button class="btn ghost sm">Envoyer</button></form></div>`);
+  }
+  const needList = (list, todo) => list.map((x) => `<button type="button" class="job" data-act="need-sel" data-id="${x.id}" aria-current="${x.id === ui.needSel}"><span class="ref num">${jobRef(x)}</span><b>${esc(x.title)}</b>
+    <span class="meta">${jobPill(x)}<span>${esc(x.dept)} · ${esc(x.contract)}</span></span><span class="meta">${todo.includes(x) ? '<span class="pill warn">À traiter</span>' : ''}${esc(fullName(emp(x.requestedBy)))} · ${fmtShort(x.createdAt)}</span></button>`).join('') || '<div class="card empty">Aucun besoin ne correspond.</div>';
+  const needFiltered = () => scopeNeeds().filter((j) => needMatch(j, ui.needTab) && jobSearch(j, ui.nq, ui.nDept, ui.nFrom)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   function viewNeeds() {
-    const jobs = scopeJobs(), tab = ui.needTab;
-    const list = jobs.filter(NEED_GROUPS[tab]).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    const todo = needsToDo();
+    const jobs = scopeNeeds(), todo = needsToDo();
+    if (!NEED_STATUS.some(([k]) => k === ui.needTab)) ui.needTab = 'all';
+    const list = needFiltered();
     if (!list.some((j) => j.id === ui.needSel)) ui.needSel = (list.find((j) => todo.includes(j)) || list[0] || {}).id || null;
     const j = db.jobs.find((x) => x.id === ui.needSel);
-    const count = (k) => jobs.filter(NEED_GROUPS[k]).length;
-    return `${tabsBar('needTab', [['cours', 'En cours', count('cours')], ['publies', 'Offres publiées', count('publies')], ['refuses', 'Refusés', count('refuses')]])}
-      <div class="rec"><div class="jobs"><button type="button" class="btn primary" data-act="need-new">${ic('plus')}Exprimer un besoin</button>${list.map((x) => `<button type="button" class="job" data-act="need-sel" data-id="${x.id}" aria-current="${x.id === ui.needSel}"><b>${esc(x.title)}</b>
-        <span class="meta">${jobPill(x)}<span>${esc(x.dept)} · ${esc(x.contract)}</span></span><span class="meta">${todo.includes(x) ? '<span class="pill warn">À traiter</span>' : ''}${esc(fullName(emp(x.requestedBy)))} · ${fmtShort(x.createdAt)}</span></button>`).join('') || '<div class="card empty">Aucun besoin ici.</div>'}</div>
+    const chips = NEED_STATUS.map(([k, l]) => { const n = jobs.filter((x) => needMatch(x, k)).length; return k === 'Brouillon' && !n ? '' : `<button type="button" class="chip" data-act="need-tab" data-t="${k}" aria-pressed="${ui.needTab === k}">${l}<b class="num">${n}</b></button>`; }).join('');
+    return `<div class="chips" role="group" aria-label="Filtrer par statut">${chips}</div>${searchBar('n', { fromLabel: 'Émis ou publié depuis le' })}
+      <div class="rec"><div class="jobs"><button type="button" class="btn primary" data-act="need-new">${ic('plus')}Exprimer un besoin</button><div class="jobs" id="need-list">${needList(list, todo)}</div></div>
         <div class="need-d">${j ? needDetail(j) : '<div class="card empty">Exprimez un besoin pour démarrer un recrutement.</div>'}</div></div>`;
   }
 
@@ -1433,7 +1445,9 @@
     'need-new'() { ui.modal = { type: 'need' }; render(); },
     'need-edit'(d) { ui.modal = { type: 'need', id: d.id }; render(); },
     'need-sel'(d) { ui.needSel = d.id; render(); },
-    'open-need'(d) { const j = db.jobs.find((x) => x.id === d.id); Object.assign(ui, { view: 'besoins', stage: null, needSel: j.id, needTab: needGroup(j), drawer: null, notif: false }); window.scrollTo(0, 0); render(); },
+    'open-need'(d) { const j = db.jobs.find((x) => x.id === d.id); Object.assign(ui, { view: 'besoins', stage: null, needSel: j.id, needTab: 'all', nq: '', nDept: '', nFrom: '', drawer: null, notif: false }); window.scrollTo(0, 0); render(); },
+    'need-tab'(d) { ui.needTab = d.t; render(); },
+    'search-clear'(d) { ['q', 'Dept', 'Status', 'From'].forEach((k) => { ui[d.p + k] = ''; }); render(); },
     'need-submit'(d) {
       const j = db.jobs.find((x) => x.id === d.id), err = needError(j);
       if (err) { ui.modal = { type: 'need', id: j.id, err }; render(); return; }
@@ -1441,6 +1455,9 @@
     },
     'need-decide'(d) { ui.modal = { type: 'need-decide', id: d.id, d: d.d }; render(); },
     'need-publish'(d) { ui.modal = { type: 'need-publish', id: d.id }; render(); },
+  });
+  Object.assign(MOD_CHG, {
+    nDept(v) { ui.nDept = v; render(); }, nFrom(v) { ui.nFrom = v; render(); },
   });
   Object.assign(MOD_LIVE, {
     need(form) {
@@ -1456,25 +1473,28 @@
     need(v) {
       const rh = ui.profile === 'rh', existing = ui.modal.id && db.jobs.find((x) => x.id === ui.modal.id);
       const n = (x) => Number(String(x || '').replace(/\s/g, '')) || 0;
-      const data = { title: v.title.trim(), dept: rh ? v.dept : me().dept, contract: v.contract, location: v.location, priority: v.priority, startWanted: v.startWanted, reason: v.reason,
+      const data = { title: v.title.trim(), dept: rh ? v.dept : me().dept, managerId: rh ? v.managerId || DEPT_HEAD[v.dept] : me().id, contract: v.contract, location: v.location, priority: v.priority, startWanted: v.startWanted, reason: v.reason,
         replaces: v.reason === 'Remplacement' ? v.replaces || null : null, salaryMin: n(v.salaryMin), salaryMax: n(v.salaryMax), budgeted: v.budgeted !== 'non', description: v.description.trim(),
         alternatives: { mobilite: !!v.alt_mobilite, taches: !!v.alt_taches, interim: !!v.alt_interim, auto: !!v.alt_auto, note: v.altNote.trim() },
         scorecard: { must: [v.must1, v.must2, v.must3, v.must4].map((x) => x.trim()).filter(Boolean), nice: v.nice.split('\n').map((x) => x.trim()).filter(Boolean), rounds: Number(v.rounds) } };
       data.budget = data.salaryMin ? `${eur0(data.salaryMin).replace(/\s?€/, '')} – ${eur0(data.salaryMax)}` : 'À définir';
-      const draft = v.draft === '1';
+      const draft = v.draft === '1', saveOnly = existing && !draftLike(existing);
       if (!draft) { const err = needError(data); if (err) return formError(err); }
       else if (!data.title) return formError('Indiquez au moins l’intitulé du poste.');
-      const j = existing || { id: uid('j'), status: 'Brouillon', createdAt: TODAY, requestedBy: me().id, pending: null, refusedAt: null, approvals: [] };
+      const j = existing || { id: uid('j'), num: Math.max(0, ...db.jobs.map((x) => x.num || 0)) + 1, status: 'Brouillon', createdAt: TODAY, requestedBy: me().id, pending: null, refusedAt: null, approvals: [], comments: [], log: [], reviewers: [] };
       Object.assign(j, data);
-      if (!existing) db.jobs.push(j);
-      if (!draft) submitNeed(j);
-      Object.assign(ui, { modal: null, view: 'besoins', needSel: j.id, needTab: 'cours' });
-      toast(draft ? 'Brouillon enregistré' : rh ? 'Besoin validé par les RH' : 'Besoin envoyé aux RH pour validation'); commit();
+      if (!existing) { db.jobs.push(j); logTo(j, 'Besoin créé'); }
+      else logTo(j, 'Besoin modifié');
+      if (saveOnly) { if (jobManager(j) !== me().id) notify(jobManager(j), `Les RH ont modifié votre besoin « ${j.title} ».`); }
+      else if (!draft) submitNeed(j);
+      Object.assign(ui, { modal: null, view: 'besoins', needSel: j.id });
+      toast(saveOnly ? 'Modifications enregistrées' : draft ? 'Brouillon enregistré' : rh ? 'Besoin validé par les RH' : 'Besoin envoyé aux RH pour validation'); commit();
     },
     'need-decide'(v) {
       const j = db.jobs.find((x) => x.id === ui.modal.id), d = ui.modal.d, comment = v.comment.trim();
-      if (d !== 'Validée' && !comment) return formError('Un commentaire est obligatoire pour expliquer la décision au demandeur.');
-      decideNeed(j, d, comment, j.pending === 'direction' ? 'e5' : me().id);
+      if (d === 'À modifier' && !comment) return formError('Un commentaire est obligatoire pour expliquer la modification attendue.');
+      if (d === 'Refusée' && (!v.reason || (v.reason === 'Autre motif' && !comment))) return formError('Choisissez le motif du refus (et précisez-le en commentaire s’il s’agit d’un autre motif).');
+      decideNeed(j, d, comment, j.pending === 'direction' ? 'e5' : me().id, d === 'Refusée' ? v.reason : '');
       ui.modal = null; toast(d === 'Validée' ? (j.status === 'Validée' ? 'Besoin validé : l’offre peut être publiée' : 'Besoin validé et transmis à la direction') : d === 'À modifier' ? 'Besoin renvoyé au demandeur' : 'Besoin refusé'); commit();
     },
     'need-publish'(v) {
@@ -1484,19 +1504,30 @@
       j.title = v.title.trim(); j.description = v.description.trim(); j.status = 'Ouverte'; j.publishedAt = TODAY;
       j.approvals.push({ step: 'publication', by: me().id, decision: 'Publiée', date: TODAY, comment: '' });
       notify(j.requestedBy, `L’offre « ${j.title} » est publiée : les candidatures peuvent arriver.`);
-      Object.assign(ui, { modal: null, needTab: 'publies', recJob: j.id }); toast(`Offre publiée : ${j.title}`); commit();
+      Object.assign(ui, { modal: null, recJob: j.id }); toast(`Offre publiée sous la référence ${jobRef(j)} · à suivre dans Recrutement`); commit();
     },
   });
+  Object.assign(MOD_FORMS, {
+    'need-comment'(v, form) {
+      const j = db.jobs.find((x) => x.id === form.dataset.id), text = (v.text || '').trim(); if (!text) { toast('Le commentaire est vide.', 'info'); return; }
+      j.comments = j.comments || []; j.comments.push({ by: me().id, date: TODAY, text });
+      const to = ui.profile === 'rh' ? jobManager(j) : 'e1'; if (to !== me().id) notify(to, `${fullName(me())} a commenté le besoin « ${j.title} » : ${text}`);
+      toast('Commentaire envoyé'); commit();
+    },
+  });
+  const NEED_REFUSALS = ['Hors budget', 'Besoin insuffisamment justifié', 'Une alternative interne est possible', 'Calendrier à revoir', 'Autre motif'];
   MODALS.need = (m, shell, formShell, opt, f) => {
     const rh = ui.profile === 'rh', j = m.id ? db.jobs.find((x) => x.id === m.id) : { title: '', dept: rh ? 'Design' : me().dept, contract: 'CDI', location: 'Paris', priority: 'Normale', startWanted: addDays(TODAY, 60),
       reason: 'Création de poste', replaces: null, salaryMin: '', salaryMax: '', budgeted: true, description: '', alternatives: { note: '' }, scorecard: { must: [], nice: [], rounds: 2 } };
     const sc = j.scorecard || { must: [], nice: [], rounds: 2 }, L = 'data-live="need"';
     const people = db.employees.filter((e) => rh || e.dept === me().dept).map((e) => [e.id, `${fullName(e)} · ${e.title}`]);
+    const mgrs = db.employees.filter((e) => isEmployed(e) && (Object.values(DEPT_HEAD).includes(e.id) || db.employees.some((x) => x.managerId === e.id))).map((e) => [e.id, `${fullName(e)} · ${e.dept}`]);
+    const saveOnly = m.id && !draftLike(j);
     const must = [0, 1, 2, 3].map((k) => f(`j-must${k}`, `Indispensable ${k + 1}${k ? '' : ' *'}`, `<input id="j-must${k}" name="must${k + 1}" class="input" value="${esc(sc.must[k] || '')}" placeholder="${['Ex. Recherche utilisateur', 'Ex. Prototypage', 'Ex. Design system', 'Facultatif'][k]}">`)).join('');
     return shell(m.id ? `Modifier le besoin · ${esc(j.title)}` : 'Exprimer un besoin de recrutement', `<form data-form="need" novalidate><div class="modal-b">
       <h3 class="sec">Le poste</h3><div class="form-grid">
         ${f('j-title', 'Intitulé du poste *', `<input id="j-title" name="title" class="input" value="${esc(j.title)}" placeholder="Ex. Product Designer H/F" ${L}>`, true)}
-        ${f('j-dept', 'Service', rh ? `<select id="j-dept" name="dept" class="select" ${L}>${opt(DEPTS, j.dept)}</select>` : `<input id="j-dept" name="dept" class="input" value="${esc(j.dept)}" readonly>`)}${f('j-contract', 'Contrat', `<select id="j-contract" name="contract" class="select">${opt(['CDI', 'CDD', 'Alternance', 'Stage'], j.contract)}</select>`)}
+        ${f('j-dept', 'Service', rh ? `<select id="j-dept" name="dept" class="select" ${L}>${opt(DEPTS, j.dept)}</select>` : `<input id="j-dept" name="dept" class="input" value="${esc(j.dept)}" readonly>`)}${rh ? f('j-mgr', 'Manager rattaché', `<select id="j-mgr" name="managerId" class="select">${opt(mgrs, j.managerId || DEPT_HEAD[j.dept])}</select>`) : ''}${f('j-contract', 'Contrat', `<select id="j-contract" name="contract" class="select">${opt(['CDI', 'CDD', 'Alternance', 'Stage'], j.contract)}</select>`)}
         ${f('j-loc', 'Lieu', `<select id="j-loc" name="location" class="select">${opt(['Paris', 'Lyon · hybride', 'Télétravail'], j.location)}</select>`)}${f('j-prio', 'Priorité', `<select id="j-prio" name="priority" class="select">${opt(['Urgente', 'Normale', 'Anticipée'], j.priority)}</select>`)}
         ${f('j-start', 'Arrivée souhaitée *', `<input id="j-start" name="startWanted" type="date" class="input" value="${esc(j.startWanted)}">`)}</div>
       <h3 class="sec">Justification</h3><div class="form-grid">
@@ -1512,7 +1543,7 @@
       <h3 class="sec">Missions et profil</h3>${f('j-desc', 'Description *', `<textarea id="j-desc" name="description" class="input" placeholder="Missions principales, contexte de l’équipe, profil recherché…" ${L}>${esc(j.description)}</textarea>`, true)}
         <div id="j-lint" style="margin-top:10px">${adLintHTML(j.title, j.description, false)}</div>
       <p class="err" id="m-err" aria-live="polite">${m.err ? esc(m.err) : ''}</p></div>
-      <div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button class="btn ghost" name="draft" value="1">Enregistrer le brouillon</button><button class="btn primary">${rh ? 'Valider le besoin' : 'Envoyer en validation'}</button></div></form>`, '', true);
+      <div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button>${saveOnly ? '<button class="btn primary">Enregistrer les modifications</button>' : `<button class="btn ghost" name="draft" value="1">Enregistrer le brouillon</button><button class="btn primary">${rh ? 'Valider le besoin' : 'Envoyer en validation'}</button>`}</div></form>`, '', true);
   };
   MODALS['need-decide'] = (m, shell, formShell, opt, f) => {
     const j = db.jobs.find((x) => x.id === m.id), dir = j.pending === 'direction';
@@ -1520,7 +1551,8 @@
     const next = m.d === 'Validée' ? (!dir && needsDirection(j) ? `Le besoin sera ensuite transmis à la direction (${j.reason === 'Création de poste' ? 'création de poste' : 'poste hors budget'}).` : 'Le besoin sera validé : il restera à rédiger et publier l’offre.')
       : m.d === 'À modifier' ? `${esc(fullName(emp(j.requestedBy)))} pourra corriger sa demande et la renvoyer.` : 'Le demandeur sera prévenu du refus et de son motif.';
     return formShell(`${L[0]} · ${esc(j.title)}`, 'need-decide', `${dir ? '<p class="hint" style="margin:0 0 10px">La direction n’a pas de profil dans cette démo : les RH enregistrent la décision de Claire Durand.</p>' : ''}<p style="margin:0 0 12px">${next}</p>
-      ${f('nd-c', m.d === 'Validée' ? 'Commentaire (facultatif)' : 'Commentaire pour le demandeur *', '<textarea id="nd-c" name="comment" class="input" maxlength="300"></textarea>', true)}`, L[1]);
+      ${m.d === 'Refusée' ? `<div style="margin-bottom:12px">${f('nd-r', 'Motif du refus *', `<select id="nd-r" name="reason" class="select"><option value="">Choisir…</option>${opt(NEED_REFUSALS)}</select>`, true)}</div>` : ''}
+      ${f('nd-c', m.d === 'À modifier' ? 'Commentaire pour le demandeur *' : 'Commentaire (facultatif)', '<textarea id="nd-c" name="comment" class="input" maxlength="300"></textarea>', true)}`, L[1]);
   };
   MODALS['need-publish'] = (m, shell, formShell, opt, f) => {
     const j = db.jobs.find((x) => x.id === m.id), sc = j.scorecard || { must: [], nice: [] };
@@ -1596,36 +1628,43 @@
     Object.assign(c, { stage: 'Embauché', empId: id, hiredAt: TODAY });
     job.status = 'Pourvue';
     notify(o.managerId, `${c.name} a accepté la proposition : arrivée le ${fmtDate(o.startDate)} (${o.title}).`);
+    if (!internal) notify(id, `Bienvenue chez Nova Studio ! Déposez vos documents dans « Mon arrivée » : votre contrat suivra.`);
+    logCand(c, 'Proposition acceptée : embauche');
     const others = db.candidates.filter((x) => x.jobId === job.id && activeCand(x)).length;
-    toast(`${c.name} est en pré-embauche${others ? ` · pensez à répondre aux ${plural(others, 'autre candidat', 'autres candidats')}` : ''}`);
+    toast(`${c.name} passe en pré-embauche et en embauche${others ? ` · pensez à répondre aux ${plural(others, 'autre candidat', 'autres candidats')}` : ''}`);
   }
 
-  function jobSubsteps(job, cands) {
-    const done = [true, cands.some((c) => reachedIdx(c) >= 1), cands.some((c) => (c.interviews || []).some((iv) => iv.eval)), cands.some((c) => reachedIdx(c) >= 3),
-      cands.some((c) => c.stage === 'Embauché' || (c.offer && ['Envoyée', 'Acceptée'].includes(c.offer.status)))];
-    return `<div class="substeps" aria-label="Avancement de l’étape">${STAGES[1].steps.map((t, k) => `<span class="${done[k] ? 'done' : ''}">${done[k] ? ic('check') : '<i></i>'}${esc(t)}</span>`).join('')}</div>`;
-  }
-  function jobKpis(job, cands) {
-    const pub = job.publishedAt || ((job.approvals || []).find((a) => a.step === 'publication') || {}).date || job.createdAt;
+  // Indicateurs d'une offre (affichés dans le Reporting RH).
+  function offerStats(job) {
+    const cands = db.candidates.filter((c) => c.jobId === job.id), pub = pubDate(job) || job.createdAt;
     const hired = cands.find((c) => c.stage === 'Embauché'), n = cands.length, reach = (k) => cands.filter((c) => reachedIdx(c) >= k).length;
     const bySrc = {};
-    cands.filter((c) => c.score).forEach((c) => { const s = bySrc[c.source] = bySrc[c.source] || { n: 0, sum: 0 }; s.n += 1; s.sum += c.score; });
-    const best = Object.entries(bySrc).map(([src, s]) => ({ src, n: s.n, avg: s.sum / s.n })).sort((a, b) => b.avg - a.avg || b.n - a.n)[0];
-    const funnel = ['Reçues', 'Présélection', 'Entretien', 'Proposition', 'Embauche'].map((l, k) => [l, reach(k)]);
-    return `<div class="rkpis"><div><span>${hired ? 'Délai de recrutement' : 'En ligne depuis'}</span><b class="num">${plural(dayDiff(pub, (hired && hired.hiredAt) || TODAY), 'jour', 'jours')}</b><small>Publiée le ${fmtDate(pub)}</small></div>
-      <div><span>Candidatures</span><b class="num">${n}</b><small>${plural(cands.filter(activeCand).length, 'en cours', 'en cours')}</small></div>
-      <div><span>Passage en entretien</span><b class="num">${n ? Math.round((reach(2) / n) * 100) : 0} %</b><small>${reach(2)} sur ${n}</small></div>
-      <div><span>Meilleure source</span><b>${best ? esc(best.src) : '—'}</b><small>${best ? `${best.avg.toFixed(1).replace('.', ',')}/5 · ${plural(best.n, 'candidat noté', 'candidats notés')}` : 'Aucun candidat noté'}</small></div></div>
-      <div class="funnel" aria-label="Entonnoir de recrutement">${funnel.map(([l, v]) => `<div><span>${l}</span><i><b style="width:${n ? (v / n) * 100 : 0}%"></b></i><em class="num">${v}</em></div>`).join('')}</div>`;
+    cands.filter((c) => c.score).forEach((c) => { const x = bySrc[c.source] = bySrc[c.source] || { n: 0, sum: 0 }; x.n += 1; x.sum += c.score; });
+    const best = Object.entries(bySrc).map(([src, x]) => ({ src, n: x.n, avg: x.sum / x.n })).sort((a, b) => b.avg - a.avg || b.n - a.n)[0];
+    return { days: dayDiff(pub, (hired && hired.hiredAt) || TODAY), hired: !!hired, n, active: cands.filter(activeCand).length, toIv: n ? reach(2) / n : 0, best, funnel: [0, 1, 2, 3, 4].map(reach) };
   }
+  // Candidats qui attendent une action du profil courant (pastille de l'étape Recrutement).
+  function recTodo() {
+    const ids = new Set(), list = scopeCandidates();
+    list.forEach((c) => { if (c.stage === 'Reçue') ids.add(c.id); });
+    pendingEvals().forEach(({ c }) => ids.add(c.id));
+    if (ui.profile === 'rh') list.forEach((c) => { if ((c.stage === 'Proposition' && (!c.offer || ['Expirée', 'Retirée', 'Déclinée'].includes(offerStatus(c.offer)))) || waitingDays(c) > ANSWER_DAYS) ids.add(c.id); });
+    return ids;
+  }
+  const logCand = (c, text) => logTo(c, text);
+  const NEXT_STAGE = { Reçue: 'Présélection', Présélection: 'Entretien', Entretien: 'Proposition' };
+  const candMatch = (c) => !ui.rq.trim() || c.name.toLowerCase().includes(ui.rq.trim().toLowerCase());
+  // Candidats d'une même colonne du tableau, dans l'ordre affiché (navigation par flèches).
+  const colList = (c) => db.candidates.filter((x) => x.jobId === c.jobId && x.stage === c.stage && (candMatch(x) || x.id === c.id));
   function candCard(c, job) {
     const next = (c.interviews || []).filter((iv) => iv.date.slice(0, 10) >= TODAY).sort((a, b) => a.date.localeCompare(b.date))[0];
     const w = waitingDays(c), os = offerStatus(c.offer), late = (c.interviews || []).some((iv) => !iv.eval && iv.date <= nowStamp());
+    const pills = [late ? '<span class="pill warn">Évaluation à remplir</span>' : '', os && c.stage === 'Proposition' ? `<span class="pill ${OFFER_PILL[os]}">Proposition ${os.toLowerCase()}</span>` : '',
+      c.stage === 'Proposition' && !os ? '<span class="pill accent">Proposition à préparer</span>' : '', w > ANSWER_DAYS ? `<span class="pill bad">Sans nouvelles · ${w} j</span>` : ''].join('');
     return `<button type="button" class="kc" draggable="true" data-act="open-cand" data-id="${c.id}"><b>${esc(c.name)}</b><small>${esc(c.experience || c.source)}</small>${c.score ? stars(c.score) : ''}
       ${(c.interviews || []).length ? `<span class="kc-g">${evalGauge(c, job, true)}</span>` : ''}
       ${next ? `<small>${ic('calendar').replace('<svg', '<svg style="width:13px;height:13px;vertical-align:-2px"')} ${fmtShort(next.date.slice(0, 10))} · ${next.date.slice(11, 16)}</small>` : ''}
-      ${late ? '<span class="pill warn">Évaluation à remplir</span>' : ''}${os && c.stage === 'Proposition' ? `<span class="pill ${OFFER_PILL[os]}">Proposition ${os.toLowerCase()}</span>` : ''}
-      ${c.stage === 'Proposition' && !os ? '<span class="pill accent">Proposition à préparer</span>' : ''}${w > ANSWER_DAYS ? `<span class="pill bad">Sans nouvelles · ${w} j</span>` : ''}</button>`;
+      ${pills ? `<span class="kc-pills">${pills}</span>` : ''}</button>`;
   }
   function poolView() {
     const list = db.candidates.filter((c) => c.stage === 'Refusé' && c.pool).sort((a, b) => lastContact(b).localeCompare(lastContact(a)));
@@ -1638,46 +1677,86 @@
           <label class="sr" for="pp-${c.id}">Proposer pour une offre</label><select id="pp-${c.id}" class="select" data-change="pool-propose" data-id="${c.id}"><option value="">Proposer pour…</option>${open.map((o) => `<option value="${o.id}">${esc(o.title)}</option>`).join('')}</select></div>`; }).join('')
         : '<p class="muted" style="margin:0">Le vivier est vide.</p>'}</div>`);
   }
+  const REC_STATUS = [['Ouverte', 'Offre publiée'], ['Pourvue', 'Pourvue'], ['Clôturée', 'Clôturée']];
+  const recJobs = () => { const order = { Ouverte: 1, Pourvue: 2, Clôturée: 3 };
+    return scopeJobs().filter((j) => !isNeed(j) && (!ui.rStatus || j.status === ui.rStatus) && (jobSearch(j, ui.rq, ui.rDept, ui.rFrom) || (ui.rq.trim() && db.candidates.some((c) => c.jobId === j.id && candMatch(c)) && jobSearch(j, '', ui.rDept, ui.rFrom))))
+      .sort((a, b) => order[a.status] - order[b.status] || b.createdAt.localeCompare(a.createdAt)); };
+  const recJobList = (jobs) => jobs.map((j) => { const n = db.candidates.filter((c) => c.jobId === j.id && activeCand(c)).length, hit = ui.rq.trim() ? db.candidates.filter((c) => c.jobId === j.id && candMatch(c)).length : 0;
+    return `<button type="button" class="job" data-act="open-job" data-id="${j.id}" aria-current="${j.id === ui.recJob}"><span class="ref num">${jobRef(j)}</span><b>${esc(j.title)}</b><span class="meta">${jobPill(j)}<span>${esc(j.dept)} · ${esc(j.contract)}</span></span><span class="meta">${plural(n, 'candidat actif', 'candidats actifs')}${hit ? ` · <b>${plural(hit, 'candidat trouvé', 'candidats trouvés')}</b>` : ''}</span></button>`; }).join('') || '<div class="card empty">Aucune offre ne correspond.</div>';
   function viewRecruitment() {
-    const order = { Ouverte: 1, Pourvue: 2, Clôturée: 3 }, rh = ui.profile === 'rh';
-    const jobs = scopeJobs().filter((j) => !isNeed(j)).sort((a, b) => order[a.status] - order[b.status] || b.createdAt.localeCompare(a.createdAt));
+    const rh = ui.profile === 'rh', jobs = recJobs();
     if (ui.recJob === 'vivier' && !rh) ui.recJob = null;
     if (ui.recJob !== 'vivier' && !jobs.find((j) => j.id === ui.recJob)) { const first = jobs.find((j) => j.status === 'Ouverte') || jobs[0]; ui.recJob = first ? first.id : null; }
     const job = db.jobs.find((j) => j.id === ui.recJob);
     let right = '<div class="card empty">Aucune offre pour le moment.</div>';
     if (ui.recJob === 'vivier') right = poolView();
     else if (job) {
-      const cands = db.candidates.filter((c) => c.jobId === job.id);
+      const cands = db.candidates.filter((c) => c.jobId === job.id && candMatch(c));
       const acts = job.status === 'Ouverte' ? `<button type="button" class="btn primary" data-act="cand-new" data-id="${job.id}">${ic('plus')}Ajouter un candidat</button>${rh ? `<button type="button" class="btn ghost" data-act="job-close" data-id="${job.id}">Clôturer l’offre</button>` : ''}` : '';
-      const board = `<div class="board">${CAND_STAGES.map((s) => { const list = cands.filter((c) => c.stage === s);
-        return `<div class="col" data-stage="${s}"><h4>${s}<span class="num">${list.length}</span></h4>${list.map((c) => candCard(c, job)).join('')}</div>`; }).join('')}</div>
-        <p class="hint" style="padding:0 20px 16px;margin:0">Glissez une carte d’une colonne à l’autre, ou ouvrez-la pour évaluer le candidat, lui écrire ou préparer la proposition.</p>`;
-      right = `<div class="card"><div class="job-head"><div style="min-width:0"><div class="toolbar">${jobPill(job)}<span class="muted" style="font-size:13px">Besoin du ${fmtDate(job.createdAt)}</span></div><h2 style="margin-top:8px">${esc(job.title)}</h2>
-        <p>${esc(job.dept)} · ${esc(job.contract)} · ${esc(job.location)} · ${esc(job.budget)} · ${esc(job.reason)}</p><p>${esc(job.description)}</p></div><div class="toolbar">${acts}</div></div>
-        <div class="card-b" style="border-top:1px solid var(--line)">${jobSubsteps(job, cands)}${jobKpis(job, cands)}</div>${board}</div>`;
+      const mgr = emp(jobManager(job)), revs = (job.reviewers || []).map(emp).filter(Boolean);
+      const candidatesRev = db.employees.filter((e) => isEmployed(e) && e.id !== jobManager(job) && !(job.reviewers || []).includes(e.id) && (e.dept === job.dept || e.dept === 'RH'));
+      const team = `<div class="team"><span class="team-l">Manager</span>${mgr ? `<span class="who-chip">${avatar(mgr, 'sm')}${esc(fullName(mgr))}</span>` : '—'}<span class="team-l">Évaluateurs invités</span>${revs.map((e) => `<span class="who-chip">${avatar(e, 'sm')}${esc(fullName(e))}${rh ? `<button type="button" data-act="rev-del" data-id="${job.id}" data-e="${e.id}" aria-label="Retirer ${esc(fullName(e))}">${ic('x')}</button>` : ''}</span>`).join('') || '<span class="muted">Aucun</span>'}
+        ${rh && job.status === 'Ouverte' ? `<label class="sr" for="rev-add">Inviter un évaluateur</label><select id="rev-add" class="select sm" data-change="rev-add" data-id="${job.id}"><option value="">Inviter un évaluateur…</option>${candidatesRev.map((e) => `<option value="${e.id}">${esc(fullName(e))} · ${esc(e.title)}</option>`).join('')}</select>` : ''}</div>`;
+      const board = `<div class="board">${CAND_STAGES.map((st) => { const list = cands.filter((c) => c.stage === st);
+        return `<div class="col" data-stage="${st}"><h4>${st}<span class="num">${list.length}</span></h4>${list.map((c) => candCard(c, job)).join('')}</div>`; }).join('')}</div>
+        <p class="hint" style="padding:0 20px 16px;margin:0">Ouvrez une carte pour lire le CV et la lettre, évaluer le candidat et le faire avancer ; ou glissez-la d’une colonne à l’autre.${rh ? '' : ' Les RH font la proposition d’embauche et les refus.'}</p>`;
+      right = `<div class="card"><div class="job-head"><div style="min-width:0"><div class="toolbar"><span class="ref num">${jobRef(job)}</span>${jobPill(job)}<span class="muted" style="font-size:13px">Publiée le ${fmtDate(pubDate(job) || job.createdAt)}</span></div><h2 style="margin-top:8px">${esc(job.title)}</h2>
+        <p>${esc(job.dept)} · ${esc(job.contract)} · ${esc(job.location)} · ${esc(job.budget)} · ${esc(job.reason)}</p><p>${esc(job.description)}</p>${team}</div><div class="toolbar">${acts}</div></div>${board}</div>`;
     }
     const pool = db.candidates.filter((c) => c.stage === 'Refusé' && c.pool).length;
-    return `<div class="rec"><div class="jobs"><button type="button" class="btn primary" data-act="need-new">${ic('plus')}Exprimer un besoin</button>${jobs.map((j) => { const n = db.candidates.filter((c) => c.jobId === j.id && activeCand(c)).length;
-      return `<button type="button" class="job" data-act="open-job" data-id="${j.id}" aria-current="${j.id === ui.recJob}"><b>${esc(j.title)}</b><span class="meta">${jobPill(j)}<span>${esc(j.dept)} · ${esc(j.contract)}</span></span><span class="meta">${plural(n, 'candidat actif', 'candidats actifs')}</span></button>`; }).join('')}
+    return `${searchBar('r', { statuses: REC_STATUS, placeholder: 'Référence, intitulé ou candidat', fromLabel: 'Publiée depuis le' })}<div class="rec"><div class="jobs"><button type="button" class="btn primary" data-act="need-new">${ic('plus')}Exprimer un besoin</button><div class="jobs" id="rec-list">${recJobList(jobs)}</div>
       ${rh ? `<button type="button" class="job pool" data-act="open-pool" aria-current="${ui.recJob === 'vivier'}"><b>${ic('users')}Vivier de candidats</b><span class="meta">${plural(pool, 'dossier', 'dossiers')} · suppression auto. après ${RETENTION_YEARS} ans</span></button>` : ''}</div>${right}</div>`;
   }
 
+  // ---- Visionneuse de candidat : documents à gauche, commandes et suivi à droite, flèches pour passer au candidat suivant de la colonne.
+  const FILE_KINDS = { cv: 'CV', lm: 'Lettre de motivation', autre: 'Autre document' };
+  const hashN = (str, n) => { let h = 0; for (const ch of str) h = (h * 33 + ch.charCodeAt(0)) >>> 0; return h % n; };
+  function cvDoc(c, job) {
+    const sc = job.scorecard || { must: [], nice: [] }, years = Number((c.experience.match(/(\d+)\s*ans?/) || [])[1]) || 3, field = (c.experience.split('·')[1] || job.dept).trim();
+    const COS = ['Atelier Lumen', 'Kairos Digital', 'Studio Nord', 'Helio Conseil', 'Pixel & Co', 'Groupe Vertex', 'Omnia Labs', 'Brique Studio'];
+    const SCHOOLS = ['Université Paris Cité', 'Strate École de design', 'INSA Lyon', 'Université Lyon 2', 'ESCP Business School', 'Gobelins Paris', 'IUT de Nantes'];
+    const y = Number(TODAY.slice(0, 4)), split = Math.max(1, Math.round(years * 0.6));
+    const xp = [[COS[hashN(c.id, COS.length)], `${y - split} – aujourd’hui`, job.title.replace(/\s*H\/F/i, '')], [COS[hashN(c.id + 'b', COS.length)], `${y - years} – ${y - split}`, years > 3 ? `${job.title.split(' ')[0]} confirmé·e` : `${job.title.split(' ')[0]} junior`]];
+    return `<div class="paper cv"><header><h2>${esc(c.name)}</h2><p>${esc(job.title.replace(/\s*H\/F/i, ''))} · ${plural(years, 'an', 'ans')} d’expérience</p><small>${esc(c.email)} · ${esc(c.phone)} · ${esc(job.location.split(' ')[0])}</small></header>
+      <section><h3>Expérience</h3>${xp.map(([co, when, role]) => `<div class="cv-x"><b>${esc(role)} · ${esc(co)}</b><small>${when}</small><p>${esc(field.charAt(0).toUpperCase() + field.slice(1))} : ${esc((sc.must[hashN(co, Math.max(1, sc.must.length))] || 'projets transverses').toLowerCase())}, travail en équipe pluridisciplinaire.</p></div>`).join('')}</section>
+      <section><h3>Compétences</h3><div class="tags">${sc.must.concat(sc.nice).map((m) => `<span class="pill neutral">${esc(m)}</span>`).join('')}</div></section>
+      <section><h3>Formation</h3><div class="cv-x"><b>${esc(SCHOOLS[hashN(c.name, SCHOOLS.length)])}</b><small>${y - years - 2}</small><p>Master ou équivalent dans le domaine du poste.</p></div></section>
+      <section><h3>Langues</h3><p>Français courant · anglais professionnel</p></section></div>`;
+  }
+  const lmDoc = (c, job) => `<div class="paper"><header class="lm-h"><b>${esc(c.name)}</b><small>${esc(c.email)}</small><span>Le ${fmtDate(c.appliedAt, { day: 'numeric', month: 'long', year: 'numeric' })}</span></header>
+    <p><b>Objet : candidature au poste de ${esc(job.title)}</b></p><p>Madame, Monsieur,</p>
+    <p>Votre offre a retenu toute mon attention : ${esc((job.description || '').charAt(0).toLowerCase() + (job.description || '').slice(1))}</p>
+    <p>Fort·e de mon expérience (${esc(c.experience || 'parcours en lien avec le poste')}), j’ai développé ${esc(((job.scorecard && job.scorecard.must) || []).slice(0, 2).join(' et ').toLowerCase() || 'les compétences attendues')}. Rejoindre l’équipe ${esc(job.dept)} de Nova Studio serait l’occasion de mettre ces savoir-faire au service de vos projets.</p>
+    <p>Je serais heureux·se d’échanger avec vous lors d’un entretien.</p><p>Veuillez agréer, Madame, Monsieur, mes salutations distinguées.</p><p><b>${esc(c.name)}</b></p></div>`;
+  function candFileView(c, job, f) {
+    if (!f) return '<div class="paper empty">Aucun document de ce type.</div>';
+    if (f.data && /^data:image\//.test(f.data)) return `<img class="file-img" src="${f.data}" alt="${esc(f.name)}">`;
+    if (f.data) return `<embed class="file-pdf" src="${f.data}" type="application/pdf">`;
+    if (f.kind === 'cv' && !f.uploaded) return cvDoc(c, job);
+    if (f.kind === 'lm' && !f.uploaded) return lmDoc(c, job);
+    return `<div class="paper file-ph">${ic('file')}<b>${esc(f.name)}</b><span>${esc(f.label || FILE_KINDS[f.kind])} joint à la candidature. Aperçu non disponible dans la démonstration.</span></div>`;
+  }
   function candDrawer(c) {
     const job = db.jobs.find((j) => j.id === c.jobId), rh = ui.profile === 'rh', os = offerStatus(c.offer), { sc, evals, avg, recos } = evalSummary(c, job), act = activeCand(c);
-    const interviewers = db.employees.filter((e) => (e.dept === job.dept || e.dept === 'RH') && isEmployed(e)), now = nowStamp(), w = waitingDays(c);
+    const interviewers = db.employees.filter((e) => ((e.dept === job.dept || e.dept === 'RH') && isEmployed(e)) || (job.reviewers || []).includes(e.id)), now = nowStamp(), w = waitingDays(c);
     const offerActive = c.offer && ['Envoyée', 'Expirée'].includes(os);
-    let btns = '';
-    if (act && ['Reçue', 'Présélection', 'Entretien'].includes(c.stage)) btns += `<button type="button" class="btn ghost sm" data-act="cand-move" data-id="${c.id}" data-s="Proposition">${rh ? 'Préparer la proposition' : 'Choisir ce candidat'}</button>`;
-    if (act && c.stage === 'Proposition' && !offerActive && rh) btns += `<button type="button" class="btn primary sm" data-act="offer-new" data-id="${c.id}">${ic('file')}Préparer la proposition</button>`;
-    if (act && rh) btns += `<button type="button" class="btn ghost sm" data-act="cand-msg" data-id="${c.id}">Écrire au candidat</button>`;
-    if (act && !offerActive) btns += `<button type="button" class="btn bad sm" data-act="cand-move" data-id="${c.id}" data-s="Refusé">Refuser</button>`;
+    const files = c.files || [], cur = files.find((f, k) => `${f.kind}-${k}` === ui.drawer.doc) || files[0], curKey = cur ? `${cur.kind}-${files.indexOf(cur)}` : '';
+    const list = colList(c), idx = list.indexOf(c), prev = list[idx - 1], next = list[idx + 1];
+    const nav = `<div class="cand-nav"><button type="button" class="icon-btn" data-act="cand-go" data-id="${prev ? prev.id : ''}" ${prev ? '' : 'disabled'} aria-label="Candidat précédent" title="Candidat précédent (←)">${ic('left')}</button><span class="num">${idx + 1} / ${list.length}<small>${esc(c.stage)}</small></span><button type="button" class="icon-btn" data-act="cand-go" data-id="${next ? next.id : ''}" ${next ? '' : 'disabled'} aria-label="Candidat suivant" title="Candidat suivant (→)">${ic('right')}</button></div>`;
+    // Commandes : faire avancer le candidat ; la proposition et le refus sont faits par les RH.
+    let cmd = '';
+    if (act && NEXT_STAGE[c.stage]) cmd += `<button type="button" class="btn primary" data-act="cand-next" data-id="${c.id}">${NEXT_STAGE[c.stage] === 'Proposition' ? (rh ? 'Préparer la proposition' : 'Choisir ce candidat') : `Passer à « ${NEXT_STAGE[c.stage]} »`}${ic('arrow')}</button>`;
+    if (act && c.stage === 'Proposition' && !offerActive && rh) cmd += `<button type="button" class="btn primary" data-act="offer-new" data-id="${c.id}">${ic('file')}Préparer la proposition</button>`;
+    if (act && c.stage === 'Proposition' && !rh) cmd += '<p class="hint" style="margin:0">Candidat choisi : les RH préparent la proposition d’embauche.</p>';
+    const more = [act && rh ? `<button type="button" class="btn ghost sm" data-act="cand-msg" data-id="${c.id}">Écrire au candidat</button>` : '', act ? `<a class="btn ghost sm" href="#cand-iv">${ic('calendar')}Planifier un entretien</a>` : '',
+      act && rh && !offerActive ? `<button type="button" class="btn bad sm" data-act="cand-move" data-id="${c.id}" data-s="Refusé">Refuser</button>` : ''].join('');
     const offerCard = c.offer ? card('Proposition d’embauche', `<span class="pill ${OFFER_PILL[os]}">${os}</span>`, `<div class="card-b"><div class="info-grid"><div><span>Poste</span>${esc(c.offer.title)} · ${esc(c.offer.contract)}</div><div><span>Rémunération annuelle brute</span><span class="num">${eur0(c.offer.salary)}</span></div>
         <div><span>Date d’entrée</span>${fmtDate(c.offer.startDate)}</div><div><span>Réponse attendue avant le</span>${fmtDate(c.offer.deadline)}</div></div>
         ${c.offer.salary > job.salaryMax ? `<p class="lint bad" style="margin:12px 0 0">Au-dessus de la fourchette validée (${esc(job.budget)}).</p>` : ''}
         <div class="toolbar" style="margin-top:12px"><button type="button" class="btn ghost sm" data-act="offer-doc" data-id="${c.id}">${ic('file')}Voir la proposition</button>
         ${rh && offerActive ? `<button type="button" class="btn ok sm" data-act="offer-accept" data-id="${c.id}">${ic('check')}Acceptée : embaucher</button><button type="button" class="btn ghost sm" data-act="offer-decline" data-id="${c.id}">Déclinée</button>
           ${os === 'Expirée' ? `<button type="button" class="btn ghost sm" data-act="offer-extend" data-id="${c.id}">Prolonger de 7 jours</button>` : ''}<button type="button" class="btn ghost sm" data-act="offer-withdraw" data-id="${c.id}">Retirer</button>` : ''}
-        ${c.stage === 'Embauché' && c.empId ? `<button type="button" class="btn ghost sm" data-act="open-emp" data-id="${c.empId}">Ouvrir la fiche collaborateur</button>` : ''}</div>
+        ${c.stage === 'Embauché' && c.empId ? `<button type="button" class="btn ghost sm" data-act="open-dossier" data-id="${c.empId}">Ouvrir le dossier d’arrivée</button>` : ''}</div>
         ${rh && offerActive ? '<p class="hint" style="margin:10px 0 0">Tant que le candidat ne l’a pas acceptée, la proposition peut être retirée. Acceptée avant la date limite, elle vaut contrat de travail.</p>' : ''}</div>`) : '';
     const synth = sc.must.length ? card('Évaluation', evalGauge(c, job), `<div class="card-b"><div class="crit">${sc.must.map((m, k) => `<div class="crit-row"><span>${esc(m)}</span>${avg[k] ? `<span class="crit-v">${stars(Math.round(avg[k]))}<small class="num">${avg[k].toFixed(1).replace('.', ',')}</small></span>` : '<span class="muted">—</span>'}</div>`).join('')}
         <div class="crit-row total"><span>Note globale</span>${c.score ? stars(c.score) : '<span class="muted">À évaluer</span>'}</div></div>
@@ -1688,28 +1767,41 @@
       return `<div class="todo iv"><div class="t"><b>${esc(iv.kind)}</b><small>${fmtDate(iv.date.slice(0, 10), { weekday: 'long', day: 'numeric', month: 'long' })} à ${iv.date.slice(11, 16)} · avec ${esc(fullName(emp(iv.with)))}</small>
         ${e ? `<details><summary>Voir l’évaluation du ${fmtShort(e.date)}</summary>${sc.must.map((m, k) => `<p><b>${esc(m)} · ${e.ratings[k]}/5</b><br>« ${esc(e.evidence[k])} »</p>`).join('')}${e.comment ? `<p class="muted">${esc(e.comment)}</p>` : ''}</details>` : ''}</div>${state}</div>`; }).join('');
     const msgs = (c.messages || []).slice().reverse().map((m) => `<div class="msg"><div><b>${esc(m.subject || MSG_TPL[m.kind]?.[0] || 'Message')}</b><small>${fmtDate(m.date)}</small></div>${m.body ? `<details><summary>Lire</summary><p>${esc(m.body).replace(/\n/g, '<br>')}</p></details>` : ''}</div>`).join('');
-    return `<div class="drawer-h">${avatarName(c.id, c.name, 'lg')}<div style="min-width:0"><h2>${esc(c.name)}</h2><p>${esc(job.title)}</p><div class="toolbar" style="margin-top:6px"><span class="pill accent">${esc(c.stage)}</span>${w > ANSWER_DAYS ? `<span class="pill bad">Sans nouvelles depuis ${w} jours</span>` : ''}</div></div>
-      <button type="button" class="icon-btn drawer-x" data-act="close-drawer" aria-label="Fermer">${ic('x')}</button></div>
-      <div class="drawer-b"><div class="toolbar"><label class="sr" for="c-stage">Étape</label><select id="c-stage" class="select" data-change="cand-stage" data-id="${c.id}" ${c.stage === 'Embauché' ? 'disabled' : ''}>${CAND_STAGES.map((s) => `<option ${s === c.stage ? 'selected' : ''}>${s}</option>`).join('')}</select>${btns}</div>
+    const side = `<div class="card card-b cmd"><div class="toolbar">${cmd || (c.stage === 'Embauché' ? '<span class="pill ok">Embauché·e</span>' : c.stage === 'Refusé' ? '<span class="pill bad">Non retenu·e</span>' : '')}</div>${more ? `<div class="toolbar" style="margin-top:10px">${more}</div>` : ''}
+        ${act && rh ? `<div class="toolbar" style="margin-top:10px"><label class="sr" for="c-stage">Étape</label><select id="c-stage" class="select sm" data-change="cand-stage" data-id="${c.id}">${CAND_STAGES.filter((x) => x !== 'Embauché').map((x) => `<option ${x === c.stage ? 'selected' : ''}>${x}</option>`).join('')}</select><span class="hint">Changer d’étape directement</span></div>` : ''}</div>
       ${c.refusal ? `<p class="lint bad" style="margin:0"><b>${c.refusal.declined ? 'Proposition déclinée' : 'Candidature non retenue'} le ${fmtDate(c.refusal.date)}</b> · ${esc(c.refusal.reason)}</p>` : ''}
       ${offerCard}${synth}
-      ${card('Entretiens', '', `<div class="card-b">${ivs || '<p class="muted" style="margin:0 0 6px">Aucun entretien planifié.</p>'}
+      <div id="cand-iv">${card('Entretiens', '', `<div class="card-b">${ivs || '<p class="muted" style="margin:0 0 6px">Aucun entretien planifié.</p>'}
         ${act ? `<form data-form="interview" data-id="${c.id}" style="margin-top:12px" novalidate><div class="form-grid"><div class="field"><label for="iv-date">Date et heure</label><input id="iv-date" name="date" type="datetime-local" class="input" value="${nextMonday(TODAY)}T10:00"></div>
           <div class="field"><label for="iv-with">Avec</label><select id="iv-with" name="with" class="select">${interviewers.map((e) => `<option value="${e.id}" ${e.id === me().id ? 'selected' : ''}>${esc(fullName(e))}</option>`).join('')}</select></div>
           <div class="field"><label for="iv-kind">Type</label><select id="iv-kind" name="kind" class="select">${['Entretien RH', 'Entretien manager', 'Test technique', 'Entretien final'].map((k) => `<option>${k}</option>`).join('')}</select></div>
-          <div class="field" style="justify-content:flex-end"><button class="btn ghost">${ic('calendar')}Planifier l’entretien</button></div>
-          <label class="full" style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="convoc" checked> Envoyer la convocation au candidat</label></div></form>` : ''}</div>`)}
+          <div class="field" style="justify-content:flex-end"><button class="btn ghost">${ic('calendar')}Planifier</button></div>
+          <label class="full" style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="convoc" checked> Envoyer la convocation au candidat</label></div></form>` : ''}</div>`)}</div>
       ${card('Échanges avec le candidat', rh && act ? `<button type="button" class="btn ghost sm" data-act="cand-msg" data-id="${c.id}">Écrire</button>` : '', `<div class="card-b">${msgs || '<p class="muted" style="margin:0">Aucun message envoyé.</p>'}
         <p class="hint rgpd">${ic('check').replace('<svg', '<svg style="width:13px;height:13px;vertical-align:-2px"')} Dernier contact le ${fmtDate(lastContact(c))}${c.stage === 'Embauché' ? ' · dossier rattaché à la fiche collaborateur' : ` · suppression automatique le ${fmtDate(purgeDate(c))}${c.stage === 'Refusé' ? (c.pool ? ' · dans le vivier' : ' · hors vivier') : ''}`}</p></div>`)}
       <div class="info-grid"><div><span>E-mail</span>${esc(c.email)}</div><div><span>Téléphone</span>${esc(c.phone)}</div><div><span>Source</span>${esc(c.source)}</div><div><span>Candidature reçue le</span>${fmtDate(c.appliedAt)}</div><div style="grid-column:1/-1"><span>Expérience</span>${esc(c.experience) || '—'}</div></div>
-      <form class="card" data-form="cand-note" data-id="${c.id}"><div class="card-h"><h3>Notes</h3><button class="btn ghost sm">Enregistrer</button></div><div class="card-b"><label class="sr" for="c-notes">Notes sur le candidat</label><textarea id="c-notes" name="notes" class="input" placeholder="Impressions, points forts, points à creuser…">${esc(c.notes)}</textarea></div></form></div>`;
+      <form class="card" data-form="cand-note" data-id="${c.id}"><div class="card-h"><h3>Notes</h3><button class="btn ghost sm">Enregistrer</button></div><div class="card-b"><label class="sr" for="c-notes">Notes sur le candidat</label><textarea id="c-notes" name="notes" class="input" placeholder="Impressions, points forts, points à creuser…">${esc(c.notes)}</textarea></div></form>
+      ${card('Historique', '', `<div class="card-b">${historyRows([{ date: c.appliedAt, by: 'e1', text: `Candidature reçue (${c.source})` }].concat(c.log || []))}</div>`)}`;
+    return `<div class="drawer-h">${avatarName(c.id, c.name, 'lg')}<div style="min-width:0"><h2>${esc(c.name)}</h2><p><span class="ref num">${jobRef(job)}</span> ${esc(job.title)}</p><div class="toolbar" style="margin-top:6px"><span class="pill accent">${esc(c.stage)}</span>${w > ANSWER_DAYS ? `<span class="pill bad">Sans nouvelles depuis ${w} jours</span>` : ''}</div></div>
+      ${nav}<button type="button" class="icon-btn drawer-x" data-act="close-drawer" aria-label="Fermer">${ic('x')}</button></div>
+      <div class="cand-view"><div class="cand-docs"><div class="tabs" role="tablist" aria-label="Documents du candidat">${files.map((f, k) => `<button type="button" role="tab" aria-selected="${`${f.kind}-${k}` === curKey}" data-act="cand-doc" data-k="${f.kind}-${k}">${ic('file')}${esc(f.label || FILE_KINDS[f.kind])}</button>`).join('') || '<span class="muted" style="padding:10px 0">Aucun document joint</span>'}</div>
+        <div class="doc-scroll">${cur ? candFileView(c, job, cur) : '<div class="paper empty">Aucun document joint à cette candidature.</div>'}</div></div>
+      <div class="drawer-b cand-side">${side}</div></div>`;
   }
 
   const findCand = (id) => db.candidates.find((x) => x.id === id);
   const candJob = (c) => db.jobs.find((j) => j.id === c.jobId);
   Object.assign(MOD_ACT, {
     'open-pool'() { ui.recJob = 'vivier'; render(); },
-    'todo-all'() { ui.todoAll = !ui.todoAll; document.getElementById('panel').innerHTML = defaultPanel(); },
+    'cand-go'(d) { if (d.id) { ui.drawer = { type: 'cand', id: d.id, doc: null }; render(); } },
+    'cand-doc'(d) { ui.drawer.doc = d.k; render(); },
+    // Étape suivante depuis la visionneuse : on enchaîne ensuite sur le candidat suivant de la même colonne.
+    'cand-next'(d) {
+      const c = findCand(d.id), from = c.stage, list = colList(c), k = list.indexOf(c), after = list[k + 1] || list[k - 1];
+      moveCandidate(c.id, NEXT_STAGE[from]);
+      if (!ui.modal && c.stage !== from && after && ui.drawer) { ui.drawer = { type: 'cand', id: after.id, doc: null }; render(); }
+    },
+    'rev-del'(d) { const j = db.jobs.find((x) => x.id === d.id); j.reviewers = (j.reviewers || []).filter((x) => x !== d.e); logTo(j, `Évaluateur retiré : ${fullName(emp(d.e))}`); toast('Évaluateur retiré'); commit(); },
     'go-pay-tab'(d) { Object.assign(ui, { view: 'paie', stage: null, payTab: d.t }); window.scrollTo(0, 0); render(); },
     'go-admin-tab'(d) { Object.assign(ui, { view: 'collaborateurs', stage: null, adminTab: d.t }); window.scrollTo(0, 0); render(); },
     'iv-eval'(d) { ui.modal = { type: 'iv-eval', id: d.id, iv: d.iv }; render(); },
@@ -1722,11 +1814,16 @@
     'offer-withdraw'(d) { const c = findCand(d.id); c.offer.status = 'Retirée'; c.stage = 'Entretien'; sendMsg(c, 'retrait', 'Retrait de notre proposition', `Bonjour ${firstName(c)},\n\nNous vous informons que nous retirons notre proposition pour le poste de ${c.offer.title}. Nous reviendrons vers vous rapidement.${SIGN}`); toast('Proposition retirée'); commit(); },
   });
   Object.assign(MOD_CHG, {
+    rDept(v) { ui.rDept = v; render(); }, rStatus(v) { ui.rStatus = v; render(); }, rFrom(v) { ui.rFrom = v; render(); },
+    'rev-add'(v, d) {
+      if (!v) return; const j = db.jobs.find((x) => x.id === d.id); j.reviewers = (j.reviewers || []).concat([v]); logTo(j, `Évaluateur invité : ${fullName(emp(v))}`);
+      notify(v, `Vous êtes invité·e à évaluer les candidats de l’offre « ${j.title} » (${jobRef(j)}).`); toast(`${fullName(emp(v))} peut évaluer les candidats`); commit();
+    },
     'pool-propose'(v, d) {
       if (!v) return; const c = findCand(d.id), j = db.jobs.find((x) => x.id === v);
       Object.assign(c, { jobId: v, stage: 'Présélection', refusal: null, interviews: [], offer: null, pool: false, source: `Vivier · ${c.source.replace(/^Vivier · /, '')}` });
       sendMsg(c, 'point', 'Une nouvelle opportunité chez Nova Studio', `Bonjour ${firstName(c)},\n\nVotre profil nous a marqués lors d’un précédent recrutement. Le poste de ${j.title} pourrait vous intéresser : seriez-vous disponible pour en parler ?${SIGN}`);
-      ui.recJob = v; toast(`${c.name} est proposé·e pour « ${j.title} »`); commit();
+      logCand(c, `Proposé·e depuis le vivier pour « ${j.title} »`); ui.recJob = v; toast(`${c.name} est proposé·e pour « ${j.title} »`); commit();
     },
   });
   Object.assign(MOD_LIVE, {
@@ -1743,7 +1840,7 @@
       if (miss >= 0) return formError(`Notez « ${must[miss]} » et justifiez la note par un fait observé.`);
       if (!v.reco) return formError('Donnez votre recommandation.');
       iv.eval = { date: TODAY, ratings, evidence, reco: v.reco, comment: (v.comment || '').trim(), by: me().id };
-      recomputeScore(c, job);
+      recomputeScore(c, job); logCand(c, `${iv.kind} évalué : avis ${v.reco.toLowerCase()}`);
       if (ui.profile !== 'rh') notify('e1', `${fullName(me())} a évalué ${c.name} (${iv.kind}) : avis ${v.reco.toLowerCase()}.`);
       ui.modal = null; toast('Évaluation enregistrée'); commit();
     },
@@ -1755,7 +1852,7 @@
     'cand-refuse'(v) {
       const c = findCand(ui.modal.id), reason = v.reason === 'Autre motif' ? (v.other || '').trim() : v.reason;
       if (!reason) return formError('Précisez le motif du refus.');
-      c.refusal = { date: TODAY, reason, from: c.stage }; c.pool = v.pool === 'on'; c.stage = 'Refusé';
+      c.refusal = { date: TODAY, reason, from: c.stage }; c.pool = v.pool === 'on'; c.stage = 'Refusé'; logCand(c, `Candidature non retenue : ${reason}`);
       if (v.send === 'on') sendMsg(c, 'refus', 'Votre candidature chez Nova Studio', v.body.trim());
       ui.modal = null; toast(`${c.name} : candidature non retenue${v.send === 'on' ? ' · réponse envoyée' : ''}`); commit();
     },
@@ -1765,7 +1862,7 @@
       if (!v.startDate) return formError('Indiquez la date d’entrée.');
       if (!v.deadline || v.deadline < TODAY) return formError('Indiquez une date limite de réponse à venir.');
       c.offer = { title: v.title.trim() || j.title, contract: j.contract, salary, startDate: v.startDate, managerId: v.managerId, deadline: v.deadline, status: 'Envoyée', sentAt: TODAY };
-      c.stage = 'Proposition';
+      c.stage = 'Proposition'; logCand(c, `Proposition envoyée : ${eur0(salary)}, entrée le ${fmtDate(v.startDate)}`);
       sendMsg(c, 'proposition', 'Notre proposition d’embauche', offerBody(c, c.offer));
       if (salary > j.salaryMax) notify('e5', `Proposition à ${c.name} au-dessus de la fourchette validée pour « ${j.title} » (${eur0(salary)}).`);
       if (v.managerId !== me().id) notify(v.managerId, `Proposition d’embauche envoyée à ${c.name} (${j.title}) : réponse attendue avant le ${fmtDate(v.deadline)}.`);
@@ -1774,7 +1871,7 @@
     'offer-decline'(v) {
       const c = findCand(ui.modal.id);
       c.offer.status = 'Déclinée'; c.offer.answeredAt = TODAY;
-      c.refusal = { date: TODAY, reason: `Proposition déclinée par le candidat : ${v.reason.toLowerCase()}`, from: 'Proposition', declined: true }; c.pool = v.pool === 'on'; c.stage = 'Refusé';
+      c.refusal = { date: TODAY, reason: `Proposition déclinée par le candidat : ${v.reason.toLowerCase()}`, from: 'Proposition', declined: true }; c.pool = v.pool === 'on'; c.stage = 'Refusé'; logCand(c, 'Proposition déclinée');
       ui.modal = null; toast(`${c.name} a décliné la proposition`); commit();
     },
   });
@@ -1823,22 +1920,27 @@
   MODALS['offer-decline'] = (m, shell, formShell, opt, f) => formShell(`Proposition déclinée · ${esc(findCand(m.id).name)}`, 'offer-decline', `${f('od-r', 'Raison donnée par le candidat', `<select id="od-r" name="reason" class="select">${opt(['Rémunération insuffisante', 'A accepté une autre offre', 'Projet personnel', 'Autre raison'])}</select>`, true)}
     <label style="display:flex;gap:8px;align-items:center;font-size:14px;margin-top:12px"><input type="checkbox" name="pool" checked> Garder le dossier dans le vivier</label>`, 'Enregistrer');
 
-  // ================================================================ Arrivée : pré-embauche, embauche, intégration
-  const ARR_DOCS = [['identite', 'Pièce d’identité'], ['secu', 'Attestation de sécurité sociale (carte Vitale)'], ['rib', 'RIB'], ['domicile', 'Justificatif de domicile'], ['diplome', 'Diplômes et certifications'], ['titre', 'Titre de séjour autorisant à travailler']];
+  // ================================================================ Arrivée : pré-embauche et embauche (en parallèle), puis intégration
+  const ARR_DOCS = [['identite', 'Pièce d’identité'], ['secu', 'Attestation de sécurité sociale (carte Vitale)'], ['rib', 'RIB'], ['domicile', 'Justificatif de domicile'], ['diplome', 'Diplômes et certifications'],
+    ['cerfa', 'Contrat d’apprentissage (Cerfa) visé par l’école'], ['convention', 'Convention de stage signée par l’école'], ['rcivile', 'Attestation de responsabilité civile'], ['titre', 'Titre de séjour autorisant à travailler']];
+  // Pièces demandées selon le type de contrat.
+  const BASE_DOCS = ['identite', 'secu', 'rib', 'domicile', 'diplome'];
+  const DOCS_BY_CONTRACT = { CDI: BASE_DOCS, CDD: BASE_DOCS, Alternance: BASE_DOCS.concat(['cerfa']), Stage: ['identite', 'secu', 'rib', 'convention', 'rcivile'] };
+  const DOC_REFUSALS = ['Document illisible', 'Document expiré', 'Ce n’est pas le document demandé', 'Document incomplet'];
   const PREP_TASKS = [['poste', 'Poste de travail installé', 'manager'], ['ordinateur', 'Ordinateur et logiciels prêts', 'rh'], ['comptes', 'Comptes et adresse e-mail créés', 'rh'], ['badge', 'Badge d’accès commandé', 'rh'], ['bienvenue', 'Message de bienvenue avec le programme du premier jour', 'manager']];
-  const PLAN = [['accueil', 'Accueil par le manager et visite des locaux', 0, 'manager'], ['materiel', 'Remise du matériel et des accès', 0, 'rh'],
-    ['entreprise', 'Présentation de l’entreprise, des valeurs et de l’organisation', 2, 'rh'], ['equipe', 'Déjeuner d’équipe et rencontre des interlocuteurs clés', 4, 'parrain'],
-    ['mission', 'Première mission courte et valorisante', 10, 'manager'], ['formation', 'Formations de prise de poste (outils, sécurité, RGPD)', 15, 'rh']];
+  const planList = () => (db.onboardingPlan || []).map((x) => [x.k, x.label, Number(x.day) || 0, x.owner]);
   const CHECKINS = [['j30', 'Point à 30 jours', 30], ['j60', 'Point à 60 jours', 60], ['j90', 'Point à 90 jours', 90]];
   const OWNER = { manager: 'Manager', rh: 'RH', parrain: 'Parrain' };
   const NOTICE_LABEL = { 1: '24 heures', 2: '48 heures', 14: '2 semaines', 30: '1 mois' };
   function dossier(e) {
     db.onboarding = db.onboarding || {};
     const d = db.onboarding[e.id] = db.onboarding[e.id] || {};
-    return Object.assign(d, { docs: d.docs || {}, contract: d.contract || { status: 'À préparer' }, prep: d.prep || {}, plan: d.plan || {}, checkins: d.checkins || {} });
+    return Object.assign(d, { docs: d.docs || {}, files: d.files || {}, contract: d.contract || { status: 'À préparer' }, prep: d.prep || {}, plan: d.plan || {}, checkins: d.checkins || {} });
   }
   const needsTitre = (e) => e.zone === 'Hors UE';
-  const reqDocs = (e) => ARR_DOCS.filter(([k]) => k !== 'titre' || needsTitre(e));
+  const reqDocs = (e) => ARR_DOCS.filter(([k]) => (DOCS_BY_CONTRACT[e.contract] || BASE_DOCS).includes(k) || (k === 'titre' && needsTitre(e)));
+  // État d'une pièce : validée par les RH, déposée (à vérifier), refusée (à redéposer) ou manquante.
+  const docState = (d, k) => (d.docs[k] ? 'ok' : d.files[k] && d.files[k].refused ? 'refused' : d.files[k] ? 'check' : 'missing');
   // Jours ouvrables : du lundi au samedi.
   function subWorkDays(s, n) { let d = s; while (n > 0) { d = addDays(d, -1); if (parse(d).getDay() !== 0) n -= 1; } return d; }
   function addWorkDays(s, n) { let d = s; while (n > 0) { d = addDays(d, 1); if (parse(d).getDay() !== 0) n -= 1; } return d; }
@@ -1853,37 +1955,62 @@
       label: alt ? '45 jours de formation pratique en entreprise' : `${months} mois${d.trialRenewed ? `, renouvelée de ${months} mois` : ''}` };
   }
   function arrivalSteps(e, stage) {
-    const d = dossier(e), p = (k) => !!d.plan[k];
+    const d = dossier(e);
     if (stage === 2) return [reqDocs(e).every(([k]) => d.docs[k]) && (!needsTitre(e) || !!d.titreCheck), d.contract.status === 'Signé', PREP_TASKS.every(([k]) => d.prep[k]) && !!d.buddy];
     if (stage === 3) return [!!d.dpae && !!e.registeredAt, !!d.info7 && !!d.info1m, !!d.assignedAt, !!d.mutuelle && db.visits.some((v) => v.empId === e.id && /information/i.test(v.kind) && v.date >= addDays(e.startDate, -30))];
-    return [p('accueil'), p('entreprise') && p('equipe'), p('materiel') && p('mission'), p('formation'), !!d.checkins.j30 && !!d.astonish, d.trialDecision === 'Confirmée'];
+    return planList().map(([k]) => !!d.plan[k]).concat([!!d.checkins.j30, !!d.astonish, d.trialDecision === 'Confirmée']);
   }
-  // Actions qui attendent le profil courant pour une arrivée.
-  function arrivalActions(e) {
+  // Actions qui attendent le profil courant pour une arrivée, sur la page de l'étape i (2 pré-embauche, 3 embauche, 4 intégration).
+  function arrivalActions(e, i = e.stage) {
     const d = dossier(e), rh = ui.profile === 'rh', mine = (o) => (rh ? o === 'rh' : o !== 'rh'), out = [], start = e.startDate;
-    if (e.stage === 2) {
-      const miss = reqDocs(e).filter(([k]) => !d.docs[k]).length;
-      if (rh && miss) out.push(plural(miss, 'pièce à recevoir', 'pièces à recevoir'));
+    if (i === 2 && e.stage === 2) {
+      const check = reqDocs(e).filter(([k]) => docState(d, k) === 'check').length, miss = reqDocs(e).filter(([k]) => ['missing', 'refused'].includes(docState(d, k))).length;
+      if (rh && check) out.push(plural(check, 'pièce à vérifier', 'pièces à vérifier'));
+      if (rh && miss && dayDiff(TODAY, start) <= 10) out.push(`${plural(miss, 'pièce manquante', 'pièces manquantes')} à moins de 10 jours de l’arrivée`);
       if (rh && needsTitre(e) && !d.titreCheck) out.push(`vérifier le titre de séjour avant le ${fmtShort(subWorkDays(start, 2))}`);
-      if (rh && d.contract.status !== 'Signé') out.push(d.contract.status === 'Envoyé' ? 'contrat en attente de signature' : 'contrat à préparer');
+      if (rh && ['À préparer', 'Prêt'].includes(d.contract.status)) out.push(d.contract.status === 'Prêt' ? 'contrat à envoyer pour signature' : 'contrat à préparer');
       const prep = PREP_TASKS.filter(([k, , o]) => !d.prep[k] && mine(o)).length + (!d.buddy && !rh ? 1 : 0);
       if (prep) out.push(plural(prep, 'tâche de préparation', 'tâches de préparation'));
-    } else if (e.stage === 3 && rh) {
+    } else if (i === 3 && e.stage === 2 && rh) {
       if (!d.dpae && TODAY >= addDays(start, -8)) out.push(TODAY > start ? 'DPAE en retard' : 'DPAE à faire');
-      if (!e.registeredAt) out.push('inscription au registre');
-      if (!d.info7) out.push(`informations à remettre avant le ${fmtShort(addDays(start, 7))}`);
-      else if (!d.info1m) out.push(`informations complémentaires avant le ${fmtShort(addMonths(start, 1))}`);
-      if (!d.mutuelle) out.push('mutuelle');
-      if (!arrivalSteps(e, 3)[3] && d.mutuelle) out.push('visite d’information et de prévention');
-      if (!d.assignedAt) out.push('affectation à confirmer');
-    } else if (e.stage === 4) {
-      const late = PLAN.filter(([k, , day, o]) => !d.plan[k] && TODAY >= addDays(start, day) && mine(o)).length;
+      if (!e.registeredAt && TODAY >= start) out.push('inscription au registre');
+      if (!d.info7 && TODAY >= start) out.push(`informations à remettre avant le ${fmtShort(addDays(start, 7))}`);
+      else if (d.info7 && !d.info1m && TODAY >= addDays(start, 7)) out.push(`informations complémentaires avant le ${fmtShort(addMonths(start, 1))}`);
+      if (!d.mutuelle && TODAY >= addDays(start, -8)) out.push('mutuelle');
+      if (!d.assignedAt && TODAY >= addDays(start, -8)) out.push('affectation à confirmer');
+    } else if (i === 4 && e.stage === 4) {
+      const late = planList().filter(([k, , day, o]) => !d.plan[k] && TODAY >= addDays(start, day) && mine(o)).length;
       if (late) out.push(plural(late, 'action du programme', 'actions du programme'));
       CHECKINS.forEach(([k, l, day]) => { if (!d.checkins[k] && TODAY >= addDays(start, day) && TODAY <= addDays(start, day + 30)) out.push(l.toLowerCase()); });
       const t = trialInfo(e);
-      if (t && !d.trialDecision && dayDiff(TODAY, t.decideBy) <= 14) out.push(`décision sur la période d’essai avant le ${fmtShort(t.decideBy)}`);
+      if (rh && t && !d.trialDecision && dayDiff(TODAY, t.decideBy) <= 14) out.push(`décision sur la période d’essai avant le ${fmtShort(t.decideBy)}`);
     }
     return out;
+  }
+  // Pièces que la recrue doit encore déposer depuis son espace.
+  const myArrivalTodo = (e) => (e.stage === 2 ? reqDocs(e).filter(([k]) => ['missing', 'refused'].includes(docState(dossier(e), k))).length : 0);
+  // Passage automatique en intégration : pré-embauche et embauche terminées, contrat signé.
+  function syncArrivals() {
+    db.employees.filter((e) => e.stage === 3).forEach((e) => { e.stage = 2; });
+    db.employees.filter((e) => e.stage === 2 && arrivalSteps(e, 2).every(Boolean) && arrivalSteps(e, 3).every(Boolean)).forEach((e) => {
+      db.journey[e.id] = db.journey[e.id] || {}; db.journey[e.id][2] = STAGES[2].steps.map(() => true); db.journey[e.id][3] = STAGES[3].steps.map(() => true);
+      e.stage = 4; notify(e.id, 'Votre pré-embauche et votre embauche sont terminées : place à l’intégration !');
+      if (e.managerId) notify(e.managerId, `${fullName(e)} passe en intégration.`);
+      if (ui.selPerson === e.id) ui.selPerson = null;
+      toast(`${fullName(e)} passe automatiquement en intégration`);
+    });
+  }
+  // Relances : pièces manquantes à J-10 (RH et recrue), rappel du premier jour à J-7 (recrue).
+  function arrivalReminders() {
+    db.employees.filter((e) => e.stage === 2).forEach((e) => {
+      const d = dossier(e), days = dayDiff(TODAY, e.startDate), miss = myArrivalTodo(e);
+      if (days >= 0 && days <= 10 && miss && !d.remind10) {
+        d.remind10 = TODAY;
+        notify('e1', `Relance J-10 : ${plural(miss, 'pièce manquante', 'pièces manquantes')} pour ${fullName(e)}, qui arrive le ${fmtDate(e.startDate)}.`);
+        notify(e.id, `Il vous reste ${plural(miss, 'pièce', 'pièces')} à déposer avant votre arrivée le ${fmtDate(e.startDate)}.`);
+      }
+      if (days >= 0 && days <= 7 && !d.remind7) { d.remind7 = TODAY; notify(e.id, `Votre arrivée approche : rendez-vous le ${fmtDate(e.startDate)}. Votre programme du premier jour est dans « Mon arrivée ».`); }
+    });
   }
   function arrivalDossier(e, i) {
     const d = dossier(e), rh = ui.profile === 'rh', mgr = ui.profile === 'manager', can = (o) => rh || (mgr && o !== 'rh');
@@ -1894,46 +2021,55 @@
     const days = dayDiff(TODAY, e.startDate), start = e.startDate;
     const when = days > 0 ? `Arrivée dans ${plural(days, 'jour', 'jours')}, le ${fmtDate(start)}` : days === 0 ? 'Arrivée aujourd’hui' : `Arrivée le ${fmtDate(start)} · J+${-days}`;
     const sec = (title, body) => `<h4 class="sub" style="margin-top:18px">${title}</h4>${body}`;
-    let html = `<p class="hint" style="margin:12px 0 0">${when} · ${esc(e.contract)} · ${esc(e.category || '—')} · manager : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}${d.buddy ? ` · parrain : ${esc(fullName(emp(d.buddy)))}` : ''}</p>`;
+    // Le manager ne voit en embauche que l'avancement (les puces), sans le détail administratif.
+    if (i === 3 && !rh) return '';
+    let html = `<p class="hint" style="margin:12px 0 0">${when} · ${esc(e.contract)} · ${esc(e.title)} · manager : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}${d.buddy ? ` · parrain : ${esc(fullName(emp(d.buddy)))}` : ''}</p>`;
     if (i === 2) {
-      const sel = (f, list, v) => `<select class="select" data-change="arr-civ" data-id="${e.id}" data-f="${f}" ${rh ? '' : 'disabled'} aria-label="${f}">${list.map((x) => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
-      html += sec('État civil (registre du personnel)', `<div class="form-grid civ"><div class="field"><label>Sexe</label>${sel('sex', ['—', 'F', 'H'], e.sex || '—')}</div><div class="field"><label>Nationalité</label><input class="input" value="${esc(e.nationality || '')}" data-change="arr-civ" data-id="${e.id}" data-f="nationality" ${rh ? '' : 'disabled'} aria-label="Nationalité"></div>
-        <div class="field"><label>Zone</label>${sel('zone', ['France', 'UE', 'Hors UE'], e.zone || 'France')}</div><div class="field"><label>Date de naissance</label><input type="date" class="input" value="${esc(e.birthDate || '')}" data-change="arr-civ" data-id="${e.id}" data-f="birthDate" ${rh ? '' : 'disabled'} aria-label="Date de naissance"></div></div>`);
-      html += sec('Pièces du dossier', reqDocs(e).map(([k, l]) => row(l, k === 'titre' ? 'Salarié hors Union européenne : le titre doit autoriser à travailler' : '', d.docs[k] ? ok(d.docs[k], 'Reçu') : rh ? b('arr-doc', 'Marquer reçu', `data-k="${k}"`) : pend('À recevoir'))).join('')
-        + (needsTitre(e) ? row('Vérification du titre auprès de la préfecture', `Au plus tard le ${fmtDate(subWorkDays(start, 2))}, 2 jours ouvrables avant l’embauche (art. R5221-41)`, d.titreCheck ? ok(d.titreCheck, 'Demande envoyée') : rh ? b('arr-titre', 'Demande envoyée') : pend()) : ''));
-      const c = d.contract, st = { 'À préparer': 'neutral', Prêt: 'info', Envoyé: 'warn', Signé: 'ok' }[c.status];
-      html += sec('Contrat de travail', row(`Contrat ${esc(e.contract)} · ${esc(e.title)}`, `${e.contract === 'CDD' ? 'À transmettre au plus tard 2 jours ouvrables après l’embauche (art. L1242-13). ' : ''}Poste, rémunération, durée du travail, période d’essai, convention collective Syntec.`,
-        `<span class="pill ${st}">${c.status}${c.signedAt ? ` · ${fmtShort(c.signedAt)}` : ''}</span>${c.docId ? `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${c.docId}">Voir</button>` : ''}
-        ${rh ? (c.status === 'À préparer' ? b('arr-contract', 'Générer le contrat', 'data-s="Prêt"', 'primary') : c.status === 'Prêt' ? b('arr-contract', 'Envoyer pour signature', 'data-s="Envoyé"', 'primary') : c.status === 'Envoyé' ? b('arr-contract', 'Signé par le salarié', 'data-s="Signé"') : '') : ''}`));
+      if (rh) {
+        const sel = (f, list, v) => `<select class="select" data-change="arr-civ" data-id="${e.id}" data-f="${f}" aria-label="${f}">${list.map((x) => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
+        html += sec('État civil (registre du personnel)', `<div class="form-grid civ"><div class="field"><label>Sexe</label>${sel('sex', ['—', 'F', 'H'], e.sex || '—')}</div><div class="field"><label>Nationalité</label><input class="input" value="${esc(e.nationality || '')}" data-change="arr-civ" data-id="${e.id}" data-f="nationality" aria-label="Nationalité"></div>
+          <div class="field"><label>Zone</label>${sel('zone', ['France', 'UE', 'Hors UE'], e.zone || 'France')}</div><div class="field"><label>Date de naissance</label><input type="date" class="input" value="${esc(e.birthDate || '')}" data-change="arr-civ" data-id="${e.id}" data-f="birthDate" aria-label="Date de naissance"></div></div>`);
+        html += sec(`Pièces du dossier · contrat ${esc(e.contract)}`, `<p class="hint" style="margin:0 0 6px">${esc(e.firstName)} dépose ses pièces depuis son espace ; vous les vérifiez ici.</p>` + reqDocs(e).map(([k, l]) => { const st = docState(d, k), f = d.files[k];
+          const file = f ? `<button type="button" class="btn ghost sm" data-act="file-view" data-id="${e.id}" data-k="${k}">${ic('file')}Voir</button>` : '';
+          const sub = k === 'titre' ? 'Salarié hors Union européenne : le titre doit autoriser à travailler' : f ? `${esc(f.name)} · déposé le ${fmtShort(f.date)}${f.refused ? ` · refusé : ${esc(f.refused)}` : ''}` : '';
+          return row(l, sub, st === 'ok' ? `${ok(d.docs[k], 'Validé')}${file}` : st === 'check' ? `<span class="pill info">À vérifier</span>${file}${b('arr-doc', `${ic('check')}Valider`, `data-k="${k}"`, 'ok')}${b('doc-refuse', 'Refuser', `data-k="${k}"`)}`
+            : `${pend(st === 'refused' ? 'À redéposer' : 'En attente du dépôt', st === 'refused' ? 'bad' : 'neutral')}${b('arr-doc', 'Reçu sur papier', `data-k="${k}"`)}`); }).join('')
+          + (needsTitre(e) ? row('Vérification du titre auprès de la préfecture', `Au plus tard le ${fmtDate(subWorkDays(start, 2))}, 2 jours ouvrables avant l’embauche (art. R5221-41)`, d.titreCheck ? ok(d.titreCheck, 'Demande envoyée') : b('arr-titre', 'Demande envoyée')) : ''));
+        const c = d.contract, st = { 'À préparer': 'neutral', Prêt: 'info', Envoyé: 'warn', Signé: 'ok' }[c.status];
+        html += sec('Contrat de travail', row(`Contrat ${esc(e.contract)} · ${esc(e.title)}`, `${e.contract === 'CDD' ? 'À transmettre au plus tard 2 jours ouvrables après l’embauche (art. L1242-13). ' : ''}${c.status === 'Envoyé' ? `Envoyé le ${fmtShort(c.sentAt)} : ${esc(e.firstName)} le signe à la main depuis l’onglet « Contrat de travail » de son espace.` : 'Poste, rémunération, durée du travail, période d’essai, convention collective Syntec.'}`,
+          `<span class="pill ${st}">${c.status === 'Envoyé' ? 'En attente de signature' : c.status}${c.signedAt ? ` · ${fmtShort(c.signedAt)}` : ''}</span>${c.docId ? `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${c.docId}">Voir</button>` : ''}
+          ${c.status === 'À préparer' ? b('arr-contract', 'Générer le contrat', 'data-s="Prêt"', 'primary') : c.status === 'Prêt' ? b('arr-contract', 'Envoyer pour signature', 'data-s="Envoyé"', 'primary') : c.status === 'Envoyé' ? b('arr-contract', 'Signé sur papier', 'data-s="Signé"') : ''}`));
+      }
       const buddies = db.employees.filter((x) => isEmployed(x) && x.id !== e.id && x.id !== e.managerId && (x.dept === e.dept || x.dept === 'RH'));
       html += sec('Préparation de l’arrivée', PREP_TASKS.map(([k, l, o]) => row(l, OWNER[o], d.prep[k] ? ok(d.prep[k]) : can(o) ? b('arr-prep', 'Fait', `data-k="${k}"`) : pend('À faire', 'neutral'))).join('')
         + row('Parrain ou marraine', 'Un collègue qui transmet les codes de l’équipe, distinct du manager', `<select class="select" data-change="arr-buddy" data-id="${e.id}" ${can('manager') ? '' : 'disabled'} aria-label="Parrain"><option value="">Choisir…</option>${buddies.map((x) => `<option value="${x.id}" ${x.id === d.buddy ? 'selected' : ''}>${esc(fullName(x))}</option>`).join('')}</select>`));
+      if (mgr) html += `<p class="hint" style="margin:10px 0 0">Les pièces du dossier et le contrat sont gérés par les RH.</p>`;
     }
     if (i === 3) {
       const open = TODAY >= addDays(start, -8);
       html += sec('Formalités', row('Déclaration préalable à l’embauche (DPAE)', 'Auprès de l’Urssaf, au plus tôt 8 jours avant l’embauche et au plus tard avant la prise de poste. Elle vaut aussi adhésion au service de santé au travail.',
-        d.dpae ? ok(d.dpae.date, `N° ${esc(d.dpae.ref)}`) : !rh ? pend() : open ? b('arr-dpae', TODAY > start ? 'Faire la DPAE (en retard)' : 'Effectuer la DPAE', '', TODAY > start ? 'bad' : 'primary') : `<span class="pill neutral">Possible dès le ${fmtShort(addDays(start, -8))}</span>`)
-        + row('Registre unique du personnel', 'Inscription obligatoire au moment de l’embauche', `${e.registeredAt ? ok(e.registeredAt, 'Inscrit') : rh ? b('arr-register', 'Inscrire') : pend()}${rh ? '<button type="button" class="btn ghost sm" data-act="register-view">Voir le registre</button>' : ''}`));
-      const info = (k, l, sub, due) => row(l, `${sub} · à remettre avant le ${fmtDate(due)}`, d[k] ? `${ok(d[k], 'Remis')}${d[k + 'Doc'] ? `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${d[k + 'Doc']}">Voir</button>` : ''}` : rh ? b('arr-info', 'Générer et remettre', `data-k="${k}"`, TODAY > due ? 'bad' : 'ghost') : pend());
+        d.dpae ? ok(d.dpae.date, `N° ${esc(d.dpae.ref)}`) : open ? b('arr-dpae', TODAY > start ? 'Faire la DPAE (en retard)' : 'Effectuer la DPAE', '', TODAY > start ? 'bad' : 'primary') : `<span class="pill neutral">Possible dès le ${fmtShort(addDays(start, -8))}</span>`)
+        + row('Registre unique du personnel', 'Inscription obligatoire au moment de l’embauche', `${e.registeredAt ? ok(e.registeredAt, 'Inscrit') : b('arr-register', 'Inscrire')}<button type="button" class="btn ghost sm" data-act="register-view">Voir le registre</button>`));
+      const info = (k, l, sub, due) => row(l, `${sub} · à remettre avant le ${fmtDate(due)}`, d[k] ? `${ok(d[k], 'Remis')}${d[k + 'Doc'] ? `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${d[k + 'Doc']}">Voir</button>` : ''}` : b('arr-info', 'Générer et remettre', `data-k="${k}"`, TODAY > due ? 'bad' : 'ghost'));
       html += sec('Informations obligatoires (décret du 30 octobre 2023)', info('info7', 'Informations essentielles', 'Identité des parties, lieu de travail, emploi, date d’embauche, période d’essai, rémunération, durée du travail', addDays(start, 7))
         + info('info1m', 'Informations complémentaires', 'Congés payés, procédure de rupture et préavis, droit à la formation, protection sociale, convention collective', addMonths(start, 1)));
       const t = trialInfo(e);
       html += sec('Affectation', row(`${esc(e.title)} · ${esc(e.dept)}`, `Manager : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'} · catégorie ${esc(e.category || '—')} · période d’essai : ${t ? `${t.label}, jusqu’au ${fmtDate(t.end)}` : 'aucune'}`,
-        `${rh ? `<select class="select" data-change="arr-civ" data-id="${e.id}" data-f="category" aria-label="Catégorie">${['Cadre', 'Agent de maîtrise', 'Employé'].map((x) => `<option ${x === e.category ? 'selected' : ''}>${x}</option>`).join('')}</select>` : ''}${d.assignedAt ? ok(d.assignedAt, 'Confirmée') : rh ? b('arr-assign', 'Confirmer') : pend()}`));
+        `<select class="select" data-change="arr-civ" data-id="${e.id}" data-f="category" aria-label="Catégorie">${['Cadre', 'Agent de maîtrise', 'Employé'].map((x) => `<option ${x === e.category ? 'selected' : ''}>${x}</option>`).join('')}</select>${d.assignedAt ? ok(d.assignedAt, 'Confirmée') : b('arr-assign', 'Confirmer')}`));
       const vip = db.visits.find((v) => v.empId === e.id && /information/i.test(v.kind) && v.date >= addDays(start, -30));
-      html += sec('Dispositifs', row('Mutuelle d’entreprise', 'Affiliation obligatoire au contrat collectif, sauf dispense justifiée', `<select class="select" data-change="arr-mutuelle" data-id="${e.id}" ${rh ? '' : 'disabled'} aria-label="Mutuelle"><option value="">À choisir</option>${['Affiliation', 'Dispense'].map((x) => `<option ${x === d.mutuelle ? 'selected' : ''}>${x}</option>`).join('')}</select>`)
-        + (e.category === 'Cadre' ? row('Prévoyance des cadres', 'Obligatoire : 1,50 % de la tranche A à la charge de l’employeur', d.prevoyance ? ok(d.assignedAt || TODAY, 'Affilié') : rh ? b('arr-prev', 'Affilier') : pend()) : '')
-        + row('Visite d’information et de prévention', `Dans les 3 mois suivant la prise de poste, avant le ${fmtDate(addMonths(start, 3))}`, vip ? `<span class="pill ${vip.status === 'Réalisée' ? 'ok' : 'info'}">${vip.status} · ${fmtShort(vip.date)}</span>` : rh ? b('arr-vip', 'Planifier la visite') : pend()));
+      html += sec('Dispositifs', row('Mutuelle d’entreprise', 'Affiliation obligatoire au contrat collectif, sauf dispense justifiée', `<select class="select" data-change="arr-mutuelle" data-id="${e.id}" aria-label="Mutuelle"><option value="">À choisir</option>${['Affiliation', 'Dispense'].map((x) => `<option ${x === d.mutuelle ? 'selected' : ''}>${x}</option>`).join('')}</select>`)
+        + (e.category === 'Cadre' ? row('Prévoyance des cadres', 'Obligatoire : 1,50 % de la tranche A à la charge de l’employeur', d.prevoyance ? ok(d.assignedAt || TODAY, 'Affilié') : b('arr-prev', 'Affilier')) : '')
+        + row('Visite d’information et de prévention', `Dans les 3 mois suivant la prise de poste, avant le ${fmtDate(addMonths(start, 3))}`, vip ? `<span class="pill ${vip.status === 'Réalisée' ? 'ok' : 'info'}">${vip.status} · ${fmtShort(vip.date)}</span>` : b('arr-vip', 'Planifier la visite')));
     }
     if (i === 4) {
-      html += sec('Programme d’intégration', PLAN.map(([k, l, day, o]) => { const due = addDays(start, day);
-        return row(l, `${OWNER[o]} · J+${day}, le ${fmtShort(due)}`, d.plan[k] ? ok(d.plan[k]) : `${TODAY > due ? pend('En retard', 'bad') : `<span class="pill neutral">Prévu</span>`}${can(o) ? b('arr-plan', 'Fait', `data-k="${k}"`) : ''}`); }).join(''));
+      html += sec('Programme d’intégration', planList().map(([k, l, day, o]) => { const due = addDays(start, day);
+        return row(esc(l), `${OWNER[o]} · J+${day}, le ${fmtShort(due)}`, d.plan[k] ? ok(d.plan[k]) : `${TODAY > due ? pend('En retard', 'bad') : `<span class="pill neutral">Prévu</span>`}${can(o) ? b('arr-plan', 'Fait', `data-k="${k}"`) : ''}`); }).join(''));
       html += sec('Points de suivi', CHECKINS.map(([k, l, day]) => { const due = addDays(start, day), c = d.checkins[k];
         return c ? row(l, `${fmtDate(c.date)} · « ${esc(c.note)} »`, ok(c.date)) : TODAY >= addDays(due, -7) && (rh || mgr)
           ? `<form class="todo checkin" data-form="arr-checkin" data-id="${e.id}" data-k="${k}"><div class="t"><b>${l}</b><small>Prévu le ${fmtDate(due)} · manager et nouvel arrivant</small><label class="sr" for="ck-${k}">Compte rendu</label><input id="ck-${k}" name="note" class="input" placeholder="Ce qui va bien, les points à ajuster, les objectifs suivants"></div><button class="btn ghost sm">Enregistrer</button></form>`
           : row(l, `Prévu le ${fmtDate(due)}`, '<span class="pill neutral">À venir</span>'); }).join(''));
       html += sec('Rapport d’étonnement', d.astonish ? `<q>${esc(d.astonish.text)}</q><p class="hint" style="margin:6px 0 0">Rédigé le ${fmtDate(d.astonish.date)}</p>`
-        : `<form data-form="arr-astonish" data-id="${e.id}"><label class="sr" for="as-${e.id}">Rapport d’étonnement</label><textarea id="as-${e.id}" name="text" class="input" placeholder="Ce qui m’a surpris, ce que je changerais, ce que j’apprécie déjà…"></textarea><div class="toolbar" style="margin-top:8px"><span class="hint">Conseillé vers J+30, rédigé par le nouvel arrivant.</span><button class="btn ghost sm" style="margin-left:auto">Enregistrer</button></div></form>`);
+        : '<p class="hint" style="margin:0">Rédigé par le nouvel arrivant depuis son espace, conseillé vers J+30.</p>');
       const t = trialInfo(e);
       if (t) {
         const near = !d.trialDecision && dayDiff(TODAY, t.decideBy) <= 14;
@@ -1945,6 +2081,68 @@
     }
     return html;
   }
+  // Programme d'intégration : modèle unique pour toute l'entreprise, que les RH composent.
+  function planConfig() {
+    const plan = db.onboardingPlan || [];
+    return card('Programme d’intégration · modèle de l’entreprise', `<span class="muted num" style="font-size:13px">${plural(plan.length, 'étape', 'étapes')}</span>`, `<div class="card-b"><p class="hint" style="margin:0 0 12px">S’applique à toutes les nouvelles recrues, triées par jour après l’arrivée. Une étape supprimée disparaît des programmes en cours ; ce qui a déjà été fait reste enregistré.</p>
+      <div class="plan-cfg">${plan.map((x, k) => `<div class="plan-row"><span class="plan-n num">${k + 1}</span><label class="sr" for="pl-l-${x.k}">Intitulé de l’étape ${k + 1}</label><input id="pl-l-${x.k}" class="input" value="${esc(x.label)}" maxlength="90" data-change="plan-edit" data-k="${x.k}" data-f="label">
+        <label class="plan-day">J+<input class="input num" type="number" min="0" max="180" value="${x.day}" data-change="plan-edit" data-k="${x.k}" data-f="day" aria-label="Jour après l’arrivée"></label>
+        <select class="select" data-change="plan-edit" data-k="${x.k}" data-f="owner" aria-label="Responsable">${Object.entries(OWNER).map(([v, l]) => `<option value="${v}" ${v === x.owner ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <button type="button" class="icon-btn" data-act="plan-del" data-k="${x.k}" aria-label="Supprimer l’étape « ${esc(x.label)} »" ${plan.length <= 1 ? 'disabled' : ''}>${ic('x')}</button></div>`).join('')}</div>
+      <form class="plan-row add" data-form="plan-add" novalidate><span class="plan-n">${ic('plus')}</span><label class="sr" for="pl-new">Nouvelle étape</label><input id="pl-new" name="label" class="input" maxlength="90" placeholder="Ex. Rencontre avec la direction">
+        <label class="plan-day">J+<input class="input num" name="day" type="number" min="0" max="180" value="5" aria-label="Jour après l’arrivée"></label><select class="select" name="owner" aria-label="Responsable">${Object.entries(OWNER).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select><button class="btn primary sm">Ajouter</button></form></div>`);
+  }
+  // Espace de la recrue : son programme et son rapport d'étonnement.
+  function myIntegration(e) {
+    const d = dossier(e);
+    return `${card('Mon programme d’intégration', '', `<div class="card-b">${planList().map(([k, l, day, o]) => `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${OWNER[o]} · ${fmtDate(addDays(e.startDate, day), { weekday: 'long', day: 'numeric', month: 'long' })}</small></div>${d.plan[k] ? '<span class="pill ok">Fait</span>' : '<span class="pill neutral">Prévu</span>'}</div>`).join('')}</div>`)}
+      ${card('Mon rapport d’étonnement', '', `<div class="card-b">${d.astonish ? `<q>${esc(d.astonish.text)}</q><p class="hint" style="margin:6px 0 0">Envoyé le ${fmtDate(d.astonish.date)}</p>`
+        : `<form data-form="arr-astonish" data-id="${e.id}"><label class="sr" for="as-${e.id}">Rapport d’étonnement</label><textarea id="as-${e.id}" name="text" class="input" placeholder="Ce qui m’a surpris, ce que je changerais, ce que j’apprécie déjà…"></textarea><div class="toolbar" style="margin-top:8px"><span class="hint">Conseillé vers J+30 · lu par les RH et votre manager.</span><button class="btn primary sm" style="margin-left:auto">Envoyer</button></div></form>`}</div>`)}`;
+  }
+
+  // ---- Espace de la recrue : « Mon arrivée » (pré-embauche) et « Contrat de travail » (embauche)
+  function viewArrivee() {
+    const e = me(), d = dossier(e), days = dayDiff(TODAY, e.startDate), mgr = e.managerId && emp(e.managerId), buddy = d.buddy && emp(d.buddy);
+    const docs = reqDocs(e).map(([k, l]) => { const st = docState(d, k), f = d.files[k];
+      const state = st === 'ok' ? '<span class="pill ok">Validé</span>' : st === 'check' ? '<span class="pill info">En cours de vérification</span>' : st === 'refused' ? '<span class="pill bad">À redéposer</span>' : '<span class="pill warn">À déposer</span>';
+      const up = st === 'missing' || st === 'refused' ? `<label class="btn ${st === 'refused' ? 'primary' : 'ghost'} sm upload">${ic('plus')}${st === 'refused' ? 'Déposer à nouveau' : 'Déposer'}<input type="file" accept=".pdf,image/*" data-change="arr-upload" data-k="${k}" aria-label="Déposer : ${esc(l)}"></label>` : '';
+      return `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${f ? `${esc(f.name)} · déposé le ${fmtShort(f.date)}${f.refused ? ` · refusé : ${esc(f.refused)}` : ''}` : d.docs[k] ? `Reçu le ${fmtShort(d.docs[k])}` : 'PDF ou photo lisible'}</small></div>${state}${up}</div>`; }).join('');
+    const first = planList().filter(([, , day]) => day <= 2);
+    const c = d.contract;
+    return `<div class="panel stage-page"><div class="card card-b">${stageHead(2)}<p style="margin:14px 0 0">Bienvenue ${esc(e.firstName)} ! ${days > 0 ? `Vous nous rejoignez dans <b class="num">${plural(days, 'jour', 'jours')}</b>, le ${fmtDate(e.startDate, { weekday: 'long', day: 'numeric', month: 'long' })}` : `Vous nous avez rejoints le ${fmtDate(e.startDate)}`}, au poste de ${esc(e.title)} (${esc(e.contract)}).</p>
+      ${locked(e) ? '<p class="hint" style="margin:6px 0 0">Les autres rubriques de votre espace s’ouvriront le jour de votre arrivée.</p>' : ''}</div>
+      <div class="card"><div class="card-h"><h3>Où en est mon arrivée</h3></div><div class="card-b">${stepsList(arrivalSteps(e, 2), STAGES[2].steps, false)}</div></div>
+      ${c.status === 'Envoyé' ? `<div class="card card-b callout"><b>${ic('edit')}Votre contrat de travail est prêt à signer</b><button type="button" class="btn primary sm" data-act="go" data-v="contrat">Signer mon contrat${ic('arrow')}</button></div>` : ''}
+      ${card('Mes documents', `<span class="muted num" style="font-size:13px">${plural(reqDocs(e).filter(([k]) => d.docs[k]).length, 'pièce validée', 'pièces validées')} sur ${reqDocs(e).length}</span>`, `<div class="card-b"><p class="hint" style="margin:0 0 6px">Pièces demandées pour un contrat ${esc(e.contract)}. Les RH les vérifient et vous préviennent si l’une doit être redéposée.</p>${docs}</div>`)}
+      ${card('Mon premier jour', '', `<div class="card-b"><div class="info-grid"><div><span>Date et lieu</span>${fmtDate(e.startDate, { weekday: 'long', day: 'numeric', month: 'long' })} · ${esc(e.location)}</div><div><span>Manager</span>${mgr ? esc(fullName(mgr)) : '—'}</div><div><span>Parrain ou marraine</span>${buddy ? esc(fullName(buddy)) : 'Bientôt désigné'}</div><div><span>Contact RH</span>Olivia Bennett · rh@novastudio.fr</div></div>
+        <h4 class="sub" style="margin-top:16px">Au programme</h4>${first.map(([, l, day]) => `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${day ? `J+${day}` : 'Premier jour'}</small></div></div>`).join('') || '<p class="muted" style="margin:0">Le programme sera bientôt disponible.</p>'}</div>`)}</div>`;
+  }
+  function viewContrat() {
+    const e = me(), d = dossier(e), c = d.contract, docs = db.documents.filter((x) => x.empId === e.id && ['contrat', 'avenant'].includes(x.kind)).sort((a, b) => a.date.localeCompare(b.date));
+    const pending = e.stage === 2 && c.status === 'Envoyé' && c.docId && db.documents.find((x) => x.id === c.docId);
+    let main;
+    if (pending) main = `<div class="card"><div class="card-h"><h3>Contrat à signer</h3><span class="pill warn">Envoyé le ${fmtShort(c.sentAt)}</span></div><div class="card-b"><article class="letter">${docBody(pending)}</article>
+      <div class="sign-box"><h4 class="sub">Votre signature</h4><p class="hint" style="margin:0 0 8px">Signez à la souris ou au doigt dans le cadre : votre signature sera apposée sur le contrat.</p>
+        <canvas id="sig-pad" class="sig-pad" width="560" height="170" aria-label="Zone de signature"></canvas>
+        <div class="toolbar" style="margin-top:10px"><button type="button" class="btn ghost sm" data-act="sig-clear">Effacer</button><label class="agree"><input type="checkbox" id="sig-ok"> J’ai lu le contrat et j’en accepte les termes (« lu et approuvé »)</label>
+        <button type="button" class="btn primary" data-act="sig-sign" data-id="${pending.id}" style="margin-left:auto">${ic('edit')}Signer le contrat</button></div><p class="err" id="sig-err" aria-live="polite"></p></div></div></div>`;
+    else if (e.stage === 2 && c.status !== 'Signé') main = `<div class="card card-b"><p style="margin:0">Votre contrat est en cours de préparation par les RH. Vous serez prévenu·e dès qu’il sera prêt à signer.</p></div>`;
+    else main = '';
+    return `<div class="panel stage-page"><div class="card card-b">${stageHead(3)}</div>${main}
+      ${card('Mes documents contractuels', '', `<div class="card-b">${docs.filter((x) => x !== pending).map((x) => `<div class="todo"><span class="doc-ic">${ic('file')}</span><div class="t"><b>${esc(x.title)}</b><small>${fmtDate(x.date)}${x.signature ? ` · signé le ${fmtDate(x.signature.date)}` : ''}</small></div><button type="button" class="btn ghost sm" data-act="doc-view" data-id="${x.id}">Consulter</button></div>`).join('') || '<p class="muted" style="margin:0">Aucun document signé pour le moment.</p>'}</div>`)}
+      ${e.stage === 2 ? card('Où en est mon embauche', '', `<div class="card-b">${stepsList(arrivalSteps(e, 3), STAGES[3].steps, false)}</div>`) : ''}</div>`;
+  }
+  // Signature manuscrite : tracé à la souris, au stylet ou au doigt.
+  function bindSignature() {
+    const cv = document.getElementById('sig-pad'); if (!cv) return;
+    const ctx = cv.getContext('2d'); let drawing = false; cv._strokes = 0;
+    ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1b2559';
+    const pos = (ev) => { const r = cv.getBoundingClientRect(); return [(ev.clientX - r.left) * (cv.width / r.width), (ev.clientY - r.top) * (cv.height / r.height)]; };
+    cv.addEventListener('pointerdown', (ev) => { drawing = true; cv.setPointerCapture(ev.pointerId); const [x, y] = pos(ev); ctx.beginPath(); ctx.moveTo(x, y); cv._strokes += 1; });
+    cv.addEventListener('pointermove', (ev) => { if (!drawing) return; const [x, y] = pos(ev); ctx.lineTo(x, y); ctx.stroke(); cv._ink = (cv._ink || 0) + 1; });
+    const end = () => { drawing = false; };
+    cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+  }
   function registerHTML() {
     const list = db.employees.filter((e) => e.registeredAt).sort((a, b) => a.registeredAt.localeCompare(b.registeredAt) || a.startDate.localeCompare(b.startDate));
     return `<div class="table-wrap"><table class="register"><thead><tr><th>N°</th><th>Nom et prénoms</th><th>Nationalité</th><th>Naissance</th><th>Sexe</th><th>Emploi</th><th>Qualification</th><th>Contrat</th><th>Entrée</th><th>Sortie</th></tr></thead><tbody>
@@ -1952,16 +2150,32 @@
   }
   const arrE = (d) => emp(d.id);
   Object.assign(MOD_ACT, {
-    'open-dossier'(d) { const e = emp(d.id); Object.assign(ui, { view: 'etape', stage: e.stage, selPerson: e.id, drawer: null, notif: false }); window.scrollTo(0, 0); render(); },
+    // Pendant l'arrivée, on ouvre la pré-embauche, ou l'embauche (RH) quand la pré-embauche est terminée.
+    'open-dossier'(d) { const e = emp(d.id), i = e.stage === 2 && ui.profile === 'rh' && arrivalSteps(e, 2).every(Boolean) ? 3 : e.stage; Object.assign(ui, { view: 'etape', stage: i, selPerson: e.id, drawer: null, notif: false }); window.scrollTo(0, 0); render(); },
     'register-view'() { ui.modal = { type: 'register' }; render(); },
-    'arr-doc'(d) { dossier(arrE(d)).docs[d.k] = TODAY; toast('Pièce reçue'); commit(); },
+    'arr-doc'(d) { const e = arrE(d), x = dossier(e); x.docs[d.k] = TODAY; if (x.files[d.k]) delete x.files[d.k].refused; toast(x.files[d.k] ? 'Pièce validée' : 'Pièce reçue'); commit(); },
+    'doc-refuse'(d) { ui.modal = { type: 'doc-refuse', id: d.id, k: d.k }; render(); },
+    'file-view'(d) { ui.modal = { type: 'file-view', id: d.id, k: d.k }; render(); },
+    'sig-clear'() { const cv = document.getElementById('sig-pad'); if (cv) { cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); cv._strokes = 0; cv._ink = 0; } },
+    'sig-sign'(d) {
+      const cv = document.getElementById('sig-pad'), err = document.getElementById('sig-err');
+      if (!cv || !(cv._ink > 8)) { err.textContent = 'Tracez votre signature dans le cadre.'; return; }
+      if (!document.getElementById('sig-ok').checked) { err.textContent = 'Cochez la case « lu et approuvé » pour signer.'; return; }
+      const e = me(), doc = db.documents.find((x) => x.id === d.id), c = dossier(e).contract;
+      doc.signature = { img: cv.toDataURL('image/png'), date: TODAY, name: fullName(e) };
+      Object.assign(c, { status: 'Signé', signedAt: TODAY });
+      notify('e1', `${fullName(e)} a signé son contrat de travail.`); if (e.managerId) notify(e.managerId, `Le contrat de ${fullName(e)} est signé.`);
+      ui.modal = { type: 'doc', id: doc.id }; toast('Contrat signé · un exemplaire est disponible dans vos documents'); commit();
+    },
+    'plan-del'(d) { ui.modal = { type: 'plan-del', k: d.k }; render(); },
+    'plan-del-ok'(d) { db.onboardingPlan = db.onboardingPlan.filter((x) => x.k !== d.k); ui.modal = null; toast('Étape supprimée du programme'); commit(); },
     'arr-titre'(d) { dossier(arrE(d)).titreCheck = TODAY; toast('Demande de vérification envoyée à la préfecture'); commit(); },
     'arr-contract'(d) {
       const e = arrE(d), c = dossier(e).contract;
       if (d.s === 'Prêt') { db.documents = db.documents.filter((x) => x.id !== c.docId); c.docId = addDoc(e.id, 'contrat').id; }
-      if (d.s === 'Envoyé') c.sentAt = TODAY;
-      if (d.s === 'Signé') { c.signedAt = TODAY; notify(e.managerId, `Le contrat de ${fullName(e)} est signé.`); }
-      c.status = d.s; toast(d.s === 'Prêt' ? 'Contrat généré' : d.s === 'Envoyé' ? 'Contrat envoyé pour signature électronique' : 'Contrat signé'); commit();
+      if (d.s === 'Envoyé') { c.sentAt = TODAY; notify(e.id, 'Votre contrat de travail est prêt : signez-le dans l’onglet « Contrat de travail ».'); }
+      if (d.s === 'Signé') { c.signedAt = TODAY; c.paper = true; notify(e.managerId, `Le contrat de ${fullName(e)} est signé.`); }
+      c.status = d.s; toast(d.s === 'Prêt' ? 'Contrat généré' : d.s === 'Envoyé' ? `Contrat envoyé à ${fullName(e)} pour signature` : 'Contrat signé sur papier'); commit();
     },
     'arr-prep'(d) { const e = arrE(d); dossier(e).prep[d.k] = TODAY; toast('Tâche terminée'); commit(); },
     'arr-dpae'(d) { const e = arrE(d); dossier(e).dpae = { date: TODAY, ref: `DPAE-75-${TODAY.slice(0, 4)}-${String(Math.floor(Math.random() * 9000) + 1000)}` }; toast('DPAE transmise à l’Urssaf · accusé de réception reçu'); commit(); },
@@ -1979,8 +2193,33 @@
     'arr-civ'(v, d) { const e = emp(d.id); e[d.f] = v === '—' ? null : v; commit(); },
     'arr-buddy'(v, d) { const e = emp(d.id); dossier(e).buddy = v || null; if (v) notify(v, `Vous êtes le parrain ou la marraine de ${fullName(e)}, qui arrive le ${fmtDate(e.startDate)}.`); toast(v ? 'Parrain désigné' : 'Parrain retiré'); commit(); },
     'arr-mutuelle'(v, d) { dossier(emp(d.id)).mutuelle = v || null; toast('Mutuelle enregistrée'); commit(); },
+    // Dépôt d'une pièce par la recrue : le fichier est gardé dans ce navigateur s'il est léger (aperçu), sinon seul son nom l'est.
+    'arr-upload'(v, d, t) {
+      const file = t.files && t.files[0]; if (!file) return;
+      const e = me(), x = dossier(e), label = ARR_DOCS.find(([k]) => k === d.k)[1];
+      const done = (data) => { x.files[d.k] = { name: file.name, date: TODAY, type: file.type, data }; notify('e1', `${fullName(e)} a déposé une pièce à vérifier : ${label}.`); toast('Pièce déposée · les RH vont la vérifier'); commit(); };
+      if (file.size <= 700 * 1024 && /^(image\/|application\/pdf)/.test(file.type)) { const r = new FileReader(); r.onload = () => done(r.result); r.onerror = () => done(null); r.readAsDataURL(file); } else done(null);
+    },
+    'plan-edit'(v, d) {
+      const x = db.onboardingPlan.find((p) => p.k === d.k); if (!x) return;
+      if (d.f === 'label') { if (!v.trim()) { toast('L’intitulé ne peut pas être vide.', 'info'); render(); return; } x.label = v.trim(); }
+      else if (d.f === 'day') x.day = Math.max(0, Math.min(180, Math.round(Number(v) || 0))); else x.owner = v;
+      db.onboardingPlan.sort((a, b) => a.day - b.day); toast('Programme mis à jour'); commit();
+    },
+    'as-emp'(v) { ui = Object.assign({ profile: 'salarie', view: 'accueil', stage: null, asEmp: v }, freshUI()); render(); toast(`Vous voyez l’espace de ${fullName(me())}.`); },
   });
   Object.assign(MOD_FORMS, {
+    'plan-add'(v) {
+      if (!v.label.trim()) { toast('Indiquez l’intitulé de l’étape.', 'info'); return; }
+      db.onboardingPlan.push({ k: uid('p'), label: v.label.trim(), day: Math.max(0, Math.min(180, Math.round(Number(v.day) || 0))), owner: v.owner });
+      db.onboardingPlan.sort((a, b) => a.day - b.day); toast('Étape ajoutée au programme'); commit();
+    },
+    'doc-refuse'(v) {
+      const e = emp(ui.modal.id), x = dossier(e), why = v.reason === 'Autre' ? (v.other || '').trim() : v.reason, label = ARR_DOCS.find(([k]) => k === ui.modal.k)[1];
+      if (!why) return formError('Précisez le motif pour que la recrue sache quoi redéposer.');
+      x.files[ui.modal.k].refused = why; delete x.docs[ui.modal.k];
+      notify(e.id, `Votre pièce « ${label} » est à redéposer : ${why}.`); ui.modal = null; toast('Pièce refusée · la recrue est prévenue'); commit();
+    },
     'arr-checkin'(v, form) { const e = emp(form.dataset.id); if (!v.note.trim()) { toast('Écrivez un court compte rendu.', 'info'); return; } dossier(e).checkins[form.dataset.k] = { date: TODAY, note: v.note.trim(), by: me().id }; toast('Point de suivi enregistré'); commit(); },
     'arr-astonish'(v, form) { const e = emp(form.dataset.id); if (!v.text.trim()) { toast('Le rapport est vide.', 'info'); return; } dossier(e).astonish = { date: TODAY, text: v.text.trim() }; if (ui.profile !== 'rh') notify('e1', `Rapport d’étonnement de ${fullName(e)} disponible.`); toast('Rapport d’étonnement enregistré'); commit(); },
     'trial-renew'(v) {
@@ -1998,6 +2237,17 @@
       ui.modal = null; ui.selPerson = null; toast(`${fullName(e)} passe à l’étape « Préparation du départ »`); commit();
     },
   });
+  MODALS['doc-refuse'] = (m, shell, formShell, opt, f) => formShell(`Refuser la pièce · ${esc(ARR_DOCS.find(([k]) => k === m.k)[1])}`, 'doc-refuse',
+    `<div class="form-grid">${f('dr-r', 'Motif communiqué à la recrue', `<select id="dr-r" name="reason" class="select">${opt(DOC_REFUSALS.concat(['Autre']))}</select>`, true)}${f('dr-o', 'Si autre, précisez', '<input id="dr-o" name="other" class="input" maxlength="140">', true)}</div>`, 'Refuser la pièce');
+  MODALS['file-view'] = (m, shell) => {
+    const e = emp(m.id), x = dossier(e).files[m.k], label = ARR_DOCS.find(([k]) => k === m.k)[1];
+    const view = x.data && /^data:image\//.test(x.data) ? `<img class="file-img" src="${x.data}" alt="${esc(label)}">` : x.data ? `<embed class="file-pdf" src="${x.data}" type="application/pdf">`
+      : `<div class="file-ph">${ic('file')}<b>${esc(x.name)}</b><span>Déposé le ${fmtDate(x.date)} par ${esc(fullName(e))}. Aperçu non disponible dans la démonstration.</span></div>`;
+    return shell(`${esc(label)} · ${esc(fullName(e))}`, `<div class="modal-b">${view}</div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true);
+  };
+  MODALS['plan-del'] = (m, shell) => { const x = db.onboardingPlan.find((p) => p.k === m.k);
+    return shell('Supprimer l’étape du programme', `<div class="modal-b"><p style="margin:0">« ${esc(x.label)} » sera retirée du programme de toutes les recrues en intégration.</p></div>`,
+      `<div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="button" class="btn bad" data-act="plan-del-ok" data-k="${x.k}">Supprimer</button></div>`); };
   MODALS.register = (m, shell) => shell('Registre unique du personnel', `<div class="modal-b"><p class="hint" style="margin:0 0 12px">Tenu dès le premier salarié, dans l’ordre des embauches. Les mentions sont conservées 5 ans après le départ du salarié.</p>${registerHTML()}</div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true);
   MODALS['trial-renew'] = (m, shell, formShell) => { const e = emp(m.id), t = trialInfo(e);
     return formShell(`Renouveler la période d’essai · ${esc(fullName(e))}`, 'trial-renew', `<p style="margin:0 0 12px">La période d’essai serait prolongée de ${t.months} mois, jusqu’au ${fmtDate(addDays(addMonths(addDays(t.end, 1), t.months), -1))}. Le renouvellement doit être prévu par le contrat et par la convention collective (Syntec l’autorise).</p>
@@ -2555,7 +2805,17 @@
     const qvt = monthsBack(6).map((m) => { const st = qvtStats(m); return [ml(m), st.n >= 3 ? st.overall : null]; });
     const b = budgetState(), trained = new Set(db.enrollments.filter((x) => ['Terminée', 'Validée'].includes(x.status) && x.session.slice(0, 4) === TODAY.slice(0, 4)).map((x) => x.empId));
     const gap = payGap(db.employees);
-    return `<div class="kpis six">${kpi('Effectif', n, `${plural(exitsPlanned.length, 'départ prévu', 'départs prévus')} · ${plural(db.employees.filter((e) => e.stage === 2).length, 'arrivée prévue', 'arrivées prévues')}`)}
+    // Indicateurs du jour (anciennement sur l'accueil) et suivi des offres (anciennement en tête de chaque offre).
+    const away = pop.filter((e) => { const l = leaveOn(e, TODAY); return l && l.type !== 'Télétravail'; }).length, openJobs = db.jobs.filter((j) => j.status === 'Ouverte');
+    const arrivals = db.employees.filter((e) => e.stage === 2), trial = pop.filter((e) => e.stage === 4).length;
+    const offers = db.jobs.filter((j) => NEED_OPEN.includes(j.status)).sort((a, c) => (a.status === 'Ouverte' ? 0 : 1) - (c.status === 'Ouverte' ? 0 : 1) || c.createdAt.localeCompare(a.createdAt)).map((j) => [j, offerStats(j)]);
+    const fun = ['Reçues', 'Présélection', 'Entretien', 'Proposition', 'Embauche'].map((l, k) => [l, openJobs.reduce((acc, j) => acc + offerStats(j).funnel[k], 0)]);
+    const today = `<div class="kpis">${kpi('Absents aujourd’hui', away, fmtDate(TODAY, { weekday: 'long', day: 'numeric', month: 'long' }))}${kpi('Absences à valider', db.leaves.filter((l) => l.status === 'En attente').length, 'Congés, RTT, télétravail')}
+      ${kpi('Postes ouverts', openJobs.length, `${plural(db.jobs.filter((j) => j.status === 'En validation').length, 'besoin en attente', 'besoins en attente')} de validation`)}${kpi('Arrivées en cours', arrivals.length, `${plural(trial, 'personne', 'personnes')} en intégration`)}</div>`;
+    const offersCard = card('Offres d’emploi', `<span class="muted" style="font-size:13px">${plural(openJobs.length, 'offre ouverte', 'offres ouvertes')}</span>`, `<div class="table-wrap"><table><thead><tr><th>Référence</th><th>Offre</th><th class="r">En ligne · délai</th><th class="r">Candidatures</th><th class="r">Passage en entretien</th><th>Meilleure source</th></tr></thead><tbody>
+        ${offers.map(([j, x]) => `<tr><td class="num">${jobRef(j)}</td><td><b>${esc(j.title)}</b><br><small class="muted">${esc(j.dept)} · ${j.status === 'Ouverte' ? 'ouverte' : j.status.toLowerCase()}</small></td><td class="r num">${plural(x.days, 'jour', 'jours')}${x.hired ? '<br><small class="muted">pourvue</small>' : ''}</td><td class="r num">${x.n}<br><small class="muted">${x.active} en cours</small></td><td class="r num">${Math.round(x.toIv * 100)} %</td><td>${x.best ? `${esc(x.best.src)} <small class="muted num">${x.best.avg.toFixed(1).replace('.', ',')}/5</small>` : '—'}</td></tr>`).join('')}</tbody></table></div>
+      <div class="card-b"><h4 class="sub">Entonnoir des offres ouvertes</h4>${hBars(fun)}${dataTable(['Étape atteinte', 'Candidats'], fun)}</div>`);
+    return `${today}<div class="kpis six">${kpi('Effectif', n, `${plural(exitsPlanned.length, 'départ prévu', 'départs prévus')} · ${plural(db.employees.filter((e) => e.stage === 2 && e.startDate > TODAY).length, 'arrivée prévue', 'arrivées prévues')}`)}
         ${kpi('Entrées sur 12 mois', entries.length, `taux d’entrée ${pct1(entries.length / Math.max(1, n))}`)}${kpi('Turnover sur 12 mois', pct1(exitsDone.length / Math.max(1, n)), `${plural(exitsDone.length, 'sortie', 'sorties')} réalisée${exitsDone.length > 1 ? 's' : ''}`, 'Sorties des 12 derniers mois rapportées à l’effectif')}
         ${kpi('Absentéisme maladie', pct1(absRate), `${plural(sickDays, 'jour ouvré', 'jours ouvrés')} sur 12 mois`, 'Jours d’arrêt maladie rapportés à 218 jours travaillés par salarié')}
         ${kpi('Ancienneté moyenne', `${tenure.toFixed(1).replace('.', ',')} ans`, `âge moyen ${Math.round(age)} ans`)}${kpi('Masse salariale annuelle', eur0(masse), `salaire moyen ${eur0(masse / Math.max(1, n))}`)}</div>
@@ -2573,6 +2833,7 @@
       <div class="two">${card('Formation', '', `<div class="card-b"><div class="crit"><div class="crit-row"><span>Budget ${TODAY.slice(0, 4)}</span><b class="num">${eur0(b.total)}</b></div><div class="crit-row"><span>Réalisé et engagé</span><b class="num">${eur0(b.used + b.engaged)} (${Math.round(((b.used + b.engaged) / b.total) * 100)} %)</b></div>
           <div class="crit-row"><span>Taux d’accès à la formation</span><b class="num">${pct1(trained.size / Math.max(1, n))}</b></div></div></div>`)}
         ${card('Égalité salariale', '', `<div class="card-b"><div class="crit">${gap.map((r) => `<div class="crit-row"><span>${esc(r.cat)}</span><b class="num">${r.gap === null ? '—' : `${r.gap > 0 ? 'Femmes' : 'Hommes'} −${(Math.abs(r.h - r.f) / Math.max(r.h, r.f) * 100).toFixed(1).replace('.', ',')} %`}</b></div>`).join('')}</div><p class="hint" style="margin:10px 0 0">Écart de salaire moyen par catégorie ; détail dans Rémunération.</p></div>`)}</div>
+      ${offersCard}
       <p class="hint">Indicateurs calculés sur les salariés en poste au ${fmtDate(TODAY)}, à partir des données du logiciel.</p>`;
   }
 
@@ -2586,12 +2847,12 @@
     if (d.kind === 'attestation') return `${head}<p>Je soussignée ${esc(fullName(rh))}, ${esc(rh.title)} de la société Nova Studio SAS, atteste que ${who} est employé·e au sein de notre société depuis le ${fmtDate(e.startDate, { day: 'numeric', month: 'long', year: 'numeric' })}, en qualité de ${esc(e.title)}, dans le cadre d’un contrat ${esc(e.contract)}${e.exit ? `, jusqu’au ${fmtDate(e.exit.lastDay)}` : ''}.</p><p>Cette attestation est délivrée à la demande de l’intéressé·e pour servir et valoir ce que de droit.</p>${sign}`;
     if (d.kind === 'avenant') return `${head}<p>Entre la société Nova Studio SAS et ${who}, il est convenu ce qui suit.</p><p><b>Article 1.</b> À compter du ${fmtDate(d.data.effective, { day: 'numeric', month: 'long', year: 'numeric' })}, ${who} occupe le poste de ${esc(d.data.title)} au sein du service ${esc(d.data.dept)}.</p><p><b>Article 2.</b> Sa rémunération annuelle brute est portée à ${eur0(d.data.salary)}, versée en douze mensualités.</p><p><b>Article 3.</b> Les autres clauses du contrat de travail demeurent inchangées.</p>${sign}<p class="sig">Signature du collaborateur, précédée de la mention « lu et approuvé »</p>`;
     const t = trialInfo(e);
-    if (d.kind === 'contrat') return `${head}<p>Entre la société Nova Studio SAS, représentée par ${esc(fullName(rh))}, ${esc(rh.title)}, et ${who}, de nationalité ${esc(e.nationality || '—')}, il est conclu un contrat de travail à durée ${e.contract === 'CDI' ? 'indéterminée' : 'déterminée'}.</p>
+    if (d.kind === 'contrat') return `${head}<p>Entre la société Nova Studio SAS, représentée par ${esc(fullName(rh))}, ${esc(rh.title)}, et ${who}, de nationalité ${esc(e.nationality || '—')}, il est conclu ${{ CDI: 'un contrat de travail à durée indéterminée', CDD: 'un contrat de travail à durée déterminée', Alternance: 'un contrat d’apprentissage', Stage: 'une convention de stage, en lien avec l’établissement d’enseignement' }[e.contract] || 'un contrat de travail'}.</p>
       <p><b>Article 1 · Engagement.</b> ${who} est engagé·e à compter du ${fmtDate(e.startDate, { day: 'numeric', month: 'long', year: 'numeric' })} en qualité de ${esc(e.title)}, catégorie ${esc(e.category || '—')}, au sein du service ${esc(e.dept)}, sous la responsabilité de ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}.</p>
       <p><b>Article 2 · Période d’essai.</b> ${t ? `Le contrat ne deviendra définitif qu’à l’issue d’une période d’essai de ${t.label}${t.renewable ? ', renouvelable une fois pour une durée identique avec l’accord écrit du salarié' : ''}.` : 'Sans objet.'}</p>
       <p><b>Article 3 · Lieu et durée du travail.</b> Lieu de travail : ${esc(e.location)}. Durée hebdomadaire : 35 heures.</p>
       <p><b>Article 4 · Rémunération.</b> Rémunération annuelle brute de ${eur0(e.salary)}, versée en 12 mensualités.</p>
-      <p><b>Article 5 · Statut collectif.</b> Convention collective nationale des bureaux d’études techniques (Syntec). Retraite complémentaire Agirc-Arrco ; mutuelle et prévoyance selon les contrats collectifs de l’entreprise.</p>${sign}`;
+      <p><b>Article 5 · Statut collectif.</b> Convention collective nationale des bureaux d’études techniques (Syntec). Retraite complémentaire Agirc-Arrco ; mutuelle et prévoyance selon les contrats collectifs de l’entreprise.</p>${sign}${contractSig(d, e)}`;
     if (d.kind === 'info7') return `${head}<p>Conformément aux articles R1221-34 et suivants du Code du travail, voici les informations essentielles relatives à votre relation de travail.</p><ul><li>Employeur : Nova Studio SAS, 12 rue de la Paix, 75002 Paris · Salarié : ${who}</li><li>Lieu de travail : ${esc(e.location)}</li><li>Emploi : ${esc(e.title)} · catégorie ${esc(e.category || '—')}</li><li>Date d’embauche : ${fmtDate(e.startDate)} · contrat ${esc(e.contract)}</li><li>Période d’essai : ${t ? `${t.label}, jusqu’au ${fmtDate(t.end)}` : 'aucune'}</li><li>Rémunération : ${eur0(e.salary)} bruts annuels, versés mensuellement</li><li>Durée du travail : 35 heures par semaine ; heures supplémentaires selon la législation et la convention collective</li></ul>${sign}`;
     if (d.kind === 'info1m') return `${head}<p>Informations complémentaires relatives à votre relation de travail (art. R1221-35 du Code du travail).</p><ul><li>Congés payés : 2,5 jours ouvrables par mois de travail effectif, période de référence du 1er juin au 31 mai</li><li>Rupture du contrat : procédure et préavis prévus par le Code du travail et la convention collective Syntec</li><li>Formation : droit à la formation, compte personnel de formation et entretien professionnel tous les 2 ans</li><li>Protection sociale : Urssaf, retraite complémentaire Agirc-Arrco, mutuelle et prévoyance collectives</li><li>Convention collective : bureaux d’études techniques (Syntec), consultable auprès des RH</li></ul>${sign}`;
     if (d.kind === 'essai') return `${head}<p>Madame, Monsieur,</p><p>Nous avons le plaisir de vous confirmer que votre période d’essai au poste de ${esc(e.title)} a pris fin avec succès. Votre contrat de travail se poursuit donc de manière définitive.</p><p>Nous vous remercions pour votre engagement depuis votre arrivée le ${fmtDate(e.startDate)}.</p>${sign}`;
@@ -2603,6 +2864,13 @@
         <p class="hint">Montants indicatifs de démonstration. Ce reçu peut être dénoncé dans les 6 mois suivant sa signature.</p>${sign}`;
     }
     return `${head}<p>Attestation destinée à France Travail concernant ${who}, employé·e du ${fmtDate(e.startDate)} au ${fmtDate(e.exit ? e.exit.lastDay : TODAY)} en qualité de ${esc(e.title)}. Motif de fin de contrat : ${esc(e.exit ? e.exit.reason : '—')}.</p><p class="hint">En pratique, cette attestation est transmise par voie dématérialisée.</p>${sign}`;
+  }
+  // Signature du salarié apposée sur son contrat (tracé manuscrit), ou mention de l'exemplaire signé.
+  function contractSig(d, e) {
+    if (d.signature) return `<div class="sig-block"><span>Le salarié, « lu et approuvé »</span><img src="${d.signature.img}" alt="Signature de ${esc(d.signature.name)}"><small>Signé par ${esc(d.signature.name)} le ${fmtDate(d.signature.date)}</small></div>`;
+    const c = db.onboarding && db.onboarding[e.id] && db.onboarding[e.id].contract;
+    if (c && c.docId === d.id && c.status !== 'Signé') return '<div class="sig-block wait"><span>Le salarié, « lu et approuvé »</span><small>Signature en attente</small></div>';
+    return `<div class="sig-block"><span>Le salarié, « lu et approuvé »</span><small>Exemplaire signé${c && c.paper ? ' sur papier' : ''}, conservé au dossier du personnel</small></div>`;
   }
   function addDoc(empId, kind, extra = {}) {
     const d = Object.assign({ id: uid('doc'), empId, kind, title: DOC_LABEL[kind], date: TODAY }, extra);
@@ -2636,7 +2904,7 @@
         ${f('e-mgr', 'Manager', `<select id="e-mgr" name="managerId" class="select"><option value="">Aucun</option>${opt(mgrs, e.managerId)}</select>`)}${f('e-contract', 'Contrat', `<select id="e-contract" name="contract" class="select">${opt(['CDI', 'CDD', 'Alternance', 'Stage'], e.contract)}</select>`)}
         ${f('e-salary', 'Salaire annuel brut (€)', `<input id="e-salary" name="salary" type="number" min="0" step="100" class="input num" value="${esc(e.salary)}" required>`)}${f('e-start', 'Date d’entrée', `<input id="e-start" name="startDate" type="date" class="input" value="${esc(e.startDate)}" required>`)}
         ${f('e-phone', 'Téléphone', `<input id="e-phone" name="phone" class="input" value="${esc(e.phone)}">`)}${f('e-loc', 'Lieu de travail', `<select id="e-loc" name="location" class="select">${opt(['Paris', 'Lyon', 'Télétravail majoritaire'], e.location)}</select>`)}
-        ${m.id ? '' : f('e-stage', 'Étape du parcours', `<select id="e-stage" name="stage" class="select">${opt([[2, 'Pré-embauche'], [3, 'Embauche'], [4, 'Intégration']].map(([v, l]) => [String(v), l]), '2')}</select>`, true)}</div>`, m.id ? 'Enregistrer' : 'Ajouter', true);
+        ${m.id ? '' : f('e-stage', 'Étape du parcours', `<select id="e-stage" name="stage" class="select">${opt([[2, 'Arrivée (pré-embauche et embauche)'], [4, 'Intégration']].map(([v, l]) => [String(v), l]), '2')}</select>`, true)}</div>`, m.id ? 'Enregistrer' : 'Ajouter', true);
     }
     if (m.type === 'exit') {
       const e = emp(m.id);
@@ -2657,7 +2925,9 @@
     if (m.type === 'cand') {
       return formShell('Ajouter un candidat', 'cand', `<div class="form-grid">${f('k-name', 'Prénom et nom', '<input id="k-name" name="name" class="input" required>', true)}
         ${f('k-email', 'E-mail', '<input id="k-email" name="email" type="email" class="input">')}${f('k-phone', 'Téléphone', '<input id="k-phone" name="phone" class="input">')}
-        ${f('k-source', 'Source', `<select id="k-source" name="source" class="select">${opt(['Site carrière', 'Jobboard', 'Réseaux sociaux', 'Cooptation', 'École'])}</select>`)}${f('k-exp', 'Expérience', '<input id="k-exp" name="experience" class="input" placeholder="Ex. 4 ans · agence">')}</div>
+        ${f('k-source', 'Source', `<select id="k-source" name="source" class="select">${opt(['Site carrière', 'Jobboard', 'Réseaux sociaux', 'Cooptation', 'École'])}</select>`)}${f('k-exp', 'Expérience', '<input id="k-exp" name="experience" class="input" placeholder="Ex. 4 ans · agence">')}
+        ${f('k-cv', 'CV', '<input id="k-cv" name="f_cv" type="file" class="input file" accept=".pdf,image/*">')}${f('k-lm', 'Lettre de motivation', '<input id="k-lm" name="f_lm" type="file" class="input file" accept=".pdf,image/*">')}
+        ${f('k-autre', 'Autre document (portfolio, diplôme…)', '<input id="k-autre" name="f_autre" type="file" class="input file" accept=".pdf,image/*">', true)}</div>
         <label style="display:flex;gap:8px;align-items:center;font-size:14px;margin-top:12px"><input type="checkbox" name="ack" checked> Envoyer l’accusé de réception (avec l’information sur ses données personnelles)</label>`, 'Ajouter');
     }
     if (m.type === 'reset') {
@@ -2670,7 +2940,7 @@
 
   // ---------------------------------------------------------------- Render
   const VIEWS = { accueil: viewHome, reporting: viewReporting, etape: viewStage, besoins: viewNeeds, collaborateurs: viewAdmin, absences: viewAbsences, paie: viewRemu, recrutement: viewRecruitment, profil: viewProfile, bulletins: viewMyPay,
-    entretiens: viewReviews, formation: viewTraining, mobilite: viewMobility, sante: viewHealth, relations: viewRelations };
+    entretiens: viewReviews, formation: viewTraining, mobilite: viewMobility, sante: viewHealth, relations: viewRelations, arrivee: viewArrivee, contrat: viewContrat };
   let drawerAnim = false;
   let rendering = false;
   function render() {
@@ -2687,7 +2957,7 @@
     if (ui.drawer) {
       const dt = ui.drawer.type, cs = dt === 'case' && db.cases.find((c) => c.id === ui.drawer.id);
       const content = dt === 'emp' ? (emp(ui.drawer.id) && empDrawer(emp(ui.drawer.id))) : dt === 'case' ? (cs && DRAWERS.case(cs)) : (db.candidates.find((c) => c.id === ui.drawer.id) && candDrawer(db.candidates.find((c) => c.id === ui.drawer.id)));
-      if (content) ov += `<div class="scrim ${drawerAnim ? '' : 'on'}" data-act="close-drawer"></div><aside class="drawer ${drawerAnim ? '' : 'on'}" aria-label="Fiche">${content}</aside>`;
+      if (content) ov += `<div class="scrim ${drawerAnim ? '' : 'on'}" data-act="close-drawer"></div><aside class="drawer ${dt === 'cand' ? 'wide' : ''} ${drawerAnim ? '' : 'on'}" aria-label="Fiche">${content}</aside>`;
       else ui.drawer = null;
     }
     ov += modalHTML();
@@ -2697,9 +2967,10 @@
     const cur = document.querySelector('.rail [aria-current]'); if (cur) cur.parentElement.scrollLeft = cur.offsetLeft - 80;
     if (ui.view === 'accueil') bindWheel();
     if (ui.view === 'recrutement') bindBoard();
+    bindSignature();
     saveUI();
   }
-  const commit = () => { save(); render(); };
+  const commit = () => { syncArrivals(); arrivalReminders(); save(); render(); };
   // Keep (view, stage) consistent with what the profile is allowed to open.
   function route() {
     if (ui.view === 'accueil' || !VIEWS[ui.view]) { ui.view = 'accueil'; ui.stage = null; return; }
@@ -2726,11 +2997,12 @@
     if (c.stage === 'Embauché') { toast('Ce candidat est déjà embauché.', 'info'); return; }
     if (stage === 'Embauché') { toast('L’embauche se fait quand le candidat accepte la proposition : ouvrez sa fiche.', 'info'); return; }
     if (c.offer && ['Envoyée', 'Expirée'].includes(offerStatus(c.offer))) { toast('Une proposition est en cours : enregistrez la réponse du candidat ou retirez-la.', 'info'); return; }
+    if (stage === 'Refusé' && ui.profile !== 'rh') { toast('Le refus d’un candidat est fait par les RH.', 'info'); return; }
     if (stage === 'Refusé') { ui.modal = { type: 'cand-refuse', id }; render(); return; }
     if (stage === 'Proposition' && ui.profile === 'rh') { ui.modal = { type: 'offer', id }; render(); return; }
     if (stage === 'Proposition') notify('e1', `${fullName(me())} a choisi ${c.name} pour « ${candJob(c).title} » : proposition à préparer.`);
     if (c.stage === 'Refusé') c.refusal = null;
-    c.stage = stage; toast(stage === 'Proposition' ? `${c.name} est choisi·e · les RH préparent la proposition` : `${c.name} : ${stage}`); commit();
+    logCand(c, `${c.stage} → ${stage}`); c.stage = stage; toast(stage === 'Proposition' ? `${c.name} est choisi·e · les RH préparent la proposition` : `${c.name} : ${stage}`); commit();
   }
 
   function advance(id) {
@@ -2738,8 +3010,8 @@
     // A departure needs its reason and last day: entering « Préparation du départ » goes through the departure form.
     if (e.stage === 12 && !e.exit) { ui.modal = { type: 'exit', id }; render(); return; }
     db.journey[e.id] = db.journey[e.id] || {};
-    db.journey[e.id][e.stage] = STAGES[e.stage].steps.map(() => true);
-    e.stage += 1;
+    db.journey[e.id][e.stage] = stageSteps(e.stage).map(() => true);
+    e.stage = inArrival(e) ? 4 : e.stage + 1;
     if (e.stage === 14) ['certificat', 'solde', 'france-travail'].forEach((k) => { if (!db.documents.some((d) => d.empId === e.id && d.kind === k)) addDoc(e.id, k); });
     if (e.stage === 14) notify(e.id, 'Vos documents de fin de contrat sont disponibles dans « Mon profil ».');
     notify(e.id, `Votre parcours passe à l’étape « ${STAGES[e.stage].title} ».`);
@@ -2755,7 +3027,7 @@
     go(d) { ui.view = d.v; ui.stage = null; ui.notif = false; ui.drawer = null; window.scrollTo(0, 0); render(); },
     persona(d) {
       if (ui.profile === d.p) return;
-      ui = Object.assign({ profile: d.p, view: 'accueil', stage: null }, freshUI());
+      ui = Object.assign({ profile: d.p, view: 'accueil', stage: null, asEmp: ui.asEmp }, freshUI());
       render(); toast(`Vous voyez maintenant l’application en tant que ${fullName(me())} (${PROFILES[d.p].label}).`);
     },
     notif() { ui.notif = !ui.notif; render(); },
@@ -2814,16 +3086,18 @@
     'cand-new'(d) { ui.modal = { type: 'cand', jobId: d.id }; render(); },
     'cand-move'(d) { moveCandidate(d.id, d.s); },
     reset() { ui.modal = { type: 'reset' }; render(); },
-    'reset-ok'() { db = window.TEAMORA_SEED(); normalizeEmployees(); purgeCandidates(); save(); ui = Object.assign({ profile: ui.profile, view: 'accueil' }, freshUI()); render(); toast('Démo réinitialisée'); },
+    'reset-ok'() { db = window.TEAMORA_SEED(); normalizeEmployees(); purgeCandidates(); syncArrivals(); save(); ui = Object.assign({ profile: ui.profile, view: 'accueil' }, freshUI()); render(); toast('Démo réinitialisée'); },
   };
   const CHG = {
     fDept(v) { ui.fDept = v; render(); },
     fStatus(v) { ui.fStatus = v; render(); },
     histStatus(v) { ui.histStatus = v; render(); },
     bonus(v, d) { payrollOf(ui.payMonth).bonus[d.id] = Math.max(0, Number(v) || 0); commit(); },
-    'cand-stage'(v, d) { moveCandidate(d.id, v); if (ui.modal === null) render(); },
+    'cand-stage'(v, d) { moveCandidate(d.id, v); render(); },
   };
   const INP = {
+    nq(v) { ui.nq = v; const el = document.getElementById('need-list'); if (el) el.innerHTML = needList(needFiltered(), needsToDo()); },
+    rq(v) { ui.rq = v; const el = document.getElementById('rec-list'); if (el) el.innerHTML = recJobList(recJobs()); },
     q(v) { ui.q = v; const list = filteredEmployees(); document.getElementById('emp-table').innerHTML = empTable(list); document.getElementById('emp-count').textContent = plural(list.length, 'collaborateur', 'collaborateurs'); },
   };
   const LIVE = {
@@ -2879,10 +3153,12 @@
       if (e.managerId) notify(e.managerId, `Départ de ${fullName(e)} (${v.reason}) le ${fmtDate(v.lastDay)}.`);
       ui.modal = null; ui.drawer.tab = 'parcours'; toast(`${fullName(e)} passe à l’étape « Préparation du départ »`); commit();
     },
-    cand(v) {
+    async cand(v) {
       if (!v.name.trim()) return formError('Indiquez le nom du candidat.');
-      const c = { id: uid('c'), jobId: ui.modal.jobId, name: v.name.trim(), email: v.email.trim() || '—', phone: v.phone.trim() || '—', source: v.source, experience: v.experience.trim(), stage: 'Reçue', score: 0, notes: '', interviews: [], appliedAt: TODAY, messages: [], offer: null, refusal: null, pool: false };
-      db.candidates.push(c);
+      const files = [];
+      for (const k of ['cv', 'lm', 'autre']) { const f = v['f_' + k]; if (f && f.name) files.push(Object.assign({ kind: k, uploaded: true }, await readFile(f))); }
+      const c = { id: uid('c'), jobId: ui.modal.jobId, name: v.name.trim(), email: v.email.trim() || '—', phone: v.phone.trim() || '—', source: v.source, experience: v.experience.trim(), stage: 'Reçue', score: 0, notes: '', interviews: [], appliedAt: TODAY, messages: [], offer: null, refusal: null, pool: false, files, log: [] };
+      db.candidates.push(c); logCand(c, `Candidature ajoutée${files.length ? ` avec ${plural(files.length, 'document', 'documents')}` : ''}`);
       if (v.ack === 'on') sendMsg(c, 'ack', MSG_TPL.ack[1], MSG_TPL.ack[2](c, candJob(c)));
       ui.modal = null; toast(v.ack === 'on' ? 'Candidat ajouté · accusé de réception envoyé' : 'Candidat ajouté'); commit();
     },
@@ -2893,6 +3169,7 @@
       c.interviews = c.interviews || []; c.interviews.push(iv);
       if (v.convoc === 'on') sendMsg(c, 'convocation', `Invitation à un ${v.kind.toLowerCase()}`, convocBody(c, candJob(c), iv));
       if (['Reçue', 'Présélection'].includes(c.stage)) c.stage = 'Entretien';
+      logCand(c, `${v.kind} planifié le ${fmtDate(v.date.slice(0, 10))} avec ${fullName(emp(v.with))}`);
       if (v.with !== me().id) notify(v.with, `${v.kind} avec ${c.name} le ${fmtDate(v.date.slice(0, 10))} à ${v.date.slice(11, 16)}.`);
       toast('Entretien planifié'); commit();
     },
@@ -2935,6 +3212,10 @@
     if (ev.key === 'Escape') { if (ui.modal) { ui.modal = null; render(); } else if (ui.drawer) { ui.drawer = null; render(); } else if (ui.notif) { ui.notif = false; render(); } return; }
     const t = ev.target;
     if ((ev.key === 'Enter' || ev.key === ' ') && t.matches && t.matches('tr[data-act]')) { ev.preventDefault(); t.click(); }
+    // Visionneuse de candidat : flèches gauche/droite pour passer d'un candidat à l'autre de la colonne.
+    if (ui.drawer && ui.drawer.type === 'cand' && !ui.modal && ['ArrowLeft', 'ArrowRight'].includes(ev.key) && !/INPUT|TEXTAREA|SELECT/.test(t.tagName)) {
+      const b = document.querySelectorAll('.cand-nav [data-act="cand-go"]')[ev.key === 'ArrowLeft' ? 0 : 1]; if (b && !b.disabled) b.click();
+    }
   });
   window.addEventListener('resize', fitWheel);
   // Info-bulle des graphiques : tout élément porteur de data-tip.
@@ -2942,6 +3223,6 @@
   document.addEventListener('mouseover', (ev) => { const t = ev.target.closest && ev.target.closest('[data-tip]'); if (!t) { tip.classList.remove('on'); return; } tip.textContent = t.dataset.tip; tip.classList.add('on'); });
   document.addEventListener('mousemove', (ev) => { if (!tip.classList.contains('on')) return; const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8); tip.style.transform = `translate(${x}px, ${ev.clientY + 16}px)`; });
 
-  normalizeEmployees(); applyDueSalaries(); purgeCandidates();
+  normalizeEmployees(); applyDueSalaries(); purgeCandidates(); syncArrivals(); arrivalReminders(); save();
   render();
 })();

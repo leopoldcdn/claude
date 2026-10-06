@@ -283,7 +283,7 @@
   function stageRail() {
     if (ui.view === 'accueil') return '';
     return `<nav class="rail" aria-label="Étapes du parcours"><button type="button" class="rail-home" data-act="go" data-v="accueil" aria-label="Retour à la roue" title="Retour à la roue">${ic('home')}</button>${ui.profile === 'rh' ? `<button type="button" class="rail-home rail-rep" data-act="go" data-v="reporting" aria-label="Reporting RH" title="Reporting RH" ${ui.view === 'reporting' ? 'aria-current="page"' : ''}>${ic('chart')}</button><button type="button" class="rail-home rail-rep" data-act="go" data-v="modeles" aria-label="Modèles de documents" title="Modèles de documents" ${ui.view === 'modeles' ? 'aria-current="page"' : ''}>${ic('file')}</button><span class="rail-sep"></span>` : ''}
-      ${visibleStages().map((i) => { const v = stageView(i), name = `${STAGES[i].short}${v === 'etape' ? '' : ` — ${VIEW_LABELS[ui.profile][v]}`}`;
+      ${visibleStages().map((i) => { const name = STAGES[i].short;
         return `<button type="button" data-act="stage" data-i="${i}" style="--c:${STAGE_COLORS[i]}" aria-label="${esc(name)}" title="${esc(name)}" ${ui.stage === i ? 'aria-current="page"' : ''}>${ic(STAGES[i].icon)}${stageBadge(i)}</button>`; }).join('')}</nav>`;
   }
   const footer = () => `<footer class="foot"><button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Réinitialiser la démo</button>
@@ -309,11 +309,10 @@
       return `<button type="button" class="node ${cls}" data-act="stage" data-i="${i}" style="background:${STAGE_COLORS[i]}" aria-label="${esc(s.title)} · ${esc(stageView(i) === 'etape' ? 'suivi de l’étape' : VIEW_LABELS[ui.profile][stageView(i)])}" tabindex="${ui.wheelOpen ? 0 : -1}">${ic(s.icon)}${stageBadge(i)}</button>`;
     }).join('');
     const labels = vis.map((i, k) => {
-      const s = STAGES[i], v = stageView(i), p = nodePos(k, W.LR), c = Math.cos(ang(k)), sn = Math.sin(ang(k));
+      const s = STAGES[i], p = nodePos(k, W.LR), c = Math.cos(ang(k)), sn = Math.sin(ang(k));
       let tr, align;
       if (c > 0.3) { tr = 'translate(0,-50%)'; align = 'left'; } else if (c < -0.3) { tr = 'translate(-100%,-50%)'; align = 'right'; } else { tr = sn < 0 ? 'translate(-50%,-100%)' : 'translate(-50%,0)'; align = 'center'; }
-      const mod = v === 'etape' ? '' : VIEW_LABELS[ui.profile][v];
-      return `<div class="lab" style="left:${W.cx + p.x}px;top:${W.cy + p.y}px;transform:${tr};text-align:${align}"><div class="lab-in"><b>${esc(s.short)}</b>${mod && mod !== s.short ? `<em>${esc(mod)}</em>` : ''}</div></div>`;
+      return `<div class="lab" style="left:${W.cx + p.x}px;top:${W.cy + p.y}px;transform:${tr};text-align:${align}"><div class="lab-in"><b>${esc(s.short)}</b></div></div>`;
     }).join('');
     const days = dayDiff(TODAY, m.startDate);
     const hubText = sal && locked(m) ? `<small>MON ARRIVÉE</small><b>${esc(fmtDate(m.startDate, { day: 'numeric', month: 'long' }))}</b><span class="hub-n num">J-${days}</span>`

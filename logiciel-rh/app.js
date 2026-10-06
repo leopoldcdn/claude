@@ -295,7 +295,7 @@
     const sal = ui.profile === 'salarie', m = me(), vis = visibleStages();
     wheelN = vis.length;
     const nodes = vis.map((i) => {
-      const s = STAGES[i], cls = sal && i === m.stage ? 'current' : '';
+      const s = STAGES[i], cls = '';
       return `<button type="button" class="node ${cls}" data-act="stage" data-i="${i}" style="background:${STAGE_COLORS[i]}" aria-label="${esc(s.title)} · ${esc(stageView(i) === 'etape' ? 'suivi de l’étape' : VIEW_LABELS[ui.profile][stageView(i)])}" tabindex="${ui.wheelOpen ? 0 : -1}">${ic(s.icon)}${stageBadge(i)}</button>`;
     }).join('');
     const labels = vis.map((i, k) => {

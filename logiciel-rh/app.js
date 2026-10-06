@@ -192,10 +192,11 @@
   // Statut des documents de départ : remis ou signés, sauf contrat en attente et documents de sortie pas encore remis.
   function normalizeDocs() {
     db.documents.forEach((d) => {
-      if (d.status) return;
+      if (d.status) { if (!docLocked(d)) ensureDocHtml(d); return; }
       const c = db.onboarding && db.onboarding[d.empId] && db.onboarding[d.empId].contract, o = db.offboarding && db.offboarding[d.empId];
       d.status = d.kind === 'contrat' && c && c.docId === d.id && c.status !== 'Signé' ? (c.status === 'Envoyé' ? 'Envoyé' : 'Brouillon')
         : ['certificat', 'solde', 'france-travail'].includes(d.kind) && o && !o.docsGiven ? 'Brouillon' : d.kind === 'contrat' ? 'Signé' : 'Remis';
+      if (!docLocked(d)) ensureDocHtml(d);
     });
   }
   function applyDueSalaries() { db.employees.forEach((e) => { if (e.salaryNext && e.salaryNext.from <= TODAY) { e.salary = e.salaryNext.amount; delete e.salaryNext; } }); }
@@ -3019,10 +3020,13 @@
     d.html = fillTpl(t.body, docCtx(e, d), t.fields);
     db.documents.push(d); return d;
   }
+  // Un document créé avant les modèles n'a pas de texte enregistré : il reprend celui de son modèle.
+  function ensureDocHtml(d) { if (d.html) return; const e = emp(d.empId), t = tplOf(tplKeyFor(d.kind, e)); d.html = fillTpl(t.body, docCtx(e, d), t.fields); d.tpl = d.tpl || tplKeyFor(d.kind, e); d.tplV = d.tplV || t.v; }
   const docGaps = (html) => { const div = document.createElement('div'); div.innerHTML = html; return [...div.querySelectorAll('mark.fill')].filter((m) => !m.textContent.trim() || m.textContent.trim() === `[${m.dataset.l}]`).map((m) => m.dataset.l); };
   const unmark = (html) => html.replace(/<mark class="fill"[^>]*>([\s\S]*?)<\/mark>/g, '$1');
   // Remise (ou envoi pour signature) d'un document : il devient visible du salarié ; une fois remis ou signé, il est figé.
   function issueDoc(d, quiet) {
+    ensureDocHtml(d);
     const gaps = docGaps(d.html || ''); if (gaps.length) return `Complétez d’abord : ${gaps.slice(0, 3).join(', ')}${gaps.length > 3 ? '…' : ''}.`;
     const e = emp(d.empId), x = e && db.onboarding && db.onboarding[e.id];
     d.html = unmark(d.html); d.issuedAt = TODAY; d.issuedBy = me().id;
@@ -3045,7 +3049,7 @@
       `<div class="modal-f">${ui.profile === 'rh' && !docLocked(d) ? `<button type="button" class="btn ghost" data-act="doc-edit" data-id="${d.id}">${ic('edit')}Modifier</button>` : ''}<button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>`, true); };
   // Édition d'un document par les RH : champs à compléter en haut, texte librement modifiable en dessous.
   MODALS['doc-edit'] = (m, shell) => {
-    const d = db.documents.find((x) => x.id === m.id), e = emp(d.empId), div = document.createElement('div'); div.innerHTML = d.html || '';
+    const d = db.documents.find((x) => x.id === m.id), e = emp(d.empId), div = document.createElement('div'); ensureDocHtml(d); div.innerHTML = d.html;
     const marks = [...new Map([...div.querySelectorAll('mark.fill')].map((x) => [x.dataset.f, x])).values()];
     const fields = marks.map((x) => { const val = x.textContent.trim() === `[${x.dataset.l}]` ? '' : x.textContent.trim();
       return `<div class="field"><label for="df-${esc(x.dataset.f)}">${esc(x.dataset.l)}</label><input id="df-${esc(x.dataset.f)}" class="input" value="${esc(val)}" data-docf="${esc(x.dataset.f)}" placeholder="À compléter"></div>`; }).join('');
@@ -3080,7 +3084,7 @@
     'doc-edit'(d) { ui.modal = { type: 'doc-edit', id: d.id }; render(); },
     'doc-save'(d) { const doc = db.documents.find((x) => x.id === d.id); saveDocEditor(doc); if (doc.status === 'Envoyé') notify(doc.empId, `Votre ${doc.title.toLowerCase()} a été mis à jour par les RH : relisez-le avant de signer.`); ui.modal = null; toast('Document enregistré'); commit(); },
     'doc-issue'(d) {
-      const doc = db.documents.find((x) => x.id === d.id); saveDocEditor(doc);
+      const doc = db.documents.find((x) => x.id === d.id); ensureDocHtml(doc); saveDocEditor(doc);
       const err = issueDoc(doc); if (err) { ui.modal = { type: 'doc-edit', id: doc.id, err }; save(); render(); return; }
       ui.modal = null; toast(doc.kind === 'contrat' ? 'Contrat envoyé pour signature' : 'Document remis au salarié · il est désormais figé'); commit();
     },
@@ -3113,7 +3117,7 @@
           <div class="ed-bar" role="toolbar" aria-label="Mise en forme">
             <button type="button" class="btn ghost sm" data-act="ed-cmd" data-c="h3">Titre</button><button type="button" class="btn ghost sm" data-act="ed-cmd" data-c="p">Paragraphe</button><button type="button" class="btn ghost sm" data-act="ed-cmd" data-c="bold"><b>G</b></button><button type="button" class="btn ghost sm" data-act="ed-cmd" data-c="ul">Liste</button>
             <span class="ed-sep"></span><label class="sr" for="ed-token">Insérer un champ automatique</label><select id="ed-token" class="select sm" data-change="ed-token"><option value="">Insérer un champ…</option>${groups.map((g) => `<optgroup label="${g}">${TOKENS.filter((x) => x[2] === g).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join('')}</optgroup>`).join('')}</select>
-            <span class="ed-sep"></span><label class="sr" for="ed-field">Nouveau champ à saisir</label><input id="ed-field" class="input sm" placeholder="Champ à saisir, ex. Horaires" maxlength="60"><button type="button" class="btn ghost sm" data-act="ed-field">${ic('plus')}Ajouter</button></div>
+            <span class="ed-sep"></span><label class="sr" for="ed-field">Nouveau champ à saisir</label><span class="ed-combo"><input id="ed-field" class="input sm" placeholder="Champ à saisir, ex. Horaires" maxlength="60" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ed-sugg"><ul id="ed-sugg" class="ed-sugg" role="listbox" hidden></ul></span><button type="button" class="btn ghost sm" data-act="ed-field">${ic('plus')}Ajouter</button></div>
           <div id="tpl-ed" class="tpl-ed ${t.kind === 'msg' ? 'msg' : 'letter'}" contenteditable="true" spellcheck="true" data-key="${key}">${toChips(body)}</div>
           <div id="tpl-lint">${tplLintHTML(miss)}</div>
           <p class="hint" style="margin:10px 0 0"><span class="tk sm">Champ automatique</span> rempli depuis le dossier · <span class="tk saisie sm">Champ à saisir</span> complété par les RH à la création du document. Un document déjà remis ou signé garde la version qui a servi.</p></div></div>
@@ -3129,6 +3133,50 @@
     const subj = document.querySelector('[data-tpl-subj]'), title = document.querySelector('[data-tpl-title]');
     return { key: ed.dataset.key, body: sanitizeHTML(clone.innerHTML), fields: (prev.fields || []).slice(), subject: subj ? subj.value : prev.subject, title: title ? title.value : prev.title };
   }
+  // Suggestions du champ « Champ à saisir » : champs déjà utilisés dans les modèles, champs courants, et champs automatiques.
+  const COMMON_FIELDS = ['Contrat (CDI, CDD, apprentissage, stage)', 'Motif précis du recours au CDD', 'Personne remplacée', 'Horaires de travail', 'Clause de mobilité', 'Clause de non-concurrence', 'Clause de confidentialité',
+    'Clause d’exclusivité', 'Avantages en nature', 'Prime d’objectifs', 'Durée du préavis', 'Date de l’entretien préalable', 'Lieu de l’entretien', 'Motif du licenciement', 'Établissement de formation', 'Maître d’apprentissage', 'Tuteur dans l’entreprise', 'Commentaire libre'];
+  const fold = (x) => String(x).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const slug = (label) => fold(label).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || uid('f');
+  function fieldSuggestions(q) {
+    const t = fold(q.trim()); if (!t) return [];
+    const used = Object.keys(DEFAULT_TPL).flatMap((k) => tplOf(k).fields.map((f) => f.label));
+    const match = (l) => { const f = fold(l); return f.startsWith(t) ? 0 : f.split(/[^a-z0-9]+/).some((w) => w.startsWith(t)) ? 1 : f.includes(t) ? 2 : -1; };
+    const saisies = [...new Set(used.concat(COMMON_FIELDS))].map((l) => ({ kind: 'saisie', label: l, rank: match(l) }));
+    const autos = TOKENS.map(([k, l]) => ({ kind: 'auto', k, label: l, rank: match(l) }));
+    return saisies.concat(autos).filter((x) => x.rank >= 0).sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label, 'fr')).slice(0, 8);
+  }
+  function addSaisie(label) {
+    const r = readTplEditor(), id = slug(label);
+    if (!r.fields.some((f) => f.id === id)) r.fields.push({ id, label }); ui.tplDraft = r;
+    const s = document.createElement('span'); s.className = 'tk saisie'; s.contentEditable = 'false'; s.dataset.k = `saisie:${id}`; s.textContent = label; insertAtCaret(s);
+  }
+  function addAuto(k) { const s = document.createElement('span'); s.className = 'tk'; s.contentEditable = 'false'; s.dataset.k = k; s.textContent = TOKEN_LABEL[k]; insertAtCaret(s); }
+  function closeSugg() { const ul = document.getElementById('ed-sugg'), inp = document.getElementById('ed-field'); if (ul) { ul.hidden = true; ul.innerHTML = ''; } if (inp) { inp.setAttribute('aria-expanded', 'false'); inp.removeAttribute('aria-activedescendant'); } }
+  function bindFieldCombo() {
+    const inp = document.getElementById('ed-field'), ul = document.getElementById('ed-sugg'); if (!inp || !ul) return;
+    let list = [], cur = -1;
+    const pick = (x) => { if (x.kind === 'auto') addAuto(x.k); else addSaisie(x.label); inp.value = ''; closeSugg(); };
+    const draw = () => {
+      list = fieldSuggestions(inp.value); cur = list.length ? 0 : -1;
+      const q = inp.value.trim(), exact = list.some((x) => x.kind === 'saisie' && fold(x.label) === fold(q));
+      ul.innerHTML = list.map((x, k) => `<li id="sg-${k}" role="option" data-k="${k}" aria-selected="${k === cur}" class="${x.kind}"><span>${esc(x.label)}</span><small>${x.kind === 'auto' ? 'Champ automatique' : 'Champ à saisir'}</small></li>`).join('')
+        + (q && !exact ? `<li role="option" data-k="new" class="new" aria-selected="${cur === -1}"><span>Créer « ${esc(q)} »</span><small>Nouveau champ à saisir</small></li>` : '');
+      ul.hidden = !ul.children.length; inp.setAttribute('aria-expanded', String(!ul.hidden));
+    };
+    const mark = () => { [...ul.children].forEach((li, k) => li.setAttribute('aria-selected', String(Number(li.dataset.k) === cur || (li.dataset.k === 'new' && cur === list.length)))); };
+    inp.addEventListener('input', draw);
+    inp.addEventListener('keydown', (ev) => {
+      if (ul.hidden) return;
+      const max = ul.querySelector('.new') ? list.length : list.length - 1;
+      if (ev.key === 'ArrowDown') { ev.preventDefault(); cur = Math.min(max, cur + 1); mark(); }
+      else if (ev.key === 'ArrowUp') { ev.preventDefault(); cur = Math.max(0, cur - 1); mark(); }
+      else if (ev.key === 'Enter') { ev.preventDefault(); if (list[cur]) pick(list[cur]); else if (inp.value.trim()) { addSaisie(inp.value.trim()); inp.value = ''; closeSugg(); } }
+      else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); closeSugg(); }
+    });
+    ul.addEventListener('mousedown', (ev) => { ev.preventDefault(); const li = ev.target.closest('li'); if (!li) return; if (li.dataset.k === 'new') { addSaisie(inp.value.trim()); inp.value = ''; closeSugg(); } else pick(list[Number(li.dataset.k)]); });
+    inp.addEventListener('blur', () => setTimeout(closeSugg, 120));
+  }
   let edRange = null;
   function bindTplEditor() {
     const ed = document.getElementById('tpl-ed'); if (!ed) return;
@@ -3137,6 +3185,7 @@
     const sync = () => { const r = readTplEditor(); ui.tplDraft = r; document.getElementById('tpl-lint').innerHTML = tplLintHTML(tplMissing(r.body, tplOf(r.key).required)); };
     ed.addEventListener('input', sync);
     document.querySelectorAll('[data-tpl-subj], [data-tpl-title]').forEach((x) => x.addEventListener('input', sync));
+    bindFieldCombo();
   }
   function insertAtCaret(node) {
     const ed = document.getElementById('tpl-ed'); if (!ed) return;
@@ -3155,12 +3204,7 @@
       if (d.c === 'bold') document.execCommand('bold'); else if (d.c === 'ul') document.execCommand('insertUnorderedList'); else document.execCommand('formatBlock', false, d.c);
       ed.dispatchEvent(new Event('input'));
     },
-    'ed-field'() {
-      const inp = document.getElementById('ed-field'), label = inp.value.trim(); if (!label) { toast('Nommez le champ à saisir.', 'info'); return; }
-      const r = readTplEditor(), id = label.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || uid('f');
-      if (!r.fields.some((f) => f.id === id)) r.fields.push({ id, label }); ui.tplDraft = r;
-      const s = document.createElement('span'); s.className = 'tk saisie'; s.contentEditable = 'false'; s.dataset.k = `saisie:${id}`; s.textContent = label; insertAtCaret(s); inp.value = '';
-    },
+    'ed-field'() { const inp = document.getElementById('ed-field'), label = inp.value.trim(); if (!label) { toast('Nommez le champ à saisir.', 'info'); return; } addSaisie(label); inp.value = ''; closeSugg(); },
     'tpl-save'() {
       const r = readTplEditor(), base = tplOf(r.key), miss = tplMissing(r.body, base.required);
       if (miss.length) { toast(`Mention obligatoire manquante : ${miss[0][1]}`, 'info'); return; }
@@ -3179,7 +3223,7 @@
     'tpl-preview'() { const r = readTplEditor(); ui.tplDraft = r; ui.modal = { type: 'tpl-preview' }; render(); },
   });
   Object.assign(MOD_CHG, {
-    'ed-token'(v, d, t) { if (!v) return; const s = document.createElement('span'); s.className = 'tk'; s.contentEditable = 'false'; s.dataset.k = v; s.textContent = TOKEN_LABEL[v]; insertAtCaret(s); t.value = ''; },
+    'ed-token'(v, d, t) { if (!v) return; addAuto(v); t.value = ''; },
   });
   MODALS['tpl-preview'] = (m, shell) => {
     const r = ui.tplDraft, t = tplOf(r.key), sample = r.key === 'avenant' ? emp('e4') : ['certificat', 'solde', 'france-travail'].includes(r.key) ? emp('e21') : r.key === 'contrat-cdd' ? emp('e12') : emp('e3');

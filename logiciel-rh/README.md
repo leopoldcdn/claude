@@ -26,13 +26,16 @@ Les données de départ (`data.js`, schéma version 8) sont fictives ; vos modif
 - **Collaborateurs** : recherche, filtres, tri, fiche détaillée, ajout/modification, départ.
 - **Absences** : demande (jours ouvrés, jours fériés, contrôle du solde), validation/refus, planning mensuel, historique.
 - **Paie** : préparation du mois (primes), validation, bulletins générés (simulation, taux forfaitaires).
-- **Besoins de recrutement** (étape « Besoin RH ») : le manager ne voit que ses besoins et leur statut ; les RH voient tous
-  les besoins, avec des compteurs par statut (émis, en attente de validation, à modifier, validés, publiés, refusés) qui
-  servent aussi de filtre, et une recherche par référence, intitulé, service et date d'émission ou de publication.
-  Référence `BES-AAAA-NNN`, qui devient `OFF-AAAA-NNN` une fois l'offre publiée. Le manager modifie son besoin tant
-  qu'il est en brouillon ou « À modifier » ; une fois envoyé, seuls les RH le modifient (jusqu'à la publication).
-  Commentaires internes RH ↔ manager, historique de chaque action, motif obligatoire en cas de refus. Une offre publiée
-  reste consultable dans Besoins et se suit dans Recrutement. Demande complète (motif, personne remplacée, fourchette de salaire,
+- **Besoins de recrutement** (étape « Besoin RH ») : côté RH, un tableau triable (référence, poste, service, demandeur,
+  statut, personne attendue, délai en jours ouvrés, priorité) avec une seule barre de recherche et de filtres ; la vue
+  par défaut montre ce qui vous attend. Côté manager, « Mes demandes » : une carte par besoin avec la frise Demande → RH →
+  Direction → Publication et la personne attendue. Un besoin s'ouvre dans un panneau latéral (flèches ← → pour passer au
+  suivant) : bandeau « Prochaine étape » avec l'action principale, puis les onglets Le besoin, Fiche de cadrage,
+  Validation (circuit et journal) et Échanges (commentaires RH ↔ manager, non lus signalés). Création et modification en
+  4 étapes avec récapitulatif, brouillon enregistré à chaque étape. Relance automatique de la personne attendue (et du
+  manager) au-delà de 5 jours ouvrés. Référence `BES-AAAA-NNN`, puis `OFF-AAAA-NNN` une fois l'offre publiée ; le
+  manager modifie son besoin tant qu'il est en brouillon ou « À modifier », ensuite seuls les RH le modifient ; motif
+  obligatoire en cas de refus. Demande complète (motif, personne remplacée, fourchette de salaire,
   date d'arrivée, priorité, poste prévu ou non au budget), alternatives étudiées avant de recruter avec les talents internes
   issus des souhaits de mobilité, fiche de cadrage (3 à 4 compétences indispensables, atouts, nombre d'entretiens).
   Circuit de validation : RH, puis direction pour une création de poste ou un poste hors budget (la RH saisit la décision

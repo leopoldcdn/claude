@@ -380,7 +380,8 @@
     el.style.transform = `translate(${s.x}px, ${s.y}px) scale(${s.scale})`;
   }
   function tw(el, vars) {
-    if (window.gsap) return window.gsap.to(el, Object.assign({}, vars, reduce ? { duration: 0, delay: 0 } : {}));
+    // overwrite : une nouvelle animation (ouverture, fermeture) remplace celle en cours au lieu de se superposer.
+    if (window.gsap) return window.gsap.to(el, Object.assign({ overwrite: true }, vars, reduce ? { duration: 0, delay: 0 } : {}));
     applyPlain(el, vars);
   }
   function setNode(el, vars) { if (window.gsap) window.gsap.set(el, vars); else applyPlain(el, vars); }
@@ -412,10 +413,6 @@
     box.addEventListener('mouseenter', () => { clearTimeout(closeTimer); openWheel(); });
     box.addEventListener('mouseleave', () => { closeTimer = setTimeout(closeWheel, 700); });
     box.addEventListener('focusin', () => { clearTimeout(closeTimer); openWheel(); });
-    box.querySelectorAll('.node').forEach((n) => {
-      n.addEventListener('mouseenter', () => tw(n, { scale: 1.14, duration: 0.2 }));
-      n.addEventListener('mouseleave', () => tw(n, { scale: 1, duration: 0.2 }));
-    });
   }
 
   // ---------------------------------------------------------------- Collaborateurs

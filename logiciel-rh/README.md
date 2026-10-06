@@ -25,7 +25,13 @@ Les données de départ (`data.js`, schéma version 8) sont fictives ; vos modif
   arrivée. « Contrat de travail » reste ensuite consultable par tout salarié (contrat et avenants).
 - **Collaborateurs** : recherche, filtres, tri, fiche détaillée, ajout/modification, départ.
 - **Absences** : demande (jours ouvrés, jours fériés, contrôle du solde), validation/refus, planning mensuel, historique.
-- **Paie** : préparation du mois (primes), validation, bulletins générés (simulation, taux forfaitaires).
+- **Paie** (Teamora prépare, un prestataire calcule) : 4 étapes par mois — *Variables* (absences, heures sup., entrées-sorties
+  remontées automatiquement ; primes, notes de frais, acomptes saisis ; transport 50 %, titres-restaurant, forfait télétravail ;
+  validation des variables par chaque manager), *Contrôles* (SMIC, minimum conventionnel, écart > 20 %, RIB/DPAE des entrants,
+  sorties, absences en attente, arrêts sans attestation, heures non validées), *Envoi au prestataire* (export CSV) et *Bulletins*
+  (journal de paie, diffusion aux salariés). Bulletin clarifié au format papier : cotisations salariales et patronales par rubrique,
+  réduction générale, maladie (carence, IJSS en subrogation, maintien Syntec), net social, PAS au taux personnalisé, cumuls annuels,
+  congés N-1/N, mentions légales. Le salarié peut refuser le bulletin électronique (art. L3243-2). Taux de démonstration.
 - **Besoins de recrutement** (étape « Besoin RH ») : côté RH, un tableau triable (référence, poste, service, demandeur,
   statut, personne attendue, délai en jours ouvrés, priorité) avec une seule barre de recherche et de filtres ; la vue
   par défaut montre ce qui vous attend. Côté manager, « Mes demandes » : une carte par besoin avec la frise Demande → RH →

@@ -63,7 +63,7 @@
   };
   const freshUI = () => ({ tplSel: null, tplDraft: null, wheelOpen: false, selPerson: null, q: '', fDept: '', fStatus: '', sort: 'name', sortDir: 1,
     absTab: 'valider', histStatus: '', planMonth: null, payMonth: null, recJob: null, drawer: null, modal: null, notif: false,
-    nSort: 'since', nDir: -1, recTab: 'todo', offerTab: 'cands', colOpen: {}, oSort: 'status', oDir: 1, nq: '', nDept: '', nStatus: 'auto', nFrom: '', rq: '', rDept: '', rStatus: '', rFrom: '', adminTab: 'annuaire', payTab: 'paie', tsWeek: null, revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
+    nSort: 'since', nDir: -1, recTab: 'todo', offerTab: 'cands', colOpen: {}, oSort: 'status', oDir: 1, nq: '', nDept: '', nStatus: 'auto', nFrom: '', rq: '', rDept: '', rStatus: '', rFrom: '', adminTab: 'annuaire', payTab: 'paie', payStep: null, tsWeek: null, revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
   let ui = Object.assign({ profile: 'rh', view: 'accueil', stage: null }, loadUI(), freshUI());
   if (!PROFILES[ui.profile]) ui.profile = 'rh';
 
@@ -173,8 +173,6 @@
   }
 
   // ---------------------------------------------------------------- Payroll
-  const RATES = [['Santé · prévoyance', 0.015], ['Retraite de base et complémentaire', 0.113], ['CSG · CRDS', 0.0904]];
-  const TAX_RATE = 0.075;
   const PAY_FIRST = '2026-07';
   function payMonths() { const last = monthKey(TODAY) > '2026-10' ? monthKey(TODAY) : '2026-10'; const out = []; for (let m = PAY_FIRST; m <= last; m = shiftMonth(m, 1)) out.push(m); return out; }
   const payrollOf = (m) => (db.payroll[m] = db.payroll[m] || { closed: false, bonus: {} });
@@ -200,21 +198,97 @@
     });
   }
   function applyDueSalaries() { db.employees.forEach((e) => { if (e.salaryNext && e.salaryNext.from <= TODAY) { e.salary = e.salaryNext.amount; delete e.salaryNext; } }); }
-  function calcPay(e, m) {
-    const start = m + '-01', end = monthEnd(m), sal = salaryAt(e, m);
-    let base = sal / 12;
-    if (e.startDate > start) base *= workDays(e.startDate, end) / Math.max(1, workDays(start, end));
-    if (e.exit && e.exit.lastDay < end) base *= workDays(start, e.exit.lastDay) / Math.max(1, workDays(start, end));
-    const bonus = Number(payrollOf(m).bonus[e.id] || 0);
-    const ot = overtimePay(Object.assign({}, e, { salary: sal }), m), ppv = Number((payrollOf(m).ppv || {})[e.id] || 0);
-    const gross = base + bonus + ot.amount;
-    const lines = RATES.map(([l, r]) => [l, r, gross * r]);
-    const contrib = lines.reduce((s, x) => s + x[2], 0);
-    const ppvNet = ppv * (1 - 0.097), netBefore = gross - contrib + ppvNet, tax = (gross - contrib) * TAX_RATE;
-    const leaveDays = db.leaves.filter((l) => l.empId === e.id && l.status === 'Approuvée' && ['Congés payés', 'RTT'].includes(l.type) && l.start <= end && l.end >= start)
-      .reduce((s, l) => s + workDays(l.start < start ? start : l.start, l.end > end ? end : l.end), 0);
-    return { base, bonus, ot, ppv, ppvNet, gross, lines, contrib, netBefore, tax, net: netBefore - tax, leaveDays };
+  // ---- Moteur de bulletin (valeurs de démonstration ; le calcul réel est fait par le prestataire de paie).
+  // Bulletin clarifié : rubriques Santé, Accidents du travail, Retraite, Famille, Assurance chômage, Autres contributions, CSG-CRDS, allègements.
+  const PSS = 4005, SMIC_M = 1801.80, HOURS_M = 151.67;
+  const TR_VALUE = 10, TR_EMPLOYER = 6, TT_DAY = 2.70, TT_ALLOW_MAX = 59.40, STAGE_FREE = 659.76;
+  const TRANSPORT = { Paris: 88.80, Lyon: 74.70 };
+  const COMPANY_PAY = { naf: '7410Z · Activités spécialisées de design', urssaf: 'Urssaf Île-de-France', idcc: 'Syntec (IDCC 1486)', paidOn: (m) => { let d = monthEnd(m); while (!isWork(d)) d = addDays(d, -1); return d; } };
+  // Taux de prélèvement à la source transmis par l'administration fiscale (démonstration).
+  const pasRate = (e) => [0, 0.031, 0.052, 0.075, 0.094, 0.118][hashPay(e.id) % 6];
+  const hashPay = (s) => { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
+  const classification = (e) => (e.contract === 'Stage' ? 'Stagiaire (gratification)' : e.contract === 'Alternance' ? 'Apprenti' : e.category === 'Cadre' ? `Cadre · position ${e.salary >= 70000 ? '3.1 · coefficient 170' : e.salary >= 55000 ? '2.3 · coefficient 150' : '2.2 · coefficient 130'}` : `ETAM · position ${e.salary >= 40000 ? '3.2 · coefficient 450' : '2.3 · coefficient 400'}`);
+  // Variables saisies du mois (notes de frais, acompte) et éléments calculés depuis le reste du logiciel.
+  const payExtra = (m, id) => ((payrollOf(m).extra || {})[id] || {});
+  function absencesOf(e, m) {
+    const start = m + '-01', end = monthEnd(m), clip = (l) => [l.start < start ? start : l.start, l.end > end ? end : l.end];
+    const list = db.leaves.filter((l) => l.empId === e.id && l.status === 'Approuvée' && l.start <= end && l.end >= start);
+    const days = (t) => list.filter((l) => l.type === t).reduce((s, l) => { const [a, b] = clip(l); return s + workDays(a, b); }, 0);
+    const sick = list.filter((l) => l.type === 'Maladie').map((l) => { const [a, b] = clip(l), carenceEnd = addDays(l.start, 2);
+      const cal = dayDiff(a, b) + 1, carence = Math.max(0, Math.min(cal, dayDiff(a, carenceEnd < b ? carenceEnd : b) + 1)) * (a <= carenceEnd ? 1 : 0);
+      return { l, from: a, to: b, work: workDays(a, b), cal, carence, paid: cal - carence }; });
+    return { cp: days('Congés payés'), rtt: days('RTT'), tt: days('Télétravail'), unpaid: days('Sans solde'), sick };
   }
+  function calcPay(e, m) {
+    const start = m + '-01', end = monthEnd(m), sal = salaryAt(e, m), monthly = sal / 12, wd = Math.max(1, workDays(start, end));
+    let base = monthly;
+    if (e.startDate > start) base *= workDays(e.startDate, end) / wd;
+    if (e.exit && e.exit.lastDay < end) base *= workDays(start, e.exit.lastDay) / wd;
+    const x = payExtra(m, e.id), pr = payrollOf(m), d = dossierLight(e);
+    const bonus = Number(pr.bonus[e.id] || 0), ppv = Number((pr.ppv || {})[e.id] || 0);
+    const ot = overtimePay(Object.assign({}, e, { salary: sal }), m), abs = absencesOf(e, m);
+    // Absences : retenue, indemnités journalières (50 % du salaire journalier, après 3 jours de carence) et maintien Syntec après 1 an d'ancienneté.
+    const daily = monthly / wd, ijDay = Math.min((sal / 365) * 0.5, (1.8 * SMIC_M * 3 / 91.25) * 0.5), senior = dayDiff(e.startDate, start) >= 365;
+    const earn = [['Salaire de base', e.category === 'Cadre' ? 'Forfait 218 jours' : `${String(HOURS_M).replace('.', ',')} h`, '', base]];
+    let ij = 0;
+    abs.sick.forEach((s) => {
+      const ret = daily * s.work, ijs = ijDay * s.paid; ij += s.l.subrogation ? ijs : 0;
+      earn.push([`Absence maladie du ${fmtShort(s.from)} au ${fmtShort(s.to)}`, `${plural(s.work, 'jour', 'jours')}`, '', -ret]);
+      if (senior) earn.push(['Complément employeur (maintien de salaire Syntec)', '', '', Math.max(0, ret - ijs)]);
+    });
+    if (abs.unpaid) earn.push(['Absence non rémunérée (congé sans solde)', `${plural(abs.unpaid, 'jour', 'jours')}`, '', -daily * abs.unpaid]);
+    if (ot.amount) earn.push([`Heures supplémentaires (${fmtH(ot.h25)} à 25 %${ot.h50 ? `, ${fmtH(ot.h50)} à 50 %` : ''})`, fmtH(ot.h25 + ot.h50), '', ot.amount]);
+    if (bonus) earn.push(['Prime exceptionnelle', '', '', bonus]);
+    const gross = Math.max(0, earn.reduce((s, r) => s + r[3], 0));
+    // Tranches
+    const T1 = Math.min(gross, PSS), T2 = Math.max(0, Math.min(gross, 8 * PSS) - PSS), cad = e.category === 'Cadre';
+    const stage = e.contract === 'Stage', appr = e.contract === 'Alternance';
+    const salBase = stage ? Math.max(0, gross - STAGE_FREE) : appr ? Math.max(0, gross - 0.5 * SMIC_M) : gross; // exonérations salariales stagiaire et apprenti
+    const k = salBase / Math.max(1, gross); // part de la rémunération soumise côté salarié
+    const mut = d.mutuelle === 'Dispense' || stage ? null : { s: 30, p: 45 };
+    const rows = [];
+    const R = (group, label, baseV, ts, tp, fs = null, fp = null) => rows.push({ group, label, base: baseV, ts, tp, s: fs !== null ? fs : baseV * ts, p: fp !== null ? fp : baseV * tp });
+    if (!stage || gross > STAGE_FREE) {
+      const g = stage ? gross - STAGE_FREE : gross;
+      R('Santé', 'Sécurité sociale · maladie, maternité, invalidité, décès', g, 0, gross > 2.5 * SMIC_M ? 0.13 : 0.07);
+      if (mut) R('Santé', 'Complémentaire santé (mutuelle)', null, 0, 0, mut.s, mut.p);
+      if (cad) R('Santé', 'Prévoyance des cadres', T1, 0, 0.015);
+      R('Accidents du travail · maladies professionnelles', 'Accidents du travail · maladies professionnelles', g, 0, 0.009);
+      R('Retraite', 'Sécurité sociale plafonnée', Math.min(g, PSS), 0.069 * k, 0.0855);
+      R('Retraite', 'Sécurité sociale déplafonnée', g, 0.004 * k, 0.0202);
+      R('Retraite', 'Complémentaire tranche 1 (Agirc-Arrco)', Math.min(g, PSS), 0.0315 * k, 0.0472);
+      R('Retraite', 'Contribution d’équilibre général tranche 1', Math.min(g, PSS), 0.0086 * k, 0.0129);
+      if (T2) { R('Retraite', 'Complémentaire tranche 2 (Agirc-Arrco)', T2, 0.0864, 0.1295); R('Retraite', 'Contribution d’équilibre général tranche 2', T2, 0.0108, 0.0162); R('Retraite', 'Contribution d’équilibre technique', Math.min(gross, 8 * PSS), 0.0014, 0.0021); }
+      if (cad) R('Retraite', 'Apec (cadres)', Math.min(gross, 4 * PSS), 0.00024, 0.00036);
+      R('Famille', 'Famille', g, 0, gross > 3.5 * SMIC_M ? 0.0525 : 0.0345);
+      R('Assurance chômage', 'Assurance chômage', Math.min(g, 4 * PSS), 0, 0.0405);
+      R('Assurance chômage', 'Garantie des salaires (AGS)', Math.min(g, 4 * PSS), 0, 0.0025);
+      const vm = e.location === 'Lyon' ? 0.02 : 0.032;
+      R('Autres contributions dues par l’employeur', 'Autres contributions dues par l’employeur', g, 0, 0.001 + 0.003 + vm + 0.01 + 0.0068);
+      const csgBase = salBase * 0.9825 + (mut ? mut.p : 0) + (cad ? T1 * 0.015 : 0) * k;
+      R('CSG · CRDS', 'CSG déductible de l’impôt sur le revenu', csgBase, 0.068, 0);
+      R('CSG · CRDS', 'CSG et CRDS non déductibles de l’impôt sur le revenu', csgBase, 0.029, 0);
+    }
+    // Réduction générale des cotisations patronales (salaires inférieurs à 1,6 SMIC).
+    const rg = gross > 0 && gross < 1.6 * SMIC_M && !stage ? Math.min(0.3194, (0.3194 / 0.6) * (1.6 * SMIC_M / gross - 1)) * gross : 0;
+    const salTot = rows.reduce((s, r) => s + r.s, 0), empTot = rows.reduce((s, r) => s + r.p, 0) - rg;
+    const csgNd = rows.filter((r) => /non déductibles/.test(r.label)).reduce((s, r) => s + r.s, 0);
+    const empHealth = (mut ? mut.p : 0);
+    const netSocial = gross - salTot + empHealth;
+    const netImposable = gross - salTot + csgNd + empHealth;
+    // Éléments non soumis : remboursements, titres-restaurant, frais, acompte, prime de partage de la valeur.
+    const workedDays = Math.max(0, wd - abs.cp - abs.rtt - abs.unpaid - abs.sick.reduce((s, x) => s + x.work, 0) - (e.startDate > start ? workDays(start, addDays(e.startDate, -1)) : 0) - (e.exit && e.exit.lastDay < end ? workDays(addDays(e.exit.lastDay, 1), end) : 0));
+    const trN = stage ? 0 : workedDays, trSal = trN * (TR_VALUE - TR_EMPLOYER);
+    const transport = (TRANSPORT[(e.location || '').split(' ')[0]] || 0) / 2, tele = Math.min(TT_ALLOW_MAX, abs.tt * TT_DAY);
+    const ndf = Number(x.ndf || 0), acompte = Number(x.acompte || 0), ppvNet = ppv * (1 - 0.097);
+    const extras = [ij ? ['Indemnités journalières de Sécurité sociale (subrogation, nettes de CSG-CRDS)', ij * 0.933] : null, transport ? ['Remboursement des transports en commun (50 %)', transport] : null,
+      tele ? [`Allocation forfaitaire de télétravail (${plural(abs.tt, 'jour', 'jours')})`, tele] : null, ndf ? ['Remboursement de notes de frais', ndf] : null, ppv ? ['Prime de partage de la valeur (nette de CSG-CRDS 9,7 %)', ppvNet] : null,
+      trN ? [`Titres-restaurant (${trN} × ${eur(TR_VALUE)}, part salariale)`, -trSal] : null, acompte ? ['Acompte versé', -acompte] : null].filter(Boolean);
+    const netBefore = gross - salTot + extras.reduce((s, r) => s + r[1], 0), rate = pasRate(e), tax = netImposable * rate;
+    return { ijNet: ij * 0.933, base, bonus, ot, ppv, ppvNet, gross, earn, rows, rg, salTot, empTot, contrib: salTot, netSocial, netImposable, extras, netBefore, rate, tax, net: netBefore - tax,
+      cost: gross + empTot, leaveDays: abs.cp + abs.rtt, abs, trN, trEmployer: trN * TR_EMPLOYER, transport, tele, ndf, acompte, workedDays, lines: rows.map((r) => [r.label, r.ts, r.s]) };
+  }
+  const dossierLight = (e) => (db.onboarding && db.onboarding[e.id]) || {};
 
   // ---------------------------------------------------------------- Shell
   // The wheel is the main menu: each stage of the journey opens a module. A profile only sees the stages it needs.
@@ -240,7 +314,9 @@
   function navCount(v) {
     const p = ui.profile, m = me(), ids = new Set(scopeEmployees().map((e) => e.id));
     if (v === 'absences') return pendingForMe().length + pendingSheets().length + (p === 'rh' ? db.leaves.filter((l) => l.type === 'Maladie' && !l.dsnAt).length : 0);
-    if (v === 'paie') return p === 'rh' ? Object.values(db.raises.proposals).filter((x) => x.status === 'Proposée').length : p === 'manager' && db.raises.status === 'Ouverte' ? scopeEmployees().filter((e) => raiseEligible(e) && !db.raises.proposals[e.id]).length : 0;
+    if (v === 'paie') { const pm = payCurrent(), prep = payStatus(pm) === 'Préparation';
+      return p === 'rh' ? Object.values(db.raises.proposals).filter((x) => x.status === 'Proposée').length + (prep ? openChecks(pm).length : 0) + (payStatus(pm) === 'Reçue' ? 1 : 0)
+        : p === 'manager' ? (db.raises.status === 'Ouverte' ? scopeEmployees().filter((e) => raiseEligible(e) && !db.raises.proposals[e.id]).length : 0) + (prep && teamOf(me(), pm).length && !(payrollOf(pm).mgrOk || {})[me().id] ? 1 : 0) : 0; }
     if (v === 'besoins') return needsToDo().length;
     if (v === 'recrutement') return recTodo().size;
     if (v === 'collaborateurs') return p === 'rh' ? pendingChanges().length + adminDeadlines(db.employees).filter((x) => x.date <= addDays(TODAY, 14)).length : 0;
@@ -569,49 +645,173 @@
   }
 
   // ---------------------------------------------------------------- Paie
+  // ---- Paie du mois (voie « préparation ») : variables → contrôles → envoi au prestataire → bulletins reçus et diffusés.
+  const PAY_STEPS = [['variables', 'Variables du mois'], ['controles', 'Contrôles'], ['envoi', 'Envoi au prestataire'], ['bulletins', 'Bulletins']];
+  const PAY_STATUS = { Préparation: 'warn', Envoyée: 'info', Reçue: 'accent', Diffusée: 'ok' };
+  const PROVIDER = 'Silae (cabinet Expert & Paie)';
+  const payStatus = (m) => { const pr = payrollOf(m); return pr.closed ? 'Diffusée' : pr.status || 'Préparation'; };
+  const payPeople = (m) => db.employees.filter((e) => inPayroll(e, m)).sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr'));
+  // Managers dont l'équipe figure dans la paie du mois : ils valident les variables de leur équipe (l'équipe RH et la direction sont validées par les RH).
+  const payManagers = (m) => [...new Set(payPeople(m).map((e) => e.managerId).filter(Boolean))].map(emp).filter((x) => x && !['e1', 'e5'].includes(x.id));
+  const teamOf = (mgr, m) => payPeople(m).filter((e) => e.managerId === mgr.id);
+  // Contrôles avant envoi : chaque anomalie est corrigée à la source ou marquée « vérifiée ».
+  function payChecks(m) {
+    const start = m + '-01', end = monthEnd(m), pr = payrollOf(m), out = [], add = (id, level, text, sub, link) => out.push({ id, level, text, sub, link, ack: (pr.acks || {})[id] });
+    const prev = shiftMonth(m, -1);
+    payPeople(m).forEach((e) => {
+      const p = calcPay(e, m), full = !(e.startDate > start) && !(e.exit && e.exit.lastDay < end);
+      if (full && !['Stage', 'Alternance'].includes(e.contract) && p.gross < SMIC_M) add(`smic-${e.id}`, 'bad', `${fullName(e)} : brut inférieur au SMIC`, `${eur(p.gross)} pour un SMIC mensuel de ${eur(SMIC_M)}`, null);
+      if (e.category === 'Cadre' && full && salaryAt(e, m) < 12 * 3400 * 0.78) add(`conv-${e.id}`, 'warn', `${fullName(e)} : salaire proche du minimum conventionnel cadre`, 'Vérifier la grille Syntec de sa position', null);
+      if (full && db.payroll[prev] && inPayroll(e, prev) && !(e.startDate > prev + '-01')) { const q = calcPay(e, prev); if (q.gross && Math.abs(p.gross - q.gross) / q.gross > 0.2) add(`ecart-${e.id}`, 'warn', `${fullName(e)} : brut en écart de ${Math.round(((p.gross - q.gross) / q.gross) * 100)} % sur le mois précédent`, `${eur(q.gross)} → ${eur(p.gross)}`, null); }
+      if (e.startDate >= start && e.startDate <= end && (!e.iban || e.iban === '—')) add(`rib-${e.id}`, 'bad', `${fullName(e)} : entrée dans le mois sans RIB`, 'Le virement du salaire ne pourra pas être fait', 'open-dossier');
+      if (e.startDate >= start && e.startDate <= end && !(dossierLight(e).dpae)) add(`dpae-${e.id}`, 'bad', `${fullName(e)} : DPAE non faite`, 'Obligatoire avant la prise de poste', 'open-dossier');
+      if (e.exit && e.exit.lastDay >= start && e.exit.lastDay <= end) add(`exit-${e.id}`, 'warn', `${fullName(e)} : sortie le ${fmtShort(e.exit.lastDay)}`, 'Solde de tout compte et indemnités à transmettre au prestataire', null);
+    });
+    db.leaves.filter((l) => l.status === 'En attente' && l.start <= end && l.end >= start && payPeople(m).some((e) => e.id === l.empId)).forEach((l) => add(`leave-${l.id}`, 'warn', `Absence en attente de validation : ${fullName(emp(l.empId))}`, `${l.type} du ${fmtShort(l.start)} au ${fmtShort(l.end)}`, 'leaves'));
+    db.leaves.filter((l) => l.type === 'Maladie' && !l.dsnAt && l.start <= end && l.end >= start).forEach((l) => add(`ij-${l.id}`, 'warn', `Arrêt de travail sans attestation de salaire : ${fullName(emp(l.empId))}`, 'Les indemnités journalières ne seront pas versées', 'leaves'));
+    (db.timesheets || []).filter((t) => t.status === 'Soumise' && t.week.slice(0, 7) === m).forEach((t) => add(`ts-${t.id}`, 'warn', `Heures non validées : ${fullName(emp(t.empId))}`, `Semaine du ${fmtShort(t.week)}`, 'leaves'));
+    payManagers(m).filter((g) => !(pr.mgrOk || {})[g.id]).forEach((g) => add(`mgr-${g.id}`, 'warn', `Variables non validées par ${fullName(g)}`, `${plural(teamOf(g, m).length, 'collaborateur', 'collaborateurs')} · à valider avant le ${fmtShort(pr.cutoff || `${m}-20`)}`, 'remind'));
+    return out;
+  }
+  const openChecks = (m) => payChecks(m).filter((c) => !c.ack);
+  const payCurrent = () => { const ms = payMonths(); return ms.find((x) => payStatus(x) !== 'Diffusée') || ms[ms.length - 1]; };
   function viewPay() {
     const months = payMonths();
-    const m = ui.payMonth && months.includes(ui.payMonth) ? ui.payMonth : (months.find((x) => !(db.payroll[x] && db.payroll[x].closed)) || months[months.length - 1]);
-    ui.payMonth = m;
-    const pr = payrollOf(m), closed = pr.closed;
-    const people = db.employees.filter((e) => inPayroll(e, m)).sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr'));
-    const rows = people.map((e) => [e, calcPay(e, m)]);
-    const tot = rows.reduce((s, [, p]) => ({ gross: s.gross + p.gross, contrib: s.contrib + p.contrib, net: s.net + p.net, bonus: s.bonus + p.bonus }), { gross: 0, contrib: 0, net: 0, bonus: 0 });
-    const idx = months.indexOf(m);
-    return `<div class="card"><div class="card-h" style="flex-wrap:wrap"><div class="toolbar"><button type="button" class="icon-btn" data-act="pay-month" data-m="${months[idx - 1] || ''}" ${idx ? '' : 'disabled'} aria-label="Mois précédent">${ic('left')}</button>
-        <h3 style="min-width:170px;text-align:center">Paie de ${monthLabel(m).toLowerCase()}</h3><button type="button" class="icon-btn" data-act="pay-month" data-m="${months[idx + 1] || ''}" ${idx < months.length - 1 ? '' : 'disabled'} aria-label="Mois suivant">${ic('right')}</button>
-        <span class="pill ${closed ? 'ok' : 'warn'}">${closed ? 'Validée · bulletins disponibles' : 'En cours de préparation'}</span></div>
-        ${closed ? '' : `<button type="button" class="btn primary" data-act="pay-close" data-m="${m}">${ic('check')}Valider la paie et générer les bulletins</button>`}</div>
-      <div class="kpis" style="padding:16px 20px">${[['Bulletins', rows.length, 'collaborateurs payés'], ['Masse salariale brute', eur0(tot.gross), `dont ${eur0(tot.bonus)} de primes`], ['Cotisations salariales', eur0(tot.contrib), 'Taux moyen 21,8 %'], ['Net à verser', eur0(tot.net), 'Après prélèvement à la source']].map(([l, v, s]) => `<div class="kpi" style="padding:0"><span class="l">${l}</span><span class="v num">${v}</span><span class="s">${s}</span></div>`).join('')}</div></div>
-      <div class="card"><div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Contrat</th><th class="r">Salaire de base</th><th class="r">Prime</th><th class="r">Congés pris</th><th class="r">Brut</th><th class="r">Cotisations</th><th class="r">Net à payer</th><th></th></tr></thead><tbody>
-      ${rows.map(([e, p]) => `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small></div></div></td><td>${esc(e.contract)}</td><td class="r num">${eur(p.base)}</td>
-        <td class="r">${closed ? `<span class="num">${eur(p.bonus)}</span>` : `<label class="sr" for="b-${e.id}">Prime de ${esc(fullName(e))}</label><input id="b-${e.id}" class="input cell-input num" type="number" min="0" step="50" value="${p.bonus || ''}" placeholder="0" data-change="bonus" data-id="${e.id}">`}</td>
-        <td class="r num">${p.leaveDays ? `${p.leaveDays} j` : '—'}</td><td class="r num">${eur(p.gross)}</td><td class="r num">−${eur(p.contrib)}</td><td class="r num"><b>${eur(p.net)}</b></td>
-        <td>${closed ? `<button type="button" class="btn ghost sm" data-act="payslip" data-id="${e.id}" data-m="${m}">Bulletin</button>` : ''}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td colspan="5">Total</td><td class="r num">${eur(tot.gross)}</td><td class="r num">−${eur(tot.contrib)}</td><td class="r num">${eur(tot.net)}</td><td></td></tr></tfoot></table></div></div>
-      <p class="hint">Simulation : cotisations à taux forfaitaires, prélèvement à la source à 7,5 %. Les arrivées et départs en cours de mois sont proratisés en jours ouvrés.</p>`;
+    const m = ui.payMonth && months.includes(ui.payMonth) ? ui.payMonth : payCurrent(); ui.payMonth = m;
+    const pr = payrollOf(m), st = payStatus(m), edit = st === 'Préparation', idx = months.indexOf(m), people = payPeople(m);
+    const defStep = { Préparation: 'variables', Envoyée: 'envoi', Reçue: 'bulletins', Diffusée: 'bulletins' }[st];
+    const step = PAY_STEPS.some(([k]) => k === ui.payStep) ? ui.payStep : defStep, checks = payChecks(m), open = checks.filter((c) => !c.ack);
+    const done = { variables: st !== 'Préparation' || payManagers(m).every((g) => (pr.mgrOk || {})[g.id]), controles: st !== 'Préparation' || !open.length, envoi: ['Reçue', 'Diffusée'].includes(st), bulletins: st === 'Diffusée' };
+    const head = `<div class="card"><div class="card-h" style="flex-wrap:wrap"><div class="toolbar"><button type="button" class="icon-btn" data-act="pay-month" data-m="${months[idx - 1] || ''}" ${idx ? '' : 'disabled'} aria-label="Mois précédent">${ic('left')}</button>
+      <h3 style="min-width:170px;text-align:center">Paie de ${monthLabel(m).toLowerCase()}</h3><button type="button" class="icon-btn" data-act="pay-month" data-m="${months[idx + 1] || ''}" ${idx < months.length - 1 ? '' : 'disabled'} aria-label="Mois suivant">${ic('right')}</button>
+      <span class="pill ${PAY_STATUS[st]}">${st === 'Préparation' ? 'En préparation' : st === 'Envoyée' ? `Envoyée au prestataire le ${fmtShort(pr.sentAt)}` : st === 'Reçue' ? 'Bulletins reçus · à diffuser' : 'Bulletins diffusés'}</span></div>
+      <span class="hint">${edit ? `Clôture des variables le ${fmtDate(pr.cutoff || `${m}-20`)} · ` : ''}${plural(people.length, 'collaborateur', 'collaborateurs')} · prestataire : ${PROVIDER}</span></div>
+      <ol class="pay-steps">${PAY_STEPS.map(([k, l], i) => `<li class="${k === step ? 'now' : done[k] ? 'ok' : ''}"><button type="button" data-act="pay-step" data-s="${k}"><i class="num">${done[k] && k !== step ? '✓' : i + 1}</i>${l}${k === 'controles' && open.length && edit ? `<span class="badge-dot">${open.length}</span>` : ''}</button></li>`).join('')}</ol></div>`;
+    let body = '';
+    if (step === 'variables') {
+      const rows = people.map((e) => { const p = calcPay(e, m), a = p.abs, sick = a.sick.reduce((s, x) => s + x.work, 0), x = payExtra(m, e.id), ok = !payManagers(m).some((g) => g.id === e.managerId) || (pr.mgrOk || {})[e.managerId];
+        const absTxt = [a.cp ? `${a.cp} j CP` : '', a.rtt ? `${a.rtt} j RTT` : '', sick ? `${sick} j maladie` : '', a.unpaid ? `${a.unpaid} j sans solde` : '', a.tt ? `${a.tt} j télétravail` : ''].filter(Boolean).join(' · ') || '—';
+        const inp = (k, v, label) => (edit ? `<label class="sr" for="v-${k}-${e.id}">${label} · ${esc(fullName(e))}</label><input id="v-${k}-${e.id}" class="input cell-input num" type="number" min="0" step="10" value="${v || ''}" placeholder="0" data-change="pay-var" data-id="${e.id}" data-k="${k}">` : `<span class="num">${v ? eur(v) : '—'}</span>`);
+        return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}${e.startDate.slice(0, 7) === m ? ' · entrée' : ''}${e.exit && e.exit.lastDay.slice(0, 7) === m ? ' · sortie' : ''}</small></div></div></td>
+          <td><small>${absTxt}</small></td><td class="r num">${p.ot.amount ? fmtH(p.ot.h25 + p.ot.h50) : '—'}</td><td class="r">${inp('bonus', pr.bonus[e.id], 'Prime')}</td><td class="r num">${p.transport ? eur(p.transport) : '—'}</td><td class="r num">${p.trN || '—'}</td>
+          <td class="r">${inp('ndf', x.ndf, 'Notes de frais')}</td><td class="r">${inp('acompte', x.acompte, 'Acompte')}</td><td>${ok ? '<span class="pill ok">Validé</span>' : '<span class="pill warn">À valider</span>'}</td></tr>`; }).join('');
+      const mgrs = payManagers(m).map((g) => { const okd = (pr.mgrOk || {})[g.id];
+        return `<span class="who-chip">${avatar(g, 'sm')}${esc(fullName(g))} · ${okd ? `validé le ${fmtShort(okd)}` : 'en attente'}${!okd && edit ? `<button type="button" class="linkish" data-act="pay-remind" data-id="${g.id}">Relancer</button>` : ''}</span>`; }).join('');
+      body = `<div class="card"><div class="card-h"><h3>Éléments variables</h3><span class="muted" style="font-size:13px">Absences, heures et entrées-sorties remontent automatiquement de Teamora</span></div>
+        <div class="card-b" style="border-bottom:1px solid var(--line)"><div class="team"><span class="team-l">Validation des managers</span>${mgrs}</div></div>
+        <div class="table-wrap"><table class="pay-vars"><thead><tr><th>Collaborateur</th><th>Absences</th><th class="r">Heures sup.</th><th class="r">Prime</th><th class="r">Transport (50 %)</th><th class="r">Titres-resto</th><th class="r">Notes de frais</th><th class="r">Acompte</th><th>Manager</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+        <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn primary" data-act="pay-step" data-s="controles">Passer aux contrôles${ic('arrow')}</button></div>`;
+    }
+    if (step === 'controles') {
+      body = `<div class="card"><div class="card-h"><h3>Contrôles avant envoi</h3><span class="pill ${open.length ? 'warn' : 'ok'}">${open.length ? plural(open.length, 'point à lever', 'points à lever') : 'Tout est vérifié'}</span></div><div class="card-b">
+        ${checks.length ? checks.map((c) => `<div class="todo ${c.ack ? 'acked' : ''}"><span class="chk-dot ${c.ack ? 'ok' : c.level}"></span><div class="t"><b>${esc(c.text)}</b><small>${esc(c.sub)}${c.ack ? ` · vérifié par ${esc(fullName(emp(c.ack.by)))} le ${fmtShort(c.ack.date)}` : ''}</small></div>
+          ${!c.ack && edit ? `${c.link === 'leaves' ? '<button type="button" class="btn ghost sm" data-act="go" data-v="absences">Ouvrir les absences</button>' : c.link === 'remind' ? `<button type="button" class="btn ghost sm" data-act="pay-remind" data-id="${c.id.slice(4)}">Relancer</button>` : c.link === 'open-dossier' ? `<button type="button" class="btn ghost sm" data-act="open-dossier" data-id="${c.id.split('-')[1]}">Ouvrir le dossier</button>` : ''}<button type="button" class="btn ghost sm" data-act="pay-ack" data-id="${c.id}">${ic('check')}Vérifié</button>` : ''}</div>`).join('')
+          : '<p class="muted" style="margin:0">Aucune anomalie détectée.</p>'}
+        <p class="hint" style="margin:12px 0 0">Corrige l’anomalie à la source (absence, heures, dossier) ou marque-la comme vérifiée si elle est justifiée. L’envoi est possible quand tous les points sont levés.</p></div></div>
+        ${edit ? `<div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn primary" data-act="pay-step" data-s="envoi" ${open.length ? 'disabled' : ''}>Passer à l’envoi${ic('arrow')}</button></div>` : ''}`;
+    }
+    if (step === 'envoi') {
+      const tot = people.reduce((s, e) => s + calcPay(e, m).gross, 0);
+      body = `<div class="card"><div class="card-h"><h3>Envoi des variables au prestataire de paie</h3><span class="muted" style="font-size:13px">${PROVIDER}</span></div><div class="card-b">
+        <div class="info-grid"><div><span>Collaborateurs</span>${people.length}</div><div><span>Masse brute estimée</span><span class="num">${eur0(tot)}</span></div><div><span>Points de contrôle levés</span>${checks.length - open.length} sur ${checks.length}</div><div><span>Fichier</span><span class="num">variables-paie-${m}.csv</span></div></div>
+        <div class="toolbar" style="margin-top:16px">${edit ? `<button type="button" class="btn primary" data-act="pay-send" ${open.length ? 'disabled' : ''}>${ic('arrow')}Envoyer au prestataire</button>${open.length ? `<span class="hint">${plural(open.length, 'point de contrôle reste', 'points de contrôle restent')} à lever.</span>` : ''}`
+          : `<span class="pill ok">Envoyé le ${fmtDate(pr.sentAt)} par ${esc(fullName(emp(pr.sentBy || 'e1')))}</span>`}<button type="button" class="btn ghost" data-act="pay-csv" data-m="${m}">${ic('file')}Télécharger l’export</button>
+          ${st === 'Envoyée' ? '<button type="button" class="btn primary" data-act="pay-receive">Bulletins reçus du prestataire</button><span class="hint">Démo : simule le retour des bulletins calculés et de la DSN déposée.</span>' : ''}</div>
+        <p class="hint" style="margin:14px 0 0">Le prestataire calcule la paie, dépose la déclaration sociale nominative (DSN) et renvoie les bulletins ; Teamora les diffuse ensuite aux salariés.</p></div></div>`;
+    }
+    if (step === 'bulletins') {
+      if (st === 'Préparation' || st === 'Envoyée') body = '<div class="card empty">Les bulletins apparaîtront ici dès leur retour du prestataire.</div>';
+      else {
+        const rows = people.map((e) => [e, calcPay(e, m)]), T = rows.reduce((s, [, p]) => { ['gross', 'salTot', 'empTot', 'netImposable', 'tax', 'net', 'cost'].forEach((k) => { s[k] = (s[k] || 0) + p[k]; }); return s; }, {});
+        body = `<div class="card"><div class="card-h"><h3>Journal de paie</h3>${st === 'Reçue' ? `<button type="button" class="btn primary" data-act="pay-publish">${ic('check')}Diffuser les bulletins aux salariés</button>` : `<span class="pill ok">Diffusés le ${fmtDate(pr.publishedAt || monthEnd(m))}</span>`}</div>
+          <div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th class="r">Brut</th><th class="r">Cotisations salariales</th><th class="r">Cotisations patronales</th><th class="r">Net imposable</th><th class="r">Impôt à la source</th><th class="r">Net payé</th><th class="r">Coût employeur</th><th></th></tr></thead><tbody>
+          ${rows.map(([e, p]) => `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(classification(e))}</small></div></div></td><td class="r num">${eur(p.gross)}</td><td class="r num">${eur(p.salTot)}</td><td class="r num">${eur(p.empTot)}</td><td class="r num">${eur(p.netImposable)}</td><td class="r num">${eur(p.tax)}</td><td class="r num"><b>${eur(p.net)}</b></td><td class="r num">${eur(p.cost)}</td>
+            <td><button type="button" class="btn ghost sm" data-act="payslip" data-id="${e.id}" data-m="${m}">Bulletin</button></td></tr>`).join('')}</tbody>
+          <tfoot><tr><td>Total</td><td class="r num">${eur(T.gross)}</td><td class="r num">${eur(T.salTot)}</td><td class="r num">${eur(T.empTot)}</td><td class="r num">${eur(T.netImposable)}</td><td class="r num">${eur(T.tax)}</td><td class="r num">${eur(T.net)}</td><td class="r num">${eur(T.cost)}</td><td></td></tr></tfoot></table></div></div>`;
+      }
+    }
+    return `${head}${body}<p class="hint">Simulation : taux et plafonds de démonstration (plafond mensuel de la Sécurité sociale ${eur0(PSS)}, SMIC ${eur(SMIC_M)}). Le calcul officiel est réalisé par le prestataire de paie.</p>`;
   }
+  // Manager : validation des variables de son équipe avant la clôture.
+  function mgrPayCard() {
+    const m = payCurrent(), pr = payrollOf(m), team = teamOf(me(), m), okd = (pr.mgrOk || {})[me().id];
+    if (!team.length || payStatus(m) !== 'Préparation') return '';
+    return card(`Variables de paie de l’équipe · ${monthLabel(m).toLowerCase()}`, okd ? `<span class="pill ok">Validées le ${fmtShort(okd)}</span>` : `<span class="pill warn">À valider avant le ${fmtShort(pr.cutoff || `${m}-20`)}</span>`, `<div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Absences</th><th class="r">Heures sup.</th><th class="r">Prime</th></tr></thead><tbody>
+      ${team.map((e) => { const p = calcPay(e, m), a = p.abs, sick = a.sick.reduce((s, x) => s + x.work, 0); return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small></div></div></td><td><small>${[a.cp ? `${a.cp} j CP` : '', a.rtt ? `${a.rtt} j RTT` : '', sick ? `${sick} j maladie` : '', a.tt ? `${a.tt} j télétravail` : ''].filter(Boolean).join(' · ') || '—'}</small></td><td class="r num">${p.ot.amount ? fmtH(p.ot.h25 + p.ot.h50) : '—'}</td><td class="r num">${p.bonus ? eur(p.bonus) : '—'}</td></tr>`; }).join('')}</tbody></table></div>
+      <div class="card-b"><div class="toolbar"><span class="hint">Vérifie les absences, heures et primes de ton équipe : une erreur signalée après la clôture se corrige le mois suivant.</span>${okd ? '' : `<button type="button" class="btn primary" data-act="pay-mgr-ok" style="margin-left:auto">${ic('check')}Valider les variables</button>`}</div></div>`);
+  }
+  // Bulletin de paie clarifié (arrêté du 25 février 2016, montant net social depuis juillet 2023), présenté comme un bulletin papier.
   function payslipHTML(e, m) {
-    const p = calcPay(e, m);
-    return `<div class="slip"><div class="slip-top"><div><b>Nova Studio SAS</b><span class="muted">12 rue de la Paix, 75002 Paris<br>SIRET 000 000 000 00000 (fictif)</span></div><div><b>${esc(fullName(e))}</b><span class="muted">${esc(e.title)} · ${esc(e.contract)}<br>Entrée le ${fmtDate(e.startDate)}</span></div></div>
-      <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>Élément</th><th class="r">Base</th><th class="r">Taux</th><th class="r">Montant</th></tr></thead><tbody>
-      <tr><td>Salaire de base</td><td class="r num">${eur(e.salary / 12)}</td><td></td><td class="r num">${eur(p.base)}</td></tr>
-      ${p.bonus ? `<tr><td>Prime exceptionnelle</td><td></td><td></td><td class="r num">${eur(p.bonus)}</td></tr>` : ''}
-      ${p.ot.amount ? `<tr><td>Heures supplémentaires (${fmtH(p.ot.h25)} à 25 %${p.ot.h50 ? `, ${fmtH(p.ot.h50)} à 50 %` : ''})</td><td class="r num">${eur(e.salary / 12 / 151.67)}</td><td></td><td class="r num">${eur(p.ot.amount)}</td></tr>` : ''}
-      <tr><td><b>Salaire brut</b></td><td></td><td></td><td class="r num"><b>${eur(p.gross)}</b></td></tr>
-      ${p.lines.map(([l, r, v]) => `<tr><td>${l}</td><td class="r num">${eur(p.gross)}</td><td class="r num">${(r * 100).toFixed(2).replace('.', ',')} %</td><td class="r num">−${eur(v)}</td></tr>`).join('')}
-      ${p.ppv ? `<tr><td>Prime de partage de la valeur (exonérée de cotisations, CSG-CRDS 9,7 %)</td><td class="r num">${eur(p.ppv)}</td><td class="r num">9,70 %</td><td class="r num">${eur(p.ppvNet)}</td></tr>` : ''}
-      <tr><td><b>Net à payer avant impôt</b></td><td></td><td></td><td class="r num"><b>${eur(p.netBefore)}</b></td></tr>
-      <tr><td>Impôt sur le revenu (prélèvement à la source)</td><td class="r num">${eur(p.gross - p.contrib)}</td><td class="r num">7,50 %</td><td class="r num">−${eur(p.tax)}</td></tr></tbody></table></div>
-      <div class="net"><span>Net payé · ${monthLabel(m)}</span><b class="num">${eur(p.net)}</b></div>
-      <p class="hint" style="margin-top:12px">Congés pris ce mois : ${p.leaveDays} j · Solde de congés payés : ${e.cp} j · Bulletin de démonstration, montants indicatifs.</p></div>`;
+    const p = calcPay(e, m), pr = payrollOf(m), y = m.slice(0, 4), d = dossierLight(e), cad = e.category === 'Cadre';
+    const num = (v, dec = 2) => (v === null || v === undefined || v === '' ? '' : typeof v === 'string' ? v : v.toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec }));
+    const pct = (v) => (v ? num(v * 100, v * 100 < 1 ? 3 : 2) : '');
+    const ytd = payMonths().filter((x) => x.slice(0, 4) === y && x <= m && (payStatus(x) !== 'Préparation' || x === m) && inPayroll(e, x)).reduce((s, x) => { const q = calcPay(e, x);
+      s.h += cad ? 0 : HOURS_M; s.hs += q.ot.h25 + q.ot.h50; s.g += q.gross; s.pss += PSS; s.ni += q.netImposable; s.cp += q.empTot; s.cost += q.cost; s.rg += q.rg; return s; }, { h: 0, hs: 0, g: 0, pss: 0, ni: 0, cp: 0, cost: 0, rg: 0 });
+    // Ligne : libellé · base · taux · à déduire · à payer · base patronale · taux patronal · montant patronal
+    const L = (l, b, t, ded, pay, pb, pt, pm, cls = '') => `<tr class="${cls}"><td>${l}</td><td class="r">${num(b)}</td><td class="r">${t || ''}</td><td class="r">${ded ? num(ded) : ''}</td><td class="r">${pay ? num(pay) : ''}</td><td class="r pat">${num(pb)}</td><td class="r pat">${pt || ''}</td><td class="r pat">${pm ? num(pm) : ''}</td></tr>`;
+    const hourly = salaryAt(e, m) / 12 / HOURS_M, daily = salaryAt(e, m) / 12 / Math.max(1, workDays(m + '-01', monthEnd(m)));
+    const earn = p.earn.map(([l, , , v], i) => {
+      if (i === 0) return L(l, cad ? 'forfait' : HOURS_M, cad ? '' : num(hourly, 4), '', v);
+      if (/^Absence/.test(l)) { const days = Math.round(-v / daily); return L(esc(l), days, num(daily, 4), -v, ''); }
+      if (/^Heures/.test(l)) return L(esc(l), p.ot.h25 + p.ot.h50, '', '', v);
+      return L(esc(l), '', '', '', v);
+    }).join('');
+    const groups = [...new Set(p.rows.map((r) => r.group))];
+    const contrib = groups.map((g) => { const rs = p.rows.filter((r) => r.group === g);
+      if (rs.length === 1 && rs[0].label === g) { const r = rs[0]; return L(`<b>${g}</b>`, r.ts ? r.base : '', pct(r.ts), r.s, '', r.base, pct(r.tp), r.p); }
+      return `<tr class="grp"><td colspan="8"><b>${g}</b></td></tr>${rs.map((r) => L(r.label, r.ts || r.s ? r.base : '', pct(r.ts), r.s, '', r.base, pct(r.tp), r.p, 'sub')).join('')}`; }).join('');
+    const below = [p.trN ? L('Titres-restaurant', p.trN, num(TR_VALUE - TR_EMPLOYER), p.trN * (TR_VALUE - TR_EMPLOYER), '', p.trN, num(TR_EMPLOYER), p.trEmployer) : '',
+      p.tele ? L('Allocation forfaitaire de télétravail', p.abs.tt, num(TT_DAY), '', p.tele) : '',
+      p.transport ? L(`Remboursement transports en commun (abonnement ${(e.location || '').split(' ')[0]})`, p.transport * 2, '50,00', '', p.transport) : '',
+      p.ijNet ? L('Indemnités journalières de Sécurité sociale (subrogation)', '', '', '', p.ijNet) : '',
+      p.ndf ? L('Remboursement de notes de frais', '', '', '', p.ndf) : '',
+      p.ppv ? L('Prime de partage de la valeur (nette de CSG-CRDS)', p.ppv, '9,70', '', p.ppvNet) : '',
+      p.acompte ? L('Acompte versé', '', '', p.acompte, '') : ''].join('');
+    // Congés : période de référence du 1er juin au 31 mai.
+    const refStart = `${m.slice(5) >= '06' ? y : y - 1}-06-01`, monthsN = Math.max(0, (Number(m.slice(0, 4)) - Number(refStart.slice(0, 4))) * 12 + Number(m.slice(5)) - 5);
+    const takenN1 = db.leaves.filter((l) => l.empId === e.id && l.type === 'Congés payés' && l.status === 'Approuvée' && l.start >= refStart && l.start <= monthEnd(m)).reduce((s, l) => s + l.days, 0);
+    const acqN = Math.min(25, monthsN * 2.08), paid = COMPANY_PAY.paidOn(m), [mm, yy] = [m.slice(5), y];
+    const statut = e.contract === 'Stage' ? 'Stagiaire' : e.contract === 'Alternance' ? 'Apprenti' : cad ? 'Cadre' : 'Employé (ETAM)';
+    const cls = classification(e).split('·').map((s) => s.trim()), niveau = (cls[1] || '').replace('position ', ''), coef = (cls[2] || '').replace('coefficient ', '');
+    const kv = (k, v) => `<div><span>${k}</span><b>${v || '—'}</b></div>`;
+    return `<div class="bs"><div class="bs-top"><div class="bs-emp"><b class="bs-co">${COMPANY.entreprise}</b><span>${COMPANY.entreprise_adresse.replace(', ', '<br>')}</span>
+        <div class="bs-kv">${kv('Siret', COMPANY.siret)}${kv('Code NAF', COMPANY_PAY.naf.split(' ·')[0])}${kv('Urssaf', COMPANY_PAY.urssaf)}${kv('Matricule', String(e.id.slice(1)).padStart(5, '0'))}
+          ${kv('N° SS', `${e.sex === 'H' ? '1' : '2'} ${(e.birthDate || '1990-01-01').slice(2, 7).replace('-', ' ')} •• ••• ••• ••`)}${kv('IBAN', esc(e.iban))}${kv('Emploi', esc(e.title))}${kv('Statut professionnel', statut)}
+          ${kv('Niveau', niveau)}${kv('Coefficient', coef)}${kv('Entrée', fmtDate(e.startDate))}${kv('Ancienneté', seniority(e.startDate).toLowerCase())}${kv('Convention collective', COMPANY_PAY.idcc)}</div></div>
+      <div class="bs-right"><h2>BULLETIN DE SALAIRE</h2><p>Période : <b>${mm} / ${yy}</b> · du ${fmtDate(m + '-01')} au ${fmtDate(monthEnd(m))}</p>
+        <div class="bs-addr"><b>${e.sex === 'H' ? 'Monsieur' : 'Madame'} ${esc(e.firstName)} ${esc(e.lastName.toUpperCase())}</b><span>${esc(e.address || 'Adresse non renseignée').replace(/, /g, '<br>')}</span></div></div></div>
+      <table class="bs-t"><colgroup><col class="c-l"><col><col><col><col><col><col><col></colgroup>
+        <thead><tr><th rowspan="2">Éléments de paie</th><th rowspan="2" class="r">Base</th><th rowspan="2" class="r">Taux</th><th rowspan="2" class="r">À déduire</th><th rowspan="2" class="r">À payer</th><th colspan="3">Charges patronales</th></tr><tr><th class="r">Base</th><th class="r">Taux</th><th class="r">Montant</th></tr></thead>
+        <tbody>${earn}${L('<b>Salaire brut</b>', '', '', '', p.gross, '', '', '', 'strong')}
+          <tr class="gap"><td colspan="8"></td></tr>${contrib}
+          ${p.rg ? L('Réduction générale des cotisations patronales', '', '', '', '', '', '', -p.rg, 'sub') : ''}
+          ${L('<b>Total des cotisations et contributions</b>', '', '', p.salTot, '', '', '', p.empTot, 'strong')}
+          ${below ? `<tr class="gap"><td colspan="8"></td></tr>${below}` : ''}
+          <tr class="gap"><td colspan="8"></td></tr>
+          <tr class="big"><td>Net à payer avant impôt sur le revenu</td><td></td><td></td><td></td><td class="r">${num(p.netBefore)}</td><td colspan="3"></td></tr>
+          ${L('Impôt sur le revenu prélevé à la source · PAS<br><small>Taux personnalisé</small>', p.netImposable, pct(p.rate) || '0,00', p.tax, '')}
+          ${L('<b>Net payé</b>', '', '', '', p.net, '', '', '', 'strong')}</tbody></table>
+      <table class="bs-sum"><thead><tr><th></th><th>Heures</th><th>Heures suppl.</th><th>Brut</th><th>Plafond S.S.</th><th>Net imposable</th><th>Ch. patronales</th><th>Coût global</th><th>Allègements</th></tr></thead>
+        <tbody><tr><th>Mensuel</th><td>${cad ? 'forfait' : num(HOURS_M)}</td><td>${num(p.ot.h25 + p.ot.h50)}</td><td>${num(p.gross)}</td><td>${num(PSS)}</td><td>${num(p.netImposable)}</td><td>${num(p.empTot)}</td><td>${num(p.cost)}</td><td>${num(p.rg)}</td></tr>
+          <tr><th>Annuel</th><td>${cad ? 'forfait' : num(ytd.h)}</td><td>${num(ytd.hs)}</td><td>${num(ytd.g)}</td><td>${num(ytd.pss)}</td><td>${num(ytd.ni)}</td><td>${num(ytd.cp)}</td><td>${num(ytd.cost)}</td><td>${num(ytd.rg)}</td></tr></tbody></table>
+      <div class="bs-bottom"><table class="bs-cp"><thead><tr><th></th><th>Congés N-1</th><th>Congés N</th></tr></thead><tbody>
+          <tr><th>Acquis</th><td>${num(e.cp + takenN1)}</td><td>${num(acqN)}</td></tr><tr><th>Pris</th><td>${num(takenN1)}</td><td>${num(0)}</td></tr><tr><th>Solde</th><td>${num(e.cp)}</td><td>${num(acqN)}</td></tr></tbody></table>
+        <div class="bs-social"><span>Montant net social</span><b>${num(p.netSocial)} €</b><small>À déclarer pour la prime d’activité et le RSA</small></div>
+        <div class="bs-net"><div><span>Net payé :</span><b>${num(p.net)} €</b></div><small>Paiement le ${fmtDate(paid)} par virement</small></div></div>
+      <p class="bs-legal">Dans votre intérêt et pour vous aider à faire valoir vos droits, conservez ce bulletin de paie sans limitation de durée. Rubrique dédiée au bulletin de paie sur le portail www.service-public.fr.${d.mutuelle === 'Dispense' ? ' Dispense d’adhésion à la complémentaire santé.' : ''}${pr.closed ? '' : ' Aperçu : bulletin pas encore diffusé.'} Bulletin de démonstration, taux indicatifs.</p></div>`;
   }
   function viewPayslips() {
     const e = me();
     const months = payMonths().filter((m) => db.payroll[m] && db.payroll[m].closed && inPayroll(e, m)).reverse();
     return `<div class="card"><div class="card-h"><h3>Mes bulletins de paie</h3><span class="muted">${plural(months.length, 'bulletin', 'bulletins')}</span></div><div class="req-list">${months.length ? months.map((m) => { const p = calcPay(e, m);
-      return `<div class="req"><div class="what"><b>${monthLabel(m)}</b><small class="num">Brut ${eur(p.gross)} · Net payé ${eur(p.net)}</small></div><button type="button" class="btn ghost sm" data-act="payslip" data-id="${e.id}" data-m="${m}">${ic('file')}Voir le bulletin</button></div>`; }).join('') : '<div class="empty">Aucun bulletin disponible.</div>'}</div></div>
-      <p class="hint">Le bulletin du mois apparaît ici dès que les RH valident la paie (essayez depuis le profil RH, menu Paie).</p>`;
+      return `<div class="req"><div class="what"><b>${monthLabel(m)}</b><small class="num">Brut ${eur(p.gross)} · net social ${eur(p.netSocial)} · net payé ${eur(p.net)}</small></div><button type="button" class="btn ghost sm" data-act="payslip" data-id="${e.id}" data-m="${m}">${ic('file')}Voir le bulletin</button></div>`; }).join('') : '<div class="empty">Aucun bulletin pour le moment.</div>'}</div>
+      <div class="card-b" style="border-top:1px solid var(--line)"><label class="agree"><input type="checkbox" data-change="paper-slip" ${e.paperSlip ? 'checked' : ''}> Je préfère recevoir mes bulletins en version papier</label><p class="hint" style="margin:6px 0 0">Les bulletins sont remis sous forme électronique ; tu peux t’y opposer à tout moment (article L3243-2 du Code du travail). Ils restent consultables ici.</p></div></div>
+      <p class="hint">Le bulletin du mois apparaît ici dès que les RH le diffusent (essaie depuis le profil RH, menu Paie).</p>`;
+  }
+  function payCsv(m) {
+    const head = ['Matricule', 'Nom', 'Prénom', 'Contrat', 'Salaire mensuel', 'Jours CP', 'Jours RTT', 'Jours maladie', 'Jours sans solde', 'Jours télétravail', 'Heures sup 25 %', 'Heures sup 50 %', 'Prime', 'Prime partage valeur', 'Transport', 'Titres-restaurant', 'Notes de frais', 'Acompte', 'Entrée', 'Sortie'];
+    const rows = payPeople(m).map((e) => { const p = calcPay(e, m), a = p.abs; return [e.id, e.lastName, e.firstName, e.contract, (salaryAt(e, m) / 12).toFixed(2), a.cp, a.rtt, a.sick.reduce((s, x) => s + x.work, 0), a.unpaid, a.tt, p.ot.h25, p.ot.h50, p.bonus, p.ppv, p.transport.toFixed(2), p.trN, p.ndf, p.acompte, e.startDate.slice(0, 7) === m ? e.startDate : '', e.exit && e.exit.lastDay.slice(0, 7) === m ? e.exit.lastDay : '']; });
+    return [head].concat(rows).map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\n');
   }
 
   // ---------------------------------------------------------------- Recrutement
@@ -638,6 +838,20 @@
 
   // ================================================================ Modules : développement, suivi, documents
   const MOD_ACT = {}, MOD_CHG = {}, MOD_FORMS = {}, MODALS = {}, DRAWERS = {}, MOD_LIVE = {};
+  Object.assign(MOD_ACT, {
+    'pay-step'(d) { ui.payStep = d.s; render(); },
+    'pay-ack'(d) { const pr = payrollOf(ui.payMonth); pr.acks = Object.assign({}, pr.acks, { [d.id]: { by: me().id, date: TODAY } }); toast('Point marqué comme vérifié'); commit(); },
+    'pay-remind'(d) { notify(d.id, `Les variables de paie de ton équipe sont à valider avant le ${fmtDate(payrollOf(ui.payMonth).cutoff || `${ui.payMonth}-20`)}.`); toast(`${fullName(emp(d.id))} est relancé`); commit(); },
+    'pay-mgr-ok'() { const m = payCurrent(), pr = payrollOf(m); pr.mgrOk = Object.assign({}, pr.mgrOk, { [me().id]: TODAY }); notify('e1', `${fullName(me())} a validé les variables de paie de son équipe (${monthLabel(m).toLowerCase()}).`); toast('Variables validées · les RH sont prévenus'); commit(); },
+    'pay-send'() { const m = ui.payMonth, pr = payrollOf(m); if (openChecks(m).length) { toast('Des points de contrôle restent à lever.', 'info'); return; } Object.assign(pr, { status: 'Envoyée', sentAt: TODAY, sentBy: me().id }); ui.payStep = 'envoi'; toast(`Variables envoyées à ${PROVIDER}`); commit(); },
+    'pay-receive'() { const pr = payrollOf(ui.payMonth); Object.assign(pr, { status: 'Reçue', receivedAt: TODAY }); ui.payStep = 'bulletins'; toast('Bulletins reçus · DSN déposée par le prestataire'); commit(); },
+    'pay-publish'() { const m = ui.payMonth, pr = payrollOf(m), people = payPeople(m); Object.assign(pr, { status: 'Diffusée', closed: true, publishedAt: TODAY }); people.forEach((e) => notify(e.id, `Ton bulletin de paie de ${monthLabel(m).toLowerCase()} est disponible.`)); toast(`${plural(people.length, 'bulletin diffusé', 'bulletins diffusés')}`); commit(); },
+    'pay-csv'(d) { const blob = new Blob(['﻿' + payCsv(d.m)], { type: 'text/csv;charset=utf-8' }), a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `variables-paie-${d.m}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast('Export téléchargé'); },
+  });
+  Object.assign(MOD_CHG, {
+    'pay-var'(v, d) { const pr = payrollOf(ui.payMonth), n = Math.max(0, Number(v) || 0); if (d.k === 'bonus') pr.bonus[d.id] = n; else { pr.extra = pr.extra || {}; pr.extra[d.id] = Object.assign({}, pr.extra[d.id], { [d.k]: n }); } commit(); },
+    'paper-slip'(v, d, t) { const e = me(); e.paperSlip = t.checked; notify('e1', `${fullName(e)} ${t.checked ? 'demande des bulletins papier' : 'accepte les bulletins électroniques'}.`); toast(t.checked ? 'Les RH t’enverront tes bulletins en version papier' : 'Bulletins électroniques'); commit(); },
+  });
   const tabsBar = (key, list) => `<div class="tabs" role="tablist">${list.map(([k, l, n]) => `<button type="button" role="tab" aria-selected="${ui[key] === k}" data-act="tab" data-k="${key}" data-t="${k}">${l}${n ? `<span class="count num">${n}</span>` : ''}</button>`).join('')}</div>`;
   const pickTab = (key, list) => { if (!list.some((t) => t[0] === ui[key])) ui[key] = list[0][0]; };
   const card = (title, right, body) => `<div class="card"><div class="card-h"><h3>${title}</h3>${right || ''}</div>${body}</div>`;
@@ -2635,7 +2849,7 @@
     return w.map(([e, x]) => [e, Math.min(3000, Math.round((total * x) / sum)), pres(e)]);
   }
   function viewRemu() {
-    if (ui.profile === 'manager') return `<p class="hint" style="margin:0">Proposez les augmentations de votre équipe dans l’enveloppe fixée par les RH. Les RH valident avant la date d’effet.</p>${raiseCampaign()}`;
+    if (ui.profile === 'manager') return `${mgrPayCard()}<p class="hint" style="margin:0">Proposez les augmentations de votre équipe dans l’enveloppe fixée par les RH. Les RH valident avant la date d’effet.</p>${raiseCampaign()}`;
     const R = db.raises, pend = Object.values(R.proposals).filter((p) => p.status === 'Proposée').length;
     const tabs = [['paie', 'Paie du mois'], ['revision', 'Révision salariale', pend], ['egalite', 'Égalité salariale'], ['avantages', 'Avantages et partage de la valeur']];
     if (!tabs.some((t) => t[0] === ui.payTab)) ui.payTab = 'paie';
@@ -3411,7 +3625,7 @@
   // ---------------------------------------------------------------- Modals
   function modalHTML() {
     const m = ui.modal; if (!m) return '';
-    const shell = (title, body, foot, wide) => `<div class="modal" data-act="modal-bg"><div class="modal-box ${wide ? 'wide' : ''}" data-act="noop" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-h"><h2>${title}</h2><button type="button" class="icon-btn" data-act="modal-close" aria-label="Fermer">${ic('x')}</button></div>${body}${foot || ''}</div></div>`;
+    const shell = (title, body, foot, wide) => `<div class="modal" data-act="modal-bg"><div class="modal-box ${wide === 'xl' ? 'wide xl' : wide ? 'wide' : ''}" data-act="noop" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-h"><h2>${title}</h2><button type="button" class="icon-btn" data-act="modal-close" aria-label="Fermer">${ic('x')}</button></div>${body}${foot || ''}</div></div>`;
     const formShell = (title, form, fields, submit, wide) => shell(title, `<form data-form="${form}" novalidate><div class="modal-b">${fields}<p class="err" id="m-err" aria-live="polite"></p></div><div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button class="btn primary">${submit}</button></div></form>`, '', wide);
     const opt = (list, v) => list.map((x) => (Array.isArray(x) ? `<option value="${esc(x[0])}" ${x[0] === v ? 'selected' : ''}>${esc(x[1])}</option>` : `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`)).join('');
     const f = (id, label, input, full) => `<div class="field ${full ? 'full' : ''}"><label for="${id}">${label}</label>${input}</div>`;
@@ -3437,12 +3651,7 @@
       const l = db.leaves.find((x) => x.id === m.id), e = emp(l.empId);
       return formShell('Refuser la demande', 'refuse', `<p style="margin:0">${esc(fullName(e))} · ${esc(l.type)} du ${fmtShort(l.start)} au ${fmtDate(l.end)} (${plural(l.days, 'jour', 'jours')}).</p>${f('r-why', 'Motif communiqué au collaborateur', '<input id="r-why" name="why" class="input" maxlength="140" placeholder="Ex. période de livraison, merci de décaler d’une semaine">', true)}`, 'Refuser la demande');
     }
-    if (m.type === 'pay-close') {
-      const n = db.employees.filter((e) => inPayroll(e, m.m)).length;
-      return shell(`Valider la paie de ${monthLabel(m.m).toLowerCase()}`, `<div class="modal-b"><p style="margin:0">${plural(n, 'bulletin sera généré', 'bulletins seront générés')} et mis à disposition des collaborateurs. Les primes ne seront plus modifiables.</p></div>`,
-        `<div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="button" class="btn primary" data-act="pay-close-ok" data-m="${m.m}">Valider la paie</button></div>`);
-    }
-    if (m.type === 'payslip') return shell(`Bulletin de paie · ${monthLabel(m.m)}`, `<div class="modal-b">${payslipHTML(emp(m.id), m.m)}</div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true);
+    if (m.type === 'payslip') return shell(`Bulletin de paie · ${monthLabel(m.m)}`, `<div class="modal-b">${payslipHTML(emp(m.id), m.m)}</div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', 'xl');
     if (m.type === 'cand') {
       return formShell('Ajouter un candidat', 'cand', `<div class="form-grid">${f('k-name', 'Prénom et nom', '<input id="k-name" name="name" class="input" required>', true)}
         ${f('k-email', 'E-mail', '<input id="k-email" name="email" type="email" class="input">')}${f('k-phone', 'Téléphone', '<input id="k-phone" name="phone" class="input">')}
@@ -3593,14 +3802,7 @@
     },
     'leave-ko'(d) { ui.modal = { type: 'refuse', id: d.id }; render(); },
     'leave-cancel'(d) { db.leaves = db.leaves.filter((l) => l.id !== d.id); toast('Demande annulée'); commit(); },
-    'pay-month'(d) { if (d.m) { ui.payMonth = d.m; render(); } },
-    'pay-close'(d) { ui.modal = { type: 'pay-close', m: d.m }; render(); },
-    'pay-close-ok'(d) {
-      const pr = payrollOf(d.m); pr.closed = true;
-      const people = db.employees.filter((e) => inPayroll(e, d.m));
-      people.forEach((e) => notify(e.id, `Votre bulletin de paie de ${monthLabel(d.m).toLowerCase()} est disponible.`));
-      ui.modal = null; toast(`Paie validée : ${plural(people.length, 'bulletin généré', 'bulletins générés')}`); commit();
-    },
+    'pay-month'(d) { if (d.m) { ui.payMonth = d.m; ui.payStep = null; render(); } },
     payslip(d) { ui.modal = { type: 'payslip', id: d.id, m: d.m }; render(); },
     'open-job'(d) { const j = db.jobs.find((x) => x.id === d.id); if (j && isNeed(j)) { ACT['open-need'](d); return; } Object.assign(ui, { view: 'recrutement', stage: null, recTab: 'offres', recJob: d.id, offerTab: 'cands', drawer: null }); window.scrollTo(0, 0); render(); },
     'job-close'(d) { const j = db.jobs.find((x) => x.id === d.id); j.status = 'Clôturée'; toast('Offre clôturée'); commit(); },
@@ -3613,7 +3815,6 @@
     fDept(v) { ui.fDept = v; render(); },
     fStatus(v) { ui.fStatus = v; render(); },
     histStatus(v) { ui.histStatus = v; render(); },
-    bonus(v, d) { payrollOf(ui.payMonth).bonus[d.id] = Math.max(0, Number(v) || 0); commit(); },
     'cand-stage'(v, d) { moveCandidate(d.id, v); render(); },
   };
   const INP = {

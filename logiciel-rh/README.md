@@ -15,7 +15,7 @@ Les données de départ (`data.js`, schéma version 8) sont fictives ; vos modif
   Sur les autres pages, un bandeau reprend les mêmes étapes en pictogrammes (avec leur badge) ; le nom s'affiche au survol,
   et le logo ou la maison ramène à la roue.
 - **Étapes par profil** : une étape n'apparaît que si le profil a besoin de son module. La Manager voit l'étape
-  Rémunération réduite à la révision salariale de son équipe (pas d'accès à la paie). La Salariée ne voit pas Besoin RH ni Recrutement ; Vie administrative ouvre
+  Rémunération : validation des variables de paie de son équipe et révision salariale (pas d'accès aux bulletins). La Salariée ne voit pas Besoin RH ni Recrutement ; Vie administrative ouvre
   « Mon profil », Rémunération « Mes bulletins », et les étapes d'arrivée ou de départ n'apparaissent que lorsque c'est
   son étape en cours.
 - **Espace d'une nouvelle recrue** : il est créé dès que le candidat accepte la proposition. Dans le profil Salarié, la

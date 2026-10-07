@@ -3860,7 +3860,11 @@
       const ind = exitIndemnities(e);
       html += sec('Chiffrage de la fin de contrat', row('Indemnités', `${ind.legal ? `Indemnité ${/conventionnelle/.test(x.reason) ? 'de rupture (au moins l’indemnité légale)' : 'légale de licenciement'} : <b class="num">${eur0(ind.legal)}</b> (1/4 de mois par année jusqu’à 10 ans, 1/3 au-delà) · ` : ''}Indemnité compensatrice de congés payés (${e.cp} j) : <b class="num">${eur0(ind.cpPay)}</b>${ind.precarite ? ` · Indemnité de fin de CDD (10 %) : <b class="num">${eur0(ind.precarite)}</b>` : ''}. Vérifier l’indemnité conventionnelle Syntec si plus favorable.`, d.calcOk ? ok(d.calcOk, 'Validé') : b('dep-set', 'Valider le chiffrage', 'data-k="calcOk"')));
       const docs = exitDocs(e);
-      html += sec('Documents de sortie', row('Certificat de travail, reçu pour solde de tout compte, attestation France Travail', 'Remis le dernier jour ; l’attestation France Travail est transmise via la DSN.', docs.every(Boolean) ? `${ok(d.docsReady, 'Préparés')}${docs.map((doc) => docBtn(doc, 'Voir')).join('')}` : b('dep-docs', 'Préparer les documents', '', 'primary')));
+      // Un document par ligne : chacun a son propre état et son bouton.
+      const DOC_SUB = { certificat: 'Remis au salarié le dernier jour', solde: 'Remis le dernier jour, signé par le salarié (contestable pendant 6 mois)', 'france-travail': 'Transmise via la DSN ; une copie est remise au salarié' };
+      const docState = (doc) => (doc.status === 'Brouillon' ? '<span class="pill warn">À relire</span>' : ok(doc.issuedAt || doc.signedAt, doc.status || 'Remis'));
+      html += sec('Documents de sortie', docs.every(Boolean) ? docs.map((doc) => row(esc(DOC_LABEL[doc.kind]), DOC_SUB[doc.kind], `${docState(doc)}${docBtn(doc, 'Voir')}`)).join('')
+        : row('Certificat de travail, reçu pour solde de tout compte, attestation France Travail', 'Préparés en une fois, puis relus et remis un par un.', b('dep-docs', 'Préparer les documents', '', 'primary')));
       html += sec('Restitution et accès', row('Matériel et accès', `${RETURN_ITEMS.map(([, l]) => l).join(', ')} à récupérer le ${x.lastDay ? fmtDate(x.lastDay) : '—'} ; comptes désactivés le soir même.`, d.returnPlan ? ok(d.returnPlan, 'Planifié') : b('dep-set', 'Planifier', 'data-k="returnPlan"')));
     }
     if (i === 14) {

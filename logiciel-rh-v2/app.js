@@ -699,7 +699,7 @@
     const days = []; for (let s = m + '-01'; s <= monthEnd(m); s = addDays(s, 1)) days.push(s);
     const cols = `minmax(170px, 210px) repeat(${days.length}, minmax(24px, 1fr))`;
     const cover = (e, s) => db.leaves.find((l) => l.empId === e.id && l.status !== 'Refusée' && l.start <= s && l.end >= s);
-    let html = `<div class="ph"></div>${days.map((s) => `<div class="ph ${isWork(s) ? '' : 'we'} ${s === TODAY ? 'today' : ''}">${parse(s).getDate()}</div>`).join('')}`;
+    let html = `<div class="pday"></div>${days.map((s) => `<div class="pday ${isWork(s) ? '' : 'we'} ${s === TODAY ? 'today' : ''}">${parse(s).getDate()}</div>`).join('')}`;
     people.forEach((e) => {
       html += `<div class="pn">${avatar(e, 'sm')}${esc(fullName(e))}</div>`;
       days.forEach((s, k) => {

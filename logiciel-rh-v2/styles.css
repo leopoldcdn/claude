@@ -246,9 +246,9 @@ tfoot td { font-weight: 700; background: var(--surface-2); }
 .req .acts { display: flex; gap: 8px; }
 .planning { overflow-x: auto; }
 .plan-grid { display: grid; font-size: 12px; min-width: 900px; }
-.plan-grid .ph { padding: 6px 0; text-align: center; color: var(--faint); font-weight: 700; border-bottom: 1px solid var(--line); }
-.plan-grid .ph.we, .plan-grid .pc.we { background: var(--surface-2); }
-.plan-grid .ph.today { color: var(--accent); }
+.plan-grid .pday { padding: 6px 0; text-align: center; color: var(--faint); font-weight: 700; border-bottom: 1px solid var(--line); }
+.plan-grid .pday.we, .plan-grid .pc.we { background: var(--surface-2); }
+.plan-grid .pday.today { color: var(--accent); }
 .plan-grid .pn { padding: 6px 12px 6px 16px; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; white-space: nowrap; border-bottom: 1px solid var(--line); position: sticky; left: 0; background: var(--surface); z-index: 1; }
 .plan-grid .pc { border-bottom: 1px solid var(--line); border-left: 1px solid color-mix(in srgb, var(--line) 50%, transparent); position: relative; min-height: 38px; }
 .plan-grid .pc i { position: absolute; inset: 7px 0; }

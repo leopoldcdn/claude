@@ -88,6 +88,11 @@ h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; letter-spacing: -0
 .persona button { border: 0; background: none; padding: 6px 12px; border-radius: 9px; font-size: 13.5px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 8px; }
 .persona button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
 .persona .av { width: 22px; height: 22px; font-size: 10px; }
+.space-sw { display: flex; background: var(--accent-soft); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 2px; }
+.space-sw button { position: relative; border: 0; background: none; padding: 6px 12px; border-radius: 9px; font-size: 13px; font-weight: 650; color: var(--muted); white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.space-sw button:hover { color: var(--fg); }
+.space-sw button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.space-sw .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--warn); color: #fff; font-size: 10.5px; font-weight: 800; display: grid; place-items: center; }
 .icon-btn { position: relative; width: 40px; height: 40px; border-radius: 11px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; color: var(--muted); }
 .icon-btn svg { width: 19px; height: 19px; }
 .icon-btn .dot { position: absolute; top: 6px; right: 6px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 99px; background: var(--bad); color: #fff; font-size: 10.5px; font-weight: 700; display: grid; place-items: center; }
@@ -810,3 +815,8 @@ details.more summary::-webkit-details-marker { display: none; }
 .bs-net b { font-size: 24px; font-weight: 800; }
 .bs-net small { color: var(--bs-muted); }
 .bs-legal { margin: 14px 0 0; font-size: 10.5px; color: var(--bs-muted); }
+/* Barre du haut : l'interrupteur d'espace s'ajoute au sélecteur de profil */
+.persona button, .top .crumb { white-space: nowrap; }
+.top .crumb { overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1600px) { .top:has(.space-sw) .persona .who-name { display: none; } }
+@media (max-width: 1280px) { .top:has(.space-sw) .persona button { padding: 6px 8px; } .top:has(.space-sw) .rep-btn { font-size: 0; gap: 0; padding: 8px 10px; } .top:has(.space-sw) .rep-btn svg { width: 16px; height: 16px; } .space-sw button { padding: 6px 9px; } }

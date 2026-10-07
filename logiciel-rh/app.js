@@ -53,7 +53,7 @@
   }
   function save() { try { localStorage.setItem(STORE, JSON.stringify(db)); } catch (e) { /* storage unavailable */ } }
   function loadUI() { try { return JSON.parse(localStorage.getItem(UI_STORE)) || {}; } catch (e) { return {}; } }
-  function saveUI() { try { localStorage.setItem(UI_STORE, JSON.stringify({ profile: ui.profile, view: ui.view, stage: ui.stage, asEmp: ui.asEmp })); } catch (e) { /* ignore */ } }
+  function saveUI() { try { localStorage.setItem(UI_STORE, JSON.stringify({ profile: ui.profile, view: ui.view, stage: ui.stage, asEmp: ui.asEmp, selfOf: ui.selfOf || null })); } catch (e) { /* ignore */ } }
 
   let db = load();
   const PROFILES = {
@@ -66,6 +66,7 @@
     nSort: 'since', nDir: -1, recTab: 'todo', offerTab: 'cands', colOpen: {}, oSort: 'status', oDir: 1, nq: '', nDept: '', nStatus: 'auto', nFrom: '', rq: '', rDept: '', rStatus: '', rFrom: '', adminTab: 'annuaire', payTab: 'paie', payStep: null, tsWeek: null, revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
   let ui = Object.assign({ profile: 'rh', view: 'accueil', stage: null }, loadUI(), freshUI());
   if (!PROFILES[ui.profile]) ui.profile = 'rh';
+  if (ui.profile !== 'salarie' || !['rh', 'manager'].includes(ui.selfOf)) ui.selfOf = null;
 
   // ---------------------------------------------------------------- Helpers
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -106,7 +107,10 @@
   const emp = (id) => db.employees.find((e) => e.id === id);
   // Le profil « Salarié » peut être vu sous les traits de n'importe quel collaborateur, dont une nouvelle recrue.
   const profileEmp = (k) => emp(k === 'salarie' && ui.asEmp && emp(ui.asEmp) ? ui.asEmp : PROFILES[k].emp);
-  const me = () => profileEmp(ui.profile);
+  // RH et managers ont aussi leur espace personnel : le profil « salarié » s'affiche alors sous leurs propres traits (ui.selfOf).
+  const persona = () => ui.selfOf || ui.profile;
+  const meOf = (k) => (k === 'salarie' && ui.selfOf ? emp(PROFILES[ui.selfOf].emp) : profileEmp(k));
+  const me = () => meOf(ui.profile);
   const fullName = (e) => (e ? `${e.firstName} ${e.lastName}` : '—');
   const initials = (e) => (e.firstName[0] + e.lastName[0]).toUpperCase();
   const AV_COLORS = ['#6366f1', '#db2777', '#0891b2', '#d97706', '#059669', '#7c3aed', '#e11d48', '#0284c7', '#c026d3', '#0d9488'];
@@ -148,8 +152,8 @@
   const activeCand = (c) => !['Embauché', 'Refusé'].includes(c.stage);
   const scopeCandidates = () => { const ids = new Set(scopeJobs().filter((j) => j.status === 'Ouverte').map((j) => j.id)); return db.candidates.filter((c) => ids.has(c.jobId)); };
   function pendingForMe() {
-    if (ui.profile === 'rh') return db.leaves.filter((l) => l.status === 'En attente');
-    if (ui.profile === 'manager') { const team = new Set(scopeEmployees().map((e) => e.id)); return db.leaves.filter((l) => l.status === 'En attente' && team.has(l.empId)); }
+    if (ui.profile === 'rh') return db.leaves.filter((l) => l.status === 'En attente' && l.empId !== me().id);
+    if (ui.profile === 'manager') { const team = new Set(scopeEmployees().map((e) => e.id)); team.delete(me().id); return db.leaves.filter((l) => l.status === 'En attente' && team.has(l.empId)); }
     return [];
   }
   const approverOf = (e) => (e.managerId ? emp(e.managerId) : emp('e1'));
@@ -348,12 +352,20 @@
     return `<header class="top"><button type="button" class="brand" data-act="go" data-v="accueil" aria-label="Teamora · retour à la roue"><span class="brand-mark">${LOGO}</span><span class="brand-t">Teamora<small>Nova Studio</small></span></button>
       <div class="top-title"><div class="crumb">${crumb}</div><h1>${title}</h1></div>
       <div class="top-right"><div class="persona" role="group" aria-label="Voir l’application en tant que">${Object.entries(PROFILES).map(([k, p]) => { const e = profileEmp(k);
-        return `<button type="button" data-act="persona" data-p="${k}" aria-pressed="${ui.profile === k}">${avatar(e)}<span class="who-name">${esc(e.firstName)} ·</span> ${p.label}</button>`; }).join('')}</div>
-      ${ui.profile === 'salarie' ? asEmpSelect() : ''}
-      ${ui.profile === 'rh' ? `<button type="button" class="btn ${ui.view === 'modeles' ? 'primary' : 'ghost'} sm rep-btn" data-act="go" data-v="modeles">${ic('file')}Modèles</button><button type="button" class="btn ${ui.view === 'reporting' ? 'primary' : 'ghost'} sm rep-btn" data-act="go" data-v="reporting">${ic('chart')}Reporting RH</button>` : ''}
+        return `<button type="button" data-act="persona" data-p="${k}" aria-pressed="${persona() === k}">${avatar(e)}<span class="who-name">${esc(e.firstName)} ·</span> ${p.label}</button>`; }).join('')}</div>
+      ${ui.profile === 'salarie' && !ui.selfOf ? asEmpSelect() : ''}${spaceSwitch()}
+      ${ui.profile === 'rh' ? `<button type="button" class="btn ${ui.view === 'modeles' ? 'primary' : 'ghost'} sm rep-btn" title="Modèles de documents" data-act="go" data-v="modeles">${ic('file')}Modèles</button><button type="button" class="btn ${ui.view === 'reporting' ? 'primary' : 'ghost'} sm rep-btn" title="Reporting RH" data-act="go" data-v="reporting">${ic('chart')}Reporting RH</button>` : ''}
       <button type="button" class="icon-btn" data-act="notif" aria-label="Notifications (${unread} non lues)" aria-expanded="${ui.notif}">${ic('bell')}${unread ? `<span class="dot num">${unread}</span>` : ''}</button></div>
       ${ui.notif ? `<div class="card notif-pop" data-act="noop"><div class="card-h"><h3>Notifications</h3>${unread ? '<button type="button" class="btn ghost sm" data-act="notif-read">Tout marquer comme lu</button>' : ''}</div>
         ${mine.length ? mine.slice(0, 8).map((n) => `<div class="notif ${n.read ? '' : 'unread'}"><div>${esc(n.text)}<small>${fmtDate(n.date)}</small></div></div>`).join('') : '<div class="empty">Aucune notification.</div>'}</div>` : ''}</header>`;
+  }
+  // Bascule entre la gestion (salariés ou équipe) et l'espace personnel, avec le nombre de choses à traiter de l'autre côté.
+  function inSpace(profile, selfOf, fn) { const s = [ui.profile, ui.selfOf]; ui.profile = profile; ui.selfOf = selfOf; try { return fn(); } finally { [ui.profile, ui.selfOf] = s; } }
+  const spaceTodo = (perso) => inSpace(perso ? 'salarie' : persona(), perso ? persona() : null, () => visibleStages().reduce((s, i) => s + stageTodo(i), 0));
+  function spaceSwitch() {
+    const p = persona(); if (!['rh', 'manager'].includes(p)) return '';
+    const perso = !!ui.selfOf, other = spaceTodo(!perso), b = (on, s, label) => `<button type="button" data-act="space" data-s="${s}" aria-pressed="${on}">${label}${!on && other ? `<span class="badge todo num" title="À traiter">${other}</span>` : ''}</button>`;
+    return `<div class="space-sw" role="group" aria-label="Espace affiché">${b(!perso, 'gestion', p === 'rh' ? 'Salariés' : 'Mon équipe')}${b(perso, 'perso', 'Mon espace')}</div>`;
   }
   // Outside the home page, the wheel's stages stay reachable as a strip, in the same order and colours.
   function stageRail() {
@@ -3756,9 +3768,16 @@
     noop() {},
     go(d) { ui.view = d.v; ui.stage = null; ui.notif = false; ui.drawer = null; window.scrollTo(0, 0); render(); },
     persona(d) {
-      if (ui.profile === d.p) return;
+      if (persona() === d.p && !ui.selfOf) return;
       ui = Object.assign({ profile: d.p, view: 'accueil', stage: null, asEmp: ui.asEmp }, freshUI());
       render(); toast(`Vous voyez maintenant l’application en tant que ${fullName(me())} (${PROFILES[d.p].label}).`);
+    },
+    space(d) {
+      const perso = d.s === 'perso'; if (perso === !!ui.selfOf) return;
+      const base = persona(), i = ui.stage;
+      ui = Object.assign({ profile: perso ? 'salarie' : base, selfOf: perso ? base : null, view: 'accueil', stage: null, asEmp: ui.asEmp }, freshUI());
+      if (i !== null && i !== undefined && visibleStages().includes(i) && stageView(i)) Object.assign(ui, { view: stageView(i), stage: i });
+      window.scrollTo(0, 0); render(); toast(perso ? `Ton espace personnel : ${fullName(me())}` : base === 'rh' ? 'Gestion des salariés' : 'Gestion de ton équipe');
     },
     notif() { ui.notif = !ui.notif; render(); },
     'notif-read'() { db.notifications.forEach((n) => { if (n.to === me().id) n.read = true; }); commit(); },
@@ -3794,6 +3813,7 @@
     plan(d) { ui.planMonth = shiftMonth(ui.planMonth || monthKey(TODAY), Number(d.d)); render(); },
     'leave-ok'(d) {
       const l = db.leaves.find((x) => x.id === d.id), e = emp(l.empId), k = balanceKey(l.type);
+      if (e.id === me().id) { toast('Tu ne peux pas valider ta propre demande : elle part à ton responsable.', 'info'); return; }
       if (k && e[k] < l.days) { toast(`Solde insuffisant : ${fullName(e)} n’a plus que ${e[k]} j.`, 'info'); return; }
       if (k) e[k] -= l.days;
       l.status = 'Approuvée'; l.decidedBy = me().id;
@@ -3809,7 +3829,7 @@
     'cand-new'(d) { ui.modal = { type: 'cand', jobId: d.id }; render(); },
     'cand-move'(d) { moveCandidate(d.id, d.s); },
     reset() { ui.modal = { type: 'reset' }; render(); },
-    'reset-ok'() { db = window.TEAMORA_SEED(); normalizeEmployees(); normalizeDocs(); purgeCandidates(); syncArrivals(); save(); ui = Object.assign({ profile: ui.profile, view: 'accueil' }, freshUI()); render(); toast('Démo réinitialisée'); },
+    'reset-ok'() { db = window.TEAMORA_SEED(); normalizeEmployees(); normalizeDocs(); purgeCandidates(); syncArrivals(); save(); ui = Object.assign({ profile: ui.profile, selfOf: ui.selfOf, view: 'accueil' }, freshUI()); render(); toast('Démo réinitialisée'); },
   };
   const CHG = {
     fDept(v) { ui.fDept = v; render(); },

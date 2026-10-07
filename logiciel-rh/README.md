@@ -18,6 +18,10 @@ Les données de départ (`data.js`, schéma version 8) sont fictives ; vos modif
   Rémunération : validation des variables de paie de son équipe et révision salariale (pas d'accès aux bulletins). La Salariée ne voit pas Besoin RH ni Recrutement ; Vie administrative ouvre
   « Mon profil », Rémunération « Mes bulletins », et les étapes d'arrivée ou de départ n'apparaissent que lorsque c'est
   son étape en cours.
+- **Deux espaces pour les RH et les managers** : un interrupteur en haut à droite bascule entre la gestion (« Salariés » pour
+  les RH, « Mon équipe » pour le manager) et « Mon espace », le menu salarié avec leurs propres congés, bulletins, entretiens
+  et documents. La rubrique ouverte est conservée quand elle existe des deux côtés, le choix est mémorisé, et une pastille
+  signale ce qui reste à traiter dans l'autre espace. Personne ne valide ses propres demandes : elles partent à son responsable.
 - **Espace d'une nouvelle recrue** : il est créé dès que le candidat accepte la proposition. Dans le profil Salarié, la
   liste en haut à droite permet de voir l'espace de Léa ou d'une recrue (Aisha, Nathan…). Avant son premier jour, la
   recrue ne voit que « Mon arrivée » (pré-embauche : dépôt de ses pièces, premier jour) et « Contrat de travail »

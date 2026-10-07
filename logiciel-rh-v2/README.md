@@ -47,6 +47,10 @@
   le bouton n'apparaît pas. En production, il faudrait un serveur intermédiaire qui appelle l'API Claude : la clé d'API ne
   doit jamais être dans le navigateur.
 
+- **Nouvelle arrivée hors offre** : dans Arrivées, le bouton « Nouvelle arrivée » (RH) crée une recrue sans passer par le
+  recrutement (cooptation, candidature spontanée, réembauche, ancien stagiaire ou alternant, recrutement direct, transfert
+  de personnel) ; date de fin obligatoire hors CDI, CDD limité à 18 mois, stage à 6 mois, gratification minimale au-delà
+  de 2 mois de stage. La recrue entre en pré-embauche et son dossier s'ouvre.
 - **Paramètres de l'entreprise** (RH, engrenage dans le bandeau) : tout ce qui était propre à Nova Studio vit désormais
   dans `db.settings` — identité et logo (en tête des documents), signataire, convention (Syntec ou « aucune » = règles du
   Code du travail, qui changent les préavis), durée du travail, forfait jours, télétravail, sites (frais de transport),

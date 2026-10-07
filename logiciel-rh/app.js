@@ -24,6 +24,7 @@
     refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>',
     edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
     arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
     expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
     shrink: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
     sort: '<path d="M8 9l4-4 4 4M8 15l4 4 4-4"/>',
@@ -199,6 +200,8 @@
   // Statut des documents de départ : remis ou signés, sauf contrat en attente et documents de sortie pas encore remis.
   function normalizeDocs() {
     db.documents.forEach((d) => {
+      const sc = d.kind === 'contrat' && db.onboarding && db.onboarding[d.empId] && db.onboarding[d.empId].contract;
+      if (sc && sc.docId === d.id && sc.status === 'Signé' && d.status !== 'Signé') Object.assign(d, { status: 'Signé', signedAt: d.signedAt || sc.signedAt || TODAY });
       if (d.status) { if (!docLocked(d)) ensureDocHtml(d); return; }
       const c = db.onboarding && db.onboarding[d.empId] && db.onboarding[d.empId].contract, o = db.offboarding && db.offboarding[d.empId];
       d.status = d.kind === 'contrat' && c && c.docId === d.id && c.status !== 'Signé' ? (c.status === 'Envoyé' ? 'Envoyé' : 'Brouillon')
@@ -2631,7 +2634,7 @@
           + (needsTitre(e) ? row('Vérification du titre auprès de la préfecture', `Au plus tard le ${fmtDate(subWorkDays(start, 2))}, 2 jours ouvrables avant l’embauche (art. R5221-41)`, d.titreCheck ? ok(d.titreCheck, 'Demande envoyée') : b('arr-titre', 'Demande envoyée')) : ''));
         const c = d.contract, st = { 'À préparer': 'neutral', Prêt: 'info', Envoyé: 'warn', Signé: 'ok' }[c.status];
         html += sec('Contrat de travail', row(`Contrat ${esc(e.contract)} · ${esc(e.title)}`, `${e.contract === 'CDD' ? 'À transmettre au plus tard 2 jours ouvrables après l’embauche (art. L1242-13). ' : ''}${c.status === 'Envoyé' ? `Envoyé le ${fmtShort(c.sentAt)} : ${esc(e.firstName)} le signe à la main depuis l’onglet « Contrat de travail » de son espace.` : 'Poste, rémunération, durée du travail, période d’essai, convention collective Syntec.'}`,
-          `<span class="pill ${st}">${c.status === 'Envoyé' ? 'En attente de signature' : c.status}${c.signedAt ? ` · ${fmtShort(c.signedAt)}` : ''}</span>${c.docId ? docBtn(db.documents.find((x) => x.id === c.docId)) : ''}
+          `<span class="pill ${st}">${c.status === 'Envoyé' ? 'En attente de signature' : c.status === 'Signé' ? `${ic('lock')}Signé${c.paper ? ' sur papier' : ''}` : c.status}${c.signedAt ? ` le ${fmtShort(c.signedAt)}` : ''}</span>${c.docId ? docBtn(db.documents.find((x) => x.id === c.docId), c.status === 'Signé' ? 'Voir le contrat signé' : 'Voir') : ''}
           ${c.status === 'À préparer' ? b('arr-contract', 'Générer le contrat', 'data-s="Prêt"', 'primary') : c.status === 'Prêt' ? b('arr-contract', 'Envoyer pour signature', 'data-s="Envoyé"') : c.status === 'Envoyé' ? b('arr-contract', 'Signé sur papier', 'data-s="Signé"') : ''}`));
       }
       const buddies = db.employees.filter((x) => isEmployed(x) && x.id !== e.id && x.id !== e.managerId && (x.dept === e.dept || x.dept === 'RH'));
@@ -2758,6 +2761,8 @@
       if (!document.getElementById('sig-ok').checked) { err.textContent = 'Cochez la case « lu et approuvé » pour signer.'; return; }
       const e = me(), doc = db.documents.find((x) => x.id === d.id), c = dossier(e).contract;
       doc.signature = { img: cv.toDataURL('image/png'), date: TODAY, name: fullName(e) };
+      // Signé = figé : le document n'est plus modifiable par personne.
+      Object.assign(doc, { status: 'Signé', signedAt: TODAY, html: unmark(doc.html || '') });
       Object.assign(c, { status: 'Signé', signedAt: TODAY });
       notify('e1', `${fullName(e)} a signé son contrat de travail.`); if (e.managerId) notify(e.managerId, `Le contrat de ${fullName(e)} est signé.`);
       ui.modal = { type: 'doc', id: doc.id }; toast('Contrat signé · un exemplaire est disponible dans vos documents'); commit();
@@ -2771,7 +2776,7 @@
       if (d.s === 'Prêt') { db.documents = db.documents.filter((x) => x.id !== c.docId); c.docId = addDoc(e.id, 'contrat').id; c.status = 'Prêt'; ui.modal = { type: 'doc-edit', id: c.docId }; toast('Contrat créé : complétez-le puis envoyez-le pour signature'); commit(); return; }
       const doc = db.documents.find((x) => x.id === c.docId);
       if (d.s === 'Envoyé') { const err = doc ? issueDoc(doc) : 'Contrat introuvable.'; if (err) { ui.modal = { type: 'doc-edit', id: doc.id, err }; render(); return; } toast(`Contrat envoyé à ${fullName(e)} pour signature`); commit(); return; }
-      if (d.s === 'Signé') { c.signedAt = TODAY; c.paper = true; if (doc) { doc.status = 'Signé'; doc.html = unmark(doc.html || ''); } notify(e.managerId, `Le contrat de ${fullName(e)} est signé.`); }
+      if (d.s === 'Signé') { c.signedAt = TODAY; c.paper = true; if (doc) Object.assign(doc, { status: 'Signé', signedAt: TODAY, html: unmark(doc.html || '') }); notify(e.managerId, `Le contrat de ${fullName(e)} est signé.`); }
       c.status = d.s; toast('Contrat signé sur papier'); commit();
     },
     'arr-prep'(d) { const e = arrE(d); dossier(e).prep[d.k] = TODAY; toast('Tâche terminée'); commit(); },
@@ -3629,10 +3634,11 @@
   }
   const docBtn = (d, label = 'Voir') => (d ? (ui.profile === 'rh' && !docLocked(d) ? `<button type="button" class="btn ${d.status === 'Brouillon' ? 'primary' : 'ghost'} sm" data-act="doc-edit" data-id="${d.id}">${ic('edit')}${d.status === 'Brouillon' ? 'Relire et remettre' : 'Modifier'}</button>` : `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${d.id}">${label}</button>`) : '');
   MODALS.doc = (m, shell) => { const d = db.documents.find((x) => x.id === m.id);
-    return shell(esc(d.title), `<div class="modal-b"><article class="letter locked">${docBody(d)}</article>${d.issuedAt ? `<p class="hint" style="margin:10px 0 0">${d.status === 'Signé' ? 'Signé' : d.status === 'Envoyé' ? 'Envoyé pour signature' : 'Remis'} le ${fmtDate(d.issuedAt)}${d.tplV ? ` · modèle version ${d.tplV}` : ''} · ${docLocked(d) ? 'document figé' : 'encore modifiable par les RH'}</p>` : ''}</div>`,
+    return shell(esc(d.title), `<div class="modal-b"><article class="letter locked">${docBody(d)}</article>${d.issuedAt || d.signedAt ? `<p class="hint" style="margin:10px 0 0">${d.status === 'Signé' ? `${d.signature ? `Signé à la main par ${esc(d.signature.name)}` : 'Signé'} le ${fmtDate(d.signedAt || d.issuedAt)}` : `${d.status === 'Envoyé' ? 'Envoyé pour signature' : 'Remis'} le ${fmtDate(d.issuedAt)}`}${d.tplV ? ` · modèle version ${d.tplV}` : ''} · ${docLocked(d) ? 'document figé' : 'encore modifiable par les RH'}</p>` : ''}</div>`,
       `<div class="modal-f">${ui.profile === 'rh' && !docLocked(d) ? `<button type="button" class="btn ghost" data-act="doc-edit" data-id="${d.id}">${ic('edit')}Modifier</button>` : ''}<button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>`, true); };
   // Édition d'un document par les RH : champs à compléter en haut, texte librement modifiable en dessous.
-  MODALS['doc-edit'] = (m, shell) => {
+  MODALS['doc-edit'] = (m, shell, ...rest) => {
+    if (docLocked(db.documents.find((x) => x.id === m.id))) return MODALS.doc(m, shell, ...rest);
     const d = db.documents.find((x) => x.id === m.id), e = emp(d.empId), div = document.createElement('div'); ensureDocHtml(d); div.innerHTML = d.html;
     const marks = [...new Map([...div.querySelectorAll('mark.fill')].map((x) => [x.dataset.f, x])).values()];
     const fields = marks.map((x) => { const val = x.textContent.trim() === `[${x.dataset.l}]` ? '' : x.textContent.trim();
@@ -3665,10 +3671,10 @@
   }
   Object.assign(MOD_ACT, {
     'doc-view'(d) { ui.modal = { type: 'doc', id: d.id }; render(); },
-    'doc-edit'(d) { ui.modal = { type: 'doc-edit', id: d.id }; render(); },
-    'doc-save'(d) { const doc = db.documents.find((x) => x.id === d.id); saveDocEditor(doc); if (doc.status === 'Envoyé') notify(doc.empId, `Votre ${doc.title.toLowerCase()} a été mis à jour par les RH : relisez-le avant de signer.`); ui.modal = null; toast('Document enregistré'); commit(); },
+    'doc-edit'(d) { const doc = db.documents.find((x) => x.id === d.id); if (doc && docLocked(doc)) { ui.modal = { type: 'doc', id: doc.id }; toast(doc.status === 'Signé' ? 'Document signé : il ne peut plus être modifié' : 'Document remis : il ne peut plus être modifié', 'info'); render(); return; } ui.modal = { type: 'doc-edit', id: d.id }; render(); },
+    'doc-save'(d) { const doc = db.documents.find((x) => x.id === d.id); if (docLocked(doc)) { ui.modal = { type: 'doc', id: doc.id }; render(); return; } saveDocEditor(doc); if (doc.status === 'Envoyé') notify(doc.empId, `Votre ${doc.title.toLowerCase()} a été mis à jour par les RH : relisez-le avant de signer.`); ui.modal = null; toast('Document enregistré'); commit(); },
     'doc-issue'(d) {
-      const doc = db.documents.find((x) => x.id === d.id); ensureDocHtml(doc); saveDocEditor(doc);
+      const doc = db.documents.find((x) => x.id === d.id); if (docLocked(doc)) { ui.modal = { type: 'doc', id: doc.id }; render(); return; } ensureDocHtml(doc); saveDocEditor(doc);
       const err = issueDoc(doc); if (err) { ui.modal = { type: 'doc-edit', id: doc.id, err }; save(); render(); return; }
       ui.modal = null; toast(doc.kind === 'contrat' ? 'Contrat envoyé pour signature' : 'Document remis au salarié · il est désormais figé'); commit();
     },

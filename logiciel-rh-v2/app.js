@@ -1386,6 +1386,8 @@
   // ---------------------------------------------------------------- Organigramme
   // Arbre de haut en bas : une équipe qui n'a que des collaborateurs sans équipe s'empile en colonne pour rester lisible.
   const DEPT_HUE = { Direction: '#475569', RH: '#6366f1', Design: '#db2777', Tech: '#0891b2', Marketing: '#d97706', Sales: '#059669', Finance: '#7c3aed' };
+  // Couleur d'un service créé dans les paramètres : stable, tirée de son nom.
+  const deptHue = (d) => DEPT_HUE[d] || ['#0d9488', '#c026d3', '#ea580c', '#2563eb', '#65a30d', '#be123c', '#0284c7', '#a16207'][[...String(d || '')].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 8];
   const orgPeople = () => db.employees.filter((e) => e.stage >= 2 && e.stage < 15);
   // Aperçu d'un changement de rattachement (glisser en cours ou fenêtre ouverte) : la personne est dessinée chez son nouveau manager.
   const orgMgr = (x) => (ui.orgPreview && ui.orgPreview.id === x.id ? ui.orgPreview.to : x.managerId);
@@ -1399,10 +1401,12 @@
   const orgMatch = (e) => { const q = (ui.orgQ || '').trim().toLowerCase();
     return (!q || `${fullName(e)} ${e.title} ${e.dept}`.toLowerCase().includes(q)) && (!ui.orgDept || e.dept === ui.orgDept) && (!ui.orgSite || orgSite(e) === ui.orgSite); };
   const canOpenEmp = (e) => ui.profile === 'rh' || (ui.profile === 'manager' && (e.id === me().id || scopeEmployees().some((x) => x.id === e.id)));
+  // Le nom du service s'affiche sur la carte qui ouvre sa branche : sommet de l'arbre, ou personne d'un autre service que son manager.
+  const orgDeptHead = (e) => { const m = emp(orgMgr(e)); return !!e.dept && (!m || m.dept !== e.dept); };
   function orgCard(e, kids) {
     const n = teamSize(e.id), fold = (ui.orgFold || {})[e.id] && !(orgFiltered() && kids.some((k) => orgMatch(k) || teamHas(k.id))), rh = ui.profile === 'rh', nx = e.managerNext && emp(e.managerNext.id);
     const pv = ui.orgPreview, cls = [orgFiltered() ? (orgMatch(e) ? 'hit' : 'dim') : '', e.id === me().id ? 'me' : '', pv && pv.id === e.id ? 'mv' : '', pv && pv.to === e.id ? 'tgt' : ''].join(' ');
-    return `<div class="oc ${cls}" style="--d:${DEPT_HUE[e.dept] || 'var(--accent)'}" data-oid="${e.id}" ${rh && e.managerId ? 'data-drag="1"' : ''}>${pv && pv.id === e.id ? '<span class="oc-new">Nouvelle place</span>' : ''}
+    return `<div class="oc ${cls}" style="--d:${deptHue(e.dept)}" data-oid="${e.id}" ${rh && e.managerId ? 'data-drag="1"' : ''}>${pv && pv.id === e.id ? '<span class="oc-new">Nouvelle place</span>' : ''}${orgDeptHead(e) ? `<div class="oc-dept">${esc(e.dept)}</div>` : ''}
       <button type="button" class="oc-b" data-act="org-open" data-id="${e.id}">${avatar(e, 'sm')}<span><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small><i>${esc(e.dept)}${orgSite(e) !== SITES()[0] ? ` · ${esc(orgSite(e))}` : ''}</i></span></button>
       ${e.stage < 3 ? `<span class="pill info oc-tag">Arrivée le ${fmtShort(e.startDate)}</span>` : ''}${rh && nx ? `<span class="pill warn oc-tag" title="Changement de manager programmé">→ ${esc(nx.firstName)} au ${fmtShort(e.managerNext.from)}</span>` : ''}${rh && e.changeNext && !nx ? `<span class="pill warn oc-tag" title="${esc(situationDiff(e, e.changeNext).join(' · '))}">${esc(e.changeNext.dept !== e.dept ? `→ ${e.changeNext.dept}` : e.changeNext.managerId !== e.managerId && emp(e.changeNext.managerId) ? `→ ${emp(e.changeNext.managerId).firstName}` : e.changeNext.label)} au ${fmtShort(e.changeNext.from)}</span>` : ''}${e.id === me().id ? '<span class="oc-me">Moi</span>' : ''}
       ${kids.length ? `<button type="button" class="oc-n" data-act="org-fold" data-id="${e.id}" aria-expanded="${!fold}" title="${fold ? 'Déplier' : 'Replier'} l’équipe"><span class="num">${kids.length}</span> direct${kids.length > 1 ? 's' : ''}${n !== kids.length ? ` · <span class="num">${n}</span> au total` : ''}${ic('right').replace('<svg', '<svg class="chev"')}</button>` : ''}</div>`;

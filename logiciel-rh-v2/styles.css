@@ -1058,3 +1058,5 @@ body:has(.help-panel) .toasts { right: 440px; }
 .pick-o.hi { background: var(--accent-soft); } .pick-o.cur b::after { content: ' ✓'; color: var(--accent); } .pick-o.none b { color: var(--muted); font-style: italic; font-weight: 500; }
 .pick-more { padding: 8px 10px; color: var(--faint); font-size: 12.5px; }
 .succ-pick .emp-pick { width: 280px; }
+.oc-dept { margin: -1px -1px 0; padding: 3px 12px 4px; background: var(--d); color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; border-radius: 9px 9px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.oc:has(.oc-dept) { border-top-width: 1px; }

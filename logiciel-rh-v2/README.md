@@ -52,7 +52,8 @@
   tous les membres du service sont dans son équipe et chacun remonte jusqu'à la Direction. Le contrôle (Paramètres >
   Services et Direction) liste les écarts avec une correction en un clic ou « Tout corriger » (changements tracés dans
   l'historique) ; l'organigramme affiche une alerte et le nom des services sur la carte qui ouvre chaque branche ; une
-  personne ne peut pas diriger deux services ; choisir un service dans un dossier propose son responsable comme manager.
+  personne peut diriger plusieurs services ; les dossiers en double (même nom) sont détectés, le doublon vide se
+  supprime en un clic, et la nouvelle arrivée comme l'import signalent un homonyme ; choisir un service dans un dossier propose son responsable comme manager.
 - **Recherche de salarié** : partout où l'on choisit un salarié (manager, successeur, parrain, responsable de service,
   évaluateur, collaborateur concerné…), la liste déroulante devient un champ de recherche : saisie sur le prénom, le nom,
   le poste, le service ou l'e-mail, suggestions au fil de la frappe, flèches et Entrée au clavier, Échap pour annuler.

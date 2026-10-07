@@ -1064,6 +1064,8 @@
       const errs = [], d = (r.entree || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/), date = d ? `${d[3]}-${d[2].padStart(2, '0')}-${d[1].padStart(2, '0')}` : /^\d{4}-\d{2}-\d{2}$/.test(r.entree || '') ? r.entree : '';
       if (!r.prenom || !r.nom) errs.push('prénom et nom'); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(r.email || '')) errs.push('e-mail invalide');
       const em = (r.email || '').toLowerCase(); if (known.has(em)) errs.push('déjà enregistré'); if (seen.has(em)) errs.push('en double'); seen.add(em);
+      const nk = nameKey({ firstName: r.prenom || '', lastName: r.nom || '' }), twin = !known.has(em) && db.employees.find((e) => e.stage < 15 && nameKey(e) === nk);
+      if (twin && nk) errs.push(`${fullName(twin)} a déjà un dossier (${twin.email})`);
       const contrat = ({ cdi: 'CDI', cdd: 'CDD', alternance: 'Alternance', apprentissage: 'Alternance', stage: 'Stage' })[(r.contrat || 'CDI').toLowerCase()] || null; if (!contrat) errs.push('contrat inconnu (CDI, CDD, Alternance, Stage)');
       if (r.entree && !date) errs.push('date d’entrée (JJ/MM/AAAA)'); const sal = Number(String(r.salaire || '').replace(/\s/g, '').replace(',', '.')) || 0;
       return { n: n + 2, r, contrat, date: date || TODAY, sal, errs }; });
@@ -1123,7 +1125,6 @@
       if (!errs.length) { const old = s.sites; list.forEach((x) => { const o = old.find((y) => y.id === x.id); if (o && o.nom && o.nom !== x.nom) db.employees.forEach((e) => { if ((e.location || '').startsWith(o.nom)) e.location = e.location.replace(o.nom, x.nom); }); }); s.sites = list; } }
     if (k === 'services') { const list = []; Object.keys(v).filter((x) => x.startsWith('nom_')).forEach((x) => { const i = x.slice(4); list.push({ nom: v[x].trim(), head: v[`head_${i}`] || null }); });
       if (list.some((x) => !x.nom)) errs.push('Chaque service a un nom.');
-      const hs = list.map((x) => x.head).filter(Boolean); if (new Set(hs).size < hs.length) errs.push('Une même personne ne peut pas être responsable de deux services.'); if (new Set(list.map((x) => x.nom.toLowerCase())).size < list.length) errs.push('Deux services portent le même nom.');
       if (!errs.length) { s.services.forEach((o, i) => { const nw = list[i]; if (nw && o.nom && o.nom !== nw.nom) db.employees.forEach((e) => { if (e.dept === o.nom) e.dept = nw.nom; }); }); s.services = list; if (v.directionId) s.directionId = v.directionId;
         if (list.some((x) => !x.head)) warns.push('Un service sans responsable : ses demandes remonteront à la Direction.'); } }
     if (k === 'services' && !errs.length) { applySettings(); const n = orgIssues().length; if (n) warns.push(`${plural(n, 'incohérence', 'incohérences')} avec l’organigramme : voir « Cohérence avec l’organigramme » ci-dessous.`); }
@@ -1255,26 +1256,35 @@
     if (!db.settings) return [];
     const out = [], heads = {};
     db.settings.services.forEach((sv) => { if (sv.head) (heads[sv.head] = heads[sv.head] || []).push(sv.nom); });
-    Object.entries(heads).filter(([, l]) => l.length > 1).forEach(([id, l]) => { if (emp(id)) out.push({ t: 'double', svc: l[0], msg: `${fullName(emp(id))} est responsable de plusieurs services (${l.join(', ')}) : désigne un responsable distinct pour chacun.`, fix: null }); });
     db.settings.services.forEach((sv) => {
       const h = sv.head && emp(sv.head), members = svcMembers(sv.nom);
-      if (h && heads[h.id].length > 1) return;
       if (!h || h.stage >= 15) {
         if (!members.length) return;
         const tops = members.filter((m) => !members.some((o) => o.id !== m.id && isUnder(m.id, o.id)));
         out.push({ t: 'no-head', svc: sv.nom, msg: `Aucun responsable désigné pour « ${sv.nom} »${tops.length === 1 ? ` : ${fullName(tops[0])} est en haut de la branche` : ''}.`, fix: tops.length === 1 ? { a: 'head', id: tops[0].id, l: `Désigner ${fullName(tops[0])}` } : null });
         return;
       }
-      if (h.dept !== sv.nom) out.push({ t: 'head-dept', svc: sv.nom, msg: `${fullName(h)}, responsable de « ${sv.nom} », est rattaché·e au service « ${h.dept} » dans son dossier.`, fix: { a: 'dept', id: h.id, l: `Passer ${h.firstName} dans « ${sv.nom} »` } });
+      // Une personne peut diriger plusieurs services : il suffit qu'elle appartienne à l'un d'eux.
+      if (!heads[h.id].includes(h.dept)) out.push({ t: 'head-dept', svc: sv.nom, msg: `${fullName(h)}, responsable de « ${sv.nom} », est rattaché·e au service « ${h.dept} » dans son dossier.`, fix: { a: 'dept', id: h.id, l: `Passer ${h.firstName} dans « ${sv.nom} »` } });
       const others = members.filter((m) => m.id !== h.id), above = others.filter((m) => isUnder(h.id, m.id));
       if (above.length) { const top = above.find((m) => !above.some((o) => o.id !== m.id && isUnder(m.id, o.id))) || above[0];
         out.push({ t: 'head-low', svc: sv.nom, msg: `${fullName(top)} (même service) est au-dessus de ${fullName(h)}, le responsable, dans l’organigramme.`, fix: { a: 'head', id: top.id, l: `Désigner ${top.firstName} responsable` } }); }
       others.filter((m) => !isUnder(m.id, h.id) && !isUnder(h.id, m.id)).forEach((m) => out.push({ t: 'outside', svc: sv.nom, msg: `${fullName(m)} est dans « ${sv.nom} » mais ne fait pas partie de l’équipe de ${fullName(h)} (manager : ${m.managerId && emp(m.managerId) ? fullName(emp(m.managerId)) : 'aucun'}).`, fix: { a: 'attach', id: m.id, to: h.id, l: `Rattacher à ${h.firstName}` } }));
     });
+    // Doublons : deux dossiers actifs pour la même personne (même nom), qui apparaît donc deux fois dans l'organigramme.
+    dupGroups().forEach((g) => { const spare = g.find((x) => !empHasData(x)) && g.slice().sort((a, z) => Number(empHasData(a)) - Number(empHasData(z)) || String(z.id).localeCompare(String(a.id)))[0], keep = spare && g.find((x) => x.id !== spare.id);
+      out.unshift({ t: 'dup', svc: g[0].dept, msg: `${fullName(g[0])} a ${g.length} dossiers (${g.map((x) => `${x.email} · ${x.dept}`).join(' ; ')}) : la personne apparaît ${g.length} fois dans l’organigramme.`, fix: spare && keep ? { a: 'merge', id: spare.id, to: keep.id, l: `Supprimer le doublon (${spare.email})` } : null }); });
     // Un seul sommet : toute personne sans manager, hors Direction, forme un arbre à part.
     const dir = emp(DIR_ID()); if (dir) db.employees.filter((e) => e.stage >= 2 && e.stage < 15 && e.id !== dir.id && (!e.managerId || !emp(e.managerId))).forEach((e) => out.push({ t: 'root', svc: e.dept, msg: `${fullName(e)} n’a pas de manager : sa carte apparaît à part, en haut de l’organigramme.`, fix: { a: 'attach', id: e.id, to: dir.id, l: `Rattacher à ${dir.firstName} (Direction)` } }));
     return out;
   }
+  const nameKey = (e) => pickNorm(`${e.firstName} ${e.lastName}`).replace(/[^a-z]/g, '');
+  function dupGroups() {
+    const by = {}; db.employees.filter((e) => e.stage >= 2 && e.stage < 15).forEach((e) => { (by[nameKey(e)] = by[nameKey(e)] || []).push(e); });
+    return Object.values(by).filter((g) => g.length > 1);
+  }
+  // Un dossier « vide » (rien d'enregistré à son nom) peut être supprimé sans rien perdre.
+  const empHasData = (e) => db.leaves.some((l) => l.empId === e.id) || db.documents.some((d) => d.empId === e.id) || db.reviews.some((r) => r.empId === e.id) || db.history.some((h) => h.empId === e.id) || e.id === 'e1';
   function orgCoherence() {
     const list = orgIssues();
     return `<div class="coh ${list.length ? 'warn' : 'ok'}"><h4 class="sub">Cohérence avec l’organigramme</h4>${list.length ? `<p class="hint" style="margin:0 0 8px">Le responsable d’un service en fait partie, il est en haut de sa branche, et tous les membres du service sont dans son équipe (directement ou non) ; chacun remonte jusqu’à la Direction. Les corrections s’appliquent aujourd’hui et sont tracées dans l’historique des collaborateurs.</p>
@@ -1288,7 +1298,11 @@
     if (f.a === 'attach') applySituation(e, Object.assign(cur, { managerId: f.to }), TODAY, 'Changement de manager');
     if (f.a === 'dept') applySituation(e, Object.assign(cur, { dept: x.svc }), TODAY, 'Changement de service');
     if (f.a === 'head') { const sv = db.settings.services.find((v) => v.nom === x.svc); if (sv) sv.head = e.id; }
-    db.settingsLog.unshift({ at: TODAY, by: me().id, section: 'Services et Direction', changes: [`Cohérence : ${f.l}`] });
+    if (f.a === 'merge') { const k = emp(f.to); // l'équipe et les responsabilités du doublon passent au dossier conservé
+      db.employees.forEach((y) => { if (y.managerId === e.id) y.managerId = k.id; }); db.settings.services.forEach((v) => { if (v.head === e.id) v.head = k.id; });
+      if (db.settings.directionId === e.id) db.settings.directionId = k.id; if (e.admin) k.admin = true;
+      db.employees = db.employees.filter((y) => y.id !== e.id); if (db.onboarding) delete db.onboarding[e.id]; db.notifications = db.notifications.filter((n) => n.to !== e.id); }
+    db.settingsLog.unshift({ at: TODAY, by: me().id, section: 'Services et Direction', changes: [`Cohérence : ${f.l}${f.a === 'merge' ? ` (${fullName(emp(f.to))})` : ''}`] });
   }
   Object.assign(MOD_ACT, {
     'coh-open'() { Object.assign(ui, { view: 'parametres', stage: null, setSec: 'services', orgFull: false }); document.documentElement.classList.remove('org-full-on'); window.scrollTo(0, 0); render(); },
@@ -1422,6 +1436,8 @@
       if (v.contract === 'Stage' && v.endDate > addDays(addMonths(v.startDate, 2), -1) && salary / 12 < STAGE_FREE) return formError(`Stage de plus de 2 mois : gratification obligatoire d’au moins ${eur(STAGE_FREE)} par mois, soit ${eur0(STAGE_FREE * 12)} par an.`);
       if (v.startDate < TODAY) toast('Date d’arrivée passée : pense à faire la DPAE au plus vite (elle doit précéder l’embauche).', 'info');
       const id = uid('e'), first = v.firstName.trim(), last = v.lastName.trim();
+      const twin = db.employees.find((x) => x.stage < 15 && nameKey(x) === nameKey({ firstName: first, lastName: last }));
+      if (twin && !ui.modal.twinOk) { ui.modal.twinOk = true; return formError(`${fullName(twin)} a déjà un dossier (${twin.title} · ${twin.dept}). Pour lui confier un service de plus, désigne-le responsable dans Paramètres > Services. S’il s’agit d’un homonyme, clique à nouveau sur « Créer l’arrivée ».`); }
       const email = `${first}.${last}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z.]/g, '') + `@${COMPANY.domaine}`, taken = (x) => db.employees.some((y) => y.email === x);
       let mail = email; for (let n = 2; taken(mail); n++) mail = email.replace('@', n + '@');
       db.employees.push({ id, firstName: first, lastName: last, title: v.title.trim(), dept: v.dept, managerId: v.managerId || null, stage: 2, startDate: v.startDate, endDate: fixed ? v.endDate : null, contract: v.contract, category: v.category, salary,

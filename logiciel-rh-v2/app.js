@@ -3146,7 +3146,7 @@
         <div class="field"><label for="cr-field">Information</label><select id="cr-field" name="field" class="select">${Object.entries(CHANGE_FIELDS).map(([k, [l]]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
         <div class="field"><label for="cr-to">Nouvelle valeur</label><input id="cr-to" name="to" class="input" placeholder="Ex. nouvelle adresse, nouvel IBAN, Marié·e…"></div>
         <div class="field full"><label for="cr-proof">Justificatif</label><input id="cr-proof" name="proof" type="file" class="input" accept=".pdf,.jpg,.png"></div></div>
-        <div class="toolbar" style="margin-top:14px"><span class="err" id="cr-err"></span><button class="btn primary" style="margin-left:auto">Envoyer aux RH</button></div>
+        <div class="toolbar" style="margin-top:14px"><span class="err" id="cr-err"></span><button class="btn primary" style="margin-left:auto">Envoyer</button></div>
         ${mine.length ? `<div style="margin-top:14px">${mine.map((r) => `<div class="todo"><div class="t"><b>${esc(r.label)} → ${esc(r.to)}</b><small>Demandé le ${fmtShort(r.createdAt)}${r.reason ? ` · ${esc(r.reason)}` : ''}</small></div><span class="pill ${r.status === 'Validée' ? 'ok' : r.status === 'Refusée' ? 'bad' : 'warn'}">${r.status}</span></div>`).join('')}</div>` : ''}</div></form>`;
   }
 

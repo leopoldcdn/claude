@@ -1274,6 +1274,12 @@
     // Doublons : deux dossiers actifs pour la même personne (même nom), qui apparaît donc deux fois dans l'organigramme.
     dupGroups().forEach((g) => { const spare = g.find((x) => !empHasData(x)) && g.slice().sort((a, z) => Number(empHasData(a)) - Number(empHasData(z)) || String(z.id).localeCompare(String(a.id)))[0], keep = spare && g.find((x) => x.id !== spare.id);
       out.unshift({ t: 'dup', svc: g[0].dept, msg: `${fullName(g[0])} a ${g.length} dossiers (${g.map((x) => `${x.email} · ${x.dept}`).join(' ; ')}) : la personne apparaît ${g.length} fois dans l’organigramme.`, fix: spare && keep ? { a: 'merge', id: spare.id, to: keep.id, l: `Supprimer le doublon (${spare.email})` } : null }); });
+    // Boucle de rattachements (A dépend de B qui dépend de A) : on propose de rattacher le premier à la Direction.
+    const loopSeen = new Set(); db.employees.filter((e) => e.stage >= 2 && e.stage < 15 && e.managerId && emp(e.managerId) && inLoop(e)).forEach((e) => {
+      if (loopSeen.has(e.id)) return;
+      const cyc = []; let x = e; while (x && !cyc.includes(x.id) && cyc.length < 60) { cyc.push(x.id); x = emp(x.managerId); } cyc.forEach((i) => loopSeen.add(i));
+      const d = emp(DIR_ID()), first = emp(cyc.find((i) => Object.values(DEPT_HEAD).includes(i)) || cyc[0]);
+      out.unshift({ t: 'loop', svc: first.dept, msg: `Boucle de rattachements : ${cyc.map((i) => fullName(emp(i))).join(' → ')} → ${fullName(first)}.`, fix: d && !cyc.includes(d.id) ? { a: 'attach', id: first.id, to: d.id, l: `Rattacher ${first.firstName} à ${d.firstName} (Direction)` } : { a: 'attach', id: first.id, to: null, l: `Retirer le manager de ${first.firstName}` } }); });
     // Un seul sommet : toute personne sans manager, hors Direction, forme un arbre à part.
     const dir = emp(DIR_ID()); if (dir) db.employees.filter((e) => e.stage >= 2 && e.stage < 15 && e.id !== dir.id && (!e.managerId || !emp(e.managerId))).forEach((e) => out.push({ t: 'root', svc: e.dept, msg: `${fullName(e)} n’a pas de manager : sa carte apparaît à part, en haut de l’organigramme.`, fix: { a: 'attach', id: e.id, to: dir.id, l: `Rattacher à ${dir.firstName} (Direction)` } }));
     return out;
@@ -1299,7 +1305,7 @@
     if (f.a === 'dept') applySituation(e, Object.assign(cur, { dept: x.svc }), TODAY, 'Changement de service');
     if (f.a === 'head') { const sv = db.settings.services.find((v) => v.nom === x.svc); if (sv) sv.head = e.id; }
     if (f.a === 'merge') { const k = emp(f.to); // l'équipe et les responsabilités du doublon passent au dossier conservé
-      db.employees.forEach((y) => { if (y.managerId === e.id) y.managerId = k.id; }); db.settings.services.forEach((v) => { if (v.head === e.id) v.head = k.id; });
+      db.employees.forEach((y) => { if (y.managerId === e.id) y.managerId = y.id === k.id ? (e.managerId && e.managerId !== k.id ? e.managerId : null) : k.id; }); db.settings.services.forEach((v) => { if (v.head === e.id) v.head = k.id; });
       if (db.settings.directionId === e.id) db.settings.directionId = k.id; if (e.admin) k.admin = true;
       db.employees = db.employees.filter((y) => y.id !== e.id); if (db.onboarding) delete db.onboarding[e.id]; db.notifications = db.notifications.filter((n) => n.to !== e.id); }
     db.settingsLog.unshift({ at: TODAY, by: me().id, section: 'Services et Direction', changes: [`Cohérence : ${f.l}${f.a === 'merge' ? ` (${fullName(emp(f.to))})` : ''}`] });
@@ -1457,7 +1463,7 @@
   const orgPeople = () => db.employees.filter((e) => e.stage >= 2 && e.stage < 15);
   // Aperçu d'un changement de rattachement (glisser en cours ou fenêtre ouverte) : la personne est dessinée chez son nouveau manager.
   const orgMgr = (x) => (ui.orgPreview && ui.orgPreview.id === x.id ? ui.orgPreview.to : x.managerId);
-  const reportsOf = (id) => orgPeople().filter((x) => orgMgr(x) === id).sort((a, b) => ownTeam(b.id) - ownTeam(a.id) || a.lastName.localeCompare(b.lastName, 'fr'));
+  const reportsOf = (id) => orgPeople().filter((x) => orgMgr(x) === id && x.id !== id).sort((a, b) => ownTeam(b.id) - ownTeam(a.id) || a.lastName.localeCompare(b.lastName, 'fr'));
   // Ordre des colonnes calculé sur les rattachements réels, pour que l'aperçu ne déplace pas les équipes sous la souris.
   const ownTeam = (id) => orgPeople().filter((x) => x.managerId === id).length;
   const teamSize = (id, seen = new Set()) => reportsOf(id).reduce((s, k) => (seen.has(k.id) ? s : (seen.add(k.id), s + 1 + teamSize(k.id, seen))), 0);
@@ -1484,8 +1490,17 @@
     const stack = kids.length > 1 && kids.every((k) => !reportsOf(k.id).length);
     return `<li class="${ui.orgPreview && ui.orgPreview.id === e.id ? 'mv' : ''}">${orgCard(e, kids)}${kids.length && !fold ? `<ul class="${stack ? 'stack' : ''}">${kids.map((k) => orgNode(k, seen)).join('')}</ul>` : ''}</li>`;
   }
+  // Sommets de l'arbre : sans manager valide, ou pris dans une boucle de rattachements (sinon ils disparaîtraient).
+  const inLoop = (e) => { let x = e, n = 0; while (x && x.managerId && n++ < 60) { x = emp(x.managerId); if (x && x.id === e.id) return true; } return false; };
+  function orgRoots(people) {
+    const r = people.filter((e) => !orgMgr(e) || !emp(orgMgr(e)) || orgMgr(e) === e.id), seen = new Set();
+    const walk = (id) => { if (seen.has(id)) return; seen.add(id); reportsOf(id).forEach((k) => walk(k.id)); };
+    r.forEach((e) => walk(e.id));
+    people.forEach((e) => { if (!seen.has(e.id)) { r.push(e); walk(e.id); } }); // une boucle : son premier membre devient un sommet
+    return r;
+  }
   function orgChart() {
-    const people = orgPeople(), roots = people.filter((e) => !e.managerId || !emp(e.managerId)), rh = ui.profile === 'rh';
+    const people = orgPeople(), roots = orgRoots(people), rh = ui.profile === 'rh';
     const depts = [...new Set(people.map((e) => e.dept))], hits = orgFiltered() ? people.filter(orgMatch).length : null;
     const sel = (id, k, label, list) => `<label class="sr" for="${id}">${label}</label><select id="${id}" class="select" data-change="org-filter" data-k="${k}"><option value="">${label}</option>${list.map((x) => `<option ${ui[k] === x ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
     return `<div class="card org-card-wrap ${ui.orgFull ? 'full' : ''}" ${ui.orgFull ? 'role="dialog" aria-label="Organigramme en plein écran"' : ''}><div class="card-h org-bar"><div class="toolbar">
@@ -1500,7 +1515,7 @@
   }
   function refreshOrg() {
     const c = document.getElementById('org-canvas'); if (!c) return;
-    c.innerHTML = `<ul class="ot">${orgPeople().filter((e) => !e.managerId || !emp(e.managerId)).map((r) => orgNode(r)).join('')}</ul>`;
+    c.innerHTML = `<ul class="ot">${orgRoots(orgPeople()).map((r) => orgNode(r)).join('')}</ul>`;
     const n = document.getElementById('org-count'), people = orgPeople();
     if (n) n.textContent = orgFiltered() ? plural(people.filter(orgMatch).length, 'résultat', 'résultats') : `${plural(people.length, 'personne', 'personnes')} · ${plural(new Set(people.map((e) => e.dept)).size, 'service', 'services')}`;
     bindOrg(true);
@@ -4873,6 +4888,7 @@
       if (!(salary > 0)) return formError('Indiquez un salaire annuel brut supérieur à 0 €.');
       if (!v.startDate) return formError('Indiquez une date d’entrée.');
       const data = { firstName: v.firstName.trim(), lastName: v.lastName.trim(), title: v.title.trim(), dept: v.dept, managerId: v.managerId || null, contract: v.contract, salary, startDate: v.startDate, phone: v.phone.trim(), location: v.location };
+      if (ui.modal.id && data.managerId && (data.managerId === ui.modal.id || isUnder(data.managerId, ui.modal.id))) return formError('Ce manager fait partie de l’équipe de la personne : ce rattachement créerait une boucle dans l’organigramme.');
       if (ui.modal.id) { Object.assign(emp(ui.modal.id), data); toast('Fiche mise à jour'); }
       else {
         const id = uid('e');

@@ -62,8 +62,8 @@
   responsables de service et Direction déduits de l'organigramme.
 - **Nouvelle entreprise / assistant de démarrage** : en bas de page, « Tester l'installation (nouvelle entreprise) »
   bascule sur une entreprise vierge (`teamora-demo-v2-new`) et ouvre l'assistant en 8 étapes (compte administrateur,
-  entreprise, convention, sites, services, collaborateurs, paie, récapitulatif). Les profils Manager et Salarié prennent
-  les traits de collaborateurs importés. « Revenir à la démo Nova Studio » retrouve la démo intacte (choix mémorisé sous
+  entreprise, convention, sites, services, collaborateurs, paie, récapitulatif). Ce n'est plus une démo : le sélecteur de
+  profils disparaît, l'administrateur garde l'interrupteur « Salariés / Mon espace ». « Revenir à la démo Nova Studio » retrouve la démo intacte (choix mémorisé sous
   `teamora-v2-tenant`).
 
 ## Restent à faire (pistes de l'audit non traitées)

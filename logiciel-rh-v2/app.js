@@ -402,8 +402,8 @@
     const unread = mine.filter((n) => !n.read).length;
     return `<header class="top"><button type="button" class="brand" data-act="go" data-v="accueil" aria-label="Teamora · retour à l’accueil" title="Teamora · retour à l’accueil"><span class="brand-mark">${LOGO}</span></button>
       <div class="top-title"><div class="crumb">${crumb}</div><h1>${title}</h1></div>
-      <div class="top-right"><div class="persona" role="group" aria-label="Voir l’application en tant que">${Object.entries(PROFILES).filter(([k]) => profileOk(k)).map(([k, p]) => { const e = profileEmp(k);
-        return `<button type="button" data-act="persona" data-p="${k}" aria-pressed="${persona() === k}" title="${esc(fullName(e))} · ${p.label}">${avatar(e)}<span class="p-l"><span class="who-name">${esc(e.firstName)} ·</span> ${p.label}</span></button>`; }).join('')}</div>
+      <div class="top-right">${TENANT === 'new' ? '' : `<div class="persona" role="group" aria-label="Voir l’application en tant que">${Object.entries(PROFILES).filter(([k]) => profileOk(k)).map(([k, p]) => { const e = profileEmp(k);
+        return `<button type="button" data-act="persona" data-p="${k}" aria-pressed="${persona() === k}" title="${esc(fullName(e))} · ${p.label}">${avatar(e)}<span class="p-l"><span class="who-name">${esc(e.firstName)} ·</span> ${p.label}</span></button>`; }).join('')}</div>`}
       ${ui.profile === 'salarie' && !ui.selfOf ? asEmpSelect() : ''}${persona() === 'manager' ? asMgrSelect() : ''}${spaceSwitch()}
       ${todoBtn()}
       <button type="button" class="icon-btn" data-act="notif" aria-label="Notifications (${unread} non lues)" aria-expanded="${ui.notif}">${ic('bell')}${unread ? `<span class="dot num">${unread}</span>` : ''}</button></div>
@@ -4571,7 +4571,7 @@
   function route() {
     if (db.settings.setupDone === false || !emp('e1')) { ui.view = 'setup'; ui.stage = null; ui.profile = 'rh'; ui.selfOf = null; return; }
     if (ui.view === 'setup') ui.view = 'accueil';
-    if (!ui.selfOf && !profileOk(ui.profile)) { ui.profile = 'rh'; ui.selfOf = null; }
+    if (!ui.selfOf && (!profileOk(ui.profile) || (TENANT === 'new' && ui.profile !== 'rh'))) { ui.profile = 'rh'; ui.selfOf = null; }
     if (ui.view === 'accueil' || !VIEWS[ui.view]) { ui.view = 'accueil'; ui.stage = null; return; }
     if (ui.view === 'reporting' || ui.view === 'modeles' || ui.view === 'parametres') { if (ui.profile !== 'rh') ui.view = 'accueil'; ui.stage = null; return; }
     const vis = visibleStages();

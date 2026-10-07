@@ -47,11 +47,31 @@
   le bouton n'apparaît pas. En production, il faudrait un serveur intermédiaire qui appelle l'API Claude : la clé d'API ne
   doit jamais être dans le navigateur.
 
+- **Paramètres de l'entreprise** (RH, engrenage dans le bandeau) : tout ce qui était propre à Nova Studio vit désormais
+  dans `db.settings` — identité et logo (en tête des documents), signataire, convention (Syntec ou « aucune » = règles du
+  Code du travail, qui changent les préavis), durée du travail, forfait jours, télétravail, sites (frais de transport),
+  services et responsables, Direction, administrateurs, droits (motif des arrêts masqué aux managers par défaut,
+  organigramme visible des salariés), types d'absence optionnels, remplaçant d'un manager absent, paie (prestataire,
+  clôture, titres-restaurant, mutuelle, allocation télétravail), recrutement (durée de conservation, relance). Garde-fous :
+  erreurs bloquantes pour les valeurs illégales (SIRET à 14 chiffres, 48 h au plus, forfait ≤ 218 jours, mutuelle
+  financée à 50 % au moins par l'employeur, conservation des candidatures ≤ 2 ans), avertissements pour les risques
+  (clé SIRET, titres-restaurant hors 50–60 %, allocation télétravail au-delà de 2,70 €/jour). Jauge de complétude, liste
+  « Reste à régler » et historique des modifications.
+- **Import des collaborateurs** : fichier CSV (séparateur `;` ou `,`, en-têtes reconnus même accentués), aperçu avec
+  contrôle ligne par ligne (e-mail, doublons, contrat, date), managers reliés par e-mail, services et sites inconnus créés,
+  responsables de service et Direction déduits de l'organigramme.
+- **Nouvelle entreprise / assistant de démarrage** : en bas de page, « Tester l'installation (nouvelle entreprise) »
+  bascule sur une entreprise vierge (`teamora-demo-v2-new`) et ouvre l'assistant en 8 étapes (compte administrateur,
+  entreprise, convention, sites, services, collaborateurs, paie, récapitulatif). Les profils Manager et Salarié prennent
+  les traits de collaborateurs importés. « Revenir à la démo Nova Studio » retrouve la démo intacte (choix mémorisé sous
+  `teamora-v2-tenant`).
+
 ## Restent à faire (pistes de l'audit non traitées)
 
 Promesse d'embauche formalisée, budget d'effectifs, acquisition des congés pendant un arrêt maladie et fractionnement,
 désactivation programmée des accès au dernier jour, questionnaire de départ côté salarié, RQTH, e-mails de notification,
-droits configurables, multi-sites (jours fériés, médecine du travail).
+multi-sites (jours fériés, médecine du travail), grilles de classification et minima conventionnels, autres conventions
+collectives, import des soldes de congés.
 
 ---
 

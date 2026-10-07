@@ -11,6 +11,7 @@
     users: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2c2.6-.4 4.4 1.2 5 4.3"/>',
     calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
     wallet: '<rect x="2.5" y="6" width="19" height="13" rx="2"/><path d="M2.5 10h19M7 15h3"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
     briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
     user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
     file: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
@@ -50,14 +51,18 @@
   const LOGO = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + P.users + '</svg>';
 
   // ---------------------------------------------------------------- Storage
-  const STORE = 'teamora-demo-v2', UI_STORE = 'teamora-ui-v2';
+  // V2 : deux entreprises coexistent dans le navigateur — la démo Nova Studio et une « nouvelle entreprise » à installer de zéro.
+  let TENANT = (() => { try { return localStorage.getItem('teamora-v2-tenant') === 'new' ? 'new' : 'nova'; } catch (e) { return 'nova'; } })();
+  let STORE, UI_STORE;
+  const setStores = () => { STORE = TENANT === 'new' ? 'teamora-demo-v2-new' : 'teamora-demo-v2'; UI_STORE = TENANT === 'new' ? 'teamora-ui-v2-new' : 'teamora-ui-v2'; };
+  setStores();
   function load() {
     try { const d = JSON.parse(localStorage.getItem(STORE)); if (d && d.version === 8) return d; } catch (e) { /* ignore */ }
-    return window.TEAMORA_SEED();
+    return TENANT === 'new' ? blankSeed() : window.TEAMORA_SEED();
   }
   function save() { try { localStorage.setItem(STORE, JSON.stringify(db)); } catch (e) { /* storage unavailable */ } }
   function loadUI() { try { return JSON.parse(localStorage.getItem(UI_STORE)) || {}; } catch (e) { return {}; } }
-  function saveUI() { try { localStorage.setItem(UI_STORE, JSON.stringify({ profile: ui.profile, view: ui.view, stage: ui.stage, asEmp: ui.asEmp, asMgr: ui.asMgr || null, selfOf: ui.selfOf || null, orgZoom: ui.orgZoom, orgFold: ui.orgFold })); } catch (e) { /* ignore */ } }
+  function saveUI() { try { localStorage.setItem(UI_STORE, JSON.stringify({ profile: ui.profile, view: ui.view, stage: ui.stage, setSec: ui.setSec || null, wizStep: ui.wizStep || null, asEmp: ui.asEmp, asMgr: ui.asMgr || null, selfOf: ui.selfOf || null, orgZoom: ui.orgZoom, orgFold: ui.orgFold })); } catch (e) { /* ignore */ } }
 
   let db = load();
   const PROFILES = {
@@ -113,7 +118,14 @@
   const emp = (id) => db.employees.find((e) => e.id === id);
   // Le profil « Salarié » peut être vu sous les traits de n'importe quel collaborateur, dont une nouvelle recrue.
   // V2 : le profil « Manager » peut être vu sous les traits de n'importe quel manager, dont la Direction (Claire Durand).
-  const profileEmp = (k) => emp(k === 'salarie' && ui.asEmp && emp(ui.asEmp) ? ui.asEmp : k === 'manager' && ui.asMgr && emp(ui.asMgr) ? ui.asMgr : PROFILES[k].emp);
+  // Dans une entreprise fraîchement installée, les profils de démonstration prennent les traits d'un manager et d'un salarié importés.
+  function profileBase(k) {
+    const id = PROFILES[k].emp; if (emp(id)) return id;
+    const act = db.employees.filter((e) => e.stage < 15 && e.id !== 'e1'), hasRep = (e) => db.employees.some((y) => y.managerId === e.id && y.stage < 15);
+    const f = k === 'manager' ? act.find((e) => hasRep(e) && e.managerId) || act.find(hasRep) : k === 'salarie' ? act.find((e) => !hasRep(e)) : null; return f ? f.id : 'e1';
+  }
+  const profileOk = (k) => k === 'rh' || profileBase(k) !== 'e1';
+  const profileEmp = (k) => emp(k === 'salarie' && ui.asEmp && emp(ui.asEmp) ? ui.asEmp : k === 'manager' && ui.asMgr && emp(ui.asMgr) ? ui.asMgr : profileBase(k));
   // RH et managers ont aussi leur espace personnel : le profil « salarié » s'affiche alors sous leurs propres traits (ui.selfOf).
   const persona = () => ui.selfOf || ui.profile;
   const meOf = (k) => (k === 'salarie' && ui.selfOf ? profileEmp(ui.selfOf) : profileEmp(k));
@@ -126,6 +138,8 @@
   const avatarName = (id, name, cls = '') => `<span class="av ${cls}" style="background:${avColor(id)}" aria-hidden="true">${esc(name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase())}</span>`;
   const DEPTS = ['Direction', 'RH', 'Design', 'Tech', 'Marketing', 'Sales', 'Finance'];
   const DEPT_HEAD = { Direction: 'e5', RH: 'e1', Design: 'e2', Tech: 'e6', Marketing: 'e7', Sales: 'e8', Finance: 'e9' };
+  // Direction : réglable dans Paramètres (Nova Studio : Claire Durand).
+  const DIR_ID = () => (db.settings && db.settings.directionId) || 'e5';
 
   const leaveOn = (e, day) => db.leaves.find((l) => l.empId === e.id && l.status === 'Approuvée' && l.start <= day && l.end >= day);
   // V2 : statut calculé à partir des faits (dates, période d'essai, absence du jour), pas d'une étape.
@@ -170,8 +184,8 @@
   const approverOf = (e) => (e.managerId ? emp(e.managerId) : emp('e1'));
   // V2 · valideur de secours : quand un manager est absent aujourd'hui, son propre manager valide les demandes de son équipe.
   const isAway = (e) => { const l = e && leaveOn(e, TODAY); return !!l && l.type !== 'Télétravail'; };
-  const backupFor = (m) => db.employees.filter((x) => x.managerId === m.id && isAway(x)).flatMap((x) => db.employees.filter((y) => y.managerId === x.id && y.stage < 15));
-  const backupOf = (e) => { const ap = approverOf(e); return isAway(ap) && ap.managerId ? emp(ap.managerId) : null; };
+  const backupFor = (m) => (db.settings && db.settings.conges.backup === false ? [] : db.employees.filter((x) => x.managerId === m.id && isAway(x)).flatMap((x) => db.employees.filter((y) => y.managerId === x.id && y.stage < 15)));
+  const backupOf = (e) => { const ap = approverOf(e); if (db.settings && db.settings.conges.backup === false) return null; return isAway(ap) && ap.managerId ? emp(ap.managerId) : null; };
 
   function notify(to, text) { if (to) db.notifications.unshift({ id: uid('n'), to, text, date: TODAY, read: false }); }
   function toast(msg, kind = 'ok') {
@@ -234,7 +248,8 @@
   // ---- Moteur de bulletin (valeurs de démonstration ; le calcul réel est fait par le prestataire de paie).
   // Bulletin clarifié : rubriques Santé, Accidents du travail, Retraite, Famille, Assurance chômage, Autres contributions, CSG-CRDS, allègements.
   const PSS = 4005, SMIC_M = 1801.80, HOURS_M = 151.67;
-  const TR_VALUE = 10, TR_EMPLOYER = 6, TT_DAY = 2.70, TT_ALLOW_MAX = 59.40, STAGE_FREE = 659.76;
+  let TR_VALUE = 10, TR_EMPLOYER = 6, TT_DAY = 2.70, TT_ALLOW_MAX = 59.40, MUT_S = 30, MUT_P = 45, PAY_CUTOFF = 20;
+  const STAGE_FREE = 659.76;
   const TRANSPORT = { Paris: 88.80, Lyon: 74.70 };
   const COMPANY_PAY = { naf: '7410Z · Activités spécialisées de design', urssaf: 'Urssaf Île-de-France', idcc: 'Syntec (IDCC 1486)', paidOn: (m) => { let d = monthEnd(m); while (!isWork(d)) d = addDays(d, -1); return d; } };
   // Taux de prélèvement à la source transmis par l'administration fiscale (démonstration).
@@ -268,7 +283,7 @@
     abs.sick.forEach((s) => {
       const ret = daily * s.work, ijs = ijDay * s.paid; ij += s.l.subrogation ? ijs : 0;
       earn.push([`Absence ${{ Maladie: 'maladie', 'Accident du travail': 'accident du travail', Maternité: 'congé de maternité', 'Paternité et accueil de l’enfant': 'congé de paternité' }[s.l.type] || 'maladie'} du ${fmtShort(s.from)} au ${fmtShort(s.to)}`, `${plural(s.work, 'jour', 'jours')}`, '', -ret]);
-      if (senior) earn.push(['Complément employeur (maintien de salaire Syntec)', '', '', Math.max(0, ret - ijs)]);
+      if (senior) earn.push([`Complément employeur (maintien de salaire ${CONV().short})`, '', '', Math.max(0, ret - ijs)]);
     });
     if (abs.unpaid) earn.push(['Absence non rémunérée (sans solde, congé parental, enfant malade)', `${plural(abs.unpaid, 'jour', 'jours')}`, '', -daily * abs.unpaid]);
     if (ot.amount) earn.push([`Heures supplémentaires (${fmtH(ot.h25)} à 25 %${ot.h50 ? `, ${fmtH(ot.h50)} à 50 %` : ''})`, fmtH(ot.h25 + ot.h50), '', ot.amount]);
@@ -283,7 +298,7 @@
     const stage = e.contract === 'Stage', appr = e.contract === 'Alternance';
     const salBase = stage ? Math.max(0, gross - STAGE_FREE) : appr ? Math.max(0, gross - 0.5 * SMIC_M) : gross; // exonérations salariales stagiaire et apprenti
     const k = salBase / Math.max(1, gross); // part de la rémunération soumise côté salarié
-    const mut = d.mutuelle === 'Dispense' || stage ? null : { s: 30, p: 45 };
+    const mut = d.mutuelle === 'Dispense' || stage ? null : { s: MUT_S, p: MUT_P };
     const rows = [];
     const R = (group, label, baseV, ts, tp, fs = null, fp = null) => rows.push({ group, label, base: baseV, ts, tp, s: fs !== null ? fs : baseV * ts, p: fp !== null ? fp : baseV * tp });
     if (!stage || gross > STAGE_FREE) {
@@ -317,7 +332,7 @@
     // Éléments non soumis : remboursements, titres-restaurant, frais, acompte, prime de partage de la valeur.
     const workedDays = Math.max(0, wd - abs.cp - abs.rtt - abs.unpaid - abs.sick.reduce((s, x) => s + x.work, 0) - (e.startDate > start ? workDays(start, addDays(e.startDate, -1)) : 0) - (e.exit && e.exit.lastDay < end ? workDays(addDays(e.exit.lastDay, 1), end) : 0));
     const trN = stage ? 0 : workedDays, trSal = trN * (TR_VALUE - TR_EMPLOYER);
-    const transport = (TRANSPORT[(e.location || '').split(' ')[0]] || 0) / 2, tele = Math.min(TT_ALLOW_MAX, abs.tt * TT_DAY);
+    const transport = (TRANSPORT[siteOf(e)] || 0) / 2, tele = Math.min(TT_ALLOW_MAX, abs.tt * TT_DAY);
     const ndf = Number(x.ndf || 0), acompte = Number(x.acompte || 0), ppvNet = ppv * (1 - 0.097);
     const extras = [ij ? ['Indemnités journalières de Sécurité sociale (subrogation, nettes de CSG-CRDS)', ij * 0.933] : null, transport ? ['Remboursement des transports en commun (50 %)', transport] : null,
       tele ? [`Allocation forfaitaire de télétravail (${plural(abs.tt, 'jour', 'jours')})`, tele] : null, ndf ? ['Remboursement de notes de frais', ndf] : null, ppv ? ['Prime de partage de la valeur (nette de CSG-CRDS 9,7 %)', ppvNet] : null, xOut && xOut.legal ? [`Indemnité de rupture (${e.exit.reason.toLowerCase()})`, xOut.legal] : null,
@@ -338,7 +353,7 @@
     salarie: [null, null, 'arrivee', 'contrat', 'etape-moi', 'profil', 'absences', 'bulletins', 'entretiens', 'formation', 'mobilite', 'sante', 'relations', 'etape-moi', 'etape-moi', 'etape-moi'],
   };
   const VIEW_LABELS = {
-    rh: { arrivees: 'Arrivées', departs: 'Départs', accueil: 'Accueil', reporting: 'Reporting RH', modeles: 'Modèles de documents', besoins: 'Besoins de recrutement', collaborateurs: 'Collaborateurs', absences: 'Absences', paie: 'Paie', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Relations individuelles' },
+    rh: { arrivees: 'Arrivées', departs: 'Départs', accueil: 'Accueil', reporting: 'Reporting RH', modeles: 'Modèles de documents', parametres: 'Paramètres', besoins: 'Besoins de recrutement', collaborateurs: 'Collaborateurs', absences: 'Absences', paie: 'Paie', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Relations individuelles' },
     manager: { arrivees: 'Arrivées', departs: 'Départs', accueil: 'Accueil', besoins: 'Besoins de recrutement', collaborateurs: 'Mon équipe', absences: 'Absences', paie: 'Rémunération de l’équipe', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Signalements' },
     salarie: { accueil: 'Accueil', arrivee: 'Mon arrivée', contrat: 'Contrat de travail', profil: 'Mon profil', absences: 'Mes absences', bulletins: 'Mes bulletins', entretiens: 'Mes entretiens', formation: 'Formations', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Échanges RH' },
   };
@@ -349,7 +364,7 @@
     return STAGES.map((s, i) => i).filter((i) => { const v = STAGE_VIEW[ui.profile][i]; return v === 'etape-moi' ? m.stage === i : v === 'arrivee' ? inArrival(m) : !!v; });
   }
   const stageView = (i) => (STAGE_VIEW[ui.profile][i] === 'etape-moi' ? 'etape' : STAGE_VIEW[ui.profile][i]);
-  const canView = (v) => v === 'accueil' || (['reporting', 'modeles'].includes(v) && ui.profile === 'rh') || (v === 'etape' ? visibleStages().includes(ui.stage) : visibleStages().some((i) => stageView(i) === v));
+  const canView = (v) => v === 'accueil' || (['reporting', 'modeles', 'parametres'].includes(v) && ui.profile === 'rh') || (v === 'etape' ? visibleStages().includes(ui.stage) : visibleStages().some((i) => stageView(i) === v));
   function navCount(v) {
     const p = ui.profile, m = me(), ids = new Set(scopeEmployees().map((e) => e.id));
     if (v === 'absences') return pendingForMe().length + pendingSheets().length + (p === 'rh' ? db.leaves.filter((l) => IJ_TYPES.includes(l.type) && !l.dsnAt).length : 0);
@@ -382,12 +397,12 @@
   function topbar() {
     const st = ui.view === 'accueil' ? null : ui.stage;
     const title = ui.view === 'etape' ? esc(STAGES[st].title) : VIEW_LABELS[ui.profile][ui.view];
-    const crumb = st === null ? `Nova Studio · ${esc(fullName(me()))}` : `<b style="color:${STAGE_COLORS[st]}">${esc(stageDef(st).title)}</b>`;
+    const crumb = st === null ? `${esc(COMPANY.nom)} · ${esc(fullName(me()))}` : `<b style="color:${STAGE_COLORS[st]}">${esc(stageDef(st).title)}</b>`;
     const mine = db.notifications.filter((n) => n.to === me().id);
     const unread = mine.filter((n) => !n.read).length;
-    return `<header class="top"><button type="button" class="brand" data-act="go" data-v="accueil" aria-label="Teamora · retour à la roue"><span class="brand-mark">${LOGO}</span><span class="brand-t">Teamora<small>Nova Studio</small></span></button>
+    return `<header class="top"><button type="button" class="brand" data-act="go" data-v="accueil" aria-label="Teamora · retour à la roue"><span class="brand-mark">${LOGO}</span><span class="brand-t">Teamora<small>${esc(COMPANY.nom)}</small></span></button>
       <div class="top-title"><div class="crumb">${crumb}</div><h1>${title}</h1></div>
-      <div class="top-right"><div class="persona" role="group" aria-label="Voir l’application en tant que">${Object.entries(PROFILES).map(([k, p]) => { const e = profileEmp(k);
+      <div class="top-right"><div class="persona" role="group" aria-label="Voir l’application en tant que">${Object.entries(PROFILES).filter(([k]) => profileOk(k)).map(([k, p]) => { const e = profileEmp(k);
         return `<button type="button" data-act="persona" data-p="${k}" aria-pressed="${persona() === k}" title="${esc(fullName(e))} · ${p.label}">${avatar(e)}<span class="p-l"><span class="who-name">${esc(e.firstName)} ·</span> ${p.label}</span></button>`; }).join('')}</div>
       ${ui.profile === 'salarie' && !ui.selfOf ? asEmpSelect() : ''}${persona() === 'manager' ? asMgrSelect() : ''}${spaceSwitch()}
       ${todoBtn()}
@@ -406,7 +421,7 @@
   // Outside the home page, the wheel's stages stay reachable as a strip, in the same order and colours.
   function stageRail() {
     if (ui.view === 'accueil') return '';
-    return `<nav class="rail" aria-label="Rubriques"><button type="button" class="rail-home" data-act="go" data-v="accueil" aria-label="Retour à la roue" title="Retour à la roue">${ic('home')}</button>${ui.profile === 'rh' ? `<button type="button" class="rail-home rail-rep" data-act="go" data-v="reporting" aria-label="Reporting RH" title="Reporting RH" ${ui.view === 'reporting' ? 'aria-current="page"' : ''}>${ic('chart')}</button><button type="button" class="rail-home rail-rep" data-act="go" data-v="modeles" aria-label="Modèles de documents" title="Modèles de documents" ${ui.view === 'modeles' ? 'aria-current="page"' : ''}>${ic('file')}</button><span class="rail-sep"></span>` : ''}
+    return `<nav class="rail" aria-label="Rubriques"><button type="button" class="rail-home" data-act="go" data-v="accueil" aria-label="Retour à la roue" title="Retour à la roue">${ic('home')}</button>${ui.profile === 'rh' ? `<button type="button" class="rail-home rail-rep" data-act="go" data-v="reporting" aria-label="Reporting RH" title="Reporting RH" ${ui.view === 'reporting' ? 'aria-current="page"' : ''}>${ic('chart')}</button><button type="button" class="rail-home rail-rep" data-act="go" data-v="modeles" aria-label="Modèles de documents" title="Modèles de documents" ${ui.view === 'modeles' ? 'aria-current="page"' : ''}>${ic('file')}</button><button type="button" class="rail-home rail-rep" data-act="go" data-v="parametres" aria-label="Paramètres" title="Paramètres" ${ui.view === 'parametres' ? 'aria-current="page"' : ''}>${ic('gear')}</button><span class="rail-sep"></span>` : ''}
       ${visibleStages().map((i) => { const name = stageDef(i).short;
         return `<button type="button" data-act="stage" data-i="${i}" style="--c:${STAGE_COLORS[i]}" aria-label="${esc(name)}" title="${esc(name)}" ${ui.stage === i ? 'aria-current="page"' : ''}>${ic(stageDef(i).icon)}${stageBadge(i)}</button>`; }).join('')}</nav>`;
   }
@@ -418,7 +433,8 @@
   }
   function todoBtn() { const n = todoItems().reduce((s, x) => s + x.n, 0);
     return `<button type="button" class="btn ${n ? 'primary' : 'ghost'} sm todo-btn" data-act="todo-open" aria-label="À traiter : ${n}">${ic('check')}<span class="todo-l">À traiter</span>${n ? `<span class="todo-n num">${n}</span>` : ''}</button>`; }
-  const footer = () => `<footer class="foot"><button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Réinitialiser la démo</button><button type="button" class="btn ghost sm" data-act="v2-news">${ic('star')}Nouveautés de la V2</button>
+  const footer = () => `<footer class="foot">${TENANT === 'new' ? `<button type="button" class="btn ghost sm" data-act="tenant-nova">${ic('left')}Revenir à la démo Nova Studio</button><button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Recommencer l’installation</button>`
+      : `<button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Réinitialiser la démo</button><button type="button" class="btn ghost sm" data-act="tenant-new">${ic('plus')}Tester l’installation (nouvelle entreprise)</button>`}<button type="button" class="btn ghost sm" data-act="v2-news">${ic('star')}Nouveautés de la V2</button>
     <p class="demo-note">Aperçu de démonstration : toutes les données sont fictives et enregistrées uniquement dans ce navigateur.</p></footer>`;
 
   // ---------------------------------------------------------------- Home (wheel)
@@ -433,7 +449,7 @@
     return `<label class="sr" for="as-mgr">Manager affiché</label><select id="as-mgr" class="select as-emp" data-change="as-mgr">${mgrs.map((x) => `<option value="${x.id}" ${x.id === cur ? 'selected' : ''}>${esc(fullName(x))}${x.managerId ? '' : ' · Direction'}</option>`).join('')}</select>`;
   }
   function asEmpSelect() {
-    const cur = me().id, base = db.employees.filter((e) => e.id === PROFILES.salarie.emp), arrivals = db.employees.filter((e) => e.stage >= 2 && e.stage <= 4 && e.id !== PROFILES.salarie.emp).sort((x, y) => y.startDate.localeCompare(x.startDate));
+    const cur = me().id, base = db.employees.filter((e) => e.id === profileBase('salarie')), arrivals = db.employees.filter((e) => e.stage >= 2 && e.stage <= 4 && e.id !== profileBase('salarie')).sort((x, y) => y.startDate.localeCompare(x.startDate));
     const o = (e) => `<option value="${e.id}" ${e.id === cur ? 'selected' : ''}>${esc(fullName(e))}${e.stage === 2 ? ` · arrivée le ${fmtShort(e.startDate)}` : ''}</option>`;
     return `<label class="sr" for="as-emp">Espace du collaborateur</label><select id="as-emp" class="select as-emp" data-change="as-emp">${base.map(o).join('')}<optgroup label="Nouvelles recrues">${arrivals.map(o).join('')}</optgroup></select>`;
   }
@@ -626,6 +642,8 @@
     ['Organisation du travail', ['Télétravail']]];
   const LEAVE_TYPES = LEAVE_GROUPS.flatMap(([, l]) => l);
   const ABS_TYPES = LEAVE_TYPES.filter((t) => t !== 'Télétravail');
+  // Secret médical : selon les paramètres, le manager ne voit qu'« Absence » à la place du motif d'un arrêt.
+  const typeLabel = (l) => (ui.profile === 'manager' && !ui.selfOf && IJ_TYPES.includes(l.type) && !(db.settings && db.settings.droits.motifAbsence) ? 'Absence' : l.type);
   // Indemnisés par la Sécurité sociale (attestation de salaire à transmettre) ; enregistrés directement, sans validation (ce sont des droits).
   const IJ_TYPES = ['Maladie', 'Accident du travail', 'Maternité', 'Paternité et accueil de l’enfant'];
   const DECLARED = IJ_TYPES.concat(['Événement familial', 'Enfant malade']);
@@ -637,7 +655,7 @@
   function reqRow(l, actions) {
     const e = emp(l.empId);
     return `<div class="req"><div class="who-cell">${avatar(e)}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)} · solde CP ${e.cp} j · RTT ${e.rtt} j</small>${ui.profile === 'manager' && e.managerId && e.managerId !== me().id ? `<span class="pill info" style="margin-top:4px">En remplacement de ${esc(fullName(emp(e.managerId)))}, absent·e</span>` : ''}</div></div>
-      <div class="what"><b>${esc(l.type)} · ${plural(l.days, 'jour', 'jours')}</b><small>${fmtShort(l.start)} → ${fmtDate(l.end)}${l.comment ? ` · « ${esc(l.comment)} »` : ''}</small></div>
+      <div class="what"><b>${esc(typeLabel(l))} · ${plural(l.days, 'jour', 'jours')}</b><small>${fmtShort(l.start)} → ${fmtDate(l.end)}${l.comment && typeLabel(l) === l.type ? ` · « ${esc(l.comment)} »` : ''}</small></div>
       ${actions ? `<div class="acts"><button type="button" class="btn ok sm" data-act="leave-ok" data-id="${l.id}">${ic('check')}Valider</button><button type="button" class="btn bad sm" data-act="leave-ko" data-id="${l.id}">Refuser</button></div>` : leavePill(l)}</div>`;
   }
   function myAbsences(e) {
@@ -646,7 +664,7 @@
     const start = nextMonday(TODAY, 2), end = addDays(start, 4);
     return `${myTimeHTML(e)}
       <form class="card" data-form="leave" novalidate><div class="card-h"><h3>Nouvelle demande</h3><span class="muted" style="font-size:13px">Validée par ${esc(fullName(approverOf(e)))}</span></div><div class="card-b"><div class="form-grid">
-        <div class="field"><label for="lv-type">Type</label><select id="lv-type" name="type" class="select" data-live="leave">${LEAVE_GROUPS.map(([g, l]) => `<optgroup label="${g}">${l.map((t) => `<option>${t}</option>`).join('')}</optgroup>`).join('')}</select></div>
+        <div class="field"><label for="lv-type">Type</label><select id="lv-type" name="type" class="select" data-live="leave">${LEAVE_GROUPS.map(([g, l]) => [g, l.filter(leaveTypeOn)]).filter(([, l]) => l.length).map(([g, l]) => `<optgroup label="${g}">${l.map((t) => `<option>${t}</option>`).join('')}</optgroup>`).join('')}</select></div>
         <div class="field" id="lv-event-f" hidden><label for="lv-event">Événement</label><select id="lv-event" name="event" class="select" data-live="leave">${FAMILY_EVENTS.map(([t, n]) => `<option value="${esc(t)}">${t} · ${plural(n, 'jour', 'jours')}</option>`).join('')}</select></div>
         <div class="field"><label for="lv-comment">Commentaire (facultatif)</label><input id="lv-comment" name="comment" class="input" maxlength="120" placeholder="Ex. vacances en famille"></div>
         <div class="field"><label for="lv-start">Du</label><input id="lv-start" name="start" type="date" class="input" value="${start}" data-live="leave"></div>
@@ -692,7 +710,7 @@
           let pv = k - 1; while (pv >= 0 && !isWork(days[pv])) pv--;
           let nx = k + 1; while (nx < days.length && !isWork(days[nx])) nx++;
           const st = !(pv >= 0 && sameAt(days[pv])) ? 's' : '', en = !(nx < days.length && sameAt(days[nx])) ? 'e' : '';
-          inner = `<i class="${l.status === 'En attente' ? 't-pend' : TYPE_CLASS[l.type]} ${st} ${en}" title="${esc(fullName(e))} · ${esc(l.type)} (${l.status})"></i>`;
+          inner = `<i class="${l.status === 'En attente' ? 't-pend' : TYPE_CLASS[l.type]} ${st} ${en}" title="${esc(fullName(e))} · ${esc(typeLabel(l))} (${l.status})"></i>`;
         }
         html += `<div class="pc ${isWork(s) ? '' : 'we'}">${inner}</div>`;
       });
@@ -721,7 +739,7 @@
       const all = db.leaves.filter((l) => !ui.histStatus || l.status === ui.histStatus).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       body = `<div class="toolbar"><label class="sr" for="h-status">Statut</label><select id="h-status" class="select" data-change="histStatus"><option value="">Tous les statuts</option>${['En attente', 'Approuvée', 'Refusée'].map((s) => `<option ${ui.histStatus === s ? 'selected' : ''}>${s}</option>`).join('')}</select><span class="muted">${plural(all.length, 'demande', 'demandes')}</span></div>
         <div class="card"><div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Type</th><th>Période</th><th class="r">Jours</th><th>Demandée le</th><th>Statut</th></tr></thead><tbody>${all.map((l) => { const e = emp(l.empId);
-          return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div></td><td>${esc(l.type)}</td><td>${fmtShort(l.start)} → ${fmtDate(l.end)}</td><td class="r num">${l.days}</td><td>${fmtDate(l.createdAt)}</td><td>${leavePill(l)}</td></tr>`; }).join('')}</tbody></table></div></div>`;
+          return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div></td><td>${esc(typeLabel(l))}</td><td>${fmtShort(l.start)} → ${fmtDate(l.end)}</td><td class="r num">${l.days}</td><td>${fmtDate(l.createdAt)}</td><td>${leavePill(l)}</td></tr>`; }).join('')}</tbody></table></div></div>`;
     }
     return `<div class="tabs" role="tablist">${tabs.map(([k, l, n]) => `<button type="button" role="tab" aria-selected="${ui.absTab === k}" data-act="abs-tab" data-t="${k}">${l}${n !== undefined ? `<span class="count num">${n}</span>` : ''}</button>`).join('')}</div>${body}`;
   }
@@ -730,11 +748,11 @@
   // ---- Paie du mois (voie « préparation ») : variables → contrôles → envoi au prestataire → bulletins reçus et diffusés.
   const PAY_STEPS = [['variables', 'Variables du mois'], ['controles', 'Contrôles'], ['envoi', 'Envoi au prestataire'], ['bulletins', 'Bulletins']];
   const PAY_STATUS = { Préparation: 'warn', Envoyée: 'info', Reçue: 'accent', Diffusée: 'ok' };
-  const PROVIDER = 'Silae (cabinet Expert & Paie)';
+  let PROVIDER = 'Silae (cabinet Expert & Paie)';
   const payStatus = (m) => { const pr = payrollOf(m); return pr.closed ? 'Diffusée' : pr.status || 'Préparation'; };
   const payPeople = (m) => db.employees.filter((e) => inPayroll(e, m)).sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr'));
   // Managers dont l'équipe figure dans la paie du mois : ils valident les variables de leur équipe (l'équipe RH et la direction sont validées par les RH).
-  const payManagers = (m) => [...new Set(payPeople(m).map((e) => e.managerId).filter(Boolean))].map(emp).filter((x) => x && !['e1', 'e5'].includes(x.id));
+  const payManagers = (m) => [...new Set(payPeople(m).map((e) => e.managerId).filter(Boolean))].map(emp).filter((x) => x && !['e1', DIR_ID()].includes(x.id));
   const teamOf = (mgr, m) => payPeople(m).filter((e) => e.managerId === mgr.id);
   // Contrôles avant envoi : chaque anomalie est corrigée à la source ou marquée « vérifiée ».
   function payChecks(m) {
@@ -743,7 +761,7 @@
     payPeople(m).forEach((e) => {
       const p = calcPay(e, m), full = !(e.startDate > start) && !(e.exit && e.exit.lastDay < end);
       if (full && !['Stage', 'Alternance'].includes(e.contract) && p.gross < SMIC_M * ((e.quotite || 100) / 100)) add(`smic-${e.id}`, 'bad', `${fullName(e)} : brut inférieur au SMIC`, `${eur(p.gross)} pour un SMIC mensuel de ${eur(SMIC_M)}`, null);
-      if (e.category === 'Cadre' && full && salaryAt(e, m) < 12 * 3400 * 0.78) add(`conv-${e.id}`, 'warn', `${fullName(e)} : salaire proche du minimum conventionnel cadre`, 'Vérifier la grille Syntec de sa position', null);
+      if (e.category === 'Cadre' && full && salaryAt(e, m) < 12 * 3400 * 0.78) add(`conv-${e.id}`, 'warn', `${fullName(e)} : salaire proche du minimum conventionnel cadre`, `Vérifier la grille de classification (${CONV().short}) de sa position`, null);
       if (full && db.payroll[prev] && inPayroll(e, prev) && !(e.startDate > prev + '-01')) { const q = calcPay(e, prev); if (q.gross && Math.abs(p.gross - q.gross) / q.gross > 0.2) add(`ecart-${e.id}`, 'warn', `${fullName(e)} : brut en écart de ${Math.round(((p.gross - q.gross) / q.gross) * 100)} % sur le mois précédent`, `${eur(q.gross)} → ${eur(p.gross)}`, null); }
       if (e.startDate >= start && e.startDate <= end && (!e.iban || e.iban === '—')) add(`rib-${e.id}`, 'bad', `${fullName(e)} : entrée dans le mois sans RIB`, 'Le virement du salaire ne pourra pas être fait', 'open-dossier');
       if (e.startDate >= start && e.startDate <= end && !isIntern(e) && !(dossierLight(e).dpae)) add(`dpae-${e.id}`, 'bad', `${fullName(e)} : DPAE non faite`, 'Obligatoire avant la prise de poste', 'open-dossier');
@@ -752,7 +770,7 @@
     db.leaves.filter((l) => l.status === 'En attente' && l.start <= end && l.end >= start && payPeople(m).some((e) => e.id === l.empId)).forEach((l) => add(`leave-${l.id}`, 'warn', `Absence en attente de validation : ${fullName(emp(l.empId))}`, `${l.type} du ${fmtShort(l.start)} au ${fmtShort(l.end)}`, 'leaves'));
     db.leaves.filter((l) => IJ_TYPES.includes(l.type) && !l.dsnAt && l.start <= end && l.end >= start).forEach((l) => add(`ij-${l.id}`, 'warn', `Arrêt de travail sans attestation de salaire : ${fullName(emp(l.empId))}`, 'Les indemnités journalières ne seront pas versées', 'leaves'));
     (db.timesheets || []).filter((t) => t.status === 'Soumise' && t.week.slice(0, 7) === m).forEach((t) => add(`ts-${t.id}`, 'warn', `Heures non validées : ${fullName(emp(t.empId))}`, `Semaine du ${fmtShort(t.week)}`, 'leaves'));
-    payManagers(m).filter((g) => !(pr.mgrOk || {})[g.id]).forEach((g) => add(`mgr-${g.id}`, 'warn', `Variables non validées par ${fullName(g)}`, `${plural(teamOf(g, m).length, 'collaborateur', 'collaborateurs')} · à valider avant le ${fmtShort(pr.cutoff || `${m}-20`)}`, 'remind'));
+    payManagers(m).filter((g) => !(pr.mgrOk || {})[g.id]).forEach((g) => add(`mgr-${g.id}`, 'warn', `Variables non validées par ${fullName(g)}`, `${plural(teamOf(g, m).length, 'collaborateur', 'collaborateurs')} · à valider avant le ${fmtShort(pr.cutoff || `${m}-${String(PAY_CUTOFF).padStart(2, '0')}`)}`, 'remind'));
     return out;
   }
   const openChecks = (m) => payChecks(m).filter((c) => !c.ack);
@@ -767,7 +785,7 @@
     const head = `<div class="card"><div class="card-h" style="flex-wrap:wrap"><div class="toolbar"><button type="button" class="icon-btn" data-act="pay-month" data-m="${months[idx - 1] || ''}" ${idx ? '' : 'disabled'} aria-label="Mois précédent">${ic('left')}</button>
       <h3 style="min-width:170px;text-align:center">Paie de ${monthLabel(m).toLowerCase()}</h3><button type="button" class="icon-btn" data-act="pay-month" data-m="${months[idx + 1] || ''}" ${idx < months.length - 1 ? '' : 'disabled'} aria-label="Mois suivant">${ic('right')}</button>
       <span class="pill ${PAY_STATUS[st]}">${st === 'Préparation' ? 'En préparation' : st === 'Envoyée' ? `Envoyée au prestataire le ${fmtShort(pr.sentAt)}` : st === 'Reçue' ? 'Bulletins reçus · à diffuser' : 'Bulletins diffusés'}</span></div>
-      <span class="hint">${edit ? `Clôture des variables le ${fmtDate(pr.cutoff || `${m}-20`)} · ` : ''}${plural(people.length, 'collaborateur', 'collaborateurs')} · prestataire : ${PROVIDER}</span></div>
+      <span class="hint">${edit ? `Clôture des variables le ${fmtDate(pr.cutoff || `${m}-${String(PAY_CUTOFF).padStart(2, '0')}`)} · ` : ''}${plural(people.length, 'collaborateur', 'collaborateurs')} · prestataire : ${PROVIDER}</span></div>
       <ol class="pay-steps">${PAY_STEPS.map(([k, l], i) => `<li class="${k === step ? 'now' : done[k] ? 'ok' : ''}"><button type="button" data-act="pay-step" data-s="${k}"><i class="num">${done[k] && k !== step ? '✓' : i + 1}</i>${l}${k === 'controles' && open.length && edit ? `<span class="badge-dot">${open.length}</span>` : ''}</button></li>`).join('')}</ol></div>`;
     let body = '';
     if (step === 'variables') {
@@ -818,7 +836,7 @@
   function mgrPayCard() {
     const m = payCurrent(), pr = payrollOf(m), team = teamOf(me(), m), okd = (pr.mgrOk || {})[me().id];
     if (!team.length || payStatus(m) !== 'Préparation') return '';
-    return card(`Variables de paie de l’équipe · ${monthLabel(m).toLowerCase()}`, okd ? `<span class="pill ok">Validées le ${fmtShort(okd)}</span>` : `<span class="pill warn">À valider avant le ${fmtShort(pr.cutoff || `${m}-20`)}</span>`, `<div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Absences</th><th class="r">Heures sup.</th><th class="r">Prime</th></tr></thead><tbody>
+    return card(`Variables de paie de l’équipe · ${monthLabel(m).toLowerCase()}`, okd ? `<span class="pill ok">Validées le ${fmtShort(okd)}</span>` : `<span class="pill warn">À valider avant le ${fmtShort(pr.cutoff || `${m}-${String(PAY_CUTOFF).padStart(2, '0')}`)}</span>`, `<div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Absences</th><th class="r">Heures sup.</th><th class="r">Prime</th></tr></thead><tbody>
       ${team.map((e) => { const p = calcPay(e, m), a = p.abs, sick = a.sick.reduce((s, x) => s + x.work, 0); return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small></div></div></td><td><small>${[a.cp ? `${a.cp} j CP` : '', a.rtt ? `${a.rtt} j RTT` : '', sick ? `${sick} j maladie` : '', a.tt ? `${a.tt} j télétravail` : ''].filter(Boolean).join(' · ') || '—'}</small></td><td class="r num">${p.ot.amount ? fmtH(p.ot.h25 + p.ot.h50) : '—'}</td><td class="r num">${p.bonus ? eur(p.bonus) : '—'}</td></tr>`; }).join('')}</tbody></table></div>
       <div class="card-b"><div class="toolbar"><span class="hint">Vérifie les absences, heures et primes de ton équipe : une erreur signalée après la clôture se corrige le mois suivant.</span>${okd ? '' : `<button type="button" class="btn primary" data-act="pay-mgr-ok" style="margin-left:auto">${ic('check')}Valider les variables</button>`}</div></div>`);
   }
@@ -905,7 +923,8 @@
   // ---------------------------------------------------------------- Mon profil
   // Salarié : son dossier et l'organigramme de l'entreprise.
   function viewMyAdmin() {
-    const t = ui.profTab === 'organigramme' ? 'organigramme' : 'profil';
+    const orgOk = ui.profile !== 'salarie' || !!ui.selfOf || db.settings.droits.orgSalarie, t = ui.profTab === 'organigramme' && orgOk ? 'organigramme' : 'profil';
+    if (!orgOk) return viewProfile();
     return `<div class="tabs" role="tablist">${[['profil', 'Mon profil'], ['organigramme', 'Organigramme']].map(([k, l]) => `<button type="button" role="tab" aria-selected="${t === k}" data-act="prof-tab" data-t="${k}">${l}</button>`).join('')}</div>${t === 'profil' ? viewProfile() : orgChart()}`;
   }
   function viewProfile() {
@@ -916,7 +935,7 @@
         <div><span>Adresse postale</span>${esc(e.address) || '—'}</div><div><span>Coordonnées bancaires</span><span class="num">${esc(e.iban)}</span></div><div><span>Situation familiale</span>${esc(e.family || '—')}</div></div></div></div>
       <form class="card" data-form="profile" novalidate><div class="card-h"><h3>Mes informations personnelles</h3><span class="muted" style="font-size:13px">Les RH sont prévenus de chaque modification</span></div><div class="card-b"><div class="form-grid">
         <div class="field"><label for="p-phone">Téléphone</label><input id="p-phone" name="phone" class="input" value="${esc(e.phone)}" autocomplete="tel"></div>
-        <div class="field"><label for="p-loc">Lieu de travail</label><select id="p-loc" name="location" class="select">${['Paris', 'Lyon', 'Télétravail majoritaire'].map((l) => `<option ${l === e.location ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="field"><label for="p-loc">Lieu de travail</label><select id="p-loc" name="location" class="select">${SITES().concat(['Télétravail majoritaire']).map((l) => `<option ${l === e.location ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
         <div class="field full"><label for="p-emerg">Contact d’urgence</label><input id="p-emerg" name="emergency" class="input" value="${esc(e.emergency)}" placeholder="Nom · téléphone"></div></div>
         <div class="toolbar" style="margin-top:16px"><span class="err" id="p-err"></span><button class="btn primary" style="margin-left:auto">Enregistrer</button></div></div></form>
       ${myChangesHTML(e)}
@@ -924,7 +943,293 @@
   }
 
   // ================================================================ Modules : développement, suivi, documents
-  const MOD_ACT = {}, MOD_CHG = {}, MOD_FORMS = {}, MODALS = {}, DRAWERS = {}, MOD_LIVE = {};
+  const MOD_ACT = {}, MOD_CHG = {}, MOD_FORMS = {}, MODALS = {}, DRAWERS = {}, MOD_LIVE = {}, MOD_INP = {};
+  // ================================================================ V2 · Paramètres de l'entreprise et assistant de démarrage
+  // Tout ce qui était propre à Nova Studio (identité, convention, sites, services, règles de temps et de paie…) vit dans db.settings.
+  const CONVENTIONS = {
+    syntec: { short: 'Syntec', label: 'Syntec — bureaux d’études techniques, ingénieurs-conseils, sociétés de conseil (IDCC 1486)', idcc: 'Syntec (IDCC 1486)', convention: 'nationale des bureaux d’études techniques (Syntec)',
+      presets: ['Période d’essai : 2 mois (employés), 3 mois (agents de maîtrise), 4 mois (cadres), renouvelable une fois', 'Préavis : 1 à 2 mois (ETAM selon l’ancienneté), 3 mois (cadres)', 'Maintien de salaire en cas de maladie après 1 an d’ancienneté', 'Classifications ETAM et cadres (positions et coefficients)'] },
+    code: { short: 'Code du travail', label: 'Aucune convention collective — règles du Code du travail', idcc: 'Aucune (Code du travail)', convention: 'du Code du travail (aucune convention collective applicable)',
+      presets: ['Période d’essai : durées maximales légales (2, 3 ou 4 mois selon la catégorie)', 'Préavis de licenciement légal : 1 mois de 6 mois à 2 ans d’ancienneté, 2 mois au-delà ; démission selon l’usage', 'Maintien de salaire légal (art. L1226-1) après 1 an d’ancienneté, à partir du 8e jour', 'Classifications à définir par l’entreprise'] },
+  };
+  const CONV = () => CONVENTIONS[(db.settings || {}).convention] || CONVENTIONS.syntec;
+  const LEAVE_OPTIONAL = ['RTT', 'Sans solde', 'Télétravail'];
+  function defaultSettings() {
+    return { company: { nom: 'Nova Studio', raison: 'Nova Studio SAS', adresse: '12 rue de la Paix', cp: '75002', ville: 'Paris', siret: '000 000 000 00000', naf: '7410Z · Activités spécialisées de design', urssaf: 'Urssaf Île-de-France', domaine: 'novastudio.fr', logo: null, signataire: 'e1' },
+      convention: 'syntec', directionId: 'e5',
+      sites: [{ id: 's1', nom: 'Paris', adresse: '12 rue de la Paix, 75002 Paris', transport: 88.8 }, { id: 's2', nom: 'Lyon', adresse: '24 quai Saint-Antoine, 69002 Lyon', transport: 74.7 }],
+      services: [['Direction', 'e5'], ['RH', 'e1'], ['Design', 'e2'], ['Tech', 'e6'], ['Marketing', 'e7'], ['Sales', 'e8'], ['Finance', 'e9']].map(([nom, head]) => ({ nom, head })),
+      temps: { heures: 35, forfait: 218, ttMax: 2 }, conges: { decompte: 'ouvrés', off: [], backup: true },
+      paie: { prestataire: 'Silae (cabinet Expert & Paie)', cloture: 20, trValeur: 10, trEmployeur: 6, mutSal: 30, mutEmp: 45, ttJour: 2.7 },
+      recrutement: { conservation: 2, relance: 7 }, droits: { motifAbsence: false, orgSalarie: true }, setupDone: true };
+  }
+  function blankSettings() {
+    const s = defaultSettings();
+    return Object.assign(s, { company: { nom: '', raison: '', adresse: '', cp: '', ville: '', siret: '', naf: '', urssaf: '', domaine: '', logo: null, signataire: 'e1' }, directionId: 'e1', sites: [], services: [], setupDone: false,
+      paie: Object.assign(s.paie, { prestataire: '' }) });
+  }
+  // Applique les réglages aux constantes utilisées partout (documents, paie, temps, recrutement…).
+  function applySettings() {
+    const s = db.settings, c = s.company, cv = CONV();
+    Object.assign(COMPANY, { nom: c.nom || 'Mon entreprise', entreprise: c.raison || c.nom || 'Mon entreprise', entreprise_adresse: [c.adresse, [c.cp, c.ville].filter(Boolean).join(' ')].filter(Boolean).join(', '), siret: c.siret || '—', convention: cv.convention, ville: c.ville || '', domaine: c.domaine || 'entreprise.fr', logo: c.logo || null });
+    Object.assign(COMPANY_PAY, { naf: c.naf || '—', urssaf: c.urssaf || '—', idcc: cv.idcc });
+    DEPTS.splice(0, DEPTS.length, ...s.services.map((x) => x.nom)); Object.keys(DEPT_HEAD).forEach((k) => delete DEPT_HEAD[k]); s.services.forEach((x) => { DEPT_HEAD[x.nom] = x.head || DIR_ID(); });
+    Object.keys(TRANSPORT).forEach((k) => delete TRANSPORT[k]); s.sites.forEach((x) => { TRANSPORT[x.nom] = Number(x.transport) || 0; });
+    ({ trValeur: TR_VALUE, trEmployeur: TR_EMPLOYER, mutSal: MUT_S, mutEmp: MUT_P, ttJour: TT_DAY, cloture: PAY_CUTOFF } = s.paie); PROVIDER = s.paie.prestataire || 'prestataire de paie'; TT_ALLOW_MAX = Math.round(TT_DAY * 22 * 100) / 100;
+    TT_MAX = s.temps.ttMax; FORFAIT_DAYS = s.temps.forfait; RETENTION_YEARS = s.recrutement.conservation; ANSWER_DAYS = s.recrutement.relance;
+    SIGN = `\n\nL’équipe RH de ${COMPANY.nom}`;
+    RGPD_NOTE = `Vos données sont utilisées uniquement pour nos recrutements. Elles sont supprimées automatiquement ${plural(RETENTION_YEARS, 'an', 'ans')} après notre dernier échange. Vous pouvez à tout moment demander leur suppression ou vous opposer à leur conservation en écrivant à rh@${COMPANY.domaine}.`;
+  }
+  const SITES = () => ((db.settings && db.settings.sites.length) ? db.settings.sites.map((x) => x.nom) : ['Siège']);
+  const siteOf = (e) => SITES().find((s) => (e.location || '').startsWith(s)) || SITES()[0];
+  const leaveTypeOn = (t) => !((db.settings && db.settings.conges.off) || []).includes(t);
+  function normalizeSettings() {
+    const d = defaultSettings(); db.settings = db.settings || d; db.settingsLog = db.settingsLog || [];
+    ['company', 'temps', 'conges', 'paie', 'recrutement', 'droits'].forEach((k) => { db.settings[k] = Object.assign({}, d[k], db.settings[k]); });
+    ['sites', 'services'].forEach((k) => { if (!Array.isArray(db.settings[k])) db.settings[k] = d[k]; });
+    db.employees.forEach((e) => { if (e.id === 'e1') e.admin = true; });
+  }
+  // ---- Complétude : ce qu'il reste à régler pour que Teamora fonctionne pleinement.
+  function setupChecks() {
+    const s = db.settings, c = s.company, emps = db.employees.filter((e) => e.stage < 15);
+    return [['entreprise', 'Identité de l’entreprise (nom, raison sociale, adresse, SIRET, NAF, Urssaf)', !!(c.nom && c.raison && c.adresse && c.ville && sirenDigits(c.siret).length === 14 && c.naf && c.urssaf)],
+      ['entreprise', 'Logo de l’entreprise (documents)', !!c.logo], ['convention', 'Convention collective et temps de travail', !!s.convention],
+      ['sites', 'Au moins un site', s.sites.length > 0], ['services', 'Services avec un responsable', s.services.length > 0 && s.services.every((x) => x.head && emp(x.head))],
+      ['services', 'Direction désignée', !!emp(s.directionId)], ['import', 'Collaborateurs enregistrés (au moins 2)', emps.length >= 2],
+      ['utilisateurs', 'Au moins un administrateur RH', db.employees.some((e) => e.admin && e.stage < 15)], ['paie', 'Prestataire de paie et règles de paie', !!s.paie.prestataire]];
+  }
+  const sirenDigits = (s) => String(s || '').replace(/\D/g, '');
+  const luhnOk = (n) => { let sum = 0; [...n].reverse().forEach((ch, i) => { let d = Number(ch); if (i % 2) { d *= 2; if (d > 9) d -= 9; } sum += d; }); return sum % 10 === 0; };
+  const SET_SECTIONS = [['entreprise', 'Entreprise', 'folder'], ['convention', 'Convention et temps de travail', 'clock'], ['sites', 'Sites', 'target'], ['services', 'Services et Direction', 'users'],
+    ['import', 'Collaborateurs (import)', 'idCard'], ['utilisateurs', 'Utilisateurs et droits', 'lock'], ['absences', 'Absences', 'heart'], ['paie', 'Paie', 'euro'], ['recrutement', 'Recrutement', 'search'], ['historique', 'Historique des modifications', 'refresh']];
+  const fld = (id, label, input, full, hint) => `<div class="field${full ? ' full' : ''}"><label for="${id}">${label}</label>${input}${hint ? `<small class="field-hint">${hint}</small>` : ''}</div>`;
+  const inp = (id, name, val, attrs = '') => `<input id="${id}" name="${name}" class="input" value="${esc(val == null ? '' : String(val))}" ${attrs}>`;
+  const empOpt = (cur, list, none) => `${none ? `<option value="">${none}</option>` : ''}${list.map((e) => `<option value="${e.id}" ${e.id === cur ? 'selected' : ''}>${esc(fullName(e))} · ${esc(e.title)}</option>`).join('')}`;
+  function setSection(k, wiz) {
+    const s = db.settings, c = s.company, people = db.employees.filter((e) => e.stage < 15).sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr'));
+    if (k === 'entreprise') return `<div class="form-grid">${fld('st-nom', 'Nom d’usage', inp('st-nom', 'nom', c.nom, 'maxlength="60" required'), false, 'Affiché dans Teamora et les courriers')}${fld('st-raison', 'Raison sociale', inp('st-raison', 'raison', c.raison, 'maxlength="80"'), false, 'Ex. Nova Studio SAS')}
+      ${fld('st-adr', 'Adresse du siège', inp('st-adr', 'adresse', c.adresse, 'maxlength="120"'), true)}${fld('st-cp', 'Code postal', inp('st-cp', 'cp', c.cp, 'maxlength="5" inputmode="numeric"'))}${fld('st-ville', 'Ville', inp('st-ville', 'ville', c.ville, 'maxlength="60"'))}
+      ${fld('st-siret', 'SIRET', inp('st-siret', 'siret', c.siret, 'maxlength="20" inputmode="numeric" placeholder="14 chiffres"'), false, 'Sur l’avis de situation Insee ou un extrait Kbis')}${fld('st-naf', 'Code NAF / APE', inp('st-naf', 'naf', c.naf, 'maxlength="80" placeholder="Ex. 7410Z"'))}
+      ${fld('st-urssaf', 'Organisme de recouvrement', inp('st-urssaf', 'urssaf', c.urssaf, 'maxlength="60" placeholder="Ex. Urssaf Île-de-France"'))}${fld('st-dom', 'Domaine des adresses e-mail', inp('st-dom', 'domaine', c.domaine, 'maxlength="60" placeholder="entreprise.fr"'), false, 'Utilisé pour créer l’adresse des nouveaux arrivants')}
+      ${wiz ? '' : fld('st-sign', 'Signataire des documents', `<select id="st-sign" name="signataire" class="select">${empOpt(c.signataire, people)}</select>`, false, 'Apparaît dans les contrats et attestations')}
+      <div class="field full"><span class="lbl">Logo</span><div class="logo-row">${c.logo ? `<img class="logo-prev" src="${c.logo}" alt="Logo de l’entreprise">` : '<span class="logo-prev empty">Aucun logo</span>'}<label class="btn ghost sm upload">${ic('image')}${c.logo ? 'Remplacer' : 'Ajouter un logo'}<input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" data-change="set-logo" aria-label="Logo de l’entreprise"></label>${c.logo ? '<button type="button" class="btn ghost sm" data-act="set-logo-del">Retirer</button>' : ''}</div><small class="field-hint">En tête des documents (contrats, attestations, certificats)</small></div></div>`;
+    if (k === 'convention') { const cv = CONV();
+      return `<div class="conv-pick">${Object.entries(CONVENTIONS).map(([key, x]) => `<label class="conv-opt ${s.convention === key ? 'on' : ''}"><input type="radio" name="convention" value="${key}" ${s.convention === key ? 'checked' : ''}><b>${x.label}</b><ul>${x.presets.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></label>`).join('')}</div>
+        <p class="hint" style="margin:8px 0 14px">La convention préremplit les règles ci-dessus ; elles restent ajustables plus favorablement au salarié, jamais en dessous du minimum. Convention actuelle : <b>${esc(cv.short)}</b>.</p>
+        <div class="form-grid">${fld('st-h', 'Durée hebdomadaire collective (heures)', inp('st-h', 'heures', s.temps.heures, 'type="number" min="1" max="48" step="0.5"'), false, 'Durée légale : 35 h ; maximum absolu : 48 h')}${fld('st-fj', 'Forfait annuel en jours (cadres)', inp('st-fj', 'forfait', s.temps.forfait, 'type="number" min="100" max="218"'), false, 'Au plus 218 jours (art. L3121-64)')}
+          ${fld('st-tt', 'Télétravail : jours maximum par semaine', inp('st-tt', 'ttMax', s.temps.ttMax, 'type="number" min="0" max="5"'), false, 'Selon la charte ou l’accord télétravail')}</div>`; }
+    if (k === 'sites') return `<div class="set-list">${s.sites.map((x, i) => `<div class="set-row"><div class="form-grid">${fld(`st-sn${i}`, 'Nom du site', inp(`st-sn${i}`, `nom_${i}`, x.nom, 'maxlength="40"'))}${fld(`st-sa${i}`, 'Adresse', inp(`st-sa${i}`, `adresse_${i}`, x.adresse, 'maxlength="120"'))}
+        ${fld(`st-st${i}`, 'Abonnement transport mensuel (€)', inp(`st-st${i}`, `transport_${i}`, x.transport, 'type="number" min="0" step="0.1"'), false, 'L’employeur en rembourse 50 %')}</div><input type="hidden" name="id_${i}" value="${x.id}">
+        <button type="button" class="icon-btn" data-act="set-del" data-k="sites" data-i="${i}" aria-label="Supprimer le site ${esc(x.nom)}" title="Supprimer">${ic('x')}</button></div>`).join('') || '<p class="muted" style="margin:0">Aucun site pour l’instant.</p>'}</div>
+      <button type="button" class="btn ghost sm" data-act="set-add" data-k="sites">${ic('plus')}Ajouter un site</button>`;
+    if (k === 'services') return `<div class="set-list">${s.services.map((x, i) => `<div class="set-row"><div class="form-grid">${fld(`st-vn${i}`, 'Service', inp(`st-vn${i}`, `nom_${i}`, x.nom, 'maxlength="40"'))}${fld(`st-vh${i}`, 'Responsable', `<select id="st-vh${i}" name="head_${i}" class="select">${empOpt(x.head, people, 'À désigner')}</select>`)}</div>
+        <button type="button" class="icon-btn" data-act="set-del" data-k="services" data-i="${i}" aria-label="Supprimer le service ${esc(x.nom)}" title="Supprimer">${ic('x')}</button></div>`).join('') || '<p class="muted" style="margin:0">Aucun service pour l’instant.</p>'}</div>
+      <button type="button" class="btn ghost sm" data-act="set-add" data-k="services">${ic('plus')}Ajouter un service</button>
+      <div class="form-grid" style="margin-top:16px">${fld('st-dir', 'Direction (valide les besoins hors budget et les demandes des RH)', `<select id="st-dir" name="directionId" class="select">${empOpt(s.directionId, people, 'À désigner')}</select>`, true)}</div>`;
+    if (k === 'import') return importSection(wiz);
+    if (k === 'utilisateurs') { const admins = db.employees.filter((e) => e.admin && e.stage < 15);
+      return `<h4 class="sub">Administrateurs RH</h4><div class="set-list">${admins.map((e) => `<div class="set-row simple">${avatar(e, 'sm')}<div class="t"><b>${esc(fullName(e))}</b><small>${esc(e.email)} · accès complet aux dossiers</small></div>${admins.length > 1 ? `<button type="button" class="btn ghost sm" data-act="set-admin" data-id="${e.id}" data-v="0">Retirer</button>` : '<span class="pill neutral">Administrateur principal</span>'}</div>`).join('')}</div>
+        <div class="toolbar" style="margin-top:8px"><label class="sr" for="st-adm">Ajouter un administrateur</label><select id="st-adm" class="select">${empOpt('', people.filter((e) => !e.admin), 'Choisir un collaborateur…')}</select><button type="button" class="btn ghost sm" data-act="set-admin" data-v="1">${ic('plus')}Ajouter</button></div>
+        <p class="hint">Les managers sont reconnus automatiquement à partir de l’organigramme ; chaque collaborateur reçoit une invitation à son adresse e-mail pour accéder à son espace.</p>
+        <h4 class="sub" style="margin-top:18px">Droits</h4>
+        <label class="agree"><input type="checkbox" name="motifAbsence" ${s.droits.motifAbsence ? 'checked' : ''}> Les managers voient le motif des arrêts (maladie, accident du travail…) de leur équipe</label>
+        <p class="hint" style="margin:2px 0 10px 26px">Décoché (recommandé) : le manager voit seulement « Absence », sans le motif médical.</p>
+        <label class="agree"><input type="checkbox" name="orgSalarie" ${s.droits.orgSalarie ? 'checked' : ''}> Les salariés voient l’organigramme complet de l’entreprise</label>`; }
+    if (k === 'absences') { const off = s.conges.off;
+      return `<div class="form-grid">${fld('st-dec', 'Décompte des congés payés', `<select id="st-dec" name="decompte" class="select">${['ouvrés', 'ouvrables'].map((x) => `<option ${x === s.conges.decompte ? 'selected' : ''}>${x}</option>`).join('')}</select>`, false, 'Ouvrés : 25 jours par an ; ouvrables : 30 jours (même durée)')}</div>
+        <h4 class="sub" style="margin-top:14px">Types d’absence proposés</h4><div class="type-grid">${LEAVE_TYPES.map((t) => { const opt = LEAVE_OPTIONAL.includes(t);
+          return `<label class="agree ${opt ? '' : 'locked'}"><input type="checkbox" name="type_${t}" ${opt ? (off.includes(t) ? '' : 'checked') : 'checked disabled'}> ${esc(t)}${opt ? '' : ' <small>· droit légal, toujours proposé</small>'}</label>`; }).join('')}</div>
+        <label class="agree" style="margin-top:12px"><input type="checkbox" name="backup" ${s.conges.backup ? 'checked' : ''}> Quand un manager est absent, son propre manager peut valider à sa place</label>`; }
+    if (k === 'paie') return `<div class="form-grid">${fld('st-pp', 'Prestataire ou logiciel de paie', inp('st-pp', 'prestataire', s.paie.prestataire, 'maxlength="80" placeholder="Ex. cabinet comptable, Silae, Sage…"'), true)}
+      ${fld('st-pc', 'Clôture des variables (jour du mois)', inp('st-pc', 'cloture', s.paie.cloture, 'type="number" min="1" max="28"'), false, 'Les managers valident leurs variables avant cette date')}
+      ${fld('st-trv', 'Titre-restaurant : valeur (€)', inp('st-trv', 'trValeur', s.paie.trValeur, 'type="number" min="0" max="25" step="0.5"'), false, '0 si l’entreprise n’en propose pas')}${fld('st-tre', 'Titre-restaurant : part employeur (€)', inp('st-tre', 'trEmployeur', s.paie.trEmployeur, 'type="number" min="0" step="0.1"'), false, 'Entre 50 % et 60 % de la valeur pour l’exonération')}
+      ${fld('st-ms', 'Mutuelle : part salarié (€ / mois)', inp('st-ms', 'mutSal', s.paie.mutSal, 'type="number" min="0" step="0.5"'))}${fld('st-me', 'Mutuelle : part employeur (€ / mois)', inp('st-me', 'mutEmp', s.paie.mutEmp, 'type="number" min="0" step="0.5"'), false, 'Au moins 50 % de la cotisation (art. L911-7)')}
+      ${fld('st-tj', 'Allocation télétravail (€ par jour)', inp('st-tj', 'ttJour', s.paie.ttJour, 'type="number" min="0" step="0.1"'), false, 'Exonérée jusqu’à 2,70 € par jour (barème Urssaf)')}</div>`;
+    if (k === 'recrutement') return `<div class="form-grid">${fld('st-rc', 'Conservation des candidatures non retenues (années)', inp('st-rc', 'conservation', s.recrutement.conservation, 'type="number" min="1" max="2"'), false, 'Recommandation de la CNIL : 2 ans au plus après le dernier contact')}
+      ${fld('st-rr', 'Relance d’un candidat sans nouvelles (jours)', inp('st-rr', 'relance', s.recrutement.relance, 'type="number" min="1" max="30"'))}</div>`;
+    return '';
+  }
+  // ---- Import des collaborateurs (fichier CSV exporté d'un tableur).
+  const IMPORT_COLS = ['prenom', 'nom', 'email', 'poste', 'service', 'contrat', 'entree', 'salaire', 'manager', 'site'];
+  const IMPORT_SAMPLE = 'prenom;nom;email;poste;service;contrat;entree;salaire;manager;site\nCamille;Martin;camille.martin@exemple.fr;Directrice générale;Direction;CDI;01/03/2019;85000;;Paris\nYanis;Lopez;yanis.lopez@exemple.fr;Développeur;Tech;CDI;15/09/2023;45000;camille.martin@exemple.fr;Paris';
+  function parseImport(text) {
+    const lines = String(text || '').replace(/\r/g, '').split('\n').filter((l) => l.trim()); if (!lines.length) return { rows: [], err: 'Colle ou dépose un fichier.' };
+    const sep = (lines[0].match(/;/g) || []).length >= (lines[0].match(/,/g) || []).length ? ';' : ',';
+    const norm = (h) => h.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '');
+    const alias = { prenom: 'prenom', nom: 'nom', email: 'email', mail: 'email', courriel: 'email', poste: 'poste', fonction: 'poste', service: 'service', departement: 'service', contrat: 'contrat', entree: 'entree', datedentree: 'entree', dateentree: 'entree', salaire: 'salaire', salaireannuel: 'salaire', manager: 'manager', responsable: 'manager', site: 'site', lieu: 'site' };
+    const head = lines[0].split(sep).map((h) => alias[norm(h)] || null);
+    if (!['prenom', 'nom', 'email'].every((k) => head.includes(k))) return { rows: [], err: 'La première ligne doit nommer les colonnes : prenom, nom, email (au minimum).' };
+    const known = new Set(db.employees.map((e) => e.email.toLowerCase())), seen = new Set();
+    const rows = lines.slice(1).map((l, n) => { const cells = l.split(sep), r = {}; head.forEach((k, i) => { if (k) r[k] = (cells[i] || '').trim(); });
+      const errs = [], d = (r.entree || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/), date = d ? `${d[3]}-${d[2].padStart(2, '0')}-${d[1].padStart(2, '0')}` : /^\d{4}-\d{2}-\d{2}$/.test(r.entree || '') ? r.entree : '';
+      if (!r.prenom || !r.nom) errs.push('prénom et nom'); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(r.email || '')) errs.push('e-mail invalide');
+      const em = (r.email || '').toLowerCase(); if (known.has(em)) errs.push('déjà enregistré'); if (seen.has(em)) errs.push('en double'); seen.add(em);
+      const contrat = ({ cdi: 'CDI', cdd: 'CDD', alternance: 'Alternance', apprentissage: 'Alternance', stage: 'Stage' })[(r.contrat || 'CDI').toLowerCase()] || null; if (!contrat) errs.push('contrat inconnu (CDI, CDD, Alternance, Stage)');
+      if (r.entree && !date) errs.push('date d’entrée (JJ/MM/AAAA)'); const sal = Number(String(r.salaire || '').replace(/\s/g, '').replace(',', '.')) || 0;
+      return { n: n + 2, r, contrat, date: date || TODAY, sal, errs }; });
+    return { rows, sep };
+  }
+  function importSection(wiz) {
+    const st = ui.importText != null ? parseImport(ui.importText) : null, ok = st && st.rows ? st.rows.filter((x) => !x.errs.length) : [];
+    const count = db.employees.filter((e) => e.stage < 15).length;
+    return `<p style="margin:0 0 10px">Importe tes collaborateurs depuis un tableur (Excel, Google Sheets…) enregistré au format CSV. Colonnes reconnues : <b>${IMPORT_COLS.join(', ')}</b>. Le manager se désigne par son e-mail ; les services et sites inconnus sont créés.</p>
+      <div class="toolbar"><label class="btn ghost sm upload">${ic('file')}Choisir un fichier CSV<input type="file" accept=".csv,text/csv,text/plain" data-change="set-import-file" aria-label="Fichier CSV"></label><button type="button" class="btn ghost sm" data-act="set-import-sample">Voir un exemple</button><span class="muted" style="font-size:13px">${plural(count, 'collaborateur enregistré', 'collaborateurs enregistrés')}</span></div>
+      <label class="sr" for="st-imp">Contenu CSV</label><textarea id="st-imp" class="input mono" rows="5" placeholder="Ou colle ici le contenu du fichier…" data-input="set-import">${esc(ui.importText || '')}</textarea>
+      <div id="imp-prev">${importPreview(st)}</div>
+      ${wiz ? '<p class="hint" style="margin:8px 0 0">Tu peux aussi passer cette étape et ajouter les collaborateurs plus tard depuis Vie administrative.</p>' : ''}`;
+  }
+  function importPreview(st) {
+    if (!st) return '';
+    if (st.err) return `<p class="lint warn" style="margin:8px 0 0">${esc(st.err)}</p>`;
+    const ok = st.rows.filter((x) => !x.errs.length);
+    return `<div class="table-wrap imp-table"><table><thead><tr><th>Ligne</th><th>Collaborateur</th><th>Poste · service</th><th>Contrat · entrée</th><th>Manager</th><th>Contrôle</th></tr></thead><tbody>${st.rows.map((x) => `<tr class="${x.errs.length ? 'bad' : ''}"><td class="num">${x.n}</td><td><b>${esc(`${x.r.prenom || ''} ${x.r.nom || ''}`)}</b><small>${esc(x.r.email || '')}</small></td><td>${esc(x.r.poste || '—')} · ${esc(x.r.service || '—')}</td><td>${esc(x.contrat || x.r.contrat || '')} · ${fmtShort(x.date)}</td><td>${esc(x.r.manager || '—')}</td><td>${x.errs.length ? `<span class="pill bad">${esc(x.errs.join(', '))}</span>` : '<span class="pill ok">Prêt</span>'}</td></tr>`).join('')}</tbody></table></div>
+      <div class="toolbar" style="margin-top:10px"><button type="button" class="btn primary sm" data-act="set-import-go" ${ok.length ? '' : 'disabled'}>${ic('check')}Importer ${plural(ok.length, 'collaborateur', 'collaborateurs')}</button>${ok.length < st.rows.length ? `<span class="hint">${plural(st.rows.length - ok.length, 'ligne sera ignorée', 'lignes seront ignorées')} : corrige-les dans le fichier.</span>` : ''}</div>`;
+  }
+  function runImport() {
+    const st = parseImport(ui.importText), ok = st.rows.filter((x) => !x.errs.length), s = db.settings, byMail = {};
+    ok.forEach((x) => { const id = uid('e'), svc = x.r.service || 'Direction', site = x.r.site || (s.sites[0] && s.sites[0].nom) || 'Siège';
+      if (!s.services.some((v) => v.nom === svc)) s.services.push({ nom: svc, head: null }); if (!s.sites.some((v) => v.nom === site)) s.sites.push({ id: uid('s'), nom: site, adresse: '', transport: 0 });
+      const started = x.date <= TODAY, e = { id, firstName: x.r.prenom, lastName: x.r.nom, title: x.r.poste || 'Collaborateur', dept: svc, managerId: null, stage: started ? 5 : 2, startDate: x.date, contract: x.contrat, salary: x.sal,
+        email: x.r.email.toLowerCase(), phone: '', location: site, birthDate: null, address: '', emergency: '', cp: 0, rtt: 0, status: null, exit: null, category: x.contrat === 'Alternance' || x.contrat === 'Stage' ? 'Employé' : x.sal >= 45000 ? 'Cadre' : 'Employé',
+        nationality: '', zone: 'France', registeredAt: started ? x.date : null, family: 'Célibataire', iban: '—', titreEnd: null, endDate: null, importedAt: TODAY };
+      db.employees.push(e); byMail[e.email] = e; e._mgr = (x.r.manager || '').toLowerCase(); });
+    const all = Object.fromEntries(db.employees.map((e) => [e.email.toLowerCase(), e]));
+    Object.values(byMail).forEach((e) => { const m = all[e._mgr]; if (m && m.id !== e.id) e.managerId = m.id; delete e._mgr; });
+    s.services.forEach((v) => { if (!v.head) { const h = db.employees.find((e) => e.dept === v.nom && e.stage < 15 && !db.employees.some((x) => x.id === e.managerId && x.dept === v.nom)); if (h) v.head = h.id; } });
+    if (!emp(s.directionId) || s.directionId === 'e1') { const top = db.employees.find((e) => !e.managerId && e.id !== 'e1' && e.stage < 15); if (top) s.directionId = top.id; }
+    db.settingsLog.unshift({ at: TODAY, by: me() ? me().id : 'e1', section: 'Collaborateurs (import)', changes: [`${plural(ok.length, 'collaborateur importé', 'collaborateurs importés')}`] });
+    ui.importText = null; applySettings(); toast(`${plural(ok.length, 'collaborateur importé', 'collaborateurs importés')} · invitations prêtes à partir`); commit();
+  }
+  // ---- Enregistrement d'une section, avec garde-fous légaux (erreur bloquante) et points d'attention (avertissement).
+  function saveSection(k, v) {
+    const s = db.settings, num = (x) => Number(String(x).replace(',', '.')), errs = [], warns = [], before = JSON.stringify(s);
+    const label = (SET_SECTIONS.find((x) => x[0] === k) || [k, k])[1];
+    if (k === 'entreprise') {
+      const n = sirenDigits(v.siret);
+      if (!v.nom.trim()) errs.push('Indique le nom d’usage de l’entreprise.'); if (v.siret && n.length !== 14) errs.push('Le SIRET compte 14 chiffres.'); else if (n && !luhnOk(n)) warns.push('Le SIRET ne passe pas la clé de contrôle : vérifie-le.');
+      if (v.cp && !/^\d{5}$/.test(v.cp.trim())) errs.push('Le code postal compte 5 chiffres.'); if (v.naf && !/^\d{2}\.?\d{2}[A-Za-z]/.test(v.naf.trim())) errs.push('Le code NAF a la forme 7410Z.');
+      if (v.domaine && !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(v.domaine.trim())) errs.push('Le domaine e-mail a la forme entreprise.fr.');
+      if (!errs.length) Object.assign(s.company, { nom: v.nom.trim(), raison: v.raison.trim(), adresse: v.adresse.trim(), cp: v.cp.trim(), ville: v.ville.trim(), siret: v.siret.trim(), naf: v.naf.trim().toUpperCase(), urssaf: v.urssaf.trim(), domaine: v.domaine.trim().toLowerCase() }, v.signataire ? { signataire: v.signataire } : {});
+    }
+    if (k === 'convention') { const h = num(v.heures), f = num(v.forfait), t = num(v.ttMax);
+      if (!(h >= 1 && h <= 48)) errs.push('La durée hebdomadaire doit être comprise entre 1 et 48 heures (maximum légal).'); else if (h > 35) warns.push(`Au-delà de 35 h, les ${h - 35} h par semaine sont des heures supplémentaires majorées.`);
+      if (!(f >= 100 && f <= 218)) errs.push('Le forfait annuel ne peut pas dépasser 218 jours (art. L3121-64).'); if (!(t >= 0 && t <= 5)) errs.push('Le télétravail est compris entre 0 et 5 jours par semaine.');
+      if (!errs.length) Object.assign(s, { convention: v.convention || s.convention, temps: { heures: h, forfait: f, ttMax: t } }); }
+    if (k === 'sites') { const list = []; Object.keys(v).filter((x) => x.startsWith('nom_')).forEach((x) => { const i = x.slice(4); list.push({ id: v[`id_${i}`] || uid('s'), nom: v[x].trim(), adresse: (v[`adresse_${i}`] || '').trim(), transport: num(v[`transport_${i}`]) || 0 }); });
+      if (!list.length) errs.push('Il faut au moins un site.'); if (list.some((x) => !x.nom)) errs.push('Chaque site a un nom.'); if (new Set(list.map((x) => x.nom.toLowerCase())).size < list.length) errs.push('Deux sites portent le même nom.');
+      if (list.some((x) => x.transport < 0)) errs.push('Le prix d’un abonnement ne peut pas être négatif.');
+      if (!errs.length) { const old = s.sites; list.forEach((x) => { const o = old.find((y) => y.id === x.id); if (o && o.nom && o.nom !== x.nom) db.employees.forEach((e) => { if ((e.location || '').startsWith(o.nom)) e.location = e.location.replace(o.nom, x.nom); }); }); s.sites = list; } }
+    if (k === 'services') { const list = []; Object.keys(v).filter((x) => x.startsWith('nom_')).forEach((x) => { const i = x.slice(4); list.push({ nom: v[x].trim(), head: v[`head_${i}`] || null }); });
+      if (list.some((x) => !x.nom)) errs.push('Chaque service a un nom.'); if (new Set(list.map((x) => x.nom.toLowerCase())).size < list.length) errs.push('Deux services portent le même nom.');
+      if (!errs.length) { s.services.forEach((o, i) => { const nw = list[i]; if (nw && o.nom && o.nom !== nw.nom) db.employees.forEach((e) => { if (e.dept === o.nom) e.dept = nw.nom; }); }); s.services = list; if (v.directionId) s.directionId = v.directionId;
+        if (list.some((x) => !x.head)) warns.push('Un service sans responsable : ses demandes remonteront à la Direction.'); } }
+    if (k === 'utilisateurs') Object.assign(s.droits, { motifAbsence: !!v.motifAbsence, orgSalarie: !!v.orgSalarie });
+    if (k === 'absences') Object.assign(s.conges, { decompte: v.decompte, backup: !!v.backup, off: LEAVE_OPTIONAL.filter((t) => !v[`type_${t}`]) });
+    if (k === 'paie') { const p = { prestataire: (v.prestataire || '').trim(), cloture: Math.round(num(v.cloture)), trValeur: num(v.trValeur), trEmployeur: num(v.trEmployeur), mutSal: num(v.mutSal), mutEmp: num(v.mutEmp), ttJour: num(v.ttJour) };
+      if (!(p.cloture >= 1 && p.cloture <= 28)) errs.push('Le jour de clôture est compris entre 1 et 28.'); if ([p.trValeur, p.trEmployeur, p.mutSal, p.mutEmp, p.ttJour].some((x) => !(x >= 0))) errs.push('Les montants sont des nombres positifs.');
+      if (p.trEmployeur > p.trValeur) errs.push('La part employeur du titre-restaurant ne peut pas dépasser sa valeur.');
+      if (p.mutEmp + p.mutSal > 0 && p.mutEmp < p.mutSal) errs.push('L’employeur doit financer au moins 50 % de la complémentaire santé (art. L911-7).');
+      if (p.trValeur > 0 && (p.trEmployeur / p.trValeur < 0.5 || p.trEmployeur / p.trValeur > 0.6)) warns.push('Hors de 50 à 60 % de la valeur, la part employeur du titre-restaurant n’est pas exonérée de cotisations.');
+      if (p.ttJour > 2.7) warns.push('Au-delà de 2,70 € par jour, l’allocation de télétravail doit être justifiée pour rester exonérée.');
+      if (!p.prestataire) warns.push('Sans prestataire, l’export des variables reste possible mais l’envoi n’est pas tracé.');
+      if (!errs.length) s.paie = p; }
+    if (k === 'recrutement') { const c = Math.round(num(v.conservation)), r = Math.round(num(v.relance));
+      if (!(c >= 1 && c <= 2)) errs.push('La CNIL recommande de ne pas conserver une candidature plus de 2 ans sans l’accord du candidat.'); if (!(r >= 1 && r <= 30)) errs.push('La relance est comprise entre 1 et 30 jours.');
+      if (!errs.length) s.recrutement = { conservation: c, relance: r }; }
+    if (errs.length) return { errs, warns };
+    if (JSON.stringify(s) !== before) { const diff = settingsDiff(JSON.parse(before), s); db.settingsLog.unshift({ at: `${TODAY} ${new Date().toTimeString().slice(0, 5)}`, by: me() ? me().id : 'e1', section: label, changes: diff.length ? diff : ['Mise à jour'] }); if (db.settingsLog.length > 300) db.settingsLog.length = 300; }
+    applySettings(); return { errs: [], warns };
+  }
+  function settingsDiff(a, b) {
+    const out = [], walk = (x, y, path) => { if (typeof y !== 'object' || y === null || Array.isArray(y)) { const sx = JSON.stringify(x), sy = JSON.stringify(y); if (sx !== sy) out.push(Array.isArray(y) ? `${path} modifié` : `${path} : ${x === undefined || x === '' ? '—' : String(x).slice(0, 40)} → ${y === '' ? '—' : String(y).slice(0, 40)}`); return; } Object.keys(y).forEach((k) => walk(x ? x[k] : undefined, y[k], path ? `${path}.${k}` : k)); };
+    walk(a, b, ''); return out.filter((x) => !/^company\.logo/.test(x)).slice(0, 8);
+  }
+  function viewSettings() {
+    const k = SET_SECTIONS.some(([x]) => x === ui.setSec) ? ui.setSec : 'entreprise', checks = setupChecks(), done = checks.filter((x) => x[2]).length, pct = Math.round((done / checks.length) * 100);
+    const todoBy = (sec) => checks.filter((x) => x[0] === sec && !x[2]).length;
+    const body = k === 'historique' ? `<div class="req-list">${db.settingsLog.length ? db.settingsLog.map((x) => `<div class="req"><span class="doc-ic">${ic('refresh')}</span><div class="what"><b>${esc(x.section)}</b><small>${esc(x.at)} · ${esc(fullName(emp(x.by)))}</small><small>${x.changes.map(esc).join(' · ')}</small></div></div>`).join('') : '<div class="empty">Aucune modification pour l’instant.</div>'}</div>`
+      : k === 'import' || k === 'utilisateurs' && false ? setSection(k) : `<form data-form="settings" data-sec="${k}" novalidate>${setSection(k)}<div id="set-msg" aria-live="polite"></div><div class="toolbar" style="margin-top:16px;justify-content:flex-end"><button class="btn primary">${ic('check')}Enregistrer</button></div></form>`;
+    return `<div class="set-head card card-b"><div><b>Paramètres de ${esc(COMPANY.nom)}</b><small>Ces réglages s’appliquent à toute l’entreprise. Chaque modification est tracée dans l’historique.</small></div>
+        <div class="set-meter" title="${done} sur ${checks.length}"><span>Espace prêt à <b class="num">${pct} %</b></span><i><b style="width:${pct}%"></b></i></div></div>
+      <div class="set-grid"><nav class="card set-nav" aria-label="Sections des paramètres">${SET_SECTIONS.map(([x, l, icn]) => `<button type="button" data-act="set-sec" data-k="${x}" aria-current="${x === k}">${ic(icn)}<span>${l}</span>${todoBy(x) ? `<span class="badge-dot">${todoBy(x)}</span>` : ''}</button>`).join('')}</nav>
+        <section class="card set-main"><div class="card-h"><h3>${(SET_SECTIONS.find(([x]) => x === k) || [])[1]}</h3>${k === 'import' ? '' : ''}</div><div class="card-b">${body}</div></section></div>
+      ${pct < 100 ? `<div class="card card-b"><h4 class="sub">Reste à régler</h4>${checks.filter((x) => !x[2]).map(([sec, l]) => `<div class="todo"><span class="chk-dot warn"></span><div class="t"><b>${esc(l)}</b></div><button type="button" class="btn ghost sm" data-act="set-sec" data-k="${sec}">Régler</button></div>`).join('')}</div>` : ''}`;
+  }
+  // ---- Assistant de démarrage : une nouvelle entreprise est opérationnelle en quelques écrans.
+  const WIZ = [['bienvenue', 'Bienvenue'], ['entreprise', 'Entreprise'], ['convention', 'Convention'], ['sites', 'Sites'], ['services', 'Services'], ['import', 'Collaborateurs'], ['paie', 'Paie'], ['fin', 'C’est prêt']];
+  function viewSetup() {
+    const i = Math.max(0, WIZ.findIndex(([k]) => k === ui.wizStep)), [k, l] = WIZ[i], admin = emp('e1');
+    let inner = '';
+    if (k === 'bienvenue') inner = `<p class="wiz-lead">Bienvenue dans Teamora ! En quelques minutes, on configure ton entreprise : identité, convention collective, sites, services, collaborateurs et paie. Chaque étape peut être complétée plus tard dans <b>Paramètres</b>.</p>
+      <form data-form="wiz-admin" novalidate><h4 class="sub">Ton compte administrateur</h4><div class="form-grid">${fld('wz-fn', 'Prénom', inp('wz-fn', 'firstName', admin ? admin.firstName : '', 'maxlength="40" autocomplete="given-name"'))}${fld('wz-ln', 'Nom', inp('wz-ln', 'lastName', admin ? admin.lastName : '', 'maxlength="40" autocomplete="family-name"'))}
+        ${fld('wz-em', 'E-mail professionnel', inp('wz-em', 'email', admin ? admin.email : '', 'type="email" maxlength="80" autocomplete="email"'))}${fld('wz-ti', 'Fonction', inp('wz-ti', 'title', admin ? admin.title : 'Responsable RH', 'maxlength="60"'))}
+        ${fld('wz-co', 'Nom de l’entreprise', inp('wz-co', 'company', db.settings.company.nom, 'maxlength="60"'), true)}</div><div id="set-msg" aria-live="polite"></div>
+        <div class="wiz-nav"><span></span><button class="btn primary">Commencer${ic('arrow')}</button></div></form>`;
+    else if (k === 'fin') { const checks = setupChecks(), done = checks.filter((x) => x[2]).length;
+      inner = `<div class="wiz-done">${ic('check')}<h3>${esc(COMPANY.nom)} est prêt à utiliser Teamora</h3><p>${done} réglages sur ${checks.length} sont faits. Tu pourras compléter le reste à tout moment dans Paramètres.</p></div>
+        <div class="card card-b">${checks.map(([, lab, ok]) => `<div class="todo"><span class="chk-dot ${ok ? 'ok' : 'warn'}"></span><div class="t"><b>${esc(lab)}</b></div><span class="pill ${ok ? 'ok' : 'neutral'}">${ok ? 'Fait' : 'Plus tard'}</span></div>`).join('')}</div>
+        <div class="wiz-nav"><button type="button" class="btn ghost" data-act="wiz-go" data-s="paie">${ic('left')}Retour</button><button type="button" class="btn primary" data-act="wiz-finish">${ic('check')}Lancer Teamora</button></div>`; }
+    else inner = `<form data-form="settings" data-sec="${k}" data-wiz="1" novalidate>${setSection(k, true)}<div id="set-msg" aria-live="polite"></div>
+        <div class="wiz-nav"><button type="button" class="btn ghost" data-act="wiz-go" data-s="${WIZ[i - 1][0]}">${ic('left')}Retour</button><span class="wiz-r">${k === 'import' ? '' : `<button type="button" class="btn ghost" data-act="wiz-go" data-s="${WIZ[i + 1][0]}">Passer</button>`}<button class="btn primary">${k === 'import' ? 'Continuer' : 'Enregistrer et continuer'}${ic('arrow')}</button></span></div></form>`;
+    return `<div class="wiz-page"><header class="wiz-top"><span class="brand-mark">${LOGO}</span><div><b>Installation de Teamora</b><small>${esc(COMPANY.nom || 'Nouvelle entreprise')}</small></div><button type="button" class="btn ghost sm" data-act="tenant-nova">Revenir à la démo Nova Studio</button></header>
+      <ol class="wiz-steps">${WIZ.map(([x, lab], n) => `<li class="${n < i ? 'ok' : n === i ? 'now' : ''}"><i class="num">${n < i ? '✓' : n + 1}</i><span>${lab}</span></li>`).join('')}</ol>
+      <section class="card wiz-card"><div class="card-h"><h3>${k === 'bienvenue' ? 'Créons ton espace' : k === 'fin' ? 'Récapitulatif' : l}</h3><span class="muted num" style="font-size:13px">Étape ${i + 1} sur ${WIZ.length}</span></div><div class="card-b">${inner}</div></section></div>`;
+  }
+  // ---- Entreprise de démonstration vierge (« Nouvelle entreprise ») ou retour à Nova Studio.
+  function blankSeed() {
+    const d = window.TEAMORA_SEED();
+    Object.assign(d, { employees: [], journey: {}, leaves: [], jobs: [], candidates: [], notifications: [], payroll: {}, objectives: [], reviews: [], feedback: [], enrollments: [], purgeLog: [], onboarding: {}, changeReqs: [], timesheets: [], payInfoReqs: [], offboarding: {}, talent: {}, succession: {}, duerp: [], wishes: [], history: [], visits: [], incidents: [], risks: [], survey: [], adjustments: [], cases: [], documents: [], journal: [] });
+    d.raises = Object.assign({}, d.raises, { proposals: {}, status: 'Fermée' }); d.valueShare = Object.assign({}, d.valueShare, { years: [], total: 0 }); d.settings = blankSettings(); d.settingsLog = []; return d;
+  }
+  Object.assign(MOD_ACT, {
+    'set-sec'(d) { ui.setSec = d.k; ui.importText = null; window.scrollTo(0, 0); render(); },
+    'set-add'(d) { const s = db.settings; if (d.k === 'sites') s.sites.push({ id: uid('s'), nom: '', adresse: '', transport: 0 }); else s.services.push({ nom: '', head: null }); render(); const last = [...document.querySelectorAll('.set-row input[name^="nom_"]')].pop(); if (last) last.focus(); },
+    'set-del'(d) { const s = db.settings, i = Number(d.i), x = s[d.k][i]; if (!x) return;
+      const used = d.k === 'sites' ? db.employees.filter((e) => e.stage < 15 && siteOf(e) === x.nom && (e.location || '').startsWith(x.nom)).length : db.employees.filter((e) => e.stage < 15 && e.dept === x.nom).length;
+      if (used && x.nom) { toast(`${plural(used, 'collaborateur est rattaché', 'collaborateurs sont rattachés')} à « ${x.nom} » : change d’abord leur ${d.k === 'sites' ? 'site' : 'service'}.`, 'info'); return; }
+      s[d.k].splice(i, 1); applySettings(); save(); render(); },
+    'set-admin'(d) { const id = d.v === '1' ? (document.getElementById('st-adm') || {}).value : d.id, e = emp(id); if (!e) { toast('Choisis un collaborateur.', 'info'); return; }
+      if (d.v !== '1' && db.employees.filter((x) => x.admin && x.stage < 15).length <= 1) { toast('Il faut au moins un administrateur.', 'info'); return; }
+      e.admin = d.v === '1'; db.settingsLog.unshift({ at: TODAY, by: me().id, section: 'Utilisateurs et droits', changes: [`${fullName(e)} ${e.admin ? 'devient administrateur' : 'n’est plus administrateur'}`] }); if (e.admin) notify(e.id, 'Tu es désormais administrateur RH de Teamora.'); toast(e.admin ? `${fullName(e)} est administrateur` : 'Administrateur retiré'); commit(); },
+    'set-logo-del'() { db.settings.company.logo = null; applySettings(); db.settingsLog.unshift({ at: TODAY, by: me().id, section: 'Entreprise', changes: ['Logo retiré'] }); commit(); },
+    'set-import-sample'() { ui.importText = IMPORT_SAMPLE; render(); },
+    'set-import-go'() { runImport(); },
+    'wiz-go'(d) { ui.wizStep = d.s; ui.importText = null; window.scrollTo(0, 0); render(); },
+    'wiz-finish'() { db.settings.setupDone = true; Object.assign(ui, { view: 'accueil', stage: null, profile: 'rh', selfOf: null, wizStep: null }); save(); toast(`Bienvenue dans Teamora, ${me().firstName} !`); render(); },
+    'tenant-new'() { ui.modal = { type: 'tenant-new' }; render(); },
+    'tenant-new-ok'() { switchTenant('new', true); },
+    'tenant-nova'() { switchTenant('nova'); },
+  });
+  MODALS['tenant-new'] = (m, shell) => shell('Tester l’installation', `<div class="modal-b"><p style="margin:0 0 8px">Teamora va s’ouvrir sur une <b>entreprise vierge</b>, comme pour un nouveau client : l’assistant de démarrage te guide pour tout paramétrer.</p><p class="hint" style="margin:0">La démo Nova Studio est conservée : tu peux y revenir à tout moment depuis le bas de page.</p></div>`,
+    '<div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="button" class="btn primary" data-act="tenant-new-ok">Créer une entreprise vierge</button></div>');
+  Object.assign(MOD_CHG, {
+    'set-logo': async (v, d, t) => { const f = t.files && t.files[0]; if (!f) return; try { const src = await readImage(f); if (src.length > 400000) { toast('Logo trop lourd : choisis une image plus légère.', 'info'); return; }
+      db.settings.company.logo = src; applySettings(); db.settingsLog.unshift({ at: TODAY, by: me() ? me().id : 'e1', section: 'Entreprise', changes: ['Logo modifié'] }); toast('Logo enregistré'); commit(); } catch (e) { toast(e.message, 'info'); } },
+    'set-import-file'(v, d, t) { const f = t.files && t.files[0]; if (!f) return; const fr = new FileReader(); fr.onload = () => { ui.importText = String(fr.result || ''); render(); }; fr.readAsText(f, 'utf-8'); },
+  });
+  Object.assign(MOD_FORMS, {
+    settings(v, form) {
+      const k = form.dataset.sec, wiz = form.dataset.wiz === '1', box = form.querySelector('#set-msg');
+      if (k === 'import') { if (wiz) { ui.wizStep = WIZ[WIZ.findIndex(([x]) => x === 'import') + 1][0]; render(); } return; }
+      const r = saveSection(k, v);
+      if (r.errs.length) { box.innerHTML = `<div class="lint bad"><b>${ic('x')}À corriger avant d’enregistrer</b>${r.errs.map((x) => `<p>${esc(x)}</p>`).join('')}</div>`; return; }
+      if (wiz) { ui.wizStep = WIZ[WIZ.findIndex(([x]) => x === k) + 1][0]; if (r.warns.length) toast(r.warns[0], 'info'); commit(); window.scrollTo(0, 0); return; }
+      toast(r.warns.length ? `Enregistré · ${r.warns[0]}` : 'Paramètres enregistrés', r.warns.length ? 'info' : 'ok'); commit();
+      if (r.warns.length) { const b = document.getElementById('set-msg'); if (b) b.innerHTML = `<div class="lint warn"><b>Points d’attention</b>${r.warns.map((x) => `<p>${esc(x)}</p>`).join('')}</div>`; }
+    },
+    'wiz-admin'(v, form) {
+      const box = form.querySelector('#set-msg'), errs = [];
+      if (!v.firstName.trim() || !v.lastName.trim()) errs.push('Indique ton prénom et ton nom.'); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.email.trim())) errs.push('Indique une adresse e-mail valide.'); if (!v.company.trim()) errs.push('Indique le nom de l’entreprise.');
+      if (errs.length) { box.innerHTML = `<div class="lint bad"><b>${ic('x')}À compléter</b>${errs.map((x) => `<p>${esc(x)}</p>`).join('')}</div>`; return; }
+      let a = emp('e1'); const domain = v.email.trim().split('@')[1].toLowerCase();
+      if (!a) { a = { id: 'e1', stage: 5, startDate: TODAY, contract: 'CDI', salary: 0, dept: 'RH', managerId: null, phone: '', location: 'Siège', birthDate: null, address: '', emergency: '', cp: 0, rtt: 0, status: null, exit: null, category: 'Cadre', nationality: '', zone: 'France', registeredAt: TODAY, family: 'Célibataire', iban: '—', titreEnd: null, endDate: null, admin: true }; db.employees.push(a); }
+      Object.assign(a, { firstName: v.firstName.trim(), lastName: v.lastName.trim(), email: v.email.trim().toLowerCase(), title: v.title.trim() || 'Responsable RH', admin: true });
+      Object.assign(db.settings.company, { nom: v.company.trim(), raison: db.settings.company.raison || v.company.trim(), domaine: db.settings.company.domaine || domain, signataire: 'e1' });
+      if (!db.settings.services.length) db.settings.services = [{ nom: 'Direction', head: null }, { nom: 'RH', head: 'e1' }];
+      applySettings(); ui.wizStep = 'entreprise'; save(); render(); window.scrollTo(0, 0);
+    },
+  });
+  MOD_INP['set-import'] = (val) => { ui.importText = val; const box = document.getElementById('imp-prev'); if (box) box.innerHTML = importPreview(val.trim() ? parseImport(val) : null); };
   // ---- V2 · liste « À traiter » et nouveautés de la version
   MODALS.todo = (m, shell) => { const items = todoItems();
     return shell('À traiter', `<div class="modal-b">${items.length ? items.map((x) => `<div class="todo-sec"><div class="todo-sec-h"><span class="stage-dot" style="background:${STAGE_COLORS[x.i]}">${ic(stageDef(x.i).icon)}</span><b>${esc(x.name)}</b><span class="badge-dot">${x.n}</span>
@@ -935,6 +1240,8 @@
     ['Organisation', [['Arrivées et Départs regroupés', 'Pré-embauche, embauche et intégration forment un seul dossier par recrue, en onglets ; idem pour les trois temps du départ. La roue passe de 16 à 12 rubriques.', 'arrivees'],
       ['Liste « À traiter »', 'Un bouton en haut rassemble tout ce qui t’attend, rubrique par rubrique et personne par personne.', null],
       ['Teamo, l’assistant', 'Bouton « Teamo » en bas à droite : pose tes questions sur l’utilisation de Teamora ; Teamo (propulsé par Claude) tient compte de l’écran ouvert et propose un lien vers la bonne rubrique. Disponible sur la page publiée.', null],
+      ['Paramètres de l’entreprise', 'Pictogramme engrenage (RH) : identité et logo, convention (Syntec ou Code du travail), temps de travail, sites, services et Direction, import des collaborateurs (CSV), administrateurs et droits, absences, paie, recrutement. Garde-fous légaux et historique des modifications.', 'parametres'],
+      ['Installation d’une nouvelle entreprise', 'En bas de page, « Tester l’installation » ouvre une entreprise vierge et son assistant de démarrage en 8 étapes ; la démo Nova Studio reste disponible.', null],
       ['Barre du haut allégée', 'Modèles et Reporting restent dans le bandeau de gauche ; la barre du haut garde le profil, l’espace, « À traiter » et les notifications.', null]]],
     ['Arrivée', [['Statuts réels', '« Arrivée le … », « Essai jusqu’au … », « En intégration », « En poste », « Départ le … · motif » remplacent les libellés génériques.', 'collaborateurs'],
       ['Stagiaires', 'Convention de stage tripartite au lieu de la DPAE et du contrat de travail, tuteur, gratification, pas de période d’essai.', 'arrivees'],
@@ -957,7 +1264,7 @@
     'todo-go'(d) { ui.modal = null; ACT.stage(d); },
     'todo-person'(d) { ui.modal = null; ACT['open-dossier'](d); },
     'v2-news'() { ui.modal = { type: 'v2-news' }; render(); },
-    'news-go'(d) { ui.modal = null; const i = visibleStages().find((k) => stageView(k) === d.v); if (i === undefined) { toast('Rubrique non disponible pour ce profil.', 'info'); render(); return; } ACT.stage({ i }); },
+    'news-go'(d) { ui.modal = null; if (d.v === 'parametres') { if (ui.profile !== 'rh') { toast('Les paramètres sont réservés aux RH.', 'info'); render(); return; } ACT.go({ v: 'parametres' }); return; } const i = visibleStages().find((k) => stageView(k) === d.v); if (i === undefined) { toast('Rubrique non disponible pour ce profil.', 'info'); render(); return; } ACT.stage({ i }); },
   });
   // ================================================================ V2 · Arrivées et Départs : un dossier unique par personne
   const PROC = {
@@ -1032,7 +1339,7 @@
   const ownTeam = (id) => orgPeople().filter((x) => x.managerId === id).length;
   const teamSize = (id, seen = new Set()) => reportsOf(id).reduce((s, k) => (seen.has(k.id) ? s : (seen.add(k.id), s + 1 + teamSize(k.id, seen))), 0);
   const isUnder = (id, bossId) => { let e = emp(id), n = 0; while (e && e.managerId && n++ < 30) { if (e.managerId === bossId) return true; e = emp(e.managerId); } return false; };
-  const orgSite = (e) => ((e.location || '').startsWith('Lyon') ? 'Lyon' : 'Paris');
+  const orgSite = (e) => siteOf(e);
   const orgFiltered = () => !!(ui.orgQ || ui.orgDept || ui.orgSite);
   const orgMatch = (e) => { const q = (ui.orgQ || '').trim().toLowerCase();
     return (!q || `${fullName(e)} ${e.title} ${e.dept}`.toLowerCase().includes(q)) && (!ui.orgDept || e.dept === ui.orgDept) && (!ui.orgSite || orgSite(e) === ui.orgSite); };
@@ -1041,7 +1348,7 @@
     const n = teamSize(e.id), fold = (ui.orgFold || {})[e.id] && !(orgFiltered() && kids.some((k) => orgMatch(k) || teamHas(k.id))), rh = ui.profile === 'rh', nx = e.managerNext && emp(e.managerNext.id);
     const pv = ui.orgPreview, cls = [orgFiltered() ? (orgMatch(e) ? 'hit' : 'dim') : '', e.id === me().id ? 'me' : '', pv && pv.id === e.id ? 'mv' : '', pv && pv.to === e.id ? 'tgt' : ''].join(' ');
     return `<div class="oc ${cls}" style="--d:${DEPT_HUE[e.dept] || 'var(--accent)'}" data-oid="${e.id}" ${rh && e.managerId ? 'data-drag="1"' : ''}>${pv && pv.id === e.id ? '<span class="oc-new">Nouvelle place</span>' : ''}
-      <button type="button" class="oc-b" data-act="org-open" data-id="${e.id}">${avatar(e, 'sm')}<span><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small><i>${esc(e.dept)}${orgSite(e) === 'Lyon' ? ' · Lyon' : ''}</i></span></button>
+      <button type="button" class="oc-b" data-act="org-open" data-id="${e.id}">${avatar(e, 'sm')}<span><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small><i>${esc(e.dept)}${orgSite(e) !== SITES()[0] ? ` · ${esc(orgSite(e))}` : ''}</i></span></button>
       ${e.stage < 3 ? `<span class="pill info oc-tag">Arrivée le ${fmtShort(e.startDate)}</span>` : ''}${rh && nx ? `<span class="pill warn oc-tag" title="Changement de manager programmé">→ ${esc(nx.firstName)} au ${fmtShort(e.managerNext.from)}</span>` : ''}${e.id === me().id ? '<span class="oc-me">Moi</span>' : ''}
       ${kids.length ? `<button type="button" class="oc-n" data-act="org-fold" data-id="${e.id}" aria-expanded="${!fold}" title="${fold ? 'Déplier' : 'Replier'} l’équipe"><span class="num">${kids.length}</span> direct${kids.length > 1 ? 's' : ''}${n !== kids.length ? ` · <span class="num">${n}</span> au total` : ''}${ic('right').replace('<svg', '<svg class="chev"')}</button>` : ''}</div>`;
   }
@@ -1058,7 +1365,7 @@
     const sel = (id, k, label, list) => `<label class="sr" for="${id}">${label}</label><select id="${id}" class="select" data-change="org-filter" data-k="${k}"><option value="">${label}</option>${list.map((x) => `<option ${ui[k] === x ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
     return `<div class="card org-card-wrap ${ui.orgFull ? 'full' : ''}" ${ui.orgFull ? 'role="dialog" aria-label="Organigramme en plein écran"' : ''}><div class="card-h org-bar"><div class="toolbar">
         <div class="search">${ic('search')}<label class="sr" for="org-q">Rechercher une personne</label><input id="org-q" class="input" type="search" placeholder="Nom, poste, service…" value="${esc(ui.orgQ || '')}" data-input="orgq" autocomplete="off"></div>
-        ${sel('org-dept', 'orgDept', 'Tous les services', depts.sort((a, b) => DEPTS.indexOf(a) - DEPTS.indexOf(b)))}${sel('org-site', 'orgSite', 'Tous les sites', ['Paris', 'Lyon'])}
+        ${sel('org-dept', 'orgDept', 'Tous les services', depts.sort((a, b) => DEPTS.indexOf(a) - DEPTS.indexOf(b)))}${sel('org-site', 'orgSite', 'Tous les sites', SITES())}
         <span class="muted" id="org-count" style="font-size:13px">${hits === null ? `${plural(people.length, 'personne', 'personnes')} · ${plural(depts.length, 'service', 'services')}` : plural(hits, 'résultat', 'résultats')}</span></div>
         <div class="toolbar"><div class="zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="org-zoom" data-z="-1" aria-label="Dézoomer">−</button><span class="num" id="org-z">${Math.round((ui.orgZoom || 1) * 100)} %</span><button type="button" class="icon-btn" data-act="org-zoom" data-z="1" aria-label="Zoomer">+</button><button type="button" class="btn ghost sm" data-act="org-zoom" data-z="fit">Ajuster</button></div>
           <button type="button" class="btn ghost sm" data-act="org-unfold">Tout déplier</button>${ui.orgFull ? `<button type="button" class="btn ghost sm" data-act="org-full" aria-pressed="true" title="Quitter le plein écran (Échap)">${ic('shrink')}Quitter le plein écran</button>` : `<button type="button" class="icon-btn org-fs" data-act="org-full" aria-pressed="false" aria-label="Afficher en plein écran" data-tip="Plein écran">${ic('expand')}</button>`}${rh ? `<button type="button" class="btn primary sm" data-act="org-move">${ic('arrow')}Changer un rattachement</button>` : ''}</div></div>
@@ -1206,7 +1513,7 @@
   Object.assign(MOD_ACT, {
     'pay-step'(d) { ui.payStep = d.s; render(); },
     'pay-ack'(d) { const pr = payrollOf(ui.payMonth); pr.acks = Object.assign({}, pr.acks, { [d.id]: { by: me().id, date: TODAY } }); toast('Point marqué comme vérifié'); commit(); },
-    'pay-remind'(d) { notify(d.id, `Les variables de paie de ton équipe sont à valider avant le ${fmtDate(payrollOf(ui.payMonth).cutoff || `${ui.payMonth}-20`)}.`); toast(`${fullName(emp(d.id))} est relancé`); commit(); },
+    'pay-remind'(d) { notify(d.id, `Les variables de paie de ton équipe sont à valider avant le ${fmtDate(payrollOf(ui.payMonth).cutoff || `${ui.payMonth}-${String(PAY_CUTOFF).padStart(2, '0')}`)}.`); toast(`${fullName(emp(d.id))} est relancé`); commit(); },
     'pay-mgr-ok'() { const m = payCurrent(), pr = payrollOf(m); pr.mgrOk = Object.assign({}, pr.mgrOk, { [me().id]: TODAY }); notify('e1', `${fullName(me())} a validé les variables de paie de son équipe (${monthLabel(m).toLowerCase()}).`); toast('Variables validées · les RH sont prévenus'); commit(); },
     'pay-send'() { const m = ui.payMonth, pr = payrollOf(m); if (openChecks(m).length) { toast('Des points de contrôle restent à lever.', 'info'); return; } Object.assign(pr, { status: 'Envoyée', sentAt: TODAY, sentBy: me().id }); ui.payStep = 'envoi'; toast(`Variables envoyées à ${PROVIDER}`); commit(); },
     'pay-receive'() { const pr = payrollOf(ui.payMonth); Object.assign(pr, { status: 'Reçue', receivedAt: TODAY }); ui.payStep = 'bulletins'; toast('Bulletins reçus · DSN déposée par le prestataire'); commit(); },
@@ -1917,7 +2224,7 @@
   const isNeed = (j) => !NEED_OPEN.includes(j.status);
   const needsDirection = (j) => j.reason === 'Création de poste' || !j.budgeted;
   const needSteps = (j) => [['demande', 'Demande', j.requestedBy], ['rh', 'Validation RH', 'e1']]
-    .concat(needsDirection(j) ? [['direction', 'Validation direction', 'e5']] : []).concat([['publication', 'Publication de l’offre', 'e1']]);
+    .concat(needsDirection(j) ? [['direction', 'Validation direction', DIR_ID()]] : []).concat([['publication', 'Publication de l’offre', 'e1']]);
   // Le manager modifie son besoin tant qu'il est en brouillon ou renvoyé « À modifier » ; une fois envoyé, seuls les RH le modifient (jusqu'à la publication).
   const draftLike = (j) => ['Brouillon', 'À modifier'].includes(j.status);
   const canEditNeed = (j) => (ui.profile === 'rh' ? ['Brouillon', 'À modifier', 'En validation', 'Validée'].includes(j.status) : ui.profile === 'manager' && draftLike(j) && (jobManager(j) === me().id || j.requestedBy === me().id));
@@ -2050,7 +2357,7 @@
     let who = null, label = '';
     if (j.status === 'Brouillon') { who = j.requestedBy; label = 'Envoi du brouillon'; }
     else if (j.status === 'À modifier') { who = j.requestedBy; label = 'Correction par le demandeur'; }
-    else if (j.status === 'En validation') { who = j.pending === 'direction' ? 'e5' : 'e1'; label = j.pending === 'direction' ? 'Validation direction' : 'Validation RH'; }
+    else if (j.status === 'En validation') { who = j.pending === 'direction' ? DIR_ID() : 'e1'; label = j.pending === 'direction' ? 'Validation direction' : 'Validation RH'; }
     else if (j.status === 'Validée') { who = 'e1'; label = 'Publication de l’offre'; }
     const days = who ? workDays(addDays(since, 1), TODAY) : 0;
     return { who, label, since, days, late: !!who && j.status !== 'Brouillon' && days > NEED_SLA };
@@ -2059,7 +2366,7 @@
   function needReminders() {
     db.jobs.forEach((j) => {
       const w = needWait(j); if (!w.late || (j.remindAt && j.remindAt >= w.since)) return;
-      j.remindAt = TODAY; const to = w.who === 'e5' ? 'e1' : w.who;
+      j.remindAt = TODAY; const to = w.who === DIR_ID() ? 'e1' : w.who;
       notify(to, `Relance : le besoin « ${j.title} » (${jobRef(j)}) attend « ${w.label} » depuis ${w.days} jours ouvrés.`);
       if (to !== jobManager(j)) notify(jobManager(j), `Votre besoin « ${j.title} » attend « ${w.label} » depuis ${w.days} jours ouvrés : les RH sont relancés.`);
     });
@@ -2176,7 +2483,7 @@
       const j = db.jobs.find((x) => x.id === ui.modal.id), d = ui.modal.d, comment = v.comment.trim();
       if (d === 'À modifier' && !comment) return formError('Un commentaire est obligatoire pour expliquer la modification attendue.');
       if (d === 'Refusée' && (!v.reason || (v.reason === 'Autre motif' && !comment))) return formError('Choisissez le motif du refus (et précisez-le en commentaire s’il s’agit d’un autre motif).');
-      decideNeed(j, d, comment, j.pending === 'direction' ? 'e5' : me().id, d === 'Refusée' ? v.reason : '');
+      decideNeed(j, d, comment, j.pending === 'direction' ? DIR_ID() : me().id, d === 'Refusée' ? v.reason : '');
       ui.modal = null; toast(d === 'Validée' ? (j.status === 'Validée' ? 'Besoin validé : l’offre peut être publiée' : 'Besoin validé et transmis à la direction') : d === 'À modifier' ? 'Besoin renvoyé au demandeur' : 'Besoin refusé'); commit();
     },
     'need-publish'(v) {
@@ -2269,7 +2576,7 @@
     let body = '';
     if (step === 0) body = `<div class="form-grid">${f('j-title', 'Intitulé du poste *', `<input id="j-title" name="title" class="input" value="${esc(j.title)}" placeholder="Ex. Product Designer H/F" ${L}>`, true)}
       ${f('j-dept', 'Service', rh ? `<select id="j-dept" name="dept" class="select" ${L}>${opt(DEPTS, j.dept)}</select>` : `<input id="j-dept" name="dept" class="input" value="${esc(j.dept)}" readonly>`)}${rh ? f('j-mgr', 'Manager rattaché', `<select id="j-mgr" name="managerId" class="select">${opt(mgrs, j.managerId || DEPT_HEAD[j.dept])}</select>`) : ''}
-      ${f('j-contract', 'Contrat', `<select id="j-contract" name="contract" class="select">${opt(['CDI', 'CDD', 'Alternance', 'Stage'], j.contract)}</select>`)}${f('j-loc', 'Lieu', `<select id="j-loc" name="location" class="select">${opt(['Paris', 'Lyon · hybride', 'Télétravail'], j.location)}</select>`)}
+      ${f('j-contract', 'Contrat', `<select id="j-contract" name="contract" class="select">${opt(['CDI', 'CDD', 'Alternance', 'Stage'], j.contract)}</select>`)}${f('j-loc', 'Lieu', `<select id="j-loc" name="location" class="select">${opt([...SITES(), ...SITES().map((x) => `${x} · hybride`), 'Télétravail'], j.location)}</select>`)}
       ${f('j-prio', 'Priorité', `<select id="j-prio" name="priority" class="select">${opt(['Urgente', 'Normale', 'Anticipée'], j.priority)}</select>`)}${f('j-start', 'Arrivée souhaitée *', `<input id="j-start" name="startWanted" type="date" class="input" value="${esc(j.startWanted)}">`)}</div>`;
     if (step === 1) body = `<div class="form-grid">${f('j-reason', 'Motif', `<select id="j-reason" name="reason" class="select" ${L}>${opt(['Création de poste', 'Remplacement', 'Surcroît d’activité'], j.reason)}</select>`)}
       <div class="field" id="j-repl" ${j.reason === 'Remplacement' ? '' : 'hidden'}><label for="j-replaces">Personne remplacée *</label><select id="j-replaces" name="replaces" class="select"><option value="">Choisir…</option>${opt(people, j.replaces)}</select></div>
@@ -2316,7 +2623,7 @@
   // ================================================================ Recrutement : entretiens structurés, échanges, proposition, RGPD, indicateurs
   const dayDiff = (a, b) => Math.round((parse(b) - parse(a)) / 864e5);
   const nowStamp = () => { const d = new Date(); return `${TODAY}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
-  const RETENTION_YEARS = 2, ANSWER_DAYS = 7;
+  let RETENTION_YEARS = 2, ANSWER_DAYS = 7;
   function lastContact(c) {
     return [c.appliedAt, ...(c.messages || []).map((m) => m.date), ...(c.interviews || []).map((iv) => iv.date.slice(0, 10)).filter((d) => d <= TODAY),
       c.refusal && c.refusal.date, c.offer && c.offer.sentAt].filter(Boolean).sort().pop();
@@ -2353,9 +2660,9 @@
   }
 
   // Modèles de messages aux candidats (l'envoi est simulé et tracé dans la fiche).
-  const RGPD_NOTE = 'Vos données sont utilisées uniquement pour nos recrutements. Elles sont supprimées automatiquement 2 ans après notre dernier échange. Vous pouvez à tout moment demander leur suppression ou vous opposer à leur conservation en écrivant à rh@novastudio.fr.';
+  let RGPD_NOTE = 'Vos données sont utilisées uniquement pour nos recrutements. Elles sont supprimées automatiquement 2 ans après notre dernier échange. Vous pouvez à tout moment demander leur suppression ou vous opposer à leur conservation en écrivant à rh@novastudio.fr.';
   const firstName = (c) => c.name.split(' ')[0];
-  const SIGN = '\n\nL’équipe RH de Nova Studio';
+  let SIGN = '\n\nL’équipe RH de Nova Studio';
   // Les textes viennent des modèles rédigés par les RH (écran « Modèles de documents »).
   const MSG_TPL = {
     ack: ['Accusé de réception', (c, j) => tplMsg('msg-ack', candCtx(c, j))],
@@ -2372,12 +2679,12 @@
     const job = db.jobs.find((j) => j.id === c.jobId), o = c.offer, [first, ...rest] = c.name.split(' '), internal = c.empId && emp(c.empId), id = internal ? c.empId : uid('e');
     if (internal) { Object.assign(internal, { title: o.title, dept: job.dept, managerId: o.managerId, salary: o.salary }); db.history.push({ id: uid('h'), empId: id, date: o.startDate, label: 'Mobilité interne', detail: `${o.title} · ${job.dept}` }); }
     else db.employees.push({ id, firstName: first, lastName: rest.join(' ') || first, title: o.title, dept: job.dept, managerId: o.managerId, stage: 2, startDate: o.startDate, contract: o.contract, salary: o.salary,
-      email: c.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, '').replace(/ +/g, '.') + '@novastudio.fr', phone: c.phone, location: job.location.split(' ')[0], birthDate: '', address: '', emergency: '', cp: 0, rtt: 0, exit: null });
+      email: c.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, '').replace(/ +/g, '.') + `@${COMPANY.domaine}`, phone: c.phone, location: job.location.split(' ')[0], birthDate: '', address: '', emergency: '', cp: 0, rtt: 0, exit: null });
     normalizeEmployees(); Object.assign(o, { status: 'Acceptée', answeredAt: TODAY });
     Object.assign(c, { stage: 'Embauché', empId: id, hiredAt: TODAY });
     job.status = 'Pourvue';
     notify(o.managerId, `${c.name} a accepté la proposition : arrivée le ${fmtDate(o.startDate)} (${o.title}).`);
-    if (!internal) notify(id, `Bienvenue chez Nova Studio ! Déposez vos documents dans « Mon arrivée » : votre contrat suivra.`);
+    if (!internal) notify(id, `Bienvenue chez ${COMPANY.nom} ! Déposez vos documents dans « Mon arrivée » : votre contrat suivra.`);
     logCand(c, 'Proposition acceptée : embauche');
     const others = db.candidates.filter((x) => x.jobId === job.id && activeCand(x)).length;
     toast(`${c.name} passe en pré-embauche et en embauche${others ? ` · pensez à répondre aux ${plural(others, 'autre candidat', 'autres candidats')}` : ''}`);
@@ -2524,7 +2831,7 @@
   const lmDoc = (c, job) => `<div class="paper"><header class="lm-h"><b>${esc(c.name)}</b><small>${esc(c.email)}</small><span>Le ${fmtDate(c.appliedAt, { day: 'numeric', month: 'long', year: 'numeric' })}</span></header>
     <p><b>Objet : candidature au poste de ${esc(job.title)}</b></p><p>Madame, Monsieur,</p>
     <p>Votre offre a retenu toute mon attention : ${esc((job.description || '').charAt(0).toLowerCase() + (job.description || '').slice(1))}</p>
-    <p>Fort·e de mon expérience (${esc(c.experience || 'parcours en lien avec le poste')}), j’ai développé ${esc(((job.scorecard && job.scorecard.must) || []).slice(0, 2).join(' et ').toLowerCase() || 'les compétences attendues')}. Rejoindre l’équipe ${esc(job.dept)} de Nova Studio serait l’occasion de mettre ces savoir-faire au service de vos projets.</p>
+    <p>Fort·e de mon expérience (${esc(c.experience || 'parcours en lien avec le poste')}), j’ai développé ${esc(((job.scorecard && job.scorecard.must) || []).slice(0, 2).join(' et ').toLowerCase() || 'les compétences attendues')}. Rejoindre l’équipe ${esc(job.dept)} de ${esc(COMPANY.nom)} serait l’occasion de mettre ces savoir-faire au service de vos projets.</p>
     <p>Je serais heureux·se d’échanger avec vous lors d’un entretien.</p><p>Veuillez agréer, Madame, Monsieur, mes salutations distinguées.</p><p><b>${esc(c.name)}</b></p></div>`;
   function candFileView(c, job, f) {
     if (!f) return '<div class="paper empty">Aucun document de ce type.</div>';
@@ -2682,7 +2989,7 @@
       c.stage = 'Proposition'; logCand(c, `Proposition envoyée : ${eur0(salary)}, entrée le ${fmtDate(v.startDate)}`);
       c.offer.html = fillTpl(tplOf('proposition').body, candCtx(c, j, { offer: c.offer })); c.offer.tplV = tplOf('proposition').v;
       sendMsg(c, 'proposition', ...offerMsg(c, c.offer));
-      if (salary > j.salaryMax) notify('e5', `Proposition à ${c.name} au-dessus de la fourchette validée pour « ${j.title} » (${eur0(salary)}).`);
+      if (salary > j.salaryMax) notify(DIR_ID(), `Proposition à ${c.name} au-dessus de la fourchette validée pour « ${j.title} » (${eur0(salary)}).`);
       if (v.managerId !== me().id) notify(v.managerId, `Proposition d’embauche envoyée à ${c.name} (${j.title}) : réponse attendue avant le ${fmtDate(v.deadline)}.`);
       ui.modal = null; toast('Proposition envoyée au candidat'); commit();
     },
@@ -3034,7 +3341,7 @@
     'arr-prev'(d) { dossier(arrE(d)).prevoyance = true; toast('Affiliation à la prévoyance enregistrée'); commit(); },
     'arr-vip'(d) { const e = arrE(d), date = addDays(e.startDate > TODAY ? e.startDate : TODAY, 21); db.visits.push({ id: uid('v'), empId: e.id, kind: "Visite d'information et de prévention", date, status: 'Planifiée', result: null }); notify(e.id, `Visite d’information et de prévention prévue le ${fmtDate(date)}.`); toast('Visite planifiée · visible dans Santé & QVT'); commit(); },
     'arr-plan'(d) { dossier(arrE(d)).plan[d.k] = TODAY; toast('Étape du programme terminée'); commit(); },
-    'arr-trial'(d) { const e = arrE(d), x = dossier(e), doc = addDoc(e.id, 'essai'); ui.modal = { type: 'doc-edit', id: doc.id }; Object.assign(x, { trialDecision: 'Confirmée', trialDecisionAt: TODAY, trialDoc: doc.id }); notify(e.id, 'Votre période d’essai est confirmée : bienvenue définitivement chez Nova Studio !'); if (e.managerId) notify(e.managerId, `Période d’essai de ${fullName(e)} confirmée.`); toast('Période d’essai confirmée'); commit(); },
+    'arr-trial'(d) { const e = arrE(d), x = dossier(e), doc = addDoc(e.id, 'essai'); ui.modal = { type: 'doc-edit', id: doc.id }; Object.assign(x, { trialDecision: 'Confirmée', trialDecisionAt: TODAY, trialDoc: doc.id }); notify(e.id, 'Votre période d’essai est confirmée : bienvenue définitivement chez ' + COMPANY.nom + ' !'); if (e.managerId) notify(e.managerId, `Période d’essai de ${fullName(e)} confirmée.`); toast('Période d’essai confirmée'); commit(); },
     'trial-renew'(d) { ui.modal = { type: 'trial-renew', id: d.id }; render(); },
     'trial-break'(d) { ui.modal = { type: 'trial-break', id: d.id }; render(); },
   });
@@ -3157,7 +3464,7 @@
   const fmtH = (h) => `${String(Math.round(h * 100) / 100).replace('.', ',')} h`;
   const mondayOf = (s) => { let d = s; while (parse(d).getDay() !== 1) d = addDays(d, -1); return d; };
   const isForfait = (e) => e.category === 'Cadre';
-  const TT_MAX = 2, FORFAIT_DAYS = 218, HS_QUOTA = 220;
+  let TT_MAX = 2, FORFAIT_DAYS = 218, HS_QUOTA = 220;
   function weekStats(ts) {
     const total = ts.hours.reduce((s, h) => s + (Number(h) || 0), 0), hs = Math.max(0, total - 35), h25 = Math.min(hs, 8), h50 = Math.max(0, hs - 8), alerts = [];
     ts.hours.forEach((h, k) => { if (h > 10) alerts.push(`${DAYS_FR[k]} : ${fmtH(h)}, au-delà de 10 h par jour`); });
@@ -3276,7 +3583,7 @@
     const reqs = (db.payInfoReqs || []).slice().reverse();
     return `${card('Écarts de rémunération femmes-hommes', '', `<div class="card-b">${gapTable(rows)}
         <p class="hint" style="margin:12px 0 0">Un écart de plus de 5 % entre femmes et hommes d’une même catégorie, non justifié par des critères objectifs, devra être corrigé selon la directive européenne 2023/970 sur la transparence salariale. Sa transposition en France est en cours.</p></div>`)}
-      <div class="two">${card('Obligations selon l’effectif', '', `<div class="card-b"><div class="todo"><div class="t"><b>Index de l’égalité professionnelle</b><small>Obligatoire à partir de 50 salariés : Nova Studio (${n} salariés) n’est pas concernée.</small></div><span class="pill neutral">Non applicable</span></div>
+      <div class="two">${card('Obligations selon l’effectif', '', `<div class="card-b"><div class="todo"><div class="t"><b>Index de l’égalité professionnelle</b><small>Obligatoire à partir de 50 salariés : ${esc(COMPANY.nom)} (${n} salariés) n’est pas concernée.</small></div><span class="pill neutral">Non applicable</span></div>
           <div class="todo"><div class="t"><b>Fourchette de salaire dans les offres</b><small>Déjà validée dans le besoin de recrutement ; l’historique de salaire des candidats n’est pas demandé.</small></div><span class="pill ok">En place</span></div>
           <div class="todo"><div class="t"><b>Droit à l’information des salariés</b><small>Chaque salarié peut demander la rémunération moyenne, par sexe, des salariés de sa catégorie.</small></div><span class="pill ok">En place</span></div></div>`)}
         ${card('Demandes d’information', `<span class="muted num">${reqs.length}</span>`, `<div class="card-b">${reqs.length ? reqs.map((r) => `<div class="todo">${avatar(emp(r.empId), 'sm')}<div class="t"><b>${esc(fullName(emp(r.empId)))} · catégorie ${esc(r.cat)}</b><small>Demandée et transmise le ${fmtShort(r.date)}</small></div><span class="pill ok">Répondue</span></div>`).join('') : '<p class="muted" style="margin:0">Aucune demande pour le moment.</p>'}</div>`)}</div>`;
@@ -3485,7 +3792,10 @@
     if (/Prise d’acte|Décès/.test(r)) return { months: 0, label: 'aucun, la rupture est immédiate' };
     if (/apprentissage|stage/.test(r)) return { months: 0, label: 'aucun, fin au terme prévu' };
     if (/Présomption/.test(r)) return { months: base, label: `${base} mois, comme une démission (souvent non exécuté)` };
-    if (/Mise à la retraite/.test(r)) return { months: base, label: `${base} mois (préavis de licenciement, Syntec)` };
+    if (/Mise à la retraite/.test(r)) return { months: base, label: `${base} mois (préavis de licenciement, ${CONV().short})` };
+    if (db.settings.convention === 'code') { const lm = yrs >= 2 ? 2 : yrs >= 0.5 ? 1 : 0;
+      if (/Démission/.test(r)) return { months: 1, label: '1 mois selon l’usage (aucune convention collective : à vérifier dans le contrat)' };
+      if (/Licenciement/.test(r)) return { months: lm, label: lm ? `${lm} mois de préavis légal de licenciement (art. L1234-1)` : 'selon l’usage (moins de 6 mois d’ancienneté)' }; }
     if (/Démission/.test(r)) return { months: base, label: `${base} mois (convention Syntec, ${cadre ? 'cadre' : 'ETAM'})` };
     if (/Licenciement/.test(r)) return { months: base, label: `${base} mois de préavis de licenciement (Syntec)` };
     if (/retraite/i.test(r)) { const m = yrs >= 2 ? 2 : 1; return { months: m, label: `${m} mois (départ volontaire à la retraite)` }; }
@@ -3542,7 +3852,7 @@
       const xi = d.exitInterview;
       html += sec('Entretien de départ', xi ? row(`Motif principal : ${esc(xi.reason)} · recommande l’entreprise ${xi.enps}/10 · prêt·e à revenir : ${esc(xi.back)}`, `Points forts : ${esc(xi.good || '—')} · À améliorer : ${esc(xi.improve || '—')}`, ok(xi.date)) : rh ? `<form data-form="exit-int" data-id="${e.id}" class="exit-form"><div class="form-grid">
           <div class="field"><label for="xi-r">Motif principal du départ</label><select id="xi-r" name="reason" class="select">${EXIT_REASONS.map((r) => `<option>${r}</option>`).join('')}</select></div>
-          <div class="field"><label for="xi-n">Recommanderiez-vous Nova Studio ? (0 à 10)</label><input id="xi-n" name="enps" type="number" min="0" max="10" class="input num" value="7"></div>
+          <div class="field"><label for="xi-n">Recommanderiez-vous ${esc(COMPANY.nom)} ? (0 à 10)</label><input id="xi-n" name="enps" type="number" min="0" max="10" class="input num" value="7"></div>
           <div class="field"><label for="xi-g">Ce qui a bien fonctionné</label><input id="xi-g" name="good" class="input"></div><div class="field"><label for="xi-i">Ce qui serait à améliorer</label><input id="xi-i" name="improve" class="input"></div>
           <div class="field"><label for="xi-b">Prêt·e à revenir un jour ?</label><select id="xi-b" name="back" class="select"><option>Oui</option><option>Peut-être</option><option>Non</option></select></div></div>
           <div class="toolbar" style="margin-top:10px"><span class="hint">Mené par les RH plutôt que par le manager, pour des réponses franches.</span><button class="btn primary sm" style="margin-left:auto">Enregistrer</button></div></form>` : row('Entretien de départ', 'Mené par les RH', '<span class="pill neutral">À venir</span>'));
@@ -3600,7 +3910,7 @@
     'dep-rehire'(v, d) { offb(emp(d.id)).rehire = v || null; commit(); },
     boomerang(v, d) {
       if (!v) return; const e = emp(d.id), j = db.jobs.find((x) => x.id === v);
-      const c = { id: uid('c'), jobId: v, name: fullName(e), email: e.email.replace('@novastudio.fr', '@mail.fr'), phone: e.phone, source: 'Ancien salarié', experience: `${e.title} chez Nova Studio de ${e.startDate.slice(0, 4)} à ${(e.exit.lastDay || '').slice(0, 4)}`, stage: 'Présélection', score: 0, notes: '', interviews: [], appliedAt: TODAY, messages: [], offer: null, refusal: null, pool: false };
+      const c = { id: uid('c'), jobId: v, name: fullName(e), email: e.email.replace(/@.*$/, '@mail.fr'), phone: e.phone, source: 'Ancien salarié', experience: `${e.title} chez Nova Studio de ${e.startDate.slice(0, 4)} à ${(e.exit.lastDay || '').slice(0, 4)}`, stage: 'Présélection', score: 0, notes: '', interviews: [], appliedAt: TODAY, messages: [], offer: null, refusal: null, pool: false };
       db.candidates.push(c); sendMsg(c, 'point', ...tplMsg('msg-opportunite', candCtx(c, j)));
       toast(`${fullName(e)} est proposé·e pour « ${j.title} »`); commit();
     },
@@ -3814,7 +4124,7 @@
   const tplKeyFor = (kind, e) => (kind === 'contrat' ? CONTRACT_TPL[e.contract] || 'contrat-cdi' : kind);
   // Valeurs des champs automatiques pour un salarié (et un document) ou un candidat.
   function docCtx(e, d = {}) {
-    const rh = emp('e1'), t = e && trialInfo(e), m = e && e.exit;
+    const rh = emp(db.settings.company.signataire) || emp('e1'), t = e && trialInfo(e), m = e && e.exit;
     const ctx = Object.assign({}, COMPANY, { signataire: fullName(rh), signataire_titre: rh.title, date_jour: longDate(d.date || TODAY) });
     if (e) Object.assign(ctx, { salarie: fullName(e), prenom: e.firstName, nom: e.lastName, naissance: longDate(e.birthDate), nationalite: e.nationality, adresse: e.address, poste: e.title, service: e.dept, manager: e.managerId ? fullName(emp(e.managerId)) : '',
       contrat: e.contract, categorie: e.category, salaire: eur0(e.salary), salaire_mensuel: eur(e.salary / 12), date_entree: longDate(e.startDate), date_fin: longDate(e.endDate), lieu: e.location, essai: t ? t.label : 'aucune', essai_fin: t ? longDate(t.end) : '',
@@ -3859,7 +4169,7 @@
   const DOC_STATUS_PILL = { Brouillon: 'warn', Envoyé: 'info', Remis: 'ok', Signé: 'ok' };
   function docBody(d) {
     const e = emp(d.empId), t = tplOf(tplKeyFor(d.kind, e));
-    const head = `<header><b>${COMPANY.entreprise}</b><span>${COMPANY.entreprise_adresse} · SIRET ${COMPANY.siret}</span></header><h2>${esc(d.docTitle || t.title || DOC_LABEL[d.kind])}</h2>`;
+    const head = `<header>${COMPANY.logo ? `<img class="doc-logo" src="${COMPANY.logo}" alt="">` : ''}<b>${esc(COMPANY.entreprise)}</b><span>${esc(COMPANY.entreprise_adresse)} · SIRET ${esc(COMPANY.siret)}</span></header><h2>${esc(d.docTitle || t.title || DOC_LABEL[d.kind])}</h2>`;
     return `${head}<div class="doc-body">${d.html || fillTpl(t.body, docCtx(e, d), t.fields)}</div>${d.kind === 'contrat' ? contractSig(d, e) : ''}`;
   }
   // Signature du salarié apposée sur son contrat (tracé manuscrit), ou mention de l'exemplaire signé.
@@ -4170,7 +4480,7 @@
         ${f('e-title', 'Poste', `<input id="e-title" name="title" class="input" value="${esc(e.title)}" required>`)}${f('e-dept', 'Service', `<select id="e-dept" name="dept" class="select">${opt(DEPTS, e.dept)}</select>`)}
         ${f('e-mgr', 'Manager', `<select id="e-mgr" name="managerId" class="select"><option value="">Aucun</option>${opt(mgrs, e.managerId)}</select>`)}${f('e-contract', 'Contrat', `<select id="e-contract" name="contract" class="select">${opt(['CDI', 'CDD', 'Alternance', 'Stage'], e.contract)}</select>`)}
         ${f('e-salary', 'Salaire annuel brut (€)', `<input id="e-salary" name="salary" type="number" min="0" step="100" class="input num" value="${esc(e.salary)}" required>`)}${f('e-start', 'Date d’entrée', `<input id="e-start" name="startDate" type="date" class="input" value="${esc(e.startDate)}" required>`)}
-        ${f('e-phone', 'Téléphone', `<input id="e-phone" name="phone" class="input" value="${esc(e.phone)}">`)}${f('e-loc', 'Lieu de travail', `<select id="e-loc" name="location" class="select">${opt(['Paris', 'Lyon', 'Télétravail majoritaire'], e.location)}</select>`)}
+        ${f('e-phone', 'Téléphone', `<input id="e-phone" name="phone" class="input" value="${esc(e.phone)}">`)}${f('e-loc', 'Lieu de travail', `<select id="e-loc" name="location" class="select">${opt(SITES().concat(['Télétravail majoritaire']), e.location)}</select>`)}
         ${m.id ? '' : f('e-stage', 'Situation', `<select id="e-stage" name="stage" class="select">${opt([[2, 'Arrivée (pré-embauche et embauche)'], [4, 'Intégration']].map(([v, l]) => [String(v), l]), '2')}</select>`, true)}</div>`, m.id ? 'Enregistrer' : 'Ajouter', true);
     }
     if (m.type === 'exit') {
@@ -4202,7 +4512,7 @@
 
   // ---------------------------------------------------------------- Render
   const VIEWS = { arrivees: () => viewProc('arrivees'), departs: () => viewProc('departs'), accueil: viewHome, reporting: viewReporting, etape: viewStage, besoins: viewNeeds, collaborateurs: viewAdmin, absences: viewAbsences, paie: viewRemu, recrutement: viewRecruitment, profil: viewMyAdmin, bulletins: viewMyPay,
-    entretiens: viewReviews, formation: viewTraining, mobilite: viewMobility, sante: viewHealth, relations: viewRelations, arrivee: viewArrivee, contrat: viewContrat, modeles: viewTemplates };
+    entretiens: viewReviews, formation: viewTraining, mobilite: viewMobility, sante: viewHealth, relations: viewRelations, arrivee: viewArrivee, contrat: viewContrat, modeles: viewTemplates, parametres: viewSettings, setup: viewSetup };
   let drawerAnim = false;
   let rendering = false;
   function render() {
@@ -4215,7 +4525,7 @@
     route();
     if (ui.orgPreview && !orgDrag && !(ui.modal && ui.modal.type === 'org-move')) ui.orgPreview = null;
     const scrollY = window.scrollY;
-    document.getElementById('app').innerHTML = `<div class="app">${topbar()}${stageRail()}<main class="view" id="view">${VIEWS[ui.view]()}</main>${footer()}</div>`;
+    document.getElementById('app').innerHTML = ui.view === 'setup' ? `<div class="app setup">${viewSetup()}${footer()}</div>` : `<div class="app">${topbar()}${stageRail()}<main class="view" id="view">${VIEWS[ui.view]()}</main>${footer()}</div>`;
     let ov = '';
     if (ui.drawer) {
       const dt = ui.drawer.type, cs = dt === 'case' && db.cases.find((c) => c.id === ui.drawer.id);
@@ -4237,8 +4547,11 @@
   const commit = () => { syncArrivals(); arrivalReminders(); needReminders(); save(); render(); };
   // Keep (view, stage) consistent with what the profile is allowed to open.
   function route() {
+    if (db.settings.setupDone === false || !emp('e1')) { ui.view = 'setup'; ui.stage = null; ui.profile = 'rh'; ui.selfOf = null; return; }
+    if (ui.view === 'setup') ui.view = 'accueil';
+    if (!profileOk(ui.profile)) { ui.profile = 'rh'; ui.selfOf = null; }
     if (ui.view === 'accueil' || !VIEWS[ui.view]) { ui.view = 'accueil'; ui.stage = null; return; }
-    if (ui.view === 'reporting' || ui.view === 'modeles') { if (ui.profile !== 'rh') ui.view = 'accueil'; ui.stage = null; return; }
+    if (ui.view === 'reporting' || ui.view === 'modeles' || ui.view === 'parametres') { if (ui.profile !== 'rh') ui.view = 'accueil'; ui.stage = null; return; }
     const vis = visibleStages();
     if (ui.view === 'etape') { if (!vis.includes(ui.stage) || stageView(ui.stage) !== 'etape') { ui.view = 'accueil'; ui.stage = null; } return; }
     if (!vis.includes(ui.stage) || stageView(ui.stage) !== ui.view) ui.stage = vis.find((i) => stageView(i) === ui.view) ?? null;
@@ -4350,7 +4663,7 @@
     'cand-new'(d) { ui.modal = { type: 'cand', jobId: d.id }; render(); },
     'cand-move'(d) { moveCandidate(d.id, d.s); },
     reset() { ui.modal = { type: 'reset' }; render(); },
-    'reset-ok'() { db = window.TEAMORA_SEED(); normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); purgeCandidates(); syncArrivals(); save(); ui = Object.assign({ profile: ui.profile, selfOf: ui.selfOf, view: 'accueil' }, freshUI()); render(); toast('Démo réinitialisée'); },
+    'reset-ok'() { db = TENANT === 'new' ? blankSeed() : window.TEAMORA_SEED(); normalizeSettings(); applySettings(); if (TENANT === 'new') ui.wizStep = 'bienvenue'; normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); purgeCandidates(); syncArrivals(); save(); ui = Object.assign({ profile: ui.profile, selfOf: ui.selfOf, view: 'accueil' }, freshUI()); render(); toast('Démo réinitialisée'); },
   };
   const CHG = {
     fDept(v) { ui.fDept = v; render(); },
@@ -4409,7 +4722,7 @@
       if (ui.modal.id) { Object.assign(emp(ui.modal.id), data); toast('Fiche mise à jour'); }
       else {
         const id = uid('e');
-        const email = `${data.firstName}.${data.lastName}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z.]/g, '') + '@novastudio.fr';
+        const email = `${data.firstName}.${data.lastName}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z.]/g, '') + `@${COMPANY.domaine}`;
         db.employees.push(Object.assign({ id, email, birthDate: '', address: '', emergency: '', cp: 0, rtt: 0, exit: null, stage: Number(v.stage), registeredAt: Number(v.stage) >= 3 ? TODAY : null }, data)); normalizeEmployees();
         if (data.managerId) notify(data.managerId, `${data.firstName} ${data.lastName} rejoint votre équipe le ${fmtDate(data.startDate)}.`);
         toast(`${data.firstName} ${data.lastName} ajouté·e (${STAGES[Number(v.stage)].short.toLowerCase()})`);
@@ -4458,7 +4771,7 @@
     },
   };
 
-  Object.assign(ACT, MOD_ACT); Object.assign(CHG, MOD_CHG); Object.assign(FORMS, MOD_FORMS); Object.assign(LIVE, MOD_LIVE);
+  Object.assign(ACT, MOD_ACT); Object.assign(CHG, MOD_CHG); Object.assign(FORMS, MOD_FORMS); Object.assign(LIVE, MOD_LIVE); Object.assign(INP, MOD_INP);
 
   // ---------------------------------------------------------------- V2 · journal des actions
   // Chaque action qui modifie un dossier est tracée : qui, quoi, quand, pour quel collaborateur (preuve en cas de litige).
@@ -4547,6 +4860,8 @@ RUBRIQUES ET ACTIONS
 - Départs (RH, managers) : lancés depuis la fiche (« Démarrer un départ » : motif parmi 13, dernier jour ; aperçu du préavis et des indemnités). Dossier unique, onglets Préparation (préavis, indemnités, documents), Formalités de sortie (entretien de départ, passation, matériel, accès, portabilité, documents remis), Après le départ (archivage, conservation). Les indemnités de sortie remontent dans la paie du mois.
 - Modèles de documents (RH) : chaque modèle (contrats, attestations, certificats, courriers aux candidats) se modifie : champs automatiques, champs à saisir, mentions obligatoires vérifiées, images (bouton « Image » : glisser pour placer, poignée pour redimensionner), versions et retour à une version précédente. Un document remis ou signé ne se modifie plus.
 - Reporting RH : indicateurs (effectifs, absences, recrutement, masse salariale…).
+- Paramètres (RH, pictogramme engrenage dans le bandeau) : sections Entreprise (nom, raison sociale, adresse, SIRET, NAF, Urssaf, domaine e-mail, signataire, logo affiché en tête des documents), Convention et temps de travail (Syntec ou aucune convention = Code du travail ; durée hebdomadaire 1 à 48 h, forfait jours 218 au plus, télétravail maximum), Sites (adresse, abonnement transport remboursé à 50 %), Services et Direction (responsable de chaque service), Collaborateurs (import d'un fichier CSV : prenom, nom, email, poste, service, contrat, entree, salaire, manager par e-mail, site ; aperçu ligne par ligne avant import), Utilisateurs et droits (administrateurs RH, motif des arrêts visible ou non par les managers, organigramme visible par les salariés), Absences (décompte ouvrés/ouvrables, RTT / sans solde / télétravail activables, remplaçant d'un manager absent), Paie (prestataire, jour de clôture, titres-restaurant, mutuelle avec part employeur d'au moins 50 %, allocation télétravail), Recrutement (conservation 2 ans au plus selon la CNIL, relance), Historique des modifications. La jauge « Espace prêt à … % » et la liste « Reste à régler » indiquent ce qui manque. Une erreur bloquante empêche d'enregistrer une valeur illégale ; un avertissement signale un risque (exonération perdue…).
+- Nouvelle entreprise : en bas de page, « Tester l'installation (nouvelle entreprise) » ouvre une entreprise vierge avec l'assistant de démarrage (Bienvenue et compte administrateur, Entreprise, Convention, Sites, Services, Collaborateurs, Paie, Récapitulatif) ; chaque étape peut être passée et complétée plus tard dans Paramètres. « Revenir à la démo Nova Studio » en bas de page.
 - Espace salarié : Mon profil (informations, demander une modification avec justificatif, documents, organigramme), Mes absences, Mes bulletins, Mes entretiens, Formations, Mobilité, Santé. Une recrue qui n'est pas encore arrivée ne voit que « Mon arrivée » (pièces à déposer) et « Contrat de travail » (signature).
 
 DONNÉES. Démonstration : les données sont fictives et restent dans le navigateur ; « Réinitialiser la démo » en bas de page remet l'état initial.`;
@@ -4583,7 +4898,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
   }
   // Rendu sûr : texte échappé, puis gras, listes, sauts de ligne et boutons de navigation.
   function helpFormat(text) {
-    const allowed = new Set(visibleStages().map((i) => stageView(i)).concat(['accueil'], ui.profile === 'rh' ? ['reporting', 'modeles'] : []));
+    const allowed = new Set(visibleStages().map((i) => stageView(i)).concat(['accueil'], ui.profile === 'rh' ? ['reporting', 'modeles', 'parametres'] : []));
     return esc(text).split(/\n{2,}/).map((block) => {
       const lines = block.split('\n'), list = lines.every((l) => /^\s*(-|\d+\.)\s+/.test(l));
       const fmt = (s) => s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\[\[aller:([a-z]+)\|([^\]]{1,60})\]\]/g, (m, k, l) => (allowed.has(k) ? `<button type="button" class="btn ghost sm help-go" data-go="${k}">${l}${ic('arrow')}</button>` : l));
@@ -4637,7 +4952,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
       else if (a === 'stop') { if (helpState.ctl) helpState.ctl.abort(); }
       else if (a === 'reset') { helpState.turns = []; helpRender(); }
       else if (t.classList.contains('help-go')) { const k = t.dataset.go; Object.assign(ui, { modal: null, drawer: null, notif: false });
-        if (k === 'accueil' || k === 'reporting' || k === 'modeles') ACT.go({ v: k }); else { const i = visibleStages().find((x) => stageView(x) === k); if (i !== undefined) ACT.stage({ i }); } }
+        if (k === 'accueil' || k === 'reporting' || k === 'modeles' || k === 'parametres') ACT.go({ v: k }); else { const i = visibleStages().find((x) => stageView(x) === k); if (i !== undefined) ACT.stage({ i }); } }
     });
     box.addEventListener('submit', (ev) => { ev.preventDefault(); const ta = document.getElementById('help-q'); const q = ta.value; ta.value = ''; helpAsk(q); });
     box.addEventListener('keydown', (ev) => { if (ev.target.id === 'help-q' && ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); box.querySelector('[data-help-form]').requestSubmit(); } if (ev.key === 'Escape' && helpState.open) { ev.stopPropagation(); helpState.open = false; helpRender(); } });
@@ -4647,6 +4962,14 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
     if (!C || typeof C.use !== 'function') { helpState.sample = null; helpRender(); return; }
     C.use('sample').then((fn) => { helpState.sample = fn || null; helpRender(); }).catch(() => { helpState.sample = null; helpRender(); });
   }
+  function switchTenant(t, fresh) {
+    save(); saveUI(); TENANT = t; try { localStorage.setItem('teamora-v2-tenant', t); } catch (e) { /* ignore */ } setStores();
+    db = fresh ? blankSeed() : load(); normalizeSettings(); applySettings(); normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); syncArrivals(); save();
+    ui = Object.assign({ profile: 'rh', view: t === 'new' ? 'setup' : 'accueil', stage: null }, fresh ? {} : loadUI(), freshUI(), { modal: null, wizStep: fresh ? 'bienvenue' : (loadUI().wizStep || 'bienvenue') });
+    ui.orgZoom = Number(ui.orgZoom) || 1; ui.orgFold = ui.orgFold || {}; if (!PROFILES[ui.profile]) ui.profile = 'rh';
+    window.scrollTo(0, 0); render(); toast(t === 'new' ? 'Nouvelle entreprise : suis l’assistant pour paramétrer Teamora' : 'Retour à la démo Nova Studio');
+  }
+  normalizeSettings(); applySettings();
   normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); applyDueSalaries(); applyDueManagers(); applyDueChanges(); purgeCandidates(); syncArrivals(); arrivalReminders(); needReminders(); save();
   if (V2_FIRST) { ui.modal = { type: 'v2-news' }; try { localStorage.setItem('teamora-v2-news', '1'); } catch (e) { /* ignore */ } }
   render(); helpInit();

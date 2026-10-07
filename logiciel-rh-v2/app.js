@@ -4888,10 +4888,28 @@
     if (t.dataset.act !== 'notif' && ui.notif && !t.closest('.notif-pop')) ui.notif = false;
     const fn = ACT[t.dataset.act]; if (fn) journaled(t.dataset.act, t.dataset, () => fn(t.dataset, t, ev));
   });
+  const runChange = (t) => {
+    if (t.type === 'date' && t.value && Number(t.value.slice(0, 4)) < 1900) { toast('Année incomplète : saisis-la sur 4 chiffres (ex. 1990).', 'info'); return; }
+    journaled(t.dataset.change, t.dataset, () => CHG[t.dataset.change](t.value, t.dataset, t));
+  };
+  // Date en cours de frappe : chaque chiffre produit une date « valide » (année 0001, 0019…). Enregistrer, donc réafficher,
+  // couperait la saisie : on enregistre à la sortie du champ ou sur Entrée — après un éventuel clic, pour ne pas l'avaler.
+  // Le navigateur signale brièvement « aucun champ actif » quand on passe du jour au mois : on suit le focus nous-mêmes.
+  const pendingDates = new WeakSet(); let dateFocus = null;
+  document.addEventListener('focusin', (ev) => { if (ev.target.type === 'date') dateFocus = ev.target; });
+  document.addEventListener('focusout', (ev) => {
+    const t = ev.target; if (t === dateFocus) dateFocus = null; if (!pendingDates.has(t)) return;
+    pendingDates.delete(t); const ds = Object.assign({}, t.dataset), v = t.value;
+    setTimeout(() => runChange({ type: 'date', value: v, dataset: ds }), 160);
+  });
+  document.addEventListener('keydown', (ev) => { const t = ev.target; if (ev.key === 'Enter' && pendingDates.has(t)) { ev.preventDefault(); t.blur(); } });
   document.addEventListener('change', (ev) => {
     const t = ev.target;
     if (t.dataset && t.dataset.live) LIVE[t.dataset.live](t.form);
-    if (t.dataset && t.dataset.change) journaled(t.dataset.change, t.dataset, () => CHG[t.dataset.change](t.value, t.dataset, t));
+    if (t.dataset && t.dataset.change) {
+      if (t.type === 'date' && dateFocus === t) { pendingDates.add(t); return; }
+      runChange(t);
+    }
   });
   document.addEventListener('input', (ev) => {
     const t = ev.target;

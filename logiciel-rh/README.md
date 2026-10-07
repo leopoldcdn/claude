@@ -86,7 +86,7 @@ Les données de départ (`data.js`, schéma version 8) sont fictives ; vos modif
 - **Organigramme** (visible par tous ; le salarié le trouve dans Vie administrative → Organigramme) : arbre de haut en bas,
   équipes sans sous-équipe empilées en colonne, couleur par service, effectifs directs et totaux, équipes repliables
   (mémorisé), recherche et filtres service / site qui mettent en évidence sans casser la hiérarchie, zoom (boutons, Ctrl + molette,
-  « Ajuster ») et déplacement à la souris. Un clic ouvre la fiche complète pour les RH et le manager de la personne, une fiche
+  « Ajuster ») et déplacement à la souris, mode plein écran (bouton en haut à droite, Échap pour sortir). Un clic ouvre la fiche complète pour les RH et le manager de la personne, une fiche
   publique sinon. Les RH changent un rattachement en glissant une carte sur un manager (ou via « Changer un rattachement ») :
   date d'effet (immédiate ou programmée), motif, service aligné en option, boucles refusées, notification des trois personnes
   et trace dans l'historique.

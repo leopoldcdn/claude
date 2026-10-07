@@ -24,6 +24,8 @@
     refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>',
     edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
     arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+    shrink: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
     sort: '<path d="M8 9l4-4 4 4M8 15l4 4 4-4"/>',
     target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
     docCheck: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 16l2.5 2 5-5"/>',
@@ -887,12 +889,12 @@
     const people = orgPeople(), roots = people.filter((e) => !e.managerId || !emp(e.managerId)), rh = ui.profile === 'rh';
     const depts = [...new Set(people.map((e) => e.dept))], hits = orgFiltered() ? people.filter(orgMatch).length : null;
     const sel = (id, k, label, list) => `<label class="sr" for="${id}">${label}</label><select id="${id}" class="select" data-change="org-filter" data-k="${k}"><option value="">${label}</option>${list.map((x) => `<option ${ui[k] === x ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
-    return `<div class="card org-card-wrap"><div class="card-h org-bar"><div class="toolbar">
+    return `<div class="card org-card-wrap ${ui.orgFull ? 'full' : ''}" ${ui.orgFull ? 'role="dialog" aria-label="Organigramme en plein écran"' : ''}><div class="card-h org-bar"><div class="toolbar">
         <div class="search">${ic('search')}<label class="sr" for="org-q">Rechercher une personne</label><input id="org-q" class="input" type="search" placeholder="Nom, poste, service…" value="${esc(ui.orgQ || '')}" data-input="orgq" autocomplete="off"></div>
         ${sel('org-dept', 'orgDept', 'Tous les services', depts.sort((a, b) => DEPTS.indexOf(a) - DEPTS.indexOf(b)))}${sel('org-site', 'orgSite', 'Tous les sites', ['Paris', 'Lyon'])}
         <span class="muted" id="org-count" style="font-size:13px">${hits === null ? `${plural(people.length, 'personne', 'personnes')} · ${plural(depts.length, 'service', 'services')}` : plural(hits, 'résultat', 'résultats')}</span></div>
         <div class="toolbar"><div class="zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="org-zoom" data-z="-1" aria-label="Dézoomer">−</button><span class="num" id="org-z">${Math.round((ui.orgZoom || 1) * 100)} %</span><button type="button" class="icon-btn" data-act="org-zoom" data-z="1" aria-label="Zoomer">+</button><button type="button" class="btn ghost sm" data-act="org-zoom" data-z="fit">Ajuster</button></div>
-          <button type="button" class="btn ghost sm" data-act="org-unfold">Tout déplier</button>${rh ? `<button type="button" class="btn primary sm" data-act="org-move">${ic('arrow')}Changer un rattachement</button>` : ''}</div></div>
+          <button type="button" class="btn ghost sm" data-act="org-unfold">Tout déplier</button>${ui.orgFull ? `<button type="button" class="btn ghost sm" data-act="org-full" aria-pressed="true" title="Quitter le plein écran (Échap)">${ic('shrink')}Quitter le plein écran</button>` : `<button type="button" class="icon-btn org-fs" data-act="org-full" aria-pressed="false" aria-label="Afficher en plein écran" data-tip="Plein écran">${ic('expand')}</button>`}${rh ? `<button type="button" class="btn primary sm" data-act="org-move">${ic('arrow')}Changer un rattachement</button>` : ''}</div></div>
       <div class="org-vp" id="org-vp"><div class="org-canvas" id="org-canvas" style="zoom:${ui.orgZoom || 1}"><ul class="ot">${roots.map((r) => orgNode(r)).join('')}</ul></div></div>
       <p class="hint org-hint">${rh ? 'Glisse une carte sur un manager pour changer son rattachement. ' : ''}Clique sur une personne pour voir sa fiche · fais glisser le fond pour te déplacer.</p></div>`;
   }
@@ -905,7 +907,7 @@
   }
   let orgCentered = false;
   function bindOrg(keep) {
-    const vp = document.getElementById('org-vp'); if (!vp) { orgCentered = false; return; }
+    const vp = document.getElementById('org-vp'); if (!vp) { orgCentered = false; if (ui.orgFull) { ui.orgFull = false; document.documentElement.classList.remove('org-full-on'); } return; }
     const hit = orgFiltered() && vp.querySelector('.oc.hit'), mine = vp.querySelector('.oc.me');
     const focus = (el) => { const r = el.getBoundingClientRect(), v = vp.getBoundingClientRect(); vp.scrollLeft += r.left + r.width / 2 - (v.left + v.width / 2); vp.scrollTop += r.top - v.top - 40; };
     if (hit) focus(hit); else if (!keep && !orgCentered) { orgCentered = true; if (mine && ui.profile !== 'rh') focus(mine); else vp.scrollLeft = (vp.scrollWidth - vp.clientWidth) / 2; }
@@ -922,6 +924,13 @@
     vp.addEventListener('dragover', (ev) => { const c = ev.target.closest && ev.target.closest('.oc'); vp.querySelectorAll('.drop').forEach((x) => x !== c && x.classList.remove('drop')); if (!c || !vp._drag || c.dataset.oid === vp._drag || isUnder(c.dataset.oid, vp._drag)) return; ev.preventDefault(); c.classList.add('drop'); });
     vp.addEventListener('drop', (ev) => { const c = ev.target.closest && ev.target.closest('.oc'); if (!c) return; ev.preventDefault(); const id = ev.dataTransfer.getData('text/plain'); if (!id || id === c.dataset.oid) return; ui.modal = { type: 'org-move', id, to: c.dataset.oid }; render(); });
   }
+  // Plein écran : l'organigramme couvre la fenêtre (et l'écran entier quand le navigateur l'autorise) ; fiches et fenêtres restent au-dessus.
+  function setOrgFull(on) {
+    ui.orgFull = on; orgCentered = false; document.documentElement.classList.toggle('org-full-on', on);
+    try { if (on && document.fullscreenEnabled && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {}); else if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) { /* plein écran du navigateur indisponible */ }
+    render();
+  }
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && ui.orgFull) setOrgFull(false); });
   function setOrgZoom(z) { ui.orgZoom = Math.min(1.4, Math.max(0.4, Math.round(z * 100) / 100)); const c = document.getElementById('org-canvas'), l = document.getElementById('org-z'); if (c) c.style.zoom = ui.orgZoom; if (l) l.textContent = `${Math.round(ui.orgZoom * 100)} %`; saveUI(); }
   function applyDueManagers() {
     db.employees.forEach((e) => { const nx = e.managerNext; if (!nx || nx.from > TODAY) return; moveManager(e, nx.id, nx.from, nx.reason, nx.dept, nx.by); delete e.managerNext; });
@@ -956,6 +965,7 @@
   Object.assign(MOD_ACT, {
     'org-open'(d) { const e = emp(d.id); if (canOpenEmp(e)) { ui.drawer = { type: 'emp', id: e.id, tab: 'infos' }; drawerAnim = true; render(); } else { ui.modal = { type: 'org-person', id: e.id }; render(); } },
     'org-fold'(d) { ui.orgFold = Object.assign({}, ui.orgFold || {}, { [d.id]: !(ui.orgFold || {})[d.id] }); refreshOrg(); saveUI(); },
+    'org-full'() { setOrgFull(!ui.orgFull); },
     'org-unfold'() { ui.orgFold = {}; refreshOrg(); saveUI(); },
     'org-zoom'(d) { const z = ui.orgZoom || 1; if (d.z === 'fit') { const vp = document.getElementById('org-vp'), t = vp && vp.querySelector('.ot'); if (t) setOrgZoom(Math.min(1, (vp.clientWidth - 32) / (t.getBoundingClientRect().width / z))); } else setOrgZoom(z + Number(d.z) * 0.1); },
     'org-move'() { ui.modal = { type: 'org-move' }; render(); },
@@ -4073,6 +4083,7 @@
     ev.preventDefault(); FORMS[f.dataset.form](Object.fromEntries(new FormData(f, ev.submitter || null)), f);
   });
   document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && ui.orgFull && !ui.modal && !ui.drawer) { setOrgFull(false); return; }
     if (ev.key === 'Escape') { if (ui.modal) { ui.modal = null; render(); } else if (ui.drawer) { ui.drawer = null; render(); } else if (ui.notif) { ui.notif = false; render(); } return; }
     const t = ev.target;
     if ((ev.key === 'Enter' || ev.key === ' ') && t.matches && t.matches('tr[data-act]')) { ev.preventDefault(); t.click(); }

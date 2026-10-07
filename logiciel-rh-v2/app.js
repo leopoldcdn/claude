@@ -3117,7 +3117,7 @@
     ['Autres pays (titre de séjour autorisant à travailler)', ['Afghane', 'Albanaise', 'Algérienne', 'Américaine', 'Andorrane', 'Angolaise', 'Argentine', 'Arménienne', 'Australienne', 'Azerbaïdjanaise', 'Bangladaise', 'Béninoise', 'Biélorusse', 'Bolivienne', 'Bosnienne', 'Brésilienne', 'Britannique', 'Burkinabè', 'Burundaise', 'Cambodgienne', 'Camerounaise', 'Canadienne', 'Cap-verdienne', 'Centrafricaine', 'Chilienne', 'Chinoise', 'Colombienne', 'Comorienne', 'Congolaise (Congo)', 'Congolaise (RD Congo)', 'Coréenne', 'Costaricienne', 'Cubaine', 'Djiboutienne', 'Dominicaine', 'Égyptienne', 'Émirienne', 'Équatorienne', 'Érythréenne', 'Éthiopienne', 'Gabonaise', 'Géorgienne', 'Ghanéenne', 'Guatémaltèque', 'Guinéenne', 'Haïtienne', 'Hondurienne', 'Indienne', 'Indonésienne', 'Irakienne', 'Iranienne', 'Israélienne', 'Ivoirienne', 'Jamaïcaine', 'Japonaise', 'Jordanienne', 'Kazakhe', 'Kényane', 'Kosovare', 'Koweïtienne', 'Laotienne', 'Libanaise', 'Libérienne', 'Libyenne', 'Macédonienne', 'Malaisienne', 'Malgache', 'Malienne', 'Marocaine', 'Mauricienne', 'Mauritanienne', 'Mexicaine', 'Moldave', 'Monégasque', 'Mongole', 'Monténégrine', 'Mozambicaine', 'Népalaise', 'Néo-zélandaise', 'Nicaraguayenne', 'Nigériane', 'Nigérienne', 'Ouzbèke', 'Pakistanaise', 'Palestinienne', 'Panaméenne', 'Paraguayenne', 'Péruvienne', 'Philippine', 'Qatarienne', 'Russe', 'Rwandaise', 'Salvadorienne', 'Saoudienne', 'Sénégalaise', 'Serbe', 'Singapourienne', 'Somalienne', 'Soudanaise', 'Sri-lankaise', 'Sud-africaine', 'Syrienne', 'Tadjike', 'Taïwanaise', 'Tanzanienne', 'Tchadienne', 'Thaïlandaise', 'Togolaise', 'Tunisienne', 'Turque', 'Ukrainienne', 'Uruguayenne', 'Vénézuélienne', 'Vietnamienne', 'Yéménite', 'Zambienne', 'Zimbabwéenne', 'Apatride', 'Autre nationalité']]];
   const zoneOf = (n) => (n === 'Française' ? 'France' : NATIONALITIES[1][1].includes(n) || NATIONALITIES[2][1].includes(n) ? 'UE' : n ? 'Hors UE' : null);
   const nationalitySelect = (e, attrs) => { const v = e.nationality || '', known = NATIONALITIES.some(([, l]) => l.includes(v));
-    return `<select class="select" ${attrs}><option value="" ${v ? '' : 'selected'}>Choisir…</option>${!known && v ? `<option selected>${esc(v)}</option>` : ''}${NATIONALITIES.map(([g, l]) => `<optgroup label="${g}">${l.map((x) => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('')}</optgroup>`).join('')}</select>`; };
+    return `<select class="select" ${attrs} data-search="1" data-placeholder="Rechercher une nationalité…"><option value="" ${v ? '' : 'selected'}>Choisir…</option>${!known && v ? `<option selected>${esc(v)}</option>` : ''}${NATIONALITIES.map(([g, l]) => `<optgroup label="${g}">${l.map((x) => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('')}</optgroup>`).join('')}</select>`; };
   const reqDocs = (e) => ARR_DOCS.filter(([k]) => (DOCS_BY_CONTRACT[e.contract] || BASE_DOCS).includes(k) || (k === 'titre' && needsTitre(e)));
   // État d'une pièce : validée par les RH, déposée (à vérifier), refusée (à redéposer) ou manquante.
   const docState = (d, k) => (d.docs[k] ? 'ok' : d.files[k] && d.files[k].refused ? 'refused' : d.files[k] ? 'check' : 'missing');
@@ -5062,16 +5062,20 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
   function enhanceEmpSelects(root = document) {
     root.querySelectorAll('select:not([data-picked])').forEach((sel) => {
       const opts = [...sel.options], vals = opts.map((o) => o.value).filter(Boolean);
-      if (!vals.length || !vals.every((v) => emp(v))) return;
+      // Listes de salariés, et toute liste marquée data-search (nationalités…).
+      const isEmp = vals.length > 0 && vals.every((v) => emp(v)); if (!isEmp && !sel.dataset.search) return;
       sel.dataset.picked = '1';
-      const blank = opts.find((o) => !o.value), placeholder = blank && /…$/.test(blank.textContent.trim()) ? blank.textContent.trim() : 'Rechercher un salarié…';
+      const blank = opts.find((o) => !o.value), placeholder = sel.dataset.placeholder || (blank && /…$/.test(blank.textContent.trim()) ? blank.textContent.trim() : 'Rechercher un salarié…');
       const none = blank && !/…$/.test(blank.textContent.trim()) ? blank.textContent.trim() : null;
-      const items = opts.filter((o) => o.value).map((o) => { const e = emp(o.value), t = o.textContent.trim(); return { v: o.value, t, sub: [e.title, e.dept].filter((x) => x && !t.includes(x)).join(' · '), key: pickNorm(`${t} ${e.title} ${e.dept} ${e.email}`), names: pickNorm(`${e.firstName} ${e.lastName}`).split(/[\s-]+/) }; });
+      const noMatch = isEmp ? 'Aucun salarié ne correspond' : 'Aucune proposition ne correspond';
+      const items = opts.filter((o) => o.value).map((o) => { const t = o.textContent.trim();
+        if (!isEmp) { const g = o.parentElement.tagName === 'OPTGROUP' ? o.parentElement.label : ''; return { v: o.value, t, sub: g, key: pickNorm(`${t} ${g}`), names: pickNorm(t).split(/[\s-]+/) }; }
+        const e = emp(o.value); return { v: o.value, t, sub: [e.title, e.dept].filter((x) => x && !t.includes(x)).join(' · '), key: pickNorm(`${t} ${e.title} ${e.dept} ${e.email}`), names: pickNorm(`${e.firstName} ${e.lastName}`).split(/[\s-]+/) }; });
       const wrap = document.createElement('span'); wrap.className = 'emp-pick' + (sel.classList.contains('as-emp') ? ' top' : '') + (sel.classList.contains('sm') ? ' sm' : '');
       const q = document.createElement('input'); q.type = 'search'; q.className = 'input' + (sel.classList.contains('sm') ? ' sm' : ''); q.placeholder = placeholder; q.autocomplete = 'off'; q.disabled = sel.disabled;
       q.setAttribute('role', 'combobox'); q.setAttribute('aria-autocomplete', 'list'); q.setAttribute('aria-expanded', 'false');
       const lab = sel.id && document.querySelector(`label[for="${sel.id}"]`); q.id = `${sel.id || 'pick'}-q${Math.random().toString(36).slice(2, 6)}`;
-      if (lab) lab.htmlFor = q.id; q.setAttribute('aria-label', (lab && lab.textContent.trim()) || sel.getAttribute('aria-label') || 'Salarié');
+      if (lab) lab.htmlFor = q.id; q.setAttribute('aria-label', (lab && lab.textContent.trim()) || sel.getAttribute('aria-label') || (isEmp ? 'Salarié' : 'Recherche'));
       const list = document.createElement('div'); list.className = 'pick-list'; list.setAttribute('role', 'listbox'); list.hidden = true;
       const curText = () => { const it = items.find((x) => x.v === sel.value); return it ? it.t : ''; };
       q.value = curText(); let shown = [], hi = -1;
@@ -5083,7 +5087,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
         shown = (none ? [{ v: '', t: none, sub: '' }] : []).concat(all.slice(0, 60));
         if (searching && hi === -2) hi = none && all.length ? 1 : 0; hi = Math.min(Math.max(hi, 0), shown.length - 1);
         list.innerHTML = shown.length ? shown.map((x, i) => `<div class="pick-o ${i === hi ? 'hi' : ''} ${x.v === sel.value ? 'cur' : ''} ${x.v ? '' : 'none'}" role="option" data-i="${i}" aria-selected="${i === hi}"><b>${esc(x.t)}</b>${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</div>`).join('')
-          + (all.length > 60 ? `<div class="pick-more">${all.length - 60} autres : précise la recherche</div>` : '') + (all.length ? '' : '<div class="pick-more">Aucun salarié ne correspond</div>') : '<div class="pick-more">Aucun salarié ne correspond</div>';
+          + (all.length > 60 ? `<div class="pick-more">${all.length - 60} autres : précise la recherche</div>` : '') + (all.length ? '' : `<div class="pick-more">${noMatch}</div>`) : `<div class="pick-more">${noMatch}</div>`;
         list.hidden = false; q.setAttribute('aria-expanded', 'true');
         const h = list.querySelector('.hi'); if (h) h.scrollIntoView({ block: 'nearest' });
       };

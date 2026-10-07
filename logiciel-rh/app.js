@@ -53,7 +53,7 @@
   }
   function save() { try { localStorage.setItem(STORE, JSON.stringify(db)); } catch (e) { /* storage unavailable */ } }
   function loadUI() { try { return JSON.parse(localStorage.getItem(UI_STORE)) || {}; } catch (e) { return {}; } }
-  function saveUI() { try { localStorage.setItem(UI_STORE, JSON.stringify({ profile: ui.profile, view: ui.view, stage: ui.stage, asEmp: ui.asEmp, selfOf: ui.selfOf || null })); } catch (e) { /* ignore */ } }
+  function saveUI() { try { localStorage.setItem(UI_STORE, JSON.stringify({ profile: ui.profile, view: ui.view, stage: ui.stage, asEmp: ui.asEmp, selfOf: ui.selfOf || null, orgZoom: ui.orgZoom, orgFold: ui.orgFold })); } catch (e) { /* ignore */ } }
 
   let db = load();
   const PROFILES = {
@@ -63,9 +63,10 @@
   };
   const freshUI = () => ({ tplSel: null, tplDraft: null, wheelOpen: false, selPerson: null, q: '', fDept: '', fStatus: '', sort: 'name', sortDir: 1,
     absTab: 'valider', histStatus: '', planMonth: null, payMonth: null, recJob: null, drawer: null, modal: null, notif: false,
-    nSort: 'since', nDir: -1, recTab: 'todo', offerTab: 'cands', colOpen: {}, oSort: 'status', oDir: 1, nq: '', nDept: '', nStatus: 'auto', nFrom: '', rq: '', rDept: '', rStatus: '', rFrom: '', adminTab: 'annuaire', payTab: 'paie', payStep: null, tsWeek: null, revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
+    nSort: 'since', nDir: -1, recTab: 'todo', offerTab: 'cands', colOpen: {}, oSort: 'status', oDir: 1, nq: '', nDept: '', nStatus: 'auto', nFrom: '', rq: '', rDept: '', rStatus: '', rFrom: '', adminTab: 'annuaire', payTab: 'paie', payStep: null, orgQ: '', orgDept: '', orgSite: '', profTab: 'profil', tsWeek: null, revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
   let ui = Object.assign({ profile: 'rh', view: 'accueil', stage: null }, loadUI(), freshUI());
   if (!PROFILES[ui.profile]) ui.profile = 'rh';
+  ui.orgZoom = Number(ui.orgZoom) || 1; ui.orgFold = ui.orgFold || {};
   if (ui.profile !== 'salarie' || !['rh', 'manager'].includes(ui.selfOf)) ui.selfOf = null;
 
   // ---------------------------------------------------------------- Helpers
@@ -833,6 +834,11 @@
   const stars = (n, id) => `<span class="stars ${id ? 'lg' : ''}" ${id ? 'role="group" aria-label="Note du candidat"' : `aria-label="Note ${n} sur 5"`}>${[1, 2, 3, 4, 5].map((k) => id
     ? `<button type="button" data-act="cand-score" data-id="${id}" data-v="${k}" class="${k <= n ? '' : 'off'}" aria-label="${k} sur 5" aria-pressed="${k === n}">${STAR}</button>` : `<span class="${k <= n ? '' : 'off'}">${STAR}</span>`).join('')}</span>`;
   // ---------------------------------------------------------------- Mon profil
+  // Salarié : son dossier et l'organigramme de l'entreprise.
+  function viewMyAdmin() {
+    const t = ui.profTab === 'organigramme' ? 'organigramme' : 'profil';
+    return `<div class="tabs" role="tablist">${[['profil', 'Mon profil'], ['organigramme', 'Organigramme']].map(([k, l]) => `<button type="button" role="tab" aria-selected="${t === k}" data-act="prof-tab" data-t="${k}">${l}</button>`).join('')}</div>${t === 'profil' ? viewProfile() : orgChart()}`;
+  }
   function viewProfile() {
     const e = me(), mgr = emp(e.managerId);
     return `<div class="card"><div class="drawer-h" style="padding:22px 24px">${avatar(e, 'lg')}<div><h2>${esc(fullName(e))}</h2><p>${esc(e.title)} · ${esc(e.dept)} · ${statusPill(e)}</p></div></div>
@@ -850,6 +856,126 @@
 
   // ================================================================ Modules : développement, suivi, documents
   const MOD_ACT = {}, MOD_CHG = {}, MOD_FORMS = {}, MODALS = {}, DRAWERS = {}, MOD_LIVE = {};
+  // ---------------------------------------------------------------- Organigramme
+  // Arbre de haut en bas : une équipe qui n'a que des collaborateurs sans équipe s'empile en colonne pour rester lisible.
+  const DEPT_HUE = { Direction: '#475569', RH: '#6366f1', Design: '#db2777', Tech: '#0891b2', Marketing: '#d97706', Sales: '#059669', Finance: '#7c3aed' };
+  const orgPeople = () => db.employees.filter((e) => e.stage >= 2 && e.stage < 15);
+  const reportsOf = (id) => orgPeople().filter((x) => x.managerId === id).sort((a, b) => reportsOf(b.id).length - reportsOf(a.id).length || a.lastName.localeCompare(b.lastName, 'fr'));
+  const teamSize = (id, seen = new Set()) => reportsOf(id).reduce((s, k) => (seen.has(k.id) ? s : (seen.add(k.id), s + 1 + teamSize(k.id, seen))), 0);
+  const isUnder = (id, bossId) => { let e = emp(id), n = 0; while (e && e.managerId && n++ < 30) { if (e.managerId === bossId) return true; e = emp(e.managerId); } return false; };
+  const orgSite = (e) => ((e.location || '').startsWith('Lyon') ? 'Lyon' : 'Paris');
+  const orgFiltered = () => !!(ui.orgQ || ui.orgDept || ui.orgSite);
+  const orgMatch = (e) => { const q = (ui.orgQ || '').trim().toLowerCase();
+    return (!q || `${fullName(e)} ${e.title} ${e.dept}`.toLowerCase().includes(q)) && (!ui.orgDept || e.dept === ui.orgDept) && (!ui.orgSite || orgSite(e) === ui.orgSite); };
+  const canOpenEmp = (e) => ui.profile === 'rh' || (ui.profile === 'manager' && (e.id === me().id || scopeEmployees().some((x) => x.id === e.id)));
+  function orgCard(e, kids) {
+    const n = teamSize(e.id), fold = (ui.orgFold || {})[e.id] && !(orgFiltered() && kids.some((k) => orgMatch(k) || teamHas(k.id))), rh = ui.profile === 'rh', nx = e.managerNext && emp(e.managerNext.id);
+    const cls = [orgFiltered() ? (orgMatch(e) ? 'hit' : 'dim') : '', e.id === me().id ? 'me' : ''].join(' ');
+    return `<div class="oc ${cls}" style="--d:${DEPT_HUE[e.dept] || 'var(--accent)'}" data-oid="${e.id}" ${rh && e.managerId ? 'draggable="true"' : ''}>
+      <button type="button" class="oc-b" data-act="org-open" data-id="${e.id}">${avatar(e, 'sm')}<span><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small><i>${esc(e.dept)}${orgSite(e) === 'Lyon' ? ' · Lyon' : ''}</i></span></button>
+      ${e.stage < 3 ? `<span class="pill info oc-tag">Arrivée le ${fmtShort(e.startDate)}</span>` : ''}${rh && nx ? `<span class="pill warn oc-tag" title="Changement de manager programmé">→ ${esc(nx.firstName)} au ${fmtShort(e.managerNext.from)}</span>` : ''}${e.id === me().id ? '<span class="oc-me">Moi</span>' : ''}
+      ${kids.length ? `<button type="button" class="oc-n" data-act="org-fold" data-id="${e.id}" aria-expanded="${!fold}" title="${fold ? 'Déplier' : 'Replier'} l’équipe"><span class="num">${kids.length}</span> direct${kids.length > 1 ? 's' : ''}${n !== kids.length ? ` · <span class="num">${n}</span> au total` : ''}${ic('right').replace('<svg', '<svg class="chev"')}</button>` : ''}</div>`;
+  }
+  const teamHas = (id) => reportsOf(id).some((k) => orgMatch(k) || teamHas(k.id));
+  function orgNode(e, seen = new Set()) {
+    seen.add(e.id);
+    const kids = reportsOf(e.id).filter((k) => !seen.has(k.id)), fold = (ui.orgFold || {})[e.id] && !(orgFiltered() && teamHas(e.id));
+    const stack = kids.length > 1 && kids.every((k) => !reportsOf(k.id).length);
+    return `<li>${orgCard(e, kids)}${kids.length && !fold ? `<ul class="${stack ? 'stack' : ''}">${kids.map((k) => orgNode(k, seen)).join('')}</ul>` : ''}</li>`;
+  }
+  function orgChart() {
+    const people = orgPeople(), roots = people.filter((e) => !e.managerId || !emp(e.managerId)), rh = ui.profile === 'rh';
+    const depts = [...new Set(people.map((e) => e.dept))], hits = orgFiltered() ? people.filter(orgMatch).length : null;
+    const sel = (id, k, label, list) => `<label class="sr" for="${id}">${label}</label><select id="${id}" class="select" data-change="org-filter" data-k="${k}"><option value="">${label}</option>${list.map((x) => `<option ${ui[k] === x ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
+    return `<div class="card org-card-wrap"><div class="card-h org-bar"><div class="toolbar">
+        <div class="search">${ic('search')}<label class="sr" for="org-q">Rechercher une personne</label><input id="org-q" class="input" type="search" placeholder="Nom, poste, service…" value="${esc(ui.orgQ || '')}" data-input="orgq" autocomplete="off"></div>
+        ${sel('org-dept', 'orgDept', 'Tous les services', depts.sort((a, b) => DEPTS.indexOf(a) - DEPTS.indexOf(b)))}${sel('org-site', 'orgSite', 'Tous les sites', ['Paris', 'Lyon'])}
+        <span class="muted" id="org-count" style="font-size:13px">${hits === null ? `${plural(people.length, 'personne', 'personnes')} · ${plural(depts.length, 'service', 'services')}` : plural(hits, 'résultat', 'résultats')}</span></div>
+        <div class="toolbar"><div class="zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="org-zoom" data-z="-1" aria-label="Dézoomer">−</button><span class="num" id="org-z">${Math.round((ui.orgZoom || 1) * 100)} %</span><button type="button" class="icon-btn" data-act="org-zoom" data-z="1" aria-label="Zoomer">+</button><button type="button" class="btn ghost sm" data-act="org-zoom" data-z="fit">Ajuster</button></div>
+          <button type="button" class="btn ghost sm" data-act="org-unfold">Tout déplier</button>${rh ? `<button type="button" class="btn primary sm" data-act="org-move">${ic('arrow')}Changer un rattachement</button>` : ''}</div></div>
+      <div class="org-vp" id="org-vp"><div class="org-canvas" id="org-canvas" style="zoom:${ui.orgZoom || 1}"><ul class="ot">${roots.map((r) => orgNode(r)).join('')}</ul></div></div>
+      <p class="hint org-hint">${rh ? 'Glisse une carte sur un manager pour changer son rattachement. ' : ''}Clique sur une personne pour voir sa fiche · fais glisser le fond pour te déplacer.</p></div>`;
+  }
+  function refreshOrg() {
+    const c = document.getElementById('org-canvas'); if (!c) return;
+    c.innerHTML = `<ul class="ot">${orgPeople().filter((e) => !e.managerId || !emp(e.managerId)).map((r) => orgNode(r)).join('')}</ul>`;
+    const n = document.getElementById('org-count'), people = orgPeople();
+    if (n) n.textContent = orgFiltered() ? plural(people.filter(orgMatch).length, 'résultat', 'résultats') : `${plural(people.length, 'personne', 'personnes')} · ${plural(new Set(people.map((e) => e.dept)).size, 'service', 'services')}`;
+    bindOrg(true);
+  }
+  let orgCentered = false;
+  function bindOrg(keep) {
+    const vp = document.getElementById('org-vp'); if (!vp) { orgCentered = false; return; }
+    const hit = orgFiltered() && vp.querySelector('.oc.hit'), mine = vp.querySelector('.oc.me');
+    const focus = (el) => { const r = el.getBoundingClientRect(), v = vp.getBoundingClientRect(); vp.scrollLeft += r.left + r.width / 2 - (v.left + v.width / 2); vp.scrollTop += r.top - v.top - 40; };
+    if (hit) focus(hit); else if (!keep && !orgCentered) { orgCentered = true; if (mine && ui.profile !== 'rh') focus(mine); else vp.scrollLeft = (vp.scrollWidth - vp.clientWidth) / 2; }
+    if (vp._bound) return; vp._bound = true;
+    // Déplacement à la souris sur le fond.
+    let drag = null;
+    vp.addEventListener('pointerdown', (ev) => { if (ev.target.closest('.oc') || ev.button !== 0) return; drag = { x: ev.clientX, y: ev.clientY, l: vp.scrollLeft, t: vp.scrollTop }; vp.classList.add('grab'); vp.setPointerCapture(ev.pointerId); });
+    vp.addEventListener('pointermove', (ev) => { if (!drag) return; vp.scrollLeft = drag.l - (ev.clientX - drag.x); vp.scrollTop = drag.t - (ev.clientY - drag.y); });
+    const end = () => { drag = null; vp.classList.remove('grab'); }; vp.addEventListener('pointerup', end); vp.addEventListener('pointercancel', end);
+    vp.addEventListener('wheel', (ev) => { if (!ev.ctrlKey) return; ev.preventDefault(); setOrgZoom((ui.orgZoom || 1) * (ev.deltaY < 0 ? 1.1 : 0.9)); }, { passive: false });
+    // RH : glisser une carte sur un manager.
+    vp.addEventListener('dragstart', (ev) => { const c = ev.target.closest && ev.target.closest('.oc[draggable]'); if (!c) return; ev.dataTransfer.setData('text/plain', c.dataset.oid); ev.dataTransfer.effectAllowed = 'move'; c.classList.add('dragging'); vp._drag = c.dataset.oid; });
+    vp.addEventListener('dragend', () => { vp.querySelectorAll('.dragging, .drop').forEach((x) => x.classList.remove('dragging', 'drop')); vp._drag = null; });
+    vp.addEventListener('dragover', (ev) => { const c = ev.target.closest && ev.target.closest('.oc'); vp.querySelectorAll('.drop').forEach((x) => x !== c && x.classList.remove('drop')); if (!c || !vp._drag || c.dataset.oid === vp._drag || isUnder(c.dataset.oid, vp._drag)) return; ev.preventDefault(); c.classList.add('drop'); });
+    vp.addEventListener('drop', (ev) => { const c = ev.target.closest && ev.target.closest('.oc'); if (!c) return; ev.preventDefault(); const id = ev.dataTransfer.getData('text/plain'); if (!id || id === c.dataset.oid) return; ui.modal = { type: 'org-move', id, to: c.dataset.oid }; render(); });
+  }
+  function setOrgZoom(z) { ui.orgZoom = Math.min(1.4, Math.max(0.4, Math.round(z * 100) / 100)); const c = document.getElementById('org-canvas'), l = document.getElementById('org-z'); if (c) c.style.zoom = ui.orgZoom; if (l) l.textContent = `${Math.round(ui.orgZoom * 100)} %`; saveUI(); }
+  function applyDueManagers() {
+    db.employees.forEach((e) => { const nx = e.managerNext; if (!nx || nx.from > TODAY) return; moveManager(e, nx.id, nx.from, nx.reason, nx.dept, nx.by); delete e.managerNext; });
+  }
+  function moveManager(e, to, date, reason, dept, by) {
+    const old = emp(e.managerId), nw = emp(to), d0 = e.dept;
+    e.managerId = to; if (dept && nw) e.dept = nw.dept;
+    db.history.push({ id: uid('h'), empId: e.id, date, label: 'Changement de manager', detail: `${old ? fullName(old) : '—'} → ${fullName(nw)}${dept && nw && nw.dept !== d0 ? ` · service ${d0} → ${nw.dept}` : ''}${reason ? ` · ${reason}` : ''}` });
+    notify(e.id, `À partir du ${fmtDate(date)}, ton manager est ${fullName(nw)}.`);
+    if (nw) notify(nw.id, `${fullName(e)} rejoint ton équipe à partir du ${fmtDate(date)}.`);
+    if (old) notify(old.id, `${fullName(e)} quitte ton équipe le ${fmtDate(date)} et rejoint celle de ${fullName(nw)}.`);
+  }
+  MODALS['org-person'] = (m, shell) => { const e = emp(m.id), mgr = emp(e.managerId), team = reportsOf(e.id);
+    return shell(esc(fullName(e)), `<div class="modal-b"><div class="drawer-h" style="padding:0 0 14px">${avatar(e, 'lg')}<div><h2>${esc(fullName(e))}</h2><p>${esc(e.title)} · ${esc(e.dept)}</p></div></div>
+      <div class="info-grid"><div><span>E-mail professionnel</span>${esc(e.email)}</div><div><span>Site</span>${esc(e.location || 'Paris')}</div><div><span>Manager</span>${mgr ? esc(fullName(mgr)) : '—'}</div><div><span>Dans l’entreprise depuis</span>${fmtDate(e.startDate)}</div></div>
+      ${team.length ? `<div class="team" style="margin-top:14px"><span class="team-l">Équipe</span>${team.map((k) => `<span class="who-chip">${avatar(k, 'sm')}${esc(fullName(k))}</span>`).join('')}</div>` : ''}</div>`,
+      '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>'); };
+  const orgMoveInfo = (e, to) => (e ? `Manager actuel : <b>${esc(fullName(emp(e.managerId)))}</b>${to ? ` → nouveau : <b>${esc(fullName(to))}</b>` : ''}` : 'Astuce : tu peux aussi glisser une carte sur un manager dans l’organigramme.');
+  const orgDeptLabel = (e, to) => `Rattacher aussi au service du nouveau manager${e && to && e.dept !== to.dept ? ` (${esc(e.dept)} → ${esc(to.dept)})` : ''}`;
+  MOD_LIVE.orgmove = (form) => { const e = emp(form.elements.namedItem('id').value), to = emp(form.elements.namedItem('to').value), cb = document.getElementById('om-dept');
+    document.getElementById('om-info').innerHTML = orgMoveInfo(e, to); document.getElementById('om-dept-l').innerHTML = orgDeptLabel(e, to); if (cb) cb.checked = !!(e && to && e.dept !== to.dept); };
+  MODALS['org-move'] = (m, shell, formShell, opt, f) => {
+    const people = orgPeople().sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr')), e = m.id && emp(m.id), o = (list, cur, ph) => `${ph ? `<option value="">${ph}</option>` : ''}${list.map((x) => `<option value="${x.id}" ${x.id === cur ? 'selected' : ''}>${esc(fullName(x))} · ${esc(x.title)}</option>`).join('')}`;
+    const to = m.to && emp(m.to), diff = e && to && e.dept !== to.dept;
+    return formShell('Changer un rattachement', 'org-move', `<div class="form-grid">${f('om-emp', 'Collaborateur', `<select id="om-emp" name="id" class="select" data-live="orgmove">${o(people.filter((x) => x.managerId), m.id, 'Choisir…')}</select>`)}
+      ${f('om-to', 'Nouveau manager', `<select id="om-to" name="to" class="select" data-live="orgmove">${o(people, m.to, 'Choisir…')}</select>`)}
+      <p class="hint full" id="om-info" style="margin:0">${orgMoveInfo(e, to)}</p>
+      ${f('om-date', 'Date d’effet', `<input id="om-date" name="date" type="date" class="input" value="${TODAY}">`)}${f('om-reason', 'Motif (facultatif)', '<input id="om-reason" name="reason" class="input" maxlength="120" placeholder="Ex. réorganisation, mobilité interne">')}
+      <label class="full agree"><input type="checkbox" name="dept" id="om-dept" ${diff ? 'checked' : ''}> <span id="om-dept-l">${orgDeptLabel(e, to)}</span></label></div>
+      <p class="hint" style="margin:10px 0 0">Le collaborateur, l’ancien et le nouveau manager sont prévenus ; le changement est tracé dans l’historique du collaborateur. Un changement de fonction ou de rémunération passe par un avenant.</p>`, 'Enregistrer');
+  };
+  Object.assign(MOD_ACT, {
+    'org-open'(d) { const e = emp(d.id); if (canOpenEmp(e)) { ui.drawer = { type: 'emp', id: e.id, tab: 'infos' }; drawerAnim = true; render(); } else { ui.modal = { type: 'org-person', id: e.id }; render(); } },
+    'org-fold'(d) { ui.orgFold = Object.assign({}, ui.orgFold || {}, { [d.id]: !(ui.orgFold || {})[d.id] }); refreshOrg(); saveUI(); },
+    'org-unfold'() { ui.orgFold = {}; refreshOrg(); saveUI(); },
+    'org-zoom'(d) { const z = ui.orgZoom || 1; if (d.z === 'fit') { const vp = document.getElementById('org-vp'), t = vp && vp.querySelector('.ot'); if (t) setOrgZoom(Math.min(1, (vp.clientWidth - 32) / (t.getBoundingClientRect().width / z))); } else setOrgZoom(z + Number(d.z) * 0.1); },
+    'org-move'() { ui.modal = { type: 'org-move' }; render(); },
+    'prof-tab'(d) { ui.profTab = d.t; render(); },
+  });
+  Object.assign(MOD_CHG, { 'org-filter'(v, d) { ui[d.k] = v; refreshOrg(); } });
+  Object.assign(MOD_FORMS, {
+    'org-move'(v) {
+      const e = emp(v.id), to = emp(v.to);
+      if (!e || !to) return formError('Choisis le collaborateur et son nouveau manager.');
+      if (e.id === to.id) return formError('Un collaborateur ne peut pas être son propre manager.');
+      if (isUnder(to.id, e.id)) return formError(`${fullName(to)} fait partie de l’équipe de ${fullName(e)} : ce rattachement créerait une boucle.`);
+      if (e.managerId === to.id) return formError(`${fullName(to)} est déjà le manager de ${fullName(e)}.`);
+      if (!v.date) return formError('Indique la date d’effet.');
+      const reason = (v.reason || '').trim(), dept = !!v.dept;
+      if (v.date <= TODAY) { moveManager(e, to.id, v.date, reason, dept, me().id); delete e.managerNext; toast(`${fullName(e)} est rattaché·e à ${fullName(to)}`); }
+      else { e.managerNext = { id: to.id, from: v.date, reason, dept, by: me().id }; toast(`Changement programmé au ${fmtDate(v.date)}`); }
+      ui.modal = null; commit();
+    },
+  });
   Object.assign(MOD_ACT, {
     'pay-step'(d) { ui.payStep = d.s; render(); },
     'pay-ack'(d) { const pr = payrollOf(ui.payMonth); pr.acks = Object.assign({}, pr.acks, { [d.id]: { by: me().id, date: TODAY } }); toast('Point marqué comme vérifié'); commit(); },
@@ -2676,11 +2802,6 @@
     visitsDue(people).forEach((v) => push(v.e, v.deadline, v.kind, v.why));
     return out.sort((a, b) => a.date.localeCompare(b.date));
   }
-  function orgNode(e, depth) {
-    const kids = db.employees.filter((x) => x.managerId === e.id && x.stage >= 2 && x.stage < 15).sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr'));
-    return `<li><button type="button" class="org-card" data-act="open-emp" data-id="${e.id}">${avatar(e, 'sm')}<span><b>${esc(fullName(e))}</b><small>${esc(e.title)} · ${esc(e.dept)}</small></span>${e.stage < 3 ? '<span class="pill info">Arrivée</span>' : ''}</button>
-      ${kids.length ? `<ul>${kids.map((k) => orgNode(k, depth + 1)).join('')}</ul>` : ''}</li>`;
-  }
   function viewAdmin() {
     const rh = ui.profile === 'rh', people = scopeEmployees(), dl = adminDeadlines(people), reqs = pendingChanges();
     const tabs = [['annuaire', rh ? 'Annuaire' : 'Mon équipe'], ['echeances', 'Échéances', dl.filter((x) => x.date <= addDays(TODAY, 30)).length]].concat(rh ? [['demandes', 'Demandes de modification', reqs.length]] : []).concat([['organigramme', 'Organigramme']]);
@@ -2696,8 +2817,7 @@
           ${r.status === 'En attente' ? `<button type="button" class="btn ok sm" data-act="chg-ok" data-id="${r.id}">${ic('check')}Valider</button><button type="button" class="btn bad sm" data-act="chg-ko" data-id="${r.id}">Refuser</button>` : `<span class="pill ${r.status === 'Validée' ? 'ok' : 'bad'}">${r.status}</span>`}</div>`; }).join('') : '<p class="muted" style="margin:0">Aucune demande.</p>'}
         <p class="hint" style="margin:12px 0 0">Les modifications validées mettent à jour la fiche et sont transmises à la paie. Dossier conservé 5 ans après le départ du salarié.</p></div>`);
     } else {
-      const root = rh ? db.employees.filter((e) => !e.managerId && e.stage < 15) : [me()];
-      body = `<div class="card card-b"><ul class="org">${root.map((r) => orgNode(r, 0)).join('')}</ul></div>`;
+      body = orgChart();
     }
     return `<div class="tabs" role="tablist">${tabs.map(([k, l, n]) => `<button type="button" role="tab" aria-selected="${ui.adminTab === k}" data-act="tab" data-k="adminTab" data-t="${k}">${l}${n ? `<span class="count num">${n}</span>` : ''}</button>`).join('')}</div>${body}`;
   }
@@ -3681,7 +3801,7 @@
   function formError(msg) { const el = document.getElementById('m-err'); if (el) el.textContent = msg; }
 
   // ---------------------------------------------------------------- Render
-  const VIEWS = { accueil: viewHome, reporting: viewReporting, etape: viewStage, besoins: viewNeeds, collaborateurs: viewAdmin, absences: viewAbsences, paie: viewRemu, recrutement: viewRecruitment, profil: viewProfile, bulletins: viewMyPay,
+  const VIEWS = { accueil: viewHome, reporting: viewReporting, etape: viewStage, besoins: viewNeeds, collaborateurs: viewAdmin, absences: viewAbsences, paie: viewRemu, recrutement: viewRecruitment, profil: viewMyAdmin, bulletins: viewMyPay,
     entretiens: viewReviews, formation: viewTraining, mobilite: viewMobility, sante: viewHealth, relations: viewRelations, arrivee: viewArrivee, contrat: viewContrat, modeles: viewTemplates };
   let drawerAnim = false;
   let rendering = false;
@@ -3710,7 +3830,7 @@
     const cur = document.querySelector('.rail [aria-current]'); if (cur) cur.parentElement.scrollLeft = cur.offsetLeft - 80;
     if (ui.view === 'accueil') bindWheel();
     if (ui.view === 'recrutement') bindBoard();
-    bindSignature(); bindTplEditor(); bindDocEditor();
+    bindSignature(); bindTplEditor(); bindDocEditor(); bindOrg();
     saveUI();
   }
   const commit = () => { syncArrivals(); arrivalReminders(); needReminders(); save(); render(); };
@@ -3840,6 +3960,7 @@
   const INP = {
     nq(v) { ui.nq = v; const el = document.getElementById('need-list'), list = needFiltered(); if (el) el.innerHTML = needTable(list); const c = document.getElementById('need-count'); if (c) c.textContent = plural(list.length, 'besoin', 'besoins'); },
     rq(v) { ui.rq = v; const el = document.getElementById('rec-list'); if (el) el.innerHTML = recJobList(recJobs()); },
+    orgq(v) { ui.orgQ = v; refreshOrg(); },
     q(v) { ui.q = v; const list = filteredEmployees(); document.getElementById('emp-table').innerHTML = empTable(list); document.getElementById('emp-count').textContent = plural(list.length, 'collaborateur', 'collaborateurs'); },
   };
   const LIVE = {
@@ -3966,6 +4087,6 @@
   document.addEventListener('mouseover', (ev) => { const t = ev.target.closest && ev.target.closest('[data-tip]'); if (!t) { tip.classList.remove('on'); return; } tip.textContent = t.dataset.tip; tip.classList.add('on'); });
   document.addEventListener('mousemove', (ev) => { if (!tip.classList.contains('on')) return; const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8); tip.style.transform = `translate(${x}px, ${ev.clientY + 16}px)`; });
 
-  normalizeEmployees(); normalizeDocs(); applyDueSalaries(); purgeCandidates(); syncArrivals(); arrivalReminders(); needReminders(); save();
+  normalizeEmployees(); normalizeDocs(); applyDueSalaries(); applyDueManagers(); purgeCandidates(); syncArrivals(); arrivalReminders(); needReminders(); save();
   render();
 })();

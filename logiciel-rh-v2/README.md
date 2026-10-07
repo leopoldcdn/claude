@@ -47,6 +47,9 @@
   le bouton n'apparaît pas. En production, il faudrait un serveur intermédiaire qui appelle l'API Claude : la clé d'API ne
   doit jamais être dans le navigateur.
 
+- **Recherche de salarié** : partout où l'on choisit un salarié (manager, successeur, parrain, responsable de service,
+  évaluateur, collaborateur concerné…), la liste déroulante devient un champ de recherche : saisie sur le prénom, le nom,
+  le poste, le service ou l'e-mail, suggestions au fil de la frappe, flèches et Entrée au clavier, Échap pour annuler.
 - **Nouvelle arrivée hors offre** : dans Arrivées, le bouton « Nouvelle arrivée » (RH) crée une recrue sans passer par le
   recrutement (cooptation, candidature spontanée, réembauche, ancien stagiaire ou alternant, recrutement direct, transfert
   de personnel) ; date de fin obligatoire hors CDI, CDD limité à 18 mois, stage à 6 mois, gratification minimale au-delà

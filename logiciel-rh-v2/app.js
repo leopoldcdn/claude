@@ -3920,8 +3920,7 @@
       const cands = employed().filter((y) => y.id !== e.id && !y.exit && y.stage >= 4).sort((a, z) => (z.dept === e.dept) - (a.dept === e.dept) || a.lastName.localeCompare(z.lastName, 'fr'));
       const change = can ? `<button type="button" class="btn ghost sm" data-act="dep-succ-clear" data-id="${e.id}">Changer</button>` : '';
       const pick = succ ? `<span class="pill ok">${esc(fullName(succ))} · ${esc(succ.title)}</span>${change}` : none ? `<span class="pill neutral">Aucun successeur</span>${change}`
-        : can ? `<div class="succ-pick"><label class="sr" for="succ-q-${e.id}">Rechercher un salarié</label><input id="succ-q-${e.id}" class="input" type="search" list="succ-l-${e.id}" placeholder="Rechercher un salarié…" autocomplete="off" data-change="dep-succ-q" data-id="${e.id}">
-            <datalist id="succ-l-${e.id}">${cands.map((y) => `<option value="${esc(`${fullName(y)} · ${y.title} · ${y.dept}`)}"></option>`).join('')}</datalist>
+        : can ? `<div class="succ-pick"><select class="select" data-change="dep-succ" data-id="${e.id}" aria-label="Successeur"><option value="">Rechercher un salarié…</option>${cands.map((y) => `<option value="${y.id}">${esc(fullName(y))}</option>`).join('')}</select>
             <label class="agree"><input type="checkbox" data-change="dep-succ-none" data-id="${e.id}"> Aucun successeur</label></div>` : '<span class="pill warn">À désigner</span>';
       html += sec('Transmission', row('Successeur ou relais', none ? 'Le poste n’est pas repris : les dossiers sont archivés ou répartis' : 'Personne qui reprend les dossiers (tout l’effectif, en commençant par le service)', pick)
         + TRANSFER.map(([k, l]) => row(none && k === 'dossiers' ? 'Dossiers en cours archivés ou répartis' : l, '', d.transfer[k] ? ok(d.transfer[k]) : rh || ui.profile === 'manager' ? `<button type="button" class="btn ghost sm" data-act="dep-transfer" data-id="${e.id}" data-k="${k}">Fait</button>` : '')).join(''));
@@ -3958,7 +3957,7 @@
       if (d.k === 'docsGiven') { const docs = exitDocs(e).filter(Boolean), err = docs.filter((x) => !docLocked(x)).map((x) => issueDoc(x, true)).find(Boolean); if (err) { toast(err, 'info'); commit(); return; } notify(e.id, 'Vos documents de fin de contrat sont disponibles dans vos documents.'); }
       offb(e)[d.k] = TODAY; if (d.k === 'accessOff') notify(e.managerId, `Accès de ${fullName(e)} désactivés.`); toast('Enregistré'); commit(); },
     'dep-docs'(d) { const e = emp(d.id); ['certificat', 'solde', 'france-travail'].forEach((k) => { if (!db.documents.some((x) => x.empId === e.id && x.kind === k)) addDoc(e.id, k); }); offb(e).docsReady = TODAY; toast('Documents de sortie préparés'); commit(); },
-    'dep-succ-clear'(d) { offb(emp(d.id)).successor = null; render(); setTimeout(() => { const q = document.getElementById(`succ-q-${d.id}`); if (q) q.focus(); }, 0); },
+    'dep-succ-clear'(d) { offb(emp(d.id)).successor = null; render(); setTimeout(() => { const q = document.querySelector('.succ-pick .emp-pick input'); if (q) q.focus(); }, 0); },
     'dep-transfer'(d) { offb(emp(d.id)).transfer[d.k] = TODAY; toast('Passation enregistrée'); commit(); },
     'dep-return'(d) { offb(emp(d.id)).returned[d.k] = TODAY; toast('Matériel restitué'); commit(); },
     'dep-request'(d) { const e = emp(d.id), r = offb(e).requests.find((x) => x.id === d.r), doc = addDoc(e.id, r.kind, { reqId: r.id }); ui.modal = { type: 'doc-edit', id: doc.id }; toast('Brouillon créé : relisez-le puis remettez-le'); commit(); },
@@ -3973,12 +3972,8 @@
     talent(v, d) { db.talent = db.talent || {}; const t = db.talent[d.id] = db.talent[d.id] || {}; t[d.k] = d.k === 'risk' ? v : Number(v); commit(); },
     succ(v, d) { db.succession = db.succession || {}; const s = db.succession[d.id] = db.succession[d.id] || {}; s[d.k] = v || null; if (d.k === 'succ' && !v) s.ready = null; commit(); },
     'rc-signed'(v, d) { if (!v) return; const x = offb(emp(d.id)); x.rc.signed = v; toast('Date de signature enregistrée'); commit(); },
-    'dep-succ-q'(v, d, t) { const e = emp(d.id), q = v.trim().toLowerCase(); if (!q) return;
-      const list = employed().filter((y) => y.id !== e.id && !y.exit && y.stage >= 4), y = list.find((x) => `${fullName(x)} · ${x.title} · ${x.dept}`.toLowerCase() === q) || (() => { const m = list.filter((x) => fullName(x).toLowerCase().includes(q)); return m.length === 1 ? m[0] : null; })();
-      if (!y) { toast('Choisis un salarié dans la liste proposée.', 'info'); return; }
-      offb(e).successor = y.id; notify(y.id, `Vous reprenez les dossiers de ${fullName(e)}.`); toast(`${fullName(y)} reprend les dossiers`); commit(); },
     'dep-succ-none'(v, d, t) { if (!t.checked) return; offb(emp(d.id)).successor = 'none'; toast('Départ sans successeur'); commit(); },
-    'dep-succ'(v, d) { const e = emp(d.id); offb(e).successor = v || null; if (v) notify(v, `Vous reprenez les dossiers de ${fullName(e)}.`); commit(); },
+    'dep-succ'(v, d) { const e = emp(d.id); offb(e).successor = v || null; if (v) { notify(v, `Vous reprenez les dossiers de ${fullName(e)}.`); toast(`${fullName(emp(v))} reprend les dossiers`); } commit(); },
     'dep-rehire'(v, d) { offb(emp(d.id)).rehire = v || null; commit(); },
     boomerang(v, d) {
       if (!v) return; const e = emp(d.id), j = db.jobs.find((x) => x.id === v);
@@ -5051,5 +5046,55 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
   normalizeSettings(); applySettings();
   normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); applyDueSalaries(); applyDueManagers(); applyDueChanges(); purgeCandidates(); syncArrivals(); arrivalReminders(); needReminders(); save();
   if (V2_FIRST) { ui.modal = { type: 'v2-news' }; try { localStorage.setItem('teamora-v2-news', '1'); } catch (e) { /* ignore */ } }
+
+  // ================================================================ V2 · Recherche de salarié
+  // Toute liste déroulante dont les valeurs sont des salariés devient un champ de recherche avec suggestions.
+  // La liste d'origine reste dans le formulaire (cachée) : nom du champ, data-change et data-live continuent de fonctionner.
+  const pickNorm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  function enhanceEmpSelects(root = document) {
+    root.querySelectorAll('select:not([data-picked])').forEach((sel) => {
+      const opts = [...sel.options], vals = opts.map((o) => o.value).filter(Boolean);
+      if (!vals.length || !vals.every((v) => emp(v))) return;
+      sel.dataset.picked = '1';
+      const blank = opts.find((o) => !o.value), placeholder = blank && /…$/.test(blank.textContent.trim()) ? blank.textContent.trim() : 'Rechercher un salarié…';
+      const none = blank && !/…$/.test(blank.textContent.trim()) ? blank.textContent.trim() : null;
+      const items = opts.filter((o) => o.value).map((o) => { const e = emp(o.value), t = o.textContent.trim(); return { v: o.value, t, sub: [e.title, e.dept].filter((x) => x && !t.includes(x)).join(' · '), key: pickNorm(`${t} ${e.title} ${e.dept} ${e.email}`), names: pickNorm(`${e.firstName} ${e.lastName}`).split(/[\s-]+/) }; });
+      const wrap = document.createElement('span'); wrap.className = 'emp-pick' + (sel.classList.contains('as-emp') ? ' top' : '') + (sel.classList.contains('sm') ? ' sm' : '');
+      const q = document.createElement('input'); q.type = 'search'; q.className = 'input' + (sel.classList.contains('sm') ? ' sm' : ''); q.placeholder = placeholder; q.autocomplete = 'off'; q.disabled = sel.disabled;
+      q.setAttribute('role', 'combobox'); q.setAttribute('aria-autocomplete', 'list'); q.setAttribute('aria-expanded', 'false');
+      const lab = sel.id && document.querySelector(`label[for="${sel.id}"]`); q.id = `${sel.id || 'pick'}-q${Math.random().toString(36).slice(2, 6)}`;
+      if (lab) lab.htmlFor = q.id; q.setAttribute('aria-label', (lab && lab.textContent.trim()) || sel.getAttribute('aria-label') || 'Salarié');
+      const list = document.createElement('div'); list.className = 'pick-list'; list.setAttribute('role', 'listbox'); list.hidden = true;
+      const curText = () => { const it = items.find((x) => x.v === sel.value); return it ? it.t : ''; };
+      q.value = curText(); let shown = [], hi = -1;
+      const draw = () => {
+        const n = pickNorm(q.value.trim()), ws = n.split(/\s+/).filter(Boolean), searching = !!n && n !== pickNorm(curText());
+        // Les personnes dont le prénom ou le nom commence par la saisie passent devant (poste, service, e-mail ensuite).
+        const score = (x) => ws.filter((w) => x.names.some((nm) => nm.startsWith(w))).length;
+        const all = searching ? items.filter((x) => ws.every((w) => x.key.includes(w))).sort((a, z) => score(z) - score(a)) : items;
+        shown = (none ? [{ v: '', t: none, sub: '' }] : []).concat(all.slice(0, 60));
+        if (searching && hi === -2) hi = none && all.length ? 1 : 0; hi = Math.min(Math.max(hi, 0), shown.length - 1);
+        list.innerHTML = shown.length ? shown.map((x, i) => `<div class="pick-o ${i === hi ? 'hi' : ''} ${x.v === sel.value ? 'cur' : ''} ${x.v ? '' : 'none'}" role="option" data-i="${i}" aria-selected="${i === hi}"><b>${esc(x.t)}</b>${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</div>`).join('')
+          + (all.length > 60 ? `<div class="pick-more">${all.length - 60} autres : précise la recherche</div>` : '') + (all.length ? '' : '<div class="pick-more">Aucun salarié ne correspond</div>') : '<div class="pick-more">Aucun salarié ne correspond</div>';
+        list.hidden = false; q.setAttribute('aria-expanded', 'true');
+        const h = list.querySelector('.hi'); if (h) h.scrollIntoView({ block: 'nearest' });
+      };
+      const close = () => { list.hidden = true; q.setAttribute('aria-expanded', 'false'); hi = -1; };
+      const choose = (x) => { close(); q.value = x.v ? x.t : ''; if (sel.value !== x.v) { sel.value = x.v; sel.dispatchEvent(new Event('change', { bubbles: true })); } };
+      q.addEventListener('focus', () => { hi = Math.max(0, shown.findIndex((x) => x.v === sel.value)); q.select(); draw(); });
+      q.addEventListener('input', (ev) => { ev.stopPropagation(); hi = -2; draw(); });
+      q.addEventListener('change', (ev) => ev.stopPropagation());
+      q.addEventListener('keydown', (ev) => {
+        if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); if (list.hidden) draw(); hi = (hi + (ev.key === 'ArrowDown' ? 1 : -1) + shown.length) % shown.length; draw(); }
+        else if (ev.key === 'Enter') { if (!list.hidden && shown[hi]) { ev.preventDefault(); choose(shown[hi]); } }
+        else if (ev.key === 'Escape') { if (!list.hidden) { ev.preventDefault(); ev.stopPropagation(); close(); q.value = curText(); } }
+      });
+      q.addEventListener('blur', () => { setTimeout(() => { if (document.activeElement === q) return; close(); if (!q.value.trim() && none !== null && sel.value) choose({ v: '', t: none }); else q.value = curText(); }, 120); });
+      list.addEventListener('mousedown', (ev) => { ev.preventDefault(); const o = ev.target.closest('.pick-o'); if (o) choose(shown[Number(o.dataset.i)]); });
+      sel.hidden = true; sel.tabIndex = -1; sel.setAttribute('aria-hidden', 'true');
+      sel.parentNode.insertBefore(wrap, sel); wrap.append(q, list, sel);
+    });
+  }
+  new MutationObserver(() => enhanceEmpSelects()).observe(document.body, { childList: true, subtree: true });
   render(); helpInit();
 })();

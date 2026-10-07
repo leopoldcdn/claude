@@ -930,6 +930,7 @@
     });
   }
   let orgDrag = null;
+  const ORG_HOVER_MS = 120;
   const orgValidTarget = (id, to) => to && to !== id && !isUnder(to, id) && emp(id) && emp(id).managerId !== to;
   function orgSetPreview(to) {
     const d = orgDrag; if (!d) return;
@@ -950,9 +951,14 @@
     if (Math.hypot(ev.clientX - d.lx, ev.clientY - d.ly) < 10 && ui.orgPreview) return;
     const el = document.elementFromPoint(ev.clientX, ev.clientY), c = el && el.closest('.oc'), vp = el && el.closest('#org-vp');
     const to = c && c.dataset.oid !== d.id ? c.dataset.oid : null;
-    clearTimeout(d.t);
-    if (to) d.t = setTimeout(() => orgSetPreview(to), ui.orgPreview ? 180 : 60);
-    else if (!(c && c.dataset.oid === d.id)) d.t = setTimeout(() => orgSetPreview(null), vp ? 350 : 120);
+    // Aperçu après un court survol de la carte (le minuteur ne repart pas à chaque mouvement sur la même carte) :
+    // traverser une carte en chemin ne redessine rien, s'y arrêter un instant suffit.
+    const want = to || (c && c.dataset.oid === d.id ? (ui.orgPreview && ui.orgPreview.to) || null : null);
+    const cur = (ui.orgPreview && ui.orgPreview.to) || null;
+    if (want === cur) { clearTimeout(d.t); d.pending = undefined; return; }
+    if (d.pending === want) return;
+    clearTimeout(d.t); d.pending = want;
+    d.t = setTimeout(() => { d.pending = undefined; orgSetPreview(want); }, want ? ORG_HOVER_MS : vp ? 250 : 80);
   });
   function orgDragEnd(drop) {
     const d = orgDrag; if (!d) return; orgDrag = null; clearTimeout(d.t);

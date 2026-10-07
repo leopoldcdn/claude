@@ -400,7 +400,7 @@
     const crumb = st === null ? `${esc(COMPANY.nom)} · ${esc(fullName(me()))}` : `<b style="color:${STAGE_COLORS[st]}">${esc(stageDef(st).title)}</b>`;
     const mine = db.notifications.filter((n) => n.to === me().id);
     const unread = mine.filter((n) => !n.read).length;
-    return `<header class="top"><button type="button" class="brand" data-act="go" data-v="accueil" aria-label="Teamora · retour à la roue"><span class="brand-mark">${LOGO}</span><span class="brand-t">Teamora<small>${esc(COMPANY.nom)}</small></span></button>
+    return `<header class="top"><button type="button" class="brand" data-act="go" data-v="accueil" aria-label="Teamora · retour à l’accueil" title="Teamora · retour à l’accueil"><span class="brand-mark">${LOGO}</span></button>
       <div class="top-title"><div class="crumb">${crumb}</div><h1>${title}</h1></div>
       <div class="top-right"><div class="persona" role="group" aria-label="Voir l’application en tant que">${Object.entries(PROFILES).filter(([k]) => profileOk(k)).map(([k, p]) => { const e = profileEmp(k);
         return `<button type="button" data-act="persona" data-p="${k}" aria-pressed="${persona() === k}" title="${esc(fullName(e))} · ${p.label}">${avatar(e)}<span class="p-l"><span class="who-name">${esc(e.firstName)} ·</span> ${p.label}</span></button>`; }).join('')}</div>

@@ -1203,7 +1203,12 @@
   MODALS['tenant-new'] = (m, shell) => shell('Tester l’installation', `<div class="modal-b"><p style="margin:0 0 8px">Teamora va s’ouvrir sur une <b>entreprise vierge</b>, comme pour un nouveau client : l’assistant de démarrage te guide pour tout paramétrer.</p><p class="hint" style="margin:0">La démo Nova Studio est conservée : tu peux y revenir à tout moment depuis le bas de page.</p></div>`,
     '<div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="button" class="btn primary" data-act="tenant-new-ok">Créer une entreprise vierge</button></div>');
   Object.assign(MOD_CHG, {
-    'set-logo': async (v, d, t) => { const f = t.files && t.files[0]; if (!f) return; try { const src = await readImage(f); if (src.length > 400000) { toast('Logo trop lourd : choisis une image plus légère.', 'info'); return; }
+    'set-logo': async (v, d, t) => { const f = t.files && t.files[0]; if (!f) return; try {
+      // Un logo n'a pas besoin de plus de 400 px : on réduit puis on compresse (WebP garde la transparence) jusqu'à tenir dans la limite.
+      let src = await readImage(f, 400);
+      for (const side of [400, 300, 200]) { if (src.length <= 400000 || /^data:image\/(svg|gif)/.test(src)) break; src = await shrinkImage(src, side); }
+      t.value = '';
+      if (src.length > 400000) { toast(/svg/.test(src) ? 'Ce SVG est trop lourd (plus de 300 Ko) : exporte le logo en PNG.' : 'Logo trop lourd même après réduction : choisis une autre image.', 'info'); return; }
       db.settings.company.logo = src; applySettings(); db.settingsLog.unshift({ at: TODAY, by: me() ? me().id : 'e1', section: 'Entreprise', changes: ['Logo modifié'] }); toast('Logo enregistré'); commit(); } catch (e) { toast(e.message, 'info'); } },
     'set-import-file'(v, d, t) { const f = t.files && t.files[0]; if (!f) return; const fr = new FileReader(); fr.onload = () => { ui.importText = String(fr.result || ''); render(); }; fr.readAsText(f, 'utf-8'); },
   });
@@ -4391,13 +4396,20 @@
     });
   }
   // Une image insérée est réduite (800 px au plus) pour rester légère dans le modèle.
-  function readImage(file) {
+  // Ré-encode une image (data URL) au côté maximal indiqué, en WebP si le navigateur le permet, sinon en JPEG.
+  function shrinkImage(src, side) {
+    return new Promise((resolve) => { const im = new Image(); im.onerror = () => resolve(src);
+      im.onload = () => { const k = Math.min(1, side / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); const w = c.toDataURL('image/webp', 0.85); resolve(/^data:image\/webp/.test(w) ? w : c.toDataURL('image/jpeg', 0.85)); };
+      im.src = src; });
+  }
+  function readImage(file, max = 800) {
     return new Promise((resolve, reject) => {
       if (!/^image\//.test(file.type)) { reject(new Error('Choisis une image (PNG, JPEG, GIF, WebP ou SVG).')); return; }
       const fr = new FileReader(); fr.onerror = () => reject(new Error('Image illisible.'));
       fr.onload = () => { if (file.type === 'image/svg+xml' || file.type === 'image/gif') { resolve(fr.result); return; }
         const im = new Image(); im.onerror = () => reject(new Error('Image illisible.'));
-        im.onload = () => { const k = Math.min(1, 800 / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+        im.onload = () => { const k = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
           c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); resolve(file.type === 'image/png' || file.type === 'image/webp' ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.86)); };
         im.src = fr.result; };
       fr.readAsDataURL(file);

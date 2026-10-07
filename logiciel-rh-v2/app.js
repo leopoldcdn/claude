@@ -1100,7 +1100,7 @@
     const all = Object.fromEntries(db.employees.map((e) => [e.email.toLowerCase(), e]));
     Object.values(byMail).forEach((e) => { const m = all[e._mgr]; if (m && m.id !== e.id) e.managerId = m.id; delete e._mgr; });
     s.services.forEach((v) => { if (!v.head) { const h = db.employees.find((e) => e.dept === v.nom && e.stage < 15 && !db.employees.some((x) => x.id === e.managerId && x.dept === v.nom)); if (h) v.head = h.id; } });
-    if (!emp(s.directionId) || s.directionId === 'e1') { const top = db.employees.find((e) => !e.managerId && e.id !== 'e1' && e.stage < 15); if (top) s.directionId = top.id; }
+    if (!emp(s.directionId) || (s.directionId === 'e1' && !s.dirChosen)) { const top = db.employees.find((e) => !e.managerId && e.id !== 'e1' && e.stage < 15); if (top) s.directionId = top.id; }
     db.settingsLog.unshift({ at: TODAY, by: me() ? me().id : 'e1', section: 'Collaborateurs (import)', changes: [`${plural(ok.length, 'collaborateur importé', 'collaborateurs importés')}`] });
     ui.importText = null; applySettings(); toast(`${plural(ok.length, 'collaborateur importé', 'collaborateurs importés')} · invitations prêtes à partir`); commit();
   }
@@ -1125,7 +1125,7 @@
       if (!errs.length) { const old = s.sites; list.forEach((x) => { const o = old.find((y) => y.id === x.id); if (o && o.nom && o.nom !== x.nom) db.employees.forEach((e) => { if ((e.location || '').startsWith(o.nom)) e.location = e.location.replace(o.nom, x.nom); }); }); s.sites = list; } }
     if (k === 'services') { const list = []; Object.keys(v).filter((x) => x.startsWith('nom_')).forEach((x) => { const i = x.slice(4); list.push({ nom: v[x].trim(), head: v[`head_${i}`] || null }); });
       if (list.some((x) => !x.nom)) errs.push('Chaque service a un nom.');
-      if (!errs.length) { s.services.forEach((o, i) => { const nw = list[i]; if (nw && o.nom && o.nom !== nw.nom) db.employees.forEach((e) => { if (e.dept === o.nom) e.dept = nw.nom; }); }); s.services = list; if (v.directionId) s.directionId = v.directionId;
+      if (!errs.length) { s.services.forEach((o, i) => { const nw = list[i]; if (nw && o.nom && o.nom !== nw.nom) db.employees.forEach((e) => { if (e.dept === o.nom) e.dept = nw.nom; }); }); s.services = list; if (v.directionId) { if (v.directionId !== s.directionId) s.dirChosen = true; s.directionId = v.directionId; }
         if (list.some((x) => !x.head)) warns.push('Un service sans responsable : ses demandes remonteront à la Direction.'); } }
     if (k === 'services' && !errs.length) { applySettings(); const n = orgIssues().length; if (n) warns.push(`${plural(n, 'incohérence', 'incohérences')} avec l’organigramme : voir « Cohérence avec l’organigramme » ci-dessous.`); }
     if (k === 'utilisateurs') Object.assign(s.droits, { motifAbsence: !!v.motifAbsence, orgSalarie: !!v.orgSalarie });
@@ -1168,7 +1168,8 @@
     if (k === 'bienvenue') inner = `<p class="wiz-lead">Bienvenue dans Teamora ! En quelques minutes, on configure ton entreprise : identité, convention collective, sites, services, collaborateurs et paie. Chaque étape peut être complétée plus tard dans <b>Paramètres</b>.</p>
       <form data-form="wiz-admin" novalidate><h4 class="sub">Ton compte administrateur</h4><div class="form-grid">${fld('wz-fn', 'Prénom', inp('wz-fn', 'firstName', admin ? admin.firstName : '', 'maxlength="40" autocomplete="given-name"'))}${fld('wz-ln', 'Nom', inp('wz-ln', 'lastName', admin ? admin.lastName : '', 'maxlength="40" autocomplete="family-name"'))}
         ${fld('wz-em', 'E-mail professionnel', inp('wz-em', 'email', admin ? admin.email : '', 'type="email" maxlength="80" autocomplete="email"'))}${fld('wz-ti', 'Fonction', inp('wz-ti', 'title', admin ? admin.title : 'Responsable RH', 'maxlength="60"'))}
-        ${fld('wz-co', 'Nom de l’entreprise', inp('wz-co', 'company', db.settings.company.nom, 'maxlength="60"'), true)}</div><div id="set-msg" aria-live="polite"></div>
+        ${fld('wz-co', 'Nom de l’entreprise', inp('wz-co', 'company', db.settings.company.nom, 'maxlength="60"'), true)}</div>
+        <label class="agree" style="margin-top:12px"><input type="checkbox" name="dirigeant" ${db.settings.dirChosen && db.settings.directionId === 'e1' ? 'checked' : ''}> Je dirige l’entreprise (gérant, président, directeur général) : je suis en haut de l’organigramme</label><div id="set-msg" aria-live="polite"></div>
         <div class="wiz-nav"><span></span><button class="btn primary">Commencer${ic('arrow')}</button></div></form>`;
     else if (k === 'fin') { const checks = setupChecks(), done = checks.filter((x) => x[2]).length;
       inner = `<div class="wiz-done">${ic('check')}<h3>${esc(COMPANY.nom)} est prêt à utiliser Teamora</h3><p>${done} réglages sur ${checks.length} sont faits. Tu pourras compléter le reste à tout moment dans Paramètres.</p></div>
@@ -1243,6 +1244,10 @@
       Object.assign(a, { firstName: v.firstName.trim(), lastName: v.lastName.trim(), email: v.email.trim().toLowerCase(), title: v.title.trim() || 'Responsable RH', admin: true });
       Object.assign(db.settings.company, { nom: v.company.trim(), raison: db.settings.company.raison || v.company.trim(), domaine: db.settings.company.domaine || domain, signataire: 'e1' });
       if (!db.settings.services.length) db.settings.services = [{ nom: 'Direction', head: null }, { nom: 'RH', head: 'e1' }];
+      // Le dirigeant est la Direction et le haut de l'organigramme ; sinon, la Direction sera déduite de l'import.
+      if (v.dirigeant) { Object.assign(db.settings, { directionId: 'e1', dirChosen: true }); a.dept = 'Direction'; a.managerId = null; if (!v.title.trim()) a.title = 'Directeur général';
+        const dir = db.settings.services.find((x) => x.nom === 'Direction'); if (dir) dir.head = 'e1'; const rhs = db.settings.services.find((x) => x.nom === 'RH'); if (rhs && rhs.head === 'e1') rhs.head = null; }
+      else if (db.settings.dirChosen && db.settings.directionId === 'e1') { db.settings.dirChosen = false; }
       applySettings(); ui.wizStep = 'entreprise'; save(); render(); window.scrollTo(0, 0);
     },
   });
@@ -1281,7 +1286,7 @@
       const d = emp(DIR_ID()), first = emp(cyc.find((i) => Object.values(DEPT_HEAD).includes(i)) || cyc[0]);
       out.unshift({ t: 'loop', svc: first.dept, msg: `Boucle de rattachements : ${cyc.map((i) => fullName(emp(i))).join(' → ')} → ${fullName(first)}.`, fix: d && !cyc.includes(d.id) ? { a: 'attach', id: first.id, to: d.id, l: `Rattacher ${first.firstName} à ${d.firstName} (Direction)` } : { a: 'attach', id: first.id, to: null, l: `Retirer le manager de ${first.firstName}` } }); });
     // Un seul sommet : toute personne sans manager, hors Direction, forme un arbre à part.
-    const dir = emp(DIR_ID()); if (dir) db.employees.filter((e) => e.stage >= 2 && e.stage < 15 && e.id !== dir.id && (!e.managerId || !emp(e.managerId))).forEach((e) => out.push({ t: 'root', svc: e.dept, msg: `${fullName(e)} n’a pas de manager : sa carte apparaît à part, en haut de l’organigramme.`, fix: { a: 'attach', id: e.id, to: dir.id, l: `Rattacher à ${dir.firstName} (Direction)` } }));
+    const dir = emp(DIR_ID()); if (dir) db.employees.filter((e) => e.stage >= 2 && e.stage < 15 && e.id !== dir.id && (!e.managerId || !emp(e.managerId))).forEach((e) => out.push({ t: 'root', svc: e.dept, msg: `${fullName(e)} n’a pas de manager : sa carte apparaît à part, en haut de l’organigramme.`, fix: { a: 'attach', id: e.id, to: dir.id, l: `Rattacher à ${dir.firstName} (Direction)` }, alt: { a: 'dir', id: e.id, l: `${e.firstName} dirige l’entreprise` } }));
     return out;
   }
   const nameKey = (e) => pickNorm(`${e.firstName} ${e.lastName}`).replace(/[^a-z]/g, '');
@@ -1294,7 +1299,7 @@
   function orgCoherence() {
     const list = orgIssues();
     return `<div class="coh ${list.length ? 'warn' : 'ok'}"><h4 class="sub">Cohérence avec l’organigramme</h4>${list.length ? `<p class="hint" style="margin:0 0 8px">Le responsable d’un service en fait partie, il est en haut de sa branche, et tous les membres du service sont dans son équipe (directement ou non) ; chacun remonte jusqu’à la Direction. Les corrections s’appliquent aujourd’hui et sont tracées dans l’historique des collaborateurs.</p>
-      ${list.map((x, i) => `<div class="todo"><span class="chk-dot warn"></span><div class="t"><b>${esc(x.msg)}</b></div>${x.fix ? `<button type="button" class="btn ghost sm" data-act="coh-fix" data-i="${i}">${esc(x.fix.l)}</button>` : '<span class="pill neutral">À corriger dans les dossiers</span>'}</div>`).join('')}
+      ${list.map((x, i) => `<div class="todo"><span class="chk-dot warn"></span><div class="t"><b>${esc(x.msg)}</b></div>${x.alt ? `<button type="button" class="btn ghost sm" data-act="coh-fix" data-i="${i}" data-alt="1">${esc(x.alt.l)}</button>` : ''}${x.fix ? `<button type="button" class="btn ghost sm" data-act="coh-fix" data-i="${i}">${esc(x.fix.l)}</button>` : '<span class="pill neutral">À corriger dans les dossiers</span>'}</div>`).join('')}
       ${list.filter((x) => x.fix).length > 1 ? `<div class="toolbar" style="margin-top:8px"><button type="button" class="btn primary sm" data-act="coh-fix-all">${ic('check')}Tout corriger</button></div>` : ''}`
       : `<p class="ok-line">${ic('check')}Responsables, services et organigramme concordent.</p>`}</div>`;
   }
@@ -1304,6 +1309,9 @@
     if (f.a === 'attach') applySituation(e, Object.assign(cur, { managerId: f.to }), TODAY, 'Changement de manager');
     if (f.a === 'dept') applySituation(e, Object.assign(cur, { dept: x.svc }), TODAY, 'Changement de service');
     if (f.a === 'head') { const sv = db.settings.services.find((v) => v.nom === x.svc); if (sv) sv.head = e.id; }
+    // Désigner le dirigeant : il devient la Direction et le sommet (le contrôle proposera ensuite de rattacher les autres).
+    if (f.a === 'dir') { const old = emp(DIR_ID()); Object.assign(db.settings, { directionId: e.id, dirChosen: true }); applySettings();
+      const dsv = db.settings.services.find((v) => v.nom === 'Direction'); if (dsv && (!dsv.head || dsv.head === (old && old.id))) dsv.head = e.id; }
     if (f.a === 'merge') { const k = emp(f.to); // l'équipe et les responsabilités du doublon passent au dossier conservé
       db.employees.forEach((y) => { if (y.managerId === e.id) y.managerId = y.id === k.id ? (e.managerId && e.managerId !== k.id ? e.managerId : null) : k.id; }); db.settings.services.forEach((v) => { if (v.head === e.id) v.head = k.id; });
       if (db.settings.directionId === e.id) db.settings.directionId = k.id; if (e.admin) k.admin = true;
@@ -1312,7 +1320,7 @@
   }
   Object.assign(MOD_ACT, {
     'coh-open'() { Object.assign(ui, { view: 'parametres', stage: null, setSec: 'services', orgFull: false }); document.documentElement.classList.remove('org-full-on'); window.scrollTo(0, 0); render(); },
-    'coh-fix'(d) { const x = orgIssues()[Number(d.i)]; if (!x || !x.fix) return; cohApply(x); applySettings(); toast(`${x.fix.l} : fait`); commit(); },
+    'coh-fix'(d) { const x = orgIssues()[Number(d.i)]; if (!x || !x.fix) return; if (d.alt && x.alt) x.fix = x.alt; cohApply(x); applySettings(); toast(`${x.fix.l} : fait`); commit(); },
     'coh-fix-all'() { let n = 0, x; while ((x = orgIssues().find((y) => y.fix)) && n < 50) { cohApply(x); applySettings(); n++; } toast(`${plural(n, 'correction appliquée', 'corrections appliquées')}`); commit(); },
   });
   // ---- V2 · liste « À traiter » et nouveautés de la version

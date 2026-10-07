@@ -47,6 +47,12 @@
   le bouton n'apparaît pas. En production, il faudrait un serveur intermédiaire qui appelle l'API Claude : la clé d'API ne
   doit jamais être dans le navigateur.
 
+- **Cohérence services / organigramme** : règle commune aux Paramètres (responsable de chaque service), aux dossiers
+  (service et manager) et à l'organigramme — le responsable fait partie de son service, il est en haut de sa branche,
+  tous les membres du service sont dans son équipe et chacun remonte jusqu'à la Direction. Le contrôle (Paramètres >
+  Services et Direction) liste les écarts avec une correction en un clic ou « Tout corriger » (changements tracés dans
+  l'historique) ; l'organigramme affiche une alerte et le nom des services sur la carte qui ouvre chaque branche ; une
+  personne ne peut pas diriger deux services ; choisir un service dans un dossier propose son responsable comme manager.
 - **Recherche de salarié** : partout où l'on choisit un salarié (manager, successeur, parrain, responsable de service,
   évaluateur, collaborateur concerné…), la liste déroulante devient un champ de recherche : saisie sur le prénom, le nom,
   le poste, le service ou l'e-mail, suggestions au fil de la frappe, flèches et Entrée au clavier, Échap pour annuler.

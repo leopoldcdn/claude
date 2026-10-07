@@ -995,7 +995,7 @@
     return [['entreprise', 'Identité de l’entreprise (nom, raison sociale, adresse, SIRET, NAF, Urssaf)', !!(c.nom && c.raison && c.adresse && c.ville && sirenDigits(c.siret).length === 14 && c.naf && c.urssaf)],
       ['entreprise', 'Logo de l’entreprise (documents)', !!c.logo], ['convention', 'Convention collective et temps de travail', !!s.convention],
       ['sites', 'Au moins un site', s.sites.length > 0], ['services', 'Services avec un responsable', s.services.length > 0 && s.services.every((x) => x.head && emp(x.head))],
-      ['services', 'Direction désignée', !!emp(s.directionId)], ['import', 'Collaborateurs enregistrés (au moins 2)', emps.length >= 2],
+      ['services', 'Direction désignée', !!emp(s.directionId)], ['services', 'Responsables cohérents avec l’organigramme', !orgIssues().length], ['import', 'Collaborateurs enregistrés (au moins 2)', emps.length >= 2],
       ['utilisateurs', 'Au moins un administrateur RH', db.employees.some((e) => e.admin && e.stage < 15)], ['paie', 'Prestataire de paie et règles de paie', !!s.paie.prestataire]];
   }
   const sirenDigits = (s) => String(s || '').replace(/\D/g, '');
@@ -1025,7 +1025,7 @@
     if (k === 'services') return `<div class="set-list">${s.services.map((x, i) => `<div class="set-row"><div class="form-grid">${fld(`st-vn${i}`, 'Service', inp(`st-vn${i}`, `nom_${i}`, x.nom, 'maxlength="40"'))}${fld(`st-vh${i}`, 'Responsable', `<select id="st-vh${i}" name="head_${i}" class="select">${empOpt(x.head, people, 'À désigner')}</select>`)}</div>
         <button type="button" class="icon-btn" data-act="set-del" data-k="services" data-i="${i}" aria-label="Supprimer le service ${esc(x.nom)}" title="Supprimer">${ic('x')}</button></div>`).join('') || '<p class="muted" style="margin:0">Aucun service pour l’instant.</p>'}</div>
       <button type="button" class="btn ghost sm" data-act="set-add" data-k="services">${ic('plus')}Ajouter un service</button>
-      <div class="form-grid" style="margin-top:16px">${fld('st-dir', 'Direction (valide les besoins hors budget et les demandes des RH)', `<select id="st-dir" name="directionId" class="select">${empOpt(s.directionId, people, 'À désigner')}</select>`, true)}</div>`;
+      <div class="form-grid" style="margin-top:16px">${fld('st-dir', 'Direction (valide les besoins hors budget et les demandes des RH)', `<select id="st-dir" name="directionId" class="select">${empOpt(s.directionId, people, 'À désigner')}</select>`, true)}</div>${wiz ? '' : orgCoherence()}`;
     if (k === 'import') return importSection(wiz);
     if (k === 'utilisateurs') { const admins = db.employees.filter((e) => e.admin && e.stage < 15);
       return `<h4 class="sub">Administrateurs RH</h4><div class="set-list">${admins.map((e) => `<div class="set-row simple">${avatar(e, 'sm')}<div class="t"><b>${esc(fullName(e))}</b><small>${esc(e.email)} · accès complet aux dossiers</small></div>${admins.length > 1 ? `<button type="button" class="btn ghost sm" data-act="set-admin" data-id="${e.id}" data-v="0">Retirer</button>` : '<span class="pill neutral">Administrateur principal</span>'}</div>`).join('')}</div>
@@ -1122,9 +1122,11 @@
       if (list.some((x) => x.transport < 0)) errs.push('Le prix d’un abonnement ne peut pas être négatif.');
       if (!errs.length) { const old = s.sites; list.forEach((x) => { const o = old.find((y) => y.id === x.id); if (o && o.nom && o.nom !== x.nom) db.employees.forEach((e) => { if ((e.location || '').startsWith(o.nom)) e.location = e.location.replace(o.nom, x.nom); }); }); s.sites = list; } }
     if (k === 'services') { const list = []; Object.keys(v).filter((x) => x.startsWith('nom_')).forEach((x) => { const i = x.slice(4); list.push({ nom: v[x].trim(), head: v[`head_${i}`] || null }); });
-      if (list.some((x) => !x.nom)) errs.push('Chaque service a un nom.'); if (new Set(list.map((x) => x.nom.toLowerCase())).size < list.length) errs.push('Deux services portent le même nom.');
+      if (list.some((x) => !x.nom)) errs.push('Chaque service a un nom.');
+      const hs = list.map((x) => x.head).filter(Boolean); if (new Set(hs).size < hs.length) errs.push('Une même personne ne peut pas être responsable de deux services.'); if (new Set(list.map((x) => x.nom.toLowerCase())).size < list.length) errs.push('Deux services portent le même nom.');
       if (!errs.length) { s.services.forEach((o, i) => { const nw = list[i]; if (nw && o.nom && o.nom !== nw.nom) db.employees.forEach((e) => { if (e.dept === o.nom) e.dept = nw.nom; }); }); s.services = list; if (v.directionId) s.directionId = v.directionId;
         if (list.some((x) => !x.head)) warns.push('Un service sans responsable : ses demandes remonteront à la Direction.'); } }
+    if (k === 'services' && !errs.length) { applySettings(); const n = orgIssues().length; if (n) warns.push(`${plural(n, 'incohérence', 'incohérences')} avec l’organigramme : voir « Cohérence avec l’organigramme » ci-dessous.`); }
     if (k === 'utilisateurs') Object.assign(s.droits, { motifAbsence: !!v.motifAbsence, orgSalarie: !!v.orgSalarie });
     if (k === 'absences') Object.assign(s.conges, { decompte: v.decompte, backup: !!v.backup, off: LEAVE_OPTIONAL.filter((t) => !v[`type_${t}`]) });
     if (k === 'paie') { const p = { prestataire: (v.prestataire || '').trim(), cloture: Math.round(num(v.cloture)), trValeur: num(v.trValeur), trEmployeur: num(v.trEmployeur), mutSal: num(v.mutSal), mutEmp: num(v.mutEmp), ttJour: num(v.ttJour) };
@@ -1245,6 +1247,54 @@
   });
   MOD_INP['set-import'] = (val) => { ui.importText = val; const box = document.getElementById('imp-prev'); if (box) box.innerHTML = importPreview(val.trim() ? parseImport(val) : null);
     const nx = document.getElementById('wiz-next'); if (nx) nx.innerHTML = `${importNextLabel()}${ic('arrow')}`; };
+
+  // ---- Cohérence entre les responsables des paramètres, le service et le manager des dossiers, et l'organigramme.
+  // Règle : le responsable d'un service en fait partie, il est en haut de sa branche, et tous les membres du service sont dans son équipe.
+  const svcMembers = (svc) => db.employees.filter((e) => e.stage >= 2 && e.stage < 15 && e.dept === svc);
+  function orgIssues() {
+    if (!db.settings) return [];
+    const out = [], heads = {};
+    db.settings.services.forEach((sv) => { if (sv.head) (heads[sv.head] = heads[sv.head] || []).push(sv.nom); });
+    Object.entries(heads).filter(([, l]) => l.length > 1).forEach(([id, l]) => { if (emp(id)) out.push({ t: 'double', svc: l[0], msg: `${fullName(emp(id))} est responsable de plusieurs services (${l.join(', ')}) : désigne un responsable distinct pour chacun.`, fix: null }); });
+    db.settings.services.forEach((sv) => {
+      const h = sv.head && emp(sv.head), members = svcMembers(sv.nom);
+      if (h && heads[h.id].length > 1) return;
+      if (!h || h.stage >= 15) {
+        if (!members.length) return;
+        const tops = members.filter((m) => !members.some((o) => o.id !== m.id && isUnder(m.id, o.id)));
+        out.push({ t: 'no-head', svc: sv.nom, msg: `Aucun responsable désigné pour « ${sv.nom} »${tops.length === 1 ? ` : ${fullName(tops[0])} est en haut de la branche` : ''}.`, fix: tops.length === 1 ? { a: 'head', id: tops[0].id, l: `Désigner ${fullName(tops[0])}` } : null });
+        return;
+      }
+      if (h.dept !== sv.nom) out.push({ t: 'head-dept', svc: sv.nom, msg: `${fullName(h)}, responsable de « ${sv.nom} », est rattaché·e au service « ${h.dept} » dans son dossier.`, fix: { a: 'dept', id: h.id, l: `Passer ${h.firstName} dans « ${sv.nom} »` } });
+      const others = members.filter((m) => m.id !== h.id), above = others.filter((m) => isUnder(h.id, m.id));
+      if (above.length) { const top = above.find((m) => !above.some((o) => o.id !== m.id && isUnder(m.id, o.id))) || above[0];
+        out.push({ t: 'head-low', svc: sv.nom, msg: `${fullName(top)} (même service) est au-dessus de ${fullName(h)}, le responsable, dans l’organigramme.`, fix: { a: 'head', id: top.id, l: `Désigner ${top.firstName} responsable` } }); }
+      others.filter((m) => !isUnder(m.id, h.id) && !isUnder(h.id, m.id)).forEach((m) => out.push({ t: 'outside', svc: sv.nom, msg: `${fullName(m)} est dans « ${sv.nom} » mais ne fait pas partie de l’équipe de ${fullName(h)} (manager : ${m.managerId && emp(m.managerId) ? fullName(emp(m.managerId)) : 'aucun'}).`, fix: { a: 'attach', id: m.id, to: h.id, l: `Rattacher à ${h.firstName}` } }));
+    });
+    // Un seul sommet : toute personne sans manager, hors Direction, forme un arbre à part.
+    const dir = emp(DIR_ID()); if (dir) db.employees.filter((e) => e.stage >= 2 && e.stage < 15 && e.id !== dir.id && (!e.managerId || !emp(e.managerId))).forEach((e) => out.push({ t: 'root', svc: e.dept, msg: `${fullName(e)} n’a pas de manager : sa carte apparaît à part, en haut de l’organigramme.`, fix: { a: 'attach', id: e.id, to: dir.id, l: `Rattacher à ${dir.firstName} (Direction)` } }));
+    return out;
+  }
+  function orgCoherence() {
+    const list = orgIssues();
+    return `<div class="coh ${list.length ? 'warn' : 'ok'}"><h4 class="sub">Cohérence avec l’organigramme</h4>${list.length ? `<p class="hint" style="margin:0 0 8px">Le responsable d’un service en fait partie, il est en haut de sa branche, et tous les membres du service sont dans son équipe (directement ou non) ; chacun remonte jusqu’à la Direction. Les corrections s’appliquent aujourd’hui et sont tracées dans l’historique des collaborateurs.</p>
+      ${list.map((x, i) => `<div class="todo"><span class="chk-dot warn"></span><div class="t"><b>${esc(x.msg)}</b></div>${x.fix ? `<button type="button" class="btn ghost sm" data-act="coh-fix" data-i="${i}">${esc(x.fix.l)}</button>` : '<span class="pill neutral">À corriger dans les dossiers</span>'}</div>`).join('')}
+      ${list.filter((x) => x.fix).length > 1 ? `<div class="toolbar" style="margin-top:8px"><button type="button" class="btn primary sm" data-act="coh-fix-all">${ic('check')}Tout corriger</button></div>` : ''}`
+      : `<p class="ok-line">${ic('check')}Responsables, services et organigramme concordent.</p>`}</div>`;
+  }
+  function cohApply(x) {
+    const f = x.fix, e = emp(f.id); if (!e) return;
+    const cur = { title: e.title, dept: e.dept, managerId: e.managerId, salary: e.salary, quotite: e.quotite || 100 };
+    if (f.a === 'attach') applySituation(e, Object.assign(cur, { managerId: f.to }), TODAY, 'Changement de manager');
+    if (f.a === 'dept') applySituation(e, Object.assign(cur, { dept: x.svc }), TODAY, 'Changement de service');
+    if (f.a === 'head') { const sv = db.settings.services.find((v) => v.nom === x.svc); if (sv) sv.head = e.id; }
+    db.settingsLog.unshift({ at: TODAY, by: me().id, section: 'Services et Direction', changes: [`Cohérence : ${f.l}`] });
+  }
+  Object.assign(MOD_ACT, {
+    'coh-open'() { Object.assign(ui, { view: 'parametres', stage: null, setSec: 'services', orgFull: false }); document.documentElement.classList.remove('org-full-on'); window.scrollTo(0, 0); render(); },
+    'coh-fix'(d) { const x = orgIssues()[Number(d.i)]; if (!x || !x.fix) return; cohApply(x); applySettings(); toast(`${x.fix.l} : fait`); commit(); },
+    'coh-fix-all'() { let n = 0, x; while ((x = orgIssues().find((y) => y.fix)) && n < 50) { cohApply(x); applySettings(); n++; } toast(`${plural(n, 'correction appliquée', 'corrections appliquées')}`); commit(); },
+  });
   // ---- V2 · liste « À traiter » et nouveautés de la version
   MODALS.todo = (m, shell) => { const items = todoItems();
     return shell('À traiter', `<div class="modal-b">${items.length ? items.map((x) => `<div class="todo-sec"><div class="todo-sec-h"><span class="stage-dot" style="background:${STAGE_COLORS[x.i]}">${ic(stageDef(x.i).icon)}</span><b>${esc(x.name)}</b><span class="badge-dot">${x.n}</span>
@@ -1406,7 +1456,7 @@
   function orgCard(e, kids) {
     const n = teamSize(e.id), fold = (ui.orgFold || {})[e.id] && !(orgFiltered() && kids.some((k) => orgMatch(k) || teamHas(k.id))), rh = ui.profile === 'rh', nx = e.managerNext && emp(e.managerNext.id);
     const pv = ui.orgPreview, cls = [orgFiltered() ? (orgMatch(e) ? 'hit' : 'dim') : '', e.id === me().id ? 'me' : '', pv && pv.id === e.id ? 'mv' : '', pv && pv.to === e.id ? 'tgt' : ''].join(' ');
-    return `<div class="oc ${cls}" style="--d:${deptHue(e.dept)}" data-oid="${e.id}" ${rh && e.managerId ? 'data-drag="1"' : ''}>${pv && pv.id === e.id ? '<span class="oc-new">Nouvelle place</span>' : ''}${orgDeptHead(e) ? `<div class="oc-dept">${esc(e.dept)}</div>` : ''}
+    return `<div class="oc ${cls}" style="--d:${deptHue(e.dept)}" data-oid="${e.id}" ${rh && e.managerId ? 'data-drag="1"' : ''}>${pv && pv.id === e.id ? '<span class="oc-new">Nouvelle place</span>' : ''}${orgDeptHead(e) ? `<div class="oc-dept">${esc(e.dept)}${DEPT_HEAD[e.dept] === e.id ? '<small> · responsable</small>' : ''}</div>` : ''}
       <button type="button" class="oc-b" data-act="org-open" data-id="${e.id}">${avatar(e, 'sm')}<span><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small><i>${esc(e.dept)}${orgSite(e) !== SITES()[0] ? ` · ${esc(orgSite(e))}` : ''}</i></span></button>
       ${e.stage < 3 ? `<span class="pill info oc-tag">Arrivée le ${fmtShort(e.startDate)}</span>` : ''}${rh && nx ? `<span class="pill warn oc-tag" title="Changement de manager programmé">→ ${esc(nx.firstName)} au ${fmtShort(e.managerNext.from)}</span>` : ''}${rh && e.changeNext && !nx ? `<span class="pill warn oc-tag" title="${esc(situationDiff(e, e.changeNext).join(' · '))}">${esc(e.changeNext.dept !== e.dept ? `→ ${e.changeNext.dept}` : e.changeNext.managerId !== e.managerId && emp(e.changeNext.managerId) ? `→ ${emp(e.changeNext.managerId).firstName}` : e.changeNext.label)} au ${fmtShort(e.changeNext.from)}</span>` : ''}${e.id === me().id ? '<span class="oc-me">Moi</span>' : ''}
       ${kids.length ? `<button type="button" class="oc-n" data-act="org-fold" data-id="${e.id}" aria-expanded="${!fold}" title="${fold ? 'Déplier' : 'Replier'} l’équipe"><span class="num">${kids.length}</span> direct${kids.length > 1 ? 's' : ''}${n !== kids.length ? ` · <span class="num">${n}</span> au total` : ''}${ic('right').replace('<svg', '<svg class="chev"')}</button>` : ''}</div>`;
@@ -1428,6 +1478,7 @@
         <span class="muted" id="org-count" style="font-size:13px">${hits === null ? `${plural(people.length, 'personne', 'personnes')} · ${plural(depts.length, 'service', 'services')}` : plural(hits, 'résultat', 'résultats')}</span></div>
         <div class="toolbar"><div class="zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="org-zoom" data-z="-1" aria-label="Dézoomer">−</button><span class="num" id="org-z">${Math.round((ui.orgZoom || 1) * 100)} %</span><button type="button" class="icon-btn" data-act="org-zoom" data-z="1" aria-label="Zoomer">+</button><button type="button" class="btn ghost sm" data-act="org-zoom" data-z="fit">Ajuster</button></div>
           <button type="button" class="btn ghost sm" data-act="org-unfold">Tout déplier</button>${ui.orgFull ? `<button type="button" class="btn ghost sm" data-act="org-full" aria-pressed="true" title="Quitter le plein écran (Échap)">${ic('shrink')}Quitter le plein écran</button>` : `<button type="button" class="icon-btn org-fs" data-act="org-full" aria-pressed="false" aria-label="Afficher en plein écran" data-tip="Plein écran">${ic('expand')}</button>`}${rh ? `<button type="button" class="btn primary sm" data-act="org-move">${ic('arrow')}Changer un rattachement</button>` : ''}</div></div>
+      ${rh && orgIssues().length ? `<div class="org-warn">${ic('target')}<span>${plural(orgIssues().length, 'incohérence', 'incohérences')} entre les responsables de service (Paramètres) et l’organigramme.</span><button type="button" class="btn ghost sm" data-act="coh-open">Vérifier</button></div>` : ''}
       <div class="org-vp" id="org-vp"><div class="org-canvas" id="org-canvas" style="zoom:${ui.orgZoom || 1}"><ul class="ot">${roots.map((r) => orgNode(r)).join('')}</ul></div></div>
       <p class="hint org-hint">${rh ? 'Pour changer quelqu’un d’équipe, fais glisser sa carte sur un manager : l’aperçu montre sa nouvelle place en vert, lâche pour confirmer (Échap ou lâcher ailleurs pour annuler). ' : ''}Clique sur une personne pour voir sa fiche · fais glisser le fond pour te déplacer.</p></div>`;
   }
@@ -4895,8 +4946,8 @@
   });
   // Changement de situation : choisir un service propose son responsable comme manager (modifiable).
   document.addEventListener('change', (ev) => {
-    const t = ev.target; if (t.id !== 'mv-dept') return;
-    const f = t.form, who = f && f.elements.empId && f.elements.empId.value, head = DEPT_HEAD[t.value], m = document.getElementById('mv-mgr');
+    const t = ev.target; if (t.id !== 'mv-dept' && t.id !== 'e-dept') return;
+    const f = t.form, who = t.id === 'e-dept' ? ui.modal && ui.modal.id : f && f.elements.empId && f.elements.empId.value, head = DEPT_HEAD[t.value], m = document.getElementById(t.id === 'e-dept' ? 'e-mgr' : 'mv-mgr');
     if (!m || !head || head === who || !emp(head) || m.value === head) return;
     m.value = head; m.dispatchEvent(new Event('change', { bubbles: true })); toast(`Manager proposé : ${fullName(emp(head))}, responsable du service ${t.value}`, 'info');
   });

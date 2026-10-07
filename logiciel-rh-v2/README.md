@@ -40,7 +40,7 @@
 - **Suites d'entretien** : depuis le compte rendu, proposer une formation (envoyée aux RH, déjà validée par le manager) ou
   noter un souhait d'évolution (dans Mobilité) ; le refus d'un entretien professionnel par le salarié est tracé.
 - **Journal des actions** : onglet « Journal » de la fiche (RH) — qui a fait quoi, quand, avec quel profil.
-- **Assistant d'aide (démo)** : bouton « Aide » en bas à droite de la page publiée sur claude.ai. Il interroge Claude via la
+- **Teamo, l'assistant d'aide (démo)** : bouton « Teamo » (avatar : bulle souriante aux couleurs de Teamora) en bas à droite de la page publiée sur claude.ai. Il interroge Claude via la
   capacité « sample » de la page (sur le compte Claude de la personne qui consulte, avec son accord) en lui envoyant un guide
   d'utilisation intégré, l'écran ouvert, le profil et le nombre de sujets « À traiter » — aucune donnée de salarié. Les
   réponses peuvent contenir des liens vers les rubriques autorisées pour le profil. Hors claude.ai (fichier ouvert en local),

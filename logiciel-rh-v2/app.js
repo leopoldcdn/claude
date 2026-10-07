@@ -934,7 +934,7 @@
   const V2_NEWS = [
     ['Organisation', [['Arrivées et Départs regroupés', 'Pré-embauche, embauche et intégration forment un seul dossier par recrue, en onglets ; idem pour les trois temps du départ. La roue passe de 16 à 12 rubriques.', 'arrivees'],
       ['Liste « À traiter »', 'Un bouton en haut rassemble tout ce qui t’attend, rubrique par rubrique et personne par personne.', null],
-      ['Assistant d’aide', 'Bouton « Aide » en bas à droite : pose tes questions sur l’utilisation de Teamora, l’assistant (Claude) tient compte de l’écran ouvert et propose un lien vers la bonne rubrique. Disponible sur la page publiée.', null],
+      ['Teamo, l’assistant', 'Bouton « Teamo » en bas à droite : pose tes questions sur l’utilisation de Teamora ; Teamo (propulsé par Claude) tient compte de l’écran ouvert et propose un lien vers la bonne rubrique. Disponible sur la page publiée.', null],
       ['Barre du haut allégée', 'Modèles et Reporting restent dans le bandeau de gauche ; la barre du haut garde le profil, l’espace, « À traiter » et les notifications.', null]]],
     ['Arrivée', [['Statuts réels', '« Arrivée le … », « Essai jusqu’au … », « En intégration », « En poste », « Départ le … · motif » remplacent les libellés génériques.', 'collaborateurs'],
       ['Stagiaires', 'Convention de stage tripartite au lieu de la DPAE et du contrat de travail, tuteur, gratification, pas de période d’essai.', 'arrivees'],
@@ -4550,10 +4550,20 @@ RUBRIQUES ET ACTIONS
 - Espace salarié : Mon profil (informations, demander une modification avec justificatif, documents, organigramme), Mes absences, Mes bulletins, Mes entretiens, Formations, Mobilité, Santé. Une recrue qui n'est pas encore arrivée ne voit que « Mon arrivée » (pièces à déposer) et « Contrat de travail » (signature).
 
 DONNÉES. Démonstration : les données sont fictives et restent dans le navigateur ; « Réinitialiser la démo » en bas de page remet l'état initial.`;
-  const HELP_RULES = `Tu es l'assistant d'aide à la prise en main intégré au logiciel RH Teamora. Réponds en français, en tutoyant, de façon brève et concrète (3 à 6 phrases ou une courte liste d'étapes numérotées), en t'appuyant UNIQUEMENT sur le guide ci-dessous et sur le contexte de l'écran. N'invente aucune fonction : si le guide ne couvre pas la question, dis-le simplement et propose de contacter le support. Ne réponds pas aux questions sans rapport avec Teamora ; pour une question de droit du travail, donne au plus l'orientation générale que le logiciel applique et rappelle que seul un professionnel peut valider. Adapte la réponse au profil actuel (un salarié ne voit ni la paie ni les arrivées des autres). Quand c'est utile, ajoute UN lien d'accès vers une rubrique, sous la forme exacte [[aller:CLE|Texte du bouton]], où CLE est une des clés autorisées listées dans le contexte. Mise en forme permise : **gras** et listes avec « - » ou « 1. ». Pas de titres.
+  const HELP_RULES = `Tu t'appelles Teamo : tu es l'assistant d'aide à la prise en main intégré au logiciel RH Teamora. Ton ton est chaleureux et simple, sans familiarité excessive ni émoji. Réponds en français, en tutoyant, de façon brève et concrète (3 à 6 phrases ou une courte liste d'étapes numérotées), en t'appuyant UNIQUEMENT sur le guide ci-dessous et sur le contexte de l'écran. N'invente aucune fonction : si le guide ne couvre pas la question, dis-le simplement et propose de contacter le support. Ne réponds pas aux questions sans rapport avec Teamora ; pour une question de droit du travail, donne au plus l'orientation générale que le logiciel applique et rappelle que seul un professionnel peut valider. Adapte la réponse au profil actuel (un salarié ne voit ni la paie ni les arrivées des autres). Quand c'est utile, ajoute UN lien d'accès vers une rubrique, sous la forme exacte [[aller:CLE|Texte du bouton]], où CLE est une des clés autorisées listées dans le contexte. Mise en forme permise : **gras** et listes avec « - » ou « 1. ». Pas de titres.
 
 ${HELP_GUIDE}`;
   const helpState = { open: false, turns: [], busy: false, ctl: null, sample: undefined };
+  // Teamo, l'assistant : une bulle de dialogue souriante aux couleurs de Teamora (cligne des yeux, regarde de côté quand il réfléchit).
+  let teamoN = 0;
+  function teamoSVG(cls = '') {
+    const g = `teamo-g${teamoN += 1}`;
+    return `<svg class="teamo ${cls}" viewBox="0 0 64 64" role="img" aria-label="Teamo"><defs><linearGradient id="${g}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#0ea5c6"/></linearGradient></defs>
+      <circle cx="32" cy="32" r="32" fill="url(#${g})"/><path d="M32 10.5v5.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle class="teamo-dot" cx="32" cy="9" r="3.4" fill="#fde68a"/>
+      <path d="M13.5 31c0-8.3 7.6-14.5 18.5-14.5S50.5 22.7 50.5 31v5c0 8.3-7.6 13.5-18.5 13.5h-5.6l-7.6 5.6 1.7-7C15.6 45.6 13.5 41.6 13.5 36z" fill="#fff"/>
+      <g class="teamo-eyes"><ellipse cx="25" cy="32.5" rx="3.1" ry="3.7" fill="#1e1b4b"/><ellipse cx="39" cy="32.5" rx="3.1" ry="3.7" fill="#1e1b4b"/><circle cx="26.1" cy="31.2" r="1" fill="#fff"/><circle cx="40.1" cy="31.2" r="1" fill="#fff"/></g>
+      <path d="M26.5 40.2c3.2 3 7.8 3 11 0" stroke="#1e1b4b" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="20.2" cy="38.6" r="2.3" fill="#f9a8d4" opacity=".85"/><circle cx="43.8" cy="38.6" r="2.3" fill="#f9a8d4" opacity=".85"/></svg>`;
+  }
   function helpContext() {
     const v = ui.view, title = v === 'etape' ? stageDef(ui.stage).title : (VIEW_LABELS[ui.profile] || {})[v] || v;
     const targets = visibleStages().map((i) => [stageView(i), stageDef(i).short]).concat(ui.profile === 'rh' ? [['reporting', 'Reporting RH'], ['modeles', 'Modèles de documents']] : []).concat([['accueil', 'Accueil (roue)']]);
@@ -4583,16 +4593,18 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
   }
   function helpRender() {
     const box = document.getElementById('help'); if (!box) return;
-    const s = helpState;
-    box.innerHTML = !s.sample ? '' : `<button type="button" class="help-fab" data-help="toggle" aria-expanded="${s.open}" aria-controls="help-panel">${ic(s.open ? 'x' : 'chat')}<span>${s.open ? 'Fermer' : 'Aide'}</span></button>
-      ${s.open ? `<section class="help-panel" id="help-panel" role="dialog" aria-label="Assistant Teamora">
-        <header><span class="help-av">${ic('chat')}</span><div><b>Assistant Teamora</b><small>Aide à la prise en main · démo</small></div>${s.turns.length ? `<button type="button" class="icon-btn" data-help="reset" title="Nouvelle conversation" aria-label="Nouvelle conversation">${ic('refresh')}</button>` : ''}</header>
-        <div class="help-log" id="help-log" aria-live="polite">${s.turns.length ? s.turns.map((t) => `<div class="help-msg ${t.role}${t.error ? ' err' : ''}">${t.role === 'user' ? esc(t.content) : t.content ? helpFormat(t.content) : '<span class="help-wait">Je réfléchis…</span>'}</div>`).join('')
-          : `<div class="help-msg assistant"><p>Bonjour ${esc(me().firstName)} ! Je réponds à tes questions sur l’utilisation de Teamora, en tenant compte de l’écran où tu te trouves.</p></div>`}</div>
-        ${s.turns.length ? '' : `<div class="help-sugg">${helpSuggestions().map((q) => `<button type="button" class="help-chip" data-help="ask" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`}
-        <form class="help-form" data-help-form novalidate><label class="sr" for="help-q">Ta question</label><textarea id="help-q" class="input" rows="1" maxlength="600" placeholder="Pose ta question…" ${s.busy ? 'disabled' : ''}></textarea>
-          ${s.busy ? '<button type="button" class="btn ghost" data-help="stop">Stop</button>' : '<button class="btn primary">Envoyer</button>'}</form>
-        <p class="help-note">Réponses générées par Claude, à vérifier. Démo : utilise ton propre compte Claude ; aucune donnée de salarié n’est envoyée, seulement l’écran ouvert et le guide.</p></section>` : ''}`;
+    const s = helpState, think = s.busy && s.turns.length && !s.turns[s.turns.length - 1].content;
+    const bot = (inner, extra = '') => `<div class="help-row bot ${extra}"><span class="help-mini">${teamoSVG()}</span><div class="help-msg assistant${extra.includes('err') ? ' err' : ''}">${inner}</div></div>`;
+    box.innerHTML = !s.sample ? '' : `<button type="button" class="help-fab ${s.open ? 'on' : ''}" data-help="toggle" aria-expanded="${s.open}" aria-controls="help-panel" aria-label="${s.open ? 'Fermer Teamo' : 'Demander à Teamo'}">${s.open ? ic('x') : `${teamoSVG('fab-av')}<span>Teamo</span>`}</button>
+      ${s.open ? `<section class="help-panel" id="help-panel" role="dialog" aria-label="Teamo, assistant Teamora">
+        <header><span class="help-av">${teamoSVG(think ? 'think' : '')}</span><div><b>Teamo</b><small><i class="help-on"></i>${think ? 'réfléchit…' : 'Ton assistant Teamora'}</small></div>${s.turns.length ? `<button type="button" class="icon-btn" data-help="reset" title="Nouvelle conversation" aria-label="Nouvelle conversation">${ic('refresh')}</button>` : ''}<button type="button" class="icon-btn" data-help="toggle" title="Fermer" aria-label="Fermer Teamo">${ic('x')}</button></header>
+        <div class="help-log" id="help-log" aria-live="polite">${s.turns.length ? s.turns.map((t) => (t.role === 'user' ? `<div class="help-row me"><div class="help-msg user">${esc(t.content)}</div></div>`
+            : t.content ? bot(helpFormat(t.content), t.error ? 'err' : '') : bot('<span class="help-typing" aria-label="Teamo réfléchit"><i></i><i></i><i></i></span>', 'typing'))).join('')
+          : `<div class="help-hello">${teamoSVG('hello')}<b>Salut ${esc(me().firstName)}, moi c’est Teamo !</b><p>Je t’aide à prendre Teamora en main. Je sais sur quel écran tu es et je peux t’emmener à la bonne rubrique.</p></div>`}</div>
+        ${s.turns.length ? '' : `<div class="help-sugg"><small>Pour commencer</small>${helpSuggestions().map((q) => `<button type="button" class="help-chip" data-help="ask" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`}
+        <form class="help-form" data-help-form novalidate><label class="sr" for="help-q">Ta question à Teamo</label><textarea id="help-q" class="input" rows="1" maxlength="600" placeholder="Écris ta question à Teamo…" ${s.busy ? 'disabled' : ''}></textarea>
+          ${s.busy ? `<button type="button" class="icon-btn help-send stop" data-help="stop" title="Arrêter" aria-label="Arrêter la réponse"><span class="sq"></span></button>` : `<button class="icon-btn help-send" title="Envoyer" aria-label="Envoyer">${ic('arrow')}</button>`}</form>
+        <p class="help-note">Teamo s’appuie sur Claude : ses réponses peuvent contenir des erreurs. Démo sur ton compte Claude ; aucune donnée de salarié n’est envoyée.</p></section>` : ''}`;
     const log = document.getElementById('help-log'); if (log) log.scrollTop = log.scrollHeight;
   }
   async function helpAsk(q) {
@@ -4603,7 +4615,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
     const history = s.turns.slice(0, -2).filter((t) => t.content && !t.error).slice(-12).map((t) => ({ role: t.role, content: t.content }));
     const input = [{ role: 'user', content: HELP_RULES }, ...history, { role: 'user', content: `${helpContext()}\n\nQUESTION : ${q}` }];
     try {
-      const { text, truncated } = await s.sample(input, { cache: false, modelTier: 'quick', signal: ctl.signal, onText: ({ text: t }) => { reply.content = t; const el = document.querySelector('#help-log .help-msg.assistant:last-child'); if (el) el.innerHTML = helpFormat(t); const lg = document.getElementById('help-log'); if (lg) lg.scrollTop = lg.scrollHeight; } });
+      const { text, truncated } = await s.sample(input, { cache: false, modelTier: 'quick', signal: ctl.signal, onText: ({ text: t }) => { reply.content = t; const row = document.querySelector('#help-log .help-row.bot:last-child'); if (row) { row.classList.remove('typing'); row.querySelector('.help-msg').innerHTML = helpFormat(t); const hv = document.querySelector('.help-panel header .teamo'); if (hv) hv.classList.remove('think'); const st = document.querySelector('.help-panel header small'); if (st) st.innerHTML = '<i class="help-on"></i>écrit…'; } const lg = document.getElementById('help-log'); if (lg) lg.scrollTop = lg.scrollHeight; } });
       reply.content = text + (truncated ? '\n\n(Réponse coupée : pose une question plus précise.)' : '');
     } catch (e) {
       const code = e && e.code;

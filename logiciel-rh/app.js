@@ -24,6 +24,7 @@
     refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>',
     edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
     arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-8 8"/>',
     lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
     expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
     shrink: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
@@ -3602,7 +3603,7 @@
   function docBody(d) {
     const e = emp(d.empId), t = tplOf(tplKeyFor(d.kind, e));
     const head = `<header><b>${COMPANY.entreprise}</b><span>${COMPANY.entreprise_adresse} · SIRET ${COMPANY.siret}</span></header><h2>${esc(d.docTitle || t.title || DOC_LABEL[d.kind])}</h2>`;
-    return `${head}${d.html || fillTpl(t.body, docCtx(e, d), t.fields)}${d.kind === 'contrat' ? contractSig(d, e) : ''}`;
+    return `${head}<div class="doc-body">${d.html || fillTpl(t.body, docCtx(e, d), t.fields)}</div>${d.kind === 'contrat' ? contractSig(d, e) : ''}`;
   }
   // Signature du salarié apposée sur son contrat (tracé manuscrit), ou mention de l'exemplaire signé.
   function contractSig(d, e) {
@@ -3658,21 +3659,26 @@
       ${fields ? `<div class="form-grid doc-fields">${fields}</div>` : ''}<article class="letter doc-ed"><header><b>${COMPANY.entreprise}</b><span>${COMPANY.entreprise_adresse}</span></header><h2>${esc(d.docTitle || d.title)}</h2><div id="doc-ed" contenteditable="true" spellcheck="true">${d.html || ''}</div></article><p class="err" id="m-err" aria-live="polite">${m.err ? esc(m.err) : ''}</p></div>`,
       `<div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="button" class="btn ghost" data-act="doc-save" data-id="${d.id}">Enregistrer</button>${issue ? `<button type="button" class="btn primary" data-act="doc-issue" data-id="${d.id}">${issue}</button>` : ''}</div>`, true);
   };
+  function bindDocImages() { const ed = document.getElementById('doc-ed'); if (ed) bindImages(ed, () => {}); }
   function bindDocEditor() {
-    const ed = document.getElementById('doc-ed'); if (!ed) return;
+    const ed = document.getElementById('doc-ed'); if (!ed) return; bindDocImages();
     document.querySelectorAll('[data-docf]').forEach((inp) => inp.addEventListener('input', () => {
       ed.querySelectorAll(`mark.fill[data-f="${CSS.escape(inp.dataset.docf)}"]`).forEach((mk) => { mk.textContent = inp.value.trim() || `[${mk.dataset.l}]`; });
     }));
   }
-  function saveDocEditor(d) { const ed = document.getElementById('doc-ed'); if (ed) d.html = sanitizeHTML(ed.innerHTML); d.editedAt = TODAY; d.editedBy = me().id; }
+  function saveDocEditor(d) { const ed = document.getElementById('doc-ed'); if (ed) { const c = ed.cloneNode(true); c.querySelectorAll('.tpl-img-h, .tpl-img-x').forEach((x) => x.remove()); d.html = sanitizeHTML(c.innerHTML); } d.editedAt = TODAY; d.editedBy = me().id; }
   // Ne garde que la mise en forme simple (paragraphes, titres, gras, listes, tableaux, zones à compléter).
+  const imgPos = (f) => { const n = (v, d) => { const x = parseFloat(v); return Number.isFinite(x) ? Math.round(x * 10) / 10 : d; }; return { x: Math.min(95, Math.max(0, n(f.style.left, 0))), y: Math.max(0, n(f.style.top, 0)), w: Math.min(100, Math.max(5, n(f.style.width, 30))) }; };
   function sanitizeHTML(html) {
-    const OK = new Set(['P', 'H3', 'H4', 'B', 'STRONG', 'I', 'EM', 'U', 'UL', 'OL', 'LI', 'BR', 'TABLE', 'TBODY', 'TR', 'TD', 'TH', 'MARK', 'SPAN', 'DIV', 'Q']);
+    const OK = new Set(['P', 'H3', 'H4', 'B', 'STRONG', 'I', 'EM', 'U', 'UL', 'OL', 'LI', 'BR', 'TABLE', 'TBODY', 'TR', 'TD', 'TH', 'MARK', 'SPAN', 'DIV', 'Q', 'FIGURE', 'IMG']);
     const root = document.createElement('div'); root.innerHTML = html;
     const walk = (n) => [...n.childNodes].forEach((c) => {
       if (c.nodeType === 8) { c.remove(); return; }
       if (c.nodeType !== 1) return;
       if (!OK.has(c.tagName)) { walk(c); c.replaceWith(...c.childNodes); return; }
+      // Images des modèles : seulement des images intégrées, positionnées librement (gauche et largeur en %, haut en px).
+      if (c.tagName === 'IMG') { const src = c.getAttribute('src') || ''; if (!src.startsWith('data:image/')) { c.remove(); return; } [...c.attributes].forEach((a) => { if (!['src', 'alt'].includes(a.name)) c.removeAttribute(a.name); }); return; }
+      if (c.tagName === 'FIGURE') { const st = imgPos(c); [...c.attributes].forEach((a) => c.removeAttribute(a.name)); c.className = 'tpl-img'; c.setAttribute('contenteditable', 'false'); c.setAttribute('style', `left:${st.x}%;top:${st.y}px;width:${st.w}%`); [...c.children].forEach((k) => { if (k.tagName !== 'IMG') k.remove(); }); walk(c); if (!c.querySelector('img')) c.remove(); return; }
       [...c.attributes].forEach((a) => { if (!['class', 'data-f', 'data-l', 'data-k'].includes(a.name)) c.removeAttribute(a.name); });
       if (c.tagName === 'DIV' && !c.className) { const p = document.createElement('p'); p.append(...c.childNodes); c.replaceWith(p); walk(p); return; }
       walk(c);
@@ -3716,7 +3722,7 @@
         <div class="toolbar"><button type="button" class="btn ghost" data-act="tpl-preview">Aperçu</button><button type="button" class="btn ghost" data-act="tpl-cancel">Annuler les modifications</button><button type="button" class="btn primary" data-act="tpl-save">${ic('check')}Enregistrer une nouvelle version</button><button type="button" class="icon-btn" data-act="tpl-close" aria-label="Fermer le modèle" title="Fermer">${ic('x')}</button></div></div>
         <div class="card-b" style="border-top:1px solid var(--line)">
           ${t.kind === 'msg' ? `<div class="field" style="margin-bottom:12px"><label for="tpl-subj">Objet du message</label><input id="tpl-subj" class="input" value="${esc(subject || '')}" data-tpl-subj></div>` : `<div class="field" style="margin-bottom:12px"><label for="tpl-title">Titre du document</label><input id="tpl-title" class="input" value="${esc(draft ? draft.title : t.title)}" data-tpl-title></div>`}
-          <div class="ed-bar" role="toolbar" aria-label="Mise en forme">
+          <div class="ed-bar" role="toolbar" aria-label="Mise en forme">${t.kind === 'msg' ? '' : `<label class="btn ghost sm upload ed-img-btn" title="Insérer une image (logo, tampon, signature…)">${ic('image')}Image<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" data-change="ed-image" aria-label="Insérer une image"></label><span class="ed-sep"></span>`}
             <button type="button" class="btn ghost sm" data-act="ed-cmd" data-c="h3">Titre</button><button type="button" class="btn ghost sm" data-act="ed-cmd" data-c="p">Paragraphe</button><button type="button" class="btn ghost sm" data-act="ed-cmd" data-c="bold"><b>G</b></button><button type="button" class="btn ghost sm" data-act="ed-cmd" data-c="ul">Liste</button>
             <span class="ed-sep"></span><label class="sr" for="ed-token">Insérer un champ automatique</label><select id="ed-token" class="select sm" data-change="ed-token"><option value="">Insérer un champ…</option>${groups.map((g) => `<optgroup label="${g}">${TOKENS.filter((x) => x[2] === g).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join('')}</optgroup>`).join('')}</select>
             <span class="ed-sep"></span><label class="sr" for="ed-field">Nouveau champ à saisir</label><span class="ed-combo"><input id="ed-field" class="input sm" placeholder="Champ à saisir, ex. Horaires" maxlength="60" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ed-sugg"><ul id="ed-sugg" class="ed-sugg" role="listbox" hidden></ul></span><button type="button" class="btn ghost sm" data-act="ed-field">${ic('plus')}Ajouter</button></div>
@@ -3730,7 +3736,7 @@
   // Lecture de l'éditeur : pastilles → {{clé}}.
   function readTplEditor() {
     const ed = document.getElementById('tpl-ed'); if (!ed) return null;
-    const clone = ed.cloneNode(true); clone.querySelectorAll('.tk').forEach((s) => s.replaceWith(`{{${s.dataset.k}}}`));
+    const clone = ed.cloneNode(true); clone.querySelectorAll('.tk').forEach((s) => s.replaceWith(`{{${s.dataset.k}}}`)); clone.querySelectorAll('.tpl-img-h, .tpl-img-x').forEach((x) => x.remove());
     const prev = ui.tplDraft && ui.tplDraft.key === ed.dataset.key ? ui.tplDraft : tplOf(ed.dataset.key);
     const subj = document.querySelector('[data-tpl-subj]'), title = document.querySelector('[data-tpl-title]');
     return { key: ed.dataset.key, body: sanitizeHTML(clone.innerHTML), fields: (prev.fields || []).slice(), subject: subj ? subj.value : prev.subject, title: title ? title.value : prev.title };
@@ -3787,8 +3793,61 @@
     const sync = () => { const r = readTplEditor(); ui.tplDraft = r; document.getElementById('tpl-lint').innerHTML = tplLintHTML(tplMissing(r.body, tplOf(r.key).required)); };
     ed.addEventListener('input', sync);
     document.querySelectorAll('[data-tpl-subj], [data-tpl-title]').forEach((x) => x.addEventListener('input', sync));
-    bindFieldCombo();
+    bindFieldCombo(); bindImages(ed, sync);
   }
+  // Images librement placées : glisser pour déplacer, poignée pour redimensionner, × ou Suppr pour retirer, flèches pour ajuster.
+  function bindImages(ed, onChange) {
+    const tools = (f) => { if (!f.querySelector('.tpl-img-h')) f.insertAdjacentHTML('beforeend', `<span class="tpl-img-h" title="Redimensionner"></span><button type="button" class="tpl-img-x" title="Retirer l’image" aria-label="Retirer l’image">${ic('x')}</button>`); f.tabIndex = 0; };
+    ed.querySelectorAll('.tpl-img').forEach(tools);
+    const pos = (f) => imgPos(f), set = (f, p) => { f.style.left = `${p.x}%`; f.style.top = `${p.y}px`; f.style.width = `${p.w}%`; };
+    if (ed._imgBound) return; ed._imgBound = true;
+    let drag = null;
+    ed.addEventListener('pointerdown', (ev) => {
+      const f = ev.target.closest('.tpl-img'); ed.querySelectorAll('.tpl-img.sel').forEach((x) => x !== f && x.classList.remove('sel')); if (!f) return;
+      if (ev.target.closest('.tpl-img-x')) { ev.preventDefault(); f.remove(); onChange(); return; }
+      ev.preventDefault(); f.classList.add('sel'); f.focus({ preventScroll: true });
+      const r = ed.getBoundingClientRect(), p = pos(f);
+      drag = { f, resize: !!ev.target.closest('.tpl-img-h'), x0: ev.clientX, y0: ev.clientY, p, W: r.width, H: ed.scrollHeight }; f.setPointerCapture(ev.pointerId);
+    });
+    ed.addEventListener('pointermove', (ev) => {
+      if (!drag) return; const { f, p, W } = drag, dx = ((ev.clientX - drag.x0) / W) * 100, dy = ev.clientY - drag.y0;
+      if (drag.resize) set(f, Object.assign({}, p, { w: Math.round(Math.min(100 - p.x, Math.max(5, p.w + dx)) * 10) / 10 }));
+      else set(f, Object.assign({}, p, { x: Math.round(Math.min(100 - p.w, Math.max(0, p.x + dx)) * 10) / 10, y: Math.round(Math.max(0, Math.min(drag.H - 20, p.y + dy))) }));
+    });
+    const end = () => { if (!drag) return; drag = null; onChange(); };
+    ed.addEventListener('pointerup', end); ed.addEventListener('pointercancel', end);
+    ed.addEventListener('keydown', (ev) => {
+      const f = ev.target.closest && ev.target.closest('.tpl-img'); if (!f) return;
+      if (ev.key === 'Delete' || ev.key === 'Backspace') { ev.preventDefault(); f.remove(); onChange(); return; }
+      const step = ev.shiftKey ? 10 : 1, p = pos(f), mv = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step * 4], ArrowDown: [0, step * 4] }[ev.key];
+      if (mv) { ev.preventDefault(); set(f, Object.assign(p, { x: Math.min(100 - p.w, Math.max(0, p.x + mv[0])), y: Math.max(0, p.y + mv[1]) })); onChange(); }
+    });
+  }
+  // Une image insérée est réduite (800 px au plus) pour rester légère dans le modèle.
+  function readImage(file) {
+    return new Promise((resolve, reject) => {
+      if (!/^image\//.test(file.type)) { reject(new Error('Choisis une image (PNG, JPEG, GIF, WebP ou SVG).')); return; }
+      const fr = new FileReader(); fr.onerror = () => reject(new Error('Image illisible.'));
+      fr.onload = () => { if (file.type === 'image/svg+xml' || file.type === 'image/gif') { resolve(fr.result); return; }
+        const im = new Image(); im.onerror = () => reject(new Error('Image illisible.'));
+        im.onload = () => { const k = Math.min(1, 800 / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+          c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); resolve(file.type === 'image/png' || file.type === 'image/webp' ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.86)); };
+        im.src = fr.result; };
+      fr.readAsDataURL(file);
+    });
+  }
+  MOD_CHG['ed-image'] = async (v, d, t) => {
+    const ed = document.getElementById('tpl-ed') || document.getElementById('doc-ed'), file = t.files && t.files[0]; if (!ed || !file) return;
+    try {
+      const src = await readImage(file); if (src.length > 900000) { toast('Image trop lourde : choisis une image plus légère.', 'info'); t.value = ''; return; }
+      const er = ed.getBoundingClientRect(), r = edRange && ed.contains(edRange.startContainer) ? edRange.getBoundingClientRect() : null;
+      const y = Math.max(0, Math.round((r && r.height ? r.top : er.top + 24) - er.top + ed.scrollTop));
+      ed.insertAdjacentHTML('beforeend', `<figure class="tpl-img sel" contenteditable="false" style="left:60%;top:${y}px;width:30%"><img src="${src}" alt=""></figure>`);
+      const f = ed.lastElementChild; t.value = '';
+      bindImages(ed, () => ed.dispatchEvent(new Event('input'))); ed.dispatchEvent(new Event('input'));
+      f.focus({ preventScroll: true }); toast('Image ajoutée · fais-la glisser pour la placer');
+    } catch (err) { toast(err.message, 'info'); t.value = ''; }
+  };
   function insertAtCaret(node) {
     const ed = document.getElementById('tpl-ed'); if (!ed) return;
     let r = edRange && ed.contains(edRange.startContainer) ? edRange : null;
@@ -3834,7 +3893,7 @@
     const ctx = t.group === 'Courriers aux candidats' ? candCtx(c, j, { iv: c.interviews[0], reason: REFUS_REASONS[0], pool: true }) : docCtx(sample, { kind: r.key, date: TODAY, data: r.key === 'avenant' ? { title: 'Lead Designer', dept: 'Design', salary: 60000, effective: '2027-01-01' } : null });
     const html = fillTpl(r.body, ctx, r.fields);
     const who = t.group === 'Courriers aux candidats' ? c.name : fullName(sample);
-    return shell(`Aperçu · ${esc(t.label)}`, `<div class="modal-b"><p class="hint" style="margin:0 0 10px">Exemple avec ${esc(who)}. Les zones jaunes seront à compléter à la création du document.</p>${t.kind === 'msg' ? `<div class="msg-prev"><b>${esc(htmlToText(fillTpl(esc(r.subject || ''), ctx)))}</b><p>${esc(htmlToText(html)).replace(/\n/g, '<br>')}</p></div>` : `<article class="letter"><header><b>${COMPANY.entreprise}</b><span>${COMPANY.entreprise_adresse}</span></header><h2>${esc(r.title || t.title)}</h2>${html}</article>`}</div>`,
+    return shell(`Aperçu · ${esc(t.label)}`, `<div class="modal-b"><p class="hint" style="margin:0 0 10px">Exemple avec ${esc(who)}. Les zones jaunes seront à compléter à la création du document.</p>${t.kind === 'msg' ? `<div class="msg-prev"><b>${esc(htmlToText(fillTpl(esc(r.subject || ''), ctx)))}</b><p>${esc(htmlToText(html)).replace(/\n/g, '<br>')}</p></div>` : `<article class="letter"><header><b>${COMPANY.entreprise}</b><span>${COMPANY.entreprise_adresse}</span></header><h2>${esc(r.title || t.title)}</h2><div class="doc-body">${html}</div></article>`}</div>`,
       '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true);
   };
 

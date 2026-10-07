@@ -87,7 +87,9 @@ Les données de départ (`data.js`, schéma version 8) sont fictives ; vos modif
   équipes sans sous-équipe empilées en colonne, couleur par service, effectifs directs et totaux, équipes repliables
   (mémorisé), recherche et filtres service / site qui mettent en évidence sans casser la hiérarchie, zoom (boutons, Ctrl + molette,
   « Ajuster ») et déplacement à la souris, mode plein écran (bouton en haut à droite, Échap pour sortir). Un clic ouvre la fiche complète pour les RH et le manager de la personne, une fiche
-  publique sinon. Les RH changent un rattachement en glissant une carte sur un manager (ou via « Changer un rattachement ») :
+  publique sinon. Les RH changent un rattachement en glissant une carte sur un manager : pendant le glisser, l'arbre se redessine
+  avec la personne à sa nouvelle place (carte en pointillés verts « Nouvelle place », liens en vert) ; lâcher sur le manager ouvre la
+  confirmation, lâcher ailleurs ou Échap annule. Le bouton « Changer un rattachement » montre le même aperçu :
   date d'effet (immédiate ou programmée), motif, service aligné en option, boucles refusées, notification des trois personnes
   et trace dans l'historique.
 - **Temps de travail** (Absences) : compteurs de congés (solde à poser avant le 31 mai, acquisition en cours), feuilles de

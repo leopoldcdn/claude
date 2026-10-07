@@ -862,7 +862,11 @@
   // Arbre de haut en bas : une équipe qui n'a que des collaborateurs sans équipe s'empile en colonne pour rester lisible.
   const DEPT_HUE = { Direction: '#475569', RH: '#6366f1', Design: '#db2777', Tech: '#0891b2', Marketing: '#d97706', Sales: '#059669', Finance: '#7c3aed' };
   const orgPeople = () => db.employees.filter((e) => e.stage >= 2 && e.stage < 15);
-  const reportsOf = (id) => orgPeople().filter((x) => x.managerId === id).sort((a, b) => reportsOf(b.id).length - reportsOf(a.id).length || a.lastName.localeCompare(b.lastName, 'fr'));
+  // Aperçu d'un changement de rattachement (glisser en cours ou fenêtre ouverte) : la personne est dessinée chez son nouveau manager.
+  const orgMgr = (x) => (ui.orgPreview && ui.orgPreview.id === x.id ? ui.orgPreview.to : x.managerId);
+  const reportsOf = (id) => orgPeople().filter((x) => orgMgr(x) === id).sort((a, b) => ownTeam(b.id) - ownTeam(a.id) || a.lastName.localeCompare(b.lastName, 'fr'));
+  // Ordre des colonnes calculé sur les rattachements réels, pour que l'aperçu ne déplace pas les équipes sous la souris.
+  const ownTeam = (id) => orgPeople().filter((x) => x.managerId === id).length;
   const teamSize = (id, seen = new Set()) => reportsOf(id).reduce((s, k) => (seen.has(k.id) ? s : (seen.add(k.id), s + 1 + teamSize(k.id, seen))), 0);
   const isUnder = (id, bossId) => { let e = emp(id), n = 0; while (e && e.managerId && n++ < 30) { if (e.managerId === bossId) return true; e = emp(e.managerId); } return false; };
   const orgSite = (e) => ((e.location || '').startsWith('Lyon') ? 'Lyon' : 'Paris');
@@ -872,8 +876,8 @@
   const canOpenEmp = (e) => ui.profile === 'rh' || (ui.profile === 'manager' && (e.id === me().id || scopeEmployees().some((x) => x.id === e.id)));
   function orgCard(e, kids) {
     const n = teamSize(e.id), fold = (ui.orgFold || {})[e.id] && !(orgFiltered() && kids.some((k) => orgMatch(k) || teamHas(k.id))), rh = ui.profile === 'rh', nx = e.managerNext && emp(e.managerNext.id);
-    const cls = [orgFiltered() ? (orgMatch(e) ? 'hit' : 'dim') : '', e.id === me().id ? 'me' : ''].join(' ');
-    return `<div class="oc ${cls}" style="--d:${DEPT_HUE[e.dept] || 'var(--accent)'}" data-oid="${e.id}" ${rh && e.managerId ? 'draggable="true"' : ''}>
+    const pv = ui.orgPreview, cls = [orgFiltered() ? (orgMatch(e) ? 'hit' : 'dim') : '', e.id === me().id ? 'me' : '', pv && pv.id === e.id ? 'mv' : '', pv && pv.to === e.id ? 'tgt' : ''].join(' ');
+    return `<div class="oc ${cls}" style="--d:${DEPT_HUE[e.dept] || 'var(--accent)'}" data-oid="${e.id}" ${rh && e.managerId ? 'data-drag="1"' : ''}>${pv && pv.id === e.id ? '<span class="oc-new">Nouvelle place</span>' : ''}
       <button type="button" class="oc-b" data-act="org-open" data-id="${e.id}">${avatar(e, 'sm')}<span><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small><i>${esc(e.dept)}${orgSite(e) === 'Lyon' ? ' · Lyon' : ''}</i></span></button>
       ${e.stage < 3 ? `<span class="pill info oc-tag">Arrivée le ${fmtShort(e.startDate)}</span>` : ''}${rh && nx ? `<span class="pill warn oc-tag" title="Changement de manager programmé">→ ${esc(nx.firstName)} au ${fmtShort(e.managerNext.from)}</span>` : ''}${e.id === me().id ? '<span class="oc-me">Moi</span>' : ''}
       ${kids.length ? `<button type="button" class="oc-n" data-act="org-fold" data-id="${e.id}" aria-expanded="${!fold}" title="${fold ? 'Déplier' : 'Replier'} l’équipe"><span class="num">${kids.length}</span> direct${kids.length > 1 ? 's' : ''}${n !== kids.length ? ` · <span class="num">${n}</span> au total` : ''}${ic('right').replace('<svg', '<svg class="chev"')}</button>` : ''}</div>`;
@@ -883,7 +887,7 @@
     seen.add(e.id);
     const kids = reportsOf(e.id).filter((k) => !seen.has(k.id)), fold = (ui.orgFold || {})[e.id] && !(orgFiltered() && teamHas(e.id));
     const stack = kids.length > 1 && kids.every((k) => !reportsOf(k.id).length);
-    return `<li>${orgCard(e, kids)}${kids.length && !fold ? `<ul class="${stack ? 'stack' : ''}">${kids.map((k) => orgNode(k, seen)).join('')}</ul>` : ''}</li>`;
+    return `<li class="${ui.orgPreview && ui.orgPreview.id === e.id ? 'mv' : ''}">${orgCard(e, kids)}${kids.length && !fold ? `<ul class="${stack ? 'stack' : ''}">${kids.map((k) => orgNode(k, seen)).join('')}</ul>` : ''}</li>`;
   }
   function orgChart() {
     const people = orgPeople(), roots = people.filter((e) => !e.managerId || !emp(e.managerId)), rh = ui.profile === 'rh';
@@ -896,7 +900,7 @@
         <div class="toolbar"><div class="zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="org-zoom" data-z="-1" aria-label="Dézoomer">−</button><span class="num" id="org-z">${Math.round((ui.orgZoom || 1) * 100)} %</span><button type="button" class="icon-btn" data-act="org-zoom" data-z="1" aria-label="Zoomer">+</button><button type="button" class="btn ghost sm" data-act="org-zoom" data-z="fit">Ajuster</button></div>
           <button type="button" class="btn ghost sm" data-act="org-unfold">Tout déplier</button>${ui.orgFull ? `<button type="button" class="btn ghost sm" data-act="org-full" aria-pressed="true" title="Quitter le plein écran (Échap)">${ic('shrink')}Quitter le plein écran</button>` : `<button type="button" class="icon-btn org-fs" data-act="org-full" aria-pressed="false" aria-label="Afficher en plein écran" data-tip="Plein écran">${ic('expand')}</button>`}${rh ? `<button type="button" class="btn primary sm" data-act="org-move">${ic('arrow')}Changer un rattachement</button>` : ''}</div></div>
       <div class="org-vp" id="org-vp"><div class="org-canvas" id="org-canvas" style="zoom:${ui.orgZoom || 1}"><ul class="ot">${roots.map((r) => orgNode(r)).join('')}</ul></div></div>
-      <p class="hint org-hint">${rh ? 'Glisse une carte sur un manager pour changer son rattachement. ' : ''}Clique sur une personne pour voir sa fiche · fais glisser le fond pour te déplacer.</p></div>`;
+      <p class="hint org-hint">${rh ? 'Pour changer quelqu’un d’équipe, fais glisser sa carte sur un manager : l’aperçu montre sa nouvelle place en vert, lâche pour confirmer (Échap ou lâcher ailleurs pour annuler). ' : ''}Clique sur une personne pour voir sa fiche · fais glisser le fond pour te déplacer.</p></div>`;
   }
   function refreshOrg() {
     const c = document.getElementById('org-canvas'); if (!c) return;
@@ -918,12 +922,55 @@
     vp.addEventListener('pointermove', (ev) => { if (!drag) return; vp.scrollLeft = drag.l - (ev.clientX - drag.x); vp.scrollTop = drag.t - (ev.clientY - drag.y); });
     const end = () => { drag = null; vp.classList.remove('grab'); }; vp.addEventListener('pointerup', end); vp.addEventListener('pointercancel', end);
     vp.addEventListener('wheel', (ev) => { if (!ev.ctrlKey) return; ev.preventDefault(); setOrgZoom((ui.orgZoom || 1) * (ev.deltaY < 0 ? 1.1 : 0.9)); }, { passive: false });
-    // RH : glisser une carte sur un manager.
-    vp.addEventListener('dragstart', (ev) => { const c = ev.target.closest && ev.target.closest('.oc[draggable]'); if (!c) return; ev.dataTransfer.setData('text/plain', c.dataset.oid); ev.dataTransfer.effectAllowed = 'move'; c.classList.add('dragging'); vp._drag = c.dataset.oid; });
-    vp.addEventListener('dragend', () => { vp.querySelectorAll('.dragging, .drop').forEach((x) => x.classList.remove('dragging', 'drop')); vp._drag = null; });
-    vp.addEventListener('dragover', (ev) => { const c = ev.target.closest && ev.target.closest('.oc'); vp.querySelectorAll('.drop').forEach((x) => x !== c && x.classList.remove('drop')); if (!c || !vp._drag || c.dataset.oid === vp._drag || isUnder(c.dataset.oid, vp._drag)) return; ev.preventDefault(); c.classList.add('drop'); });
-    vp.addEventListener('drop', (ev) => { const c = ev.target.closest && ev.target.closest('.oc'); if (!c) return; ev.preventDefault(); const id = ev.dataTransfer.getData('text/plain'); if (!id || id === c.dataset.oid) return; ui.modal = { type: 'org-move', id, to: c.dataset.oid }; render(); });
+    // RH : glisser une carte. Survoler un manager redessine l'arbre avec la personne à sa nouvelle place (liens en vert) ;
+    // lâcher sur ce manager ouvre la confirmation, lâcher ailleurs annule l'aperçu.
+    vp.addEventListener('pointerdown', (ev) => {
+      const c = ev.target.closest('.oc[data-drag]'); if (!c || ev.button !== 0 || ev.target.closest('.oc-n')) return;
+      orgDrag = { id: c.dataset.oid, x: ev.clientX, y: ev.clientY, on: false, src: c, lx: 0, ly: 0, t: null };
+    });
   }
+  let orgDrag = null;
+  const orgValidTarget = (id, to) => to && to !== id && !isUnder(to, id) && emp(id) && emp(id).managerId !== to;
+  function orgSetPreview(to) {
+    const d = orgDrag; if (!d) return;
+    const next = to && orgValidTarget(d.id, to) ? { id: d.id, to } : null;
+    if (JSON.stringify(next) === JSON.stringify(ui.orgPreview || null)) return;
+    ui.orgPreview = next; d.lx = d.cx; d.ly = d.cy; refreshOrg();
+    const hint = document.querySelector('.org-ghost small'); if (hint) hint.textContent = next ? `Lâcher pour rattacher à ${fullName(emp(to))}` : 'Survole un manager pour voir la nouvelle place';
+  }
+  document.addEventListener('pointermove', (ev) => {
+    const d = orgDrag; if (!d) return;
+    d.cx = ev.clientX; d.cy = ev.clientY;
+    if (!d.on) { if (Math.hypot(ev.clientX - d.x, ev.clientY - d.y) < 6) return; d.on = true; d.lx = ev.clientX; d.ly = ev.clientY;
+      const e = emp(d.id), g = document.createElement('div'); g.className = 'org-ghost'; g.innerHTML = `${avatar(e, 'sm')}<span><b>${esc(fullName(e))}</b><small>Survole un manager pour voir la nouvelle place</small></span>`;
+      document.body.appendChild(g); d.ghost = g; document.documentElement.classList.add('org-dragging'); const src = document.querySelector(`.oc[data-oid="${d.id}"]`); if (src) src.classList.add('dragging'); }
+    const gw = d.ghost.offsetWidth, gh = d.ghost.offsetHeight, gx = ev.clientX + 14 + gw > innerWidth - 8 ? ev.clientX - gw - 14 : ev.clientX + 14, gy = Math.min(ev.clientY + 12, innerHeight - gh - 8);
+    d.ghost.style.transform = `translate(${gx}px, ${gy}px)`;
+    // Le redessin déplace les cartes : on attend un vrai mouvement de la souris avant de changer de cible.
+    if (Math.hypot(ev.clientX - d.lx, ev.clientY - d.ly) < 10 && ui.orgPreview) return;
+    const el = document.elementFromPoint(ev.clientX, ev.clientY), c = el && el.closest('.oc'), vp = el && el.closest('#org-vp');
+    const to = c && c.dataset.oid !== d.id ? c.dataset.oid : null;
+    clearTimeout(d.t);
+    if (to) d.t = setTimeout(() => orgSetPreview(to), ui.orgPreview ? 180 : 60);
+    else if (!(c && c.dataset.oid === d.id)) d.t = setTimeout(() => orgSetPreview(null), vp ? 350 : 120);
+  });
+  function orgDragEnd(drop) {
+    const d = orgDrag; if (!d) return; orgDrag = null; clearTimeout(d.t);
+    if (d.ghost) d.ghost.remove(); document.documentElement.classList.remove('org-dragging');
+    if (!d.on) return;
+    orgSuppressClick = true; setTimeout(() => { orgSuppressClick = false; }, 0);
+    const pv = ui.orgPreview;
+    if (drop && pv) { ui.modal = { type: 'org-move', id: pv.id, to: pv.to }; render(); }
+    else { ui.orgPreview = null; refreshOrg(); }
+  }
+  let orgSuppressClick = false;
+  document.addEventListener('pointerup', (ev) => { if (!orgDrag || !orgDrag.on) { orgDrag = null; return; }
+    const el = document.elementFromPoint(ev.clientX, ev.clientY), c = el && el.closest('.oc');
+    // Lâcher sur la carte du manager visé, ou sur la carte déplacée dans son aperçu, confirme.
+    orgDragEnd(!!(c && ui.orgPreview && [ui.orgPreview.to, ui.orgPreview.id].includes(c.dataset.oid))); });
+  document.addEventListener('pointercancel', () => orgDragEnd(false));
+  document.addEventListener('click', (ev) => { if (orgSuppressClick) { ev.stopPropagation(); ev.preventDefault(); orgSuppressClick = false; } }, true);
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && orgDrag && orgDrag.on) { ev.stopImmediatePropagation(); orgDragEnd(false); } }, true);
   // Plein écran : l'organigramme couvre la fenêtre (et l'écran entier quand le navigateur l'autorise) ; fiches et fenêtres restent au-dessus.
   function setOrgFull(on) {
     ui.orgFull = on; orgCentered = false; document.documentElement.classList.toggle('org-full-on', on);
@@ -951,7 +998,8 @@
   const orgMoveInfo = (e, to) => (e ? `Manager actuel : <b>${esc(fullName(emp(e.managerId)))}</b>${to ? ` → nouveau : <b>${esc(fullName(to))}</b>` : ''}` : 'Astuce : tu peux aussi glisser une carte sur un manager dans l’organigramme.');
   const orgDeptLabel = (e, to) => `Rattacher aussi au service du nouveau manager${e && to && e.dept !== to.dept ? ` (${esc(e.dept)} → ${esc(to.dept)})` : ''}`;
   MOD_LIVE.orgmove = (form) => { const e = emp(form.elements.namedItem('id').value), to = emp(form.elements.namedItem('to').value), cb = document.getElementById('om-dept');
-    document.getElementById('om-info').innerHTML = orgMoveInfo(e, to); document.getElementById('om-dept-l').innerHTML = orgDeptLabel(e, to); if (cb) cb.checked = !!(e && to && e.dept !== to.dept); };
+    document.getElementById('om-info').innerHTML = orgMoveInfo(e, to); document.getElementById('om-dept-l').innerHTML = orgDeptLabel(e, to); if (cb) cb.checked = !!(e && to && e.dept !== to.dept);
+    ui.orgPreview = e && to && orgValidTarget(e.id, to.id) ? { id: e.id, to: to.id } : null; refreshOrg(); };
   MODALS['org-move'] = (m, shell, formShell, opt, f) => {
     const people = orgPeople().sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr')), e = m.id && emp(m.id), o = (list, cur, ph) => `${ph ? `<option value="">${ph}</option>` : ''}${list.map((x) => `<option value="${x.id}" ${x.id === cur ? 'selected' : ''}>${esc(fullName(x))} · ${esc(x.title)}</option>`).join('')}`;
     const to = m.to && emp(m.to), diff = e && to && e.dept !== to.dept;
@@ -3823,6 +3871,7 @@
   }
   function renderNow() {
     route();
+    if (ui.orgPreview && !orgDrag && !(ui.modal && ui.modal.type === 'org-move')) ui.orgPreview = null;
     const scrollY = window.scrollY;
     document.getElementById('app').innerHTML = `<div class="app">${topbar()}${stageRail()}<main class="view" id="view">${VIEWS[ui.view]()}</main>${footer()}</div>`;
     let ov = '';

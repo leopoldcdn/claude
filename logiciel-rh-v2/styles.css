@@ -1049,3 +1049,4 @@ body:has(.help-panel) .toasts { right: 440px; }
 .imp-tools { margin: 4px 0 14px; }
 .imp-table table { width: 100%; font-size: 13px; } .imp-table th, .imp-table td { padding: 8px 10px; } .imp-table th:first-child, .imp-table td:first-child { width: 48px; }
 #imp-prev .toolbar { margin-bottom: 4px; }
+.succ-pick { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; } .succ-pick .input { width: 280px; }

@@ -3875,9 +3875,16 @@
           <div class="field"><label for="xi-g">Ce qui a bien fonctionné</label><input id="xi-g" name="good" class="input"></div><div class="field"><label for="xi-i">Ce qui serait à améliorer</label><input id="xi-i" name="improve" class="input"></div>
           <div class="field"><label for="xi-b">Prêt·e à revenir un jour ?</label><select id="xi-b" name="back" class="select"><option>Oui</option><option>Peut-être</option><option>Non</option></select></div></div>
           <div class="toolbar" style="margin-top:10px"><span class="hint">Mené par les RH plutôt que par le manager, pour des réponses franches.</span><button class="btn primary sm" style="margin-left:auto">Enregistrer</button></div></form>` : row('Entretien de départ', 'Mené par les RH', '<span class="pill neutral">À venir</span>'));
-      const cands = employed().filter((y) => y.id !== e.id && !y.exit && (y.dept === e.dept || y.id === e.managerId));
-      html += sec('Transmission', row('Successeur ou relais', 'Personne qui reprend les dossiers', `<select class="select" data-change="dep-succ" data-id="${e.id}" ${rh || ui.profile === 'manager' ? '' : 'disabled'} aria-label="Successeur"><option value="">Choisir…</option>${cands.map((y) => `<option value="${y.id}" ${y.id === d.successor ? 'selected' : ''}>${esc(fullName(y))}</option>`).join('')}</select>`)
-        + TRANSFER.map(([k, l]) => row(l, '', d.transfer[k] ? ok(d.transfer[k]) : rh || ui.profile === 'manager' ? `<button type="button" class="btn ghost sm" data-act="dep-transfer" data-id="${e.id}" data-k="${k}">Fait</button>` : '')).join(''));
+      // Successeur : recherche parmi tout l'effectif présent (hors personnes elles-mêmes sur le départ), ou « aucun successeur ».
+      const can = rh || ui.profile === 'manager', none = d.successor === 'none', succ = !none && d.successor ? emp(d.successor) : null;
+      const cands = employed().filter((y) => y.id !== e.id && !y.exit && y.stage >= 4).sort((a, z) => (z.dept === e.dept) - (a.dept === e.dept) || a.lastName.localeCompare(z.lastName, 'fr'));
+      const change = can ? `<button type="button" class="btn ghost sm" data-act="dep-succ-clear" data-id="${e.id}">Changer</button>` : '';
+      const pick = succ ? `<span class="pill ok">${esc(fullName(succ))} · ${esc(succ.title)}</span>${change}` : none ? `<span class="pill neutral">Aucun successeur</span>${change}`
+        : can ? `<div class="succ-pick"><label class="sr" for="succ-q-${e.id}">Rechercher un salarié</label><input id="succ-q-${e.id}" class="input" type="search" list="succ-l-${e.id}" placeholder="Rechercher un salarié…" autocomplete="off" data-change="dep-succ-q" data-id="${e.id}">
+            <datalist id="succ-l-${e.id}">${cands.map((y) => `<option value="${esc(`${fullName(y)} · ${y.title} · ${y.dept}`)}"></option>`).join('')}</datalist>
+            <label class="agree"><input type="checkbox" data-change="dep-succ-none" data-id="${e.id}"> Aucun successeur</label></div>` : '<span class="pill warn">À désigner</span>';
+      html += sec('Transmission', row('Successeur ou relais', none ? 'Le poste n’est pas repris : les dossiers sont archivés ou répartis' : 'Personne qui reprend les dossiers (tout l’effectif, en commençant par le service)', pick)
+        + TRANSFER.map(([k, l]) => row(none && k === 'dossiers' ? 'Dossiers en cours archivés ou répartis' : l, '', d.transfer[k] ? ok(d.transfer[k]) : rh || ui.profile === 'manager' ? `<button type="button" class="btn ghost sm" data-act="dep-transfer" data-id="${e.id}" data-k="${k}">Fait</button>` : '')).join(''));
       html += sec('Restitution du matériel', RETURN_ITEMS.map(([k, l]) => row(l, '', d.returned[k] ? ok(d.returned[k], 'Rendu') : b('dep-return', 'Rendu', `data-k="${k}"`))).join(''));
       html += sec('Fin des accès et des dispositifs', row('Comptes, messagerie et accès aux locaux', 'À désactiver le dernier jour, après la passation', d.accessOff ? ok(d.accessOff, 'Désactivés') : b('dep-set', 'Désactiver', 'data-k="accessOff"', x.lastDay && x.lastDay <= TODAY ? 'bad' : 'ghost'))
         + row('Portabilité de la mutuelle et de la prévoyance', 'Maintien gratuit jusqu’à 12 mois si le salarié est indemnisé par France Travail (sauf faute lourde) : notice à remettre', d.portability ? ok(d.portability, 'Notice remise') : b('dep-set', 'Notice remise', 'data-k="portability"')));
@@ -3911,6 +3918,7 @@
       if (d.k === 'docsGiven') { const docs = exitDocs(e).filter(Boolean), err = docs.filter((x) => !docLocked(x)).map((x) => issueDoc(x, true)).find(Boolean); if (err) { toast(err, 'info'); commit(); return; } notify(e.id, 'Vos documents de fin de contrat sont disponibles dans vos documents.'); }
       offb(e)[d.k] = TODAY; if (d.k === 'accessOff') notify(e.managerId, `Accès de ${fullName(e)} désactivés.`); toast('Enregistré'); commit(); },
     'dep-docs'(d) { const e = emp(d.id); ['certificat', 'solde', 'france-travail'].forEach((k) => { if (!db.documents.some((x) => x.empId === e.id && x.kind === k)) addDoc(e.id, k); }); offb(e).docsReady = TODAY; toast('Documents de sortie préparés'); commit(); },
+    'dep-succ-clear'(d) { offb(emp(d.id)).successor = null; render(); setTimeout(() => { const q = document.getElementById(`succ-q-${d.id}`); if (q) q.focus(); }, 0); },
     'dep-transfer'(d) { offb(emp(d.id)).transfer[d.k] = TODAY; toast('Passation enregistrée'); commit(); },
     'dep-return'(d) { offb(emp(d.id)).returned[d.k] = TODAY; toast('Matériel restitué'); commit(); },
     'dep-request'(d) { const e = emp(d.id), r = offb(e).requests.find((x) => x.id === d.r), doc = addDoc(e.id, r.kind, { reqId: r.id }); ui.modal = { type: 'doc-edit', id: doc.id }; toast('Brouillon créé : relisez-le puis remettez-le'); commit(); },
@@ -3925,6 +3933,11 @@
     talent(v, d) { db.talent = db.talent || {}; const t = db.talent[d.id] = db.talent[d.id] || {}; t[d.k] = d.k === 'risk' ? v : Number(v); commit(); },
     succ(v, d) { db.succession = db.succession || {}; const s = db.succession[d.id] = db.succession[d.id] || {}; s[d.k] = v || null; if (d.k === 'succ' && !v) s.ready = null; commit(); },
     'rc-signed'(v, d) { if (!v) return; const x = offb(emp(d.id)); x.rc.signed = v; toast('Date de signature enregistrée'); commit(); },
+    'dep-succ-q'(v, d, t) { const e = emp(d.id), q = v.trim().toLowerCase(); if (!q) return;
+      const list = employed().filter((y) => y.id !== e.id && !y.exit && y.stage >= 4), y = list.find((x) => `${fullName(x)} · ${x.title} · ${x.dept}`.toLowerCase() === q) || (() => { const m = list.filter((x) => fullName(x).toLowerCase().includes(q)); return m.length === 1 ? m[0] : null; })();
+      if (!y) { toast('Choisis un salarié dans la liste proposée.', 'info'); return; }
+      offb(e).successor = y.id; notify(y.id, `Vous reprenez les dossiers de ${fullName(e)}.`); toast(`${fullName(y)} reprend les dossiers`); commit(); },
+    'dep-succ-none'(v, d, t) { if (!t.checked) return; offb(emp(d.id)).successor = 'none'; toast('Départ sans successeur'); commit(); },
     'dep-succ'(v, d) { const e = emp(d.id); offb(e).successor = v || null; if (v) notify(v, `Vous reprenez les dossiers de ${fullName(e)}.`); commit(); },
     'dep-rehire'(v, d) { offb(emp(d.id)).rehire = v || null; commit(); },
     boomerang(v, d) {

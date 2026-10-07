@@ -934,6 +934,7 @@
   const V2_NEWS = [
     ['Organisation', [['Arrivées et Départs regroupés', 'Pré-embauche, embauche et intégration forment un seul dossier par recrue, en onglets ; idem pour les trois temps du départ. La roue passe de 16 à 12 rubriques.', 'arrivees'],
       ['Liste « À traiter »', 'Un bouton en haut rassemble tout ce qui t’attend, rubrique par rubrique et personne par personne.', null],
+      ['Assistant d’aide', 'Bouton « Aide » en bas à droite : pose tes questions sur l’utilisation de Teamora, l’assistant (Claude) tient compte de l’écran ouvert et propose un lien vers la bonne rubrique. Disponible sur la page publiée.', null],
       ['Barre du haut allégée', 'Modèles et Reporting restent dans le bandeau de gauche ; la barre du haut garde le profil, l’espace, « À traiter » et les notifications.', null]]],
     ['Arrivée', [['Statuts réels', '« Arrivée le … », « Essai jusqu’au … », « En intégration », « En poste », « Départ le … · motif » remplacent les libellés génériques.', 'collaborateurs'],
       ['Stagiaires', 'Convention de stage tripartite au lieu de la DPAE et du contrat de travail, tuteur, gratification, pas de période d’essai.', 'arrivees'],
@@ -4522,7 +4523,119 @@
   document.addEventListener('mouseover', (ev) => { const t = ev.target.closest && ev.target.closest('[data-tip]'); if (!t) { tip.classList.remove('on'); return; } tip.textContent = t.dataset.tip; tip.classList.add('on'); });
   document.addEventListener('mousemove', (ev) => { if (!tip.classList.contains('on')) return; const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8); tip.style.transform = `translate(${x}px, ${ev.clientY + 16}px)`; });
 
+  // ================================================================ V2 · Assistant d'aide à la prise en main (démo)
+  // Démo : la page publiée interroge Claude via la capacité « sample », sur le compte de la personne qui consulte.
+  // En production, ce serait un serveur intermédiaire appelant l'API Claude (la clé ne doit jamais être dans le navigateur).
+  const HELP_GUIDE = `GUIDE D'UTILISATION DE TEAMORA (logiciel RH, version 2)
+
+PROFILS. En haut à droite : RH (Olivia Bennett), Manager (Thomas Petit par défaut ; un sélecteur permet de prendre les traits d'un autre manager, dont Claire Durand, Direction), Salarié (Léa Martin, ou une nouvelle recrue via le sélecteur). RH et managers ont un interrupteur « Salariés / Mon équipe » ↔ « Mon espace » pour voir leur propre espace salarié (leurs congés, bulletins, entretiens). Personne ne valide ses propres demandes : elles partent au responsable (la Direction pour Olivia).
+
+NAVIGATION. L'accueil est une roue : survoler ou toucher le cercle central affiche les rubriques ; cliquer une rubrique l'ouvre. Ailleurs, un bandeau de pictogrammes en haut reprend les rubriques ; la maison ramène à la roue. Les pastilles orange comptent ce qui attend le profil. Le bouton « À traiter » (en haut) liste tout ce qui attend, rubrique par rubrique et personne par personne. Le bandeau de gauche donne aussi accès au Reporting RH et aux Modèles de documents (RH). « Nouveautés de la V2 » est en bas de page.
+
+RUBRIQUES ET ACTIONS
+- Besoin RH : un manager crée une demande de recrutement en 4 étapes (le besoin, la fiche de cadrage, la validation, l'envoi) ; brouillon enregistré automatiquement. Les RH valident, demandent une modification ou refusent, puis publient l'offre. Référence BES-… puis OFF-… une fois publiée.
+- Recrutement : onglets À traiter, Offres, Vivier. Une offre contient ses candidats en colonnes (Reçue, Présélection, Entretien, Proposition, Embauché, Refusé) ; glisser une carte pour changer d'étape. Fiche candidat : bandeau « Prochaine étape », onglets Évaluation, Entretiens, Échanges (messages types), Profil, Historique ; flèches ← → pour passer au candidat suivant. Rédaction d'annonce : les termes potentiellement discriminants sont signalés en orange mais ne bloquent pas la publication. Un candidat embauché devient automatiquement une recrue dans Arrivées.
+- Arrivées (RH, managers) : un dossier unique par recrue, liste à gauche, onglets Pré-embauche, Embauche, Intégration. Pré-embauche : pièces déposées par la recrue (Valider / Refuser avec motif / Reçu sur papier), contrat (Générer le contrat → relire → Envoyer pour signature ; la recrue signe à la main dans son espace ; un contrat signé est figé, « Voir le contrat signé »), préparation (poste, ordinateur, comptes, badge, parrain). Embauche : DPAE, registre du personnel, informations obligatoires (décret 2023), affectation, mutuelle, visite d'information et de prévention. Stagiaire : convention de stage tripartite à la place de la DPAE et du contrat, pas de période d'essai. Intégration : programme (modèle commun configurable dans l'onglet « Programme d'intégration »), points à 30 jours, rapport d'étonnement, décision sur la période d'essai (Confirmer / Renouveler / Rompre), puis « Clôturer l'intégration » qui fait passer la personne en poste. Pré-embauche et embauche avancent en parallèle ; la recrue passe en intégration quand les deux sont terminées et le contrat signé.
+- Vie administrative : Annuaire (recherche, filtres service et statut ; clic sur une ligne = fiche), Échéances (titres de séjour, fins de CDD, périodes d'essai, visites), Demandes de modification (validées par les RH avec justificatif), Organigramme. Fiche d'un collaborateur : onglets Informations, Absences, Rémunération, Documents, Journal (qui a fait quoi). Boutons « Modifier », « Changement de situation » (poste, service, manager, salaire, temps de travail en une fois, avec date d'effet ; avenant généré seulement si le contrat change) et « Démarrer un départ ». Organigramme : arbre, recherche, filtres, zoom, plein écran ; les RH changent un rattachement en glissant une carte sur un manager (aperçu en vert, confirmation au lâcher).
+- Temps & absences : le salarié fait une demande (congés payés, RTT, sans solde, congé parental → validation par le manager) ou déclare un droit (maladie, accident du travail, maternité, paternité, événement familial avec plafond de jours, enfant malade → enregistré directement). Le télétravail est un mode de travail, pas une absence. Le manager valide dans « À valider » ; si un manager est absent, son propre manager peut valider à sa place. RH : onglets Temps de travail, Arrêts de travail (attestation de salaire), Compteurs, Planning, Historique.
+- Rémunération / Paie (RH) : paie du mois en 4 étapes : Variables (absences et heures remontées, primes, notes de frais, acomptes ; chaque manager valide celles de son équipe), Contrôles (SMIC, écarts, RIB, DPAE, sorties… chaque point corrigé ou marqué « Vérifié »), Envoi au prestataire (export CSV), Bulletins (journal de paie, puis Diffuser). Aussi : Révision salariale, Égalité salariale, Avantages. Le salarié voit ses bulletins dans « Mes bulletins » et peut demander le papier.
+- Performance : entretiens annuels et professionnels (auto-évaluation du salarié, évaluation du manager, signature) ; depuis un entretien, « Proposer une formation » ou « Noter un souhait d'évolution » ; refus d'un entretien professionnel traçable. Objectifs, feedback.
+- Formation : catalogue, demandes (validées par le manager puis les RH), plan de formation, efficacité.
+- Mobilité : offres internes, souhaits d'évolution, revue des talents, plan de succession.
+- Santé & QVT : visites médicales, accidents et incidents, document unique (DUERP), baromètre QVT anonyme, aménagements de poste, retours d'absence longue (visite de reprise).
+- Relations individuelles : dossiers (procédure disciplinaire avec délais, entretien, mesure retenue).
+- Départs (RH, managers) : lancés depuis la fiche (« Démarrer un départ » : motif parmi 13, dernier jour ; aperçu du préavis et des indemnités). Dossier unique, onglets Préparation (préavis, indemnités, documents), Formalités de sortie (entretien de départ, passation, matériel, accès, portabilité, documents remis), Après le départ (archivage, conservation). Les indemnités de sortie remontent dans la paie du mois.
+- Modèles de documents (RH) : chaque modèle (contrats, attestations, certificats, courriers aux candidats) se modifie : champs automatiques, champs à saisir, mentions obligatoires vérifiées, images (bouton « Image » : glisser pour placer, poignée pour redimensionner), versions et retour à une version précédente. Un document remis ou signé ne se modifie plus.
+- Reporting RH : indicateurs (effectifs, absences, recrutement, masse salariale…).
+- Espace salarié : Mon profil (informations, demander une modification avec justificatif, documents, organigramme), Mes absences, Mes bulletins, Mes entretiens, Formations, Mobilité, Santé. Une recrue qui n'est pas encore arrivée ne voit que « Mon arrivée » (pièces à déposer) et « Contrat de travail » (signature).
+
+DONNÉES. Démonstration : les données sont fictives et restent dans le navigateur ; « Réinitialiser la démo » en bas de page remet l'état initial.`;
+  const HELP_RULES = `Tu es l'assistant d'aide à la prise en main intégré au logiciel RH Teamora. Réponds en français, en tutoyant, de façon brève et concrète (3 à 6 phrases ou une courte liste d'étapes numérotées), en t'appuyant UNIQUEMENT sur le guide ci-dessous et sur le contexte de l'écran. N'invente aucune fonction : si le guide ne couvre pas la question, dis-le simplement et propose de contacter le support. Ne réponds pas aux questions sans rapport avec Teamora ; pour une question de droit du travail, donne au plus l'orientation générale que le logiciel applique et rappelle que seul un professionnel peut valider. Adapte la réponse au profil actuel (un salarié ne voit ni la paie ni les arrivées des autres). Quand c'est utile, ajoute UN lien d'accès vers une rubrique, sous la forme exacte [[aller:CLE|Texte du bouton]], où CLE est une des clés autorisées listées dans le contexte. Mise en forme permise : **gras** et listes avec « - » ou « 1. ». Pas de titres.
+
+${HELP_GUIDE}`;
+  const helpState = { open: false, turns: [], busy: false, ctl: null, sample: undefined };
+  function helpContext() {
+    const v = ui.view, title = v === 'etape' ? stageDef(ui.stage).title : (VIEW_LABELS[ui.profile] || {})[v] || v;
+    const targets = visibleStages().map((i) => [stageView(i), stageDef(i).short]).concat(ui.profile === 'rh' ? [['reporting', 'Reporting RH'], ['modeles', 'Modèles de documents']] : []).concat([['accueil', 'Accueil (roue)']]);
+    const todo = todoItems().map((x) => `${x.name} : ${x.n}`).join(', ') || 'rien';
+    return `CONTEXTE DE L'ÉCRAN
+Profil : ${PROFILES[persona()].label}${ui.selfOf ? ' (dans son espace personnel)' : ''} · poste de l’utilisateur : ${me().title}
+Écran ouvert : ${title}${ui.modal ? ` (fenêtre ouverte : ${ui.modal.type})` : ''}${ui.drawer ? ' (une fiche est ouverte)' : ''}
+À traiter pour ce profil : ${todo}
+Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; ')}`;
+  }
+  function helpSuggestions() {
+    const v = ui.view, p = ui.profile;
+    const S = { arrivees: ['Comment envoyer le contrat pour signature ?', 'Comment clôturer une intégration ?'], departs: ['Comment se déroule un départ ?', 'Où voir les indemnités de sortie ?'], absences: p === 'salarie' ? ['Comment poser des congés ?', 'Comment déclarer un arrêt maladie ?'] : ['Comment valider une demande ?', 'Qui valide quand je suis absent ?'],
+      paie: ['Comment préparer la paie du mois ?', 'Que faire d’un point de contrôle ?'], collaborateurs: ['Comment changer le manager d’un salarié ?', 'Comment passer quelqu’un à temps partiel ?'], recrutement: ['Comment faire avancer un candidat ?', 'Que signifient les termes en orange ?'],
+      modeles: ['Comment ajouter un logo dans un modèle ?', 'Comment revenir à une version précédente ?'], besoins: ['Comment créer une demande de recrutement ?'], profil: ['Comment modifier mon adresse ?', 'Où est l’organigramme ?'], bulletins: ['Comment recevoir mes bulletins en papier ?'] };
+    return (S[v] || []).concat(['Par où commencer ?', 'Qu’est-ce qui m’attend ?']).slice(0, 4);
+  }
+  // Rendu sûr : texte échappé, puis gras, listes, sauts de ligne et boutons de navigation.
+  function helpFormat(text) {
+    const allowed = new Set(visibleStages().map((i) => stageView(i)).concat(['accueil'], ui.profile === 'rh' ? ['reporting', 'modeles'] : []));
+    return esc(text).split(/\n{2,}/).map((block) => {
+      const lines = block.split('\n'), list = lines.every((l) => /^\s*(-|\d+\.)\s+/.test(l));
+      const fmt = (s) => s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\[\[aller:([a-z]+)\|([^\]]{1,60})\]\]/g, (m, k, l) => (allowed.has(k) ? `<button type="button" class="btn ghost sm help-go" data-go="${k}">${l}${ic('arrow')}</button>` : l));
+      if (list) { const ordered = /^\s*\d+\./.test(lines[0]); return `<${ordered ? 'ol' : 'ul'}>${lines.map((l) => `<li>${fmt(l.replace(/^\s*(-|\d+\.)\s+/, ''))}</li>`).join('')}</${ordered ? 'ol' : 'ul'}>`; }
+      return `<p>${fmt(lines.join('<br>'))}</p>`;
+    }).join('');
+  }
+  function helpRender() {
+    const box = document.getElementById('help'); if (!box) return;
+    const s = helpState;
+    box.innerHTML = !s.sample ? '' : `<button type="button" class="help-fab" data-help="toggle" aria-expanded="${s.open}" aria-controls="help-panel">${ic(s.open ? 'x' : 'chat')}<span>${s.open ? 'Fermer' : 'Aide'}</span></button>
+      ${s.open ? `<section class="help-panel" id="help-panel" role="dialog" aria-label="Assistant Teamora">
+        <header><span class="help-av">${ic('chat')}</span><div><b>Assistant Teamora</b><small>Aide à la prise en main · démo</small></div>${s.turns.length ? `<button type="button" class="icon-btn" data-help="reset" title="Nouvelle conversation" aria-label="Nouvelle conversation">${ic('refresh')}</button>` : ''}</header>
+        <div class="help-log" id="help-log" aria-live="polite">${s.turns.length ? s.turns.map((t) => `<div class="help-msg ${t.role}${t.error ? ' err' : ''}">${t.role === 'user' ? esc(t.content) : t.content ? helpFormat(t.content) : '<span class="help-wait">Je réfléchis…</span>'}</div>`).join('')
+          : `<div class="help-msg assistant"><p>Bonjour ${esc(me().firstName)} ! Je réponds à tes questions sur l’utilisation de Teamora, en tenant compte de l’écran où tu te trouves.</p></div>`}</div>
+        ${s.turns.length ? '' : `<div class="help-sugg">${helpSuggestions().map((q) => `<button type="button" class="help-chip" data-help="ask" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`}
+        <form class="help-form" data-help-form novalidate><label class="sr" for="help-q">Ta question</label><textarea id="help-q" class="input" rows="1" maxlength="600" placeholder="Pose ta question…" ${s.busy ? 'disabled' : ''}></textarea>
+          ${s.busy ? '<button type="button" class="btn ghost" data-help="stop">Stop</button>' : '<button class="btn primary">Envoyer</button>'}</form>
+        <p class="help-note">Réponses générées par Claude, à vérifier. Démo : utilise ton propre compte Claude ; aucune donnée de salarié n’est envoyée, seulement l’écran ouvert et le guide.</p></section>` : ''}`;
+    const log = document.getElementById('help-log'); if (log) log.scrollTop = log.scrollHeight;
+  }
+  async function helpAsk(q) {
+    const s = helpState; q = (q || '').trim(); if (!q || s.busy || !s.sample) return;
+    s.turns.push({ role: 'user', content: q }); const reply = { role: 'assistant', content: '' }; s.turns.push(reply); s.busy = true; helpRender();
+    const ctl = new AbortController(); s.ctl = ctl;
+    // Consignes et guide dans un premier tour « user » toujours conservé ; contexte de l'écran au moment de la question ; 6 derniers échanges.
+    const history = s.turns.slice(0, -2).filter((t) => t.content && !t.error).slice(-12).map((t) => ({ role: t.role, content: t.content }));
+    const input = [{ role: 'user', content: HELP_RULES }, ...history, { role: 'user', content: `${helpContext()}\n\nQUESTION : ${q}` }];
+    try {
+      const { text, truncated } = await s.sample(input, { cache: false, modelTier: 'quick', signal: ctl.signal, onText: ({ text: t }) => { reply.content = t; const el = document.querySelector('#help-log .help-msg.assistant:last-child'); if (el) el.innerHTML = helpFormat(t); const lg = document.getElementById('help-log'); if (lg) lg.scrollTop = lg.scrollHeight; } });
+      reply.content = text + (truncated ? '\n\n(Réponse coupée : pose une question plus précise.)' : '');
+    } catch (e) {
+      const code = e && e.code;
+      if (code === 'not_granted' || code === 'sampling_disabled' || code === 'not_declared' || code === 'capability_disabled' || code === 'capability_removed') { reply.content = 'L’assistant n’est pas autorisé dans cette vue. Tu peux l’autoriser depuis le menu Permissions de la page.'; reply.error = true; }
+      else if (code === 'cancelled') { reply.content = (e.text || '') + (e.text ? '\n\n(Interrompu.)' : 'Question annulée.'); }
+      else if (code === 'rate_limited') { reply.content = 'Trop de questions d’un coup : réessaie dans un instant.'; reply.error = true; }
+      else if (code === 'refused') { reply.content = 'Je ne peux pas répondre à cette question. Reformule-la autour de l’utilisation de Teamora.'; reply.error = true; }
+      else if (code === 'session_expired') { reply.content = 'Ta session Claude a expiré : reconnecte-toi puis réessaie.'; reply.error = true; }
+      else { reply.content = (e && e.text) ? `${e.text}\n\n(Réponse interrompue, réessaie.)` : 'Je n’ai pas pu répondre (problème de connexion). Réessaie.'; reply.error = !(e && e.text); }
+    } finally { s.busy = false; s.ctl = null; helpRender(); const ta = document.getElementById('help-q'); if (ta && s.open) ta.focus(); }
+  }
+  function helpInit() {
+    let box = document.getElementById('help'); if (!box) { box = document.createElement('div'); box.id = 'help'; document.body.appendChild(box); }
+    box.addEventListener('click', (ev) => {
+      const t = ev.target.closest('[data-help], .help-go'); if (!t) return;
+      const a = t.dataset.help;
+      if (a === 'toggle') { helpState.open = !helpState.open; helpRender(); if (helpState.open) { const ta = document.getElementById('help-q'); if (ta) ta.focus(); } }
+      else if (a === 'ask') helpAsk(t.dataset.q);
+      else if (a === 'stop') { if (helpState.ctl) helpState.ctl.abort(); }
+      else if (a === 'reset') { helpState.turns = []; helpRender(); }
+      else if (t.classList.contains('help-go')) { const k = t.dataset.go; Object.assign(ui, { modal: null, drawer: null, notif: false });
+        if (k === 'accueil' || k === 'reporting' || k === 'modeles') ACT.go({ v: k }); else { const i = visibleStages().find((x) => stageView(x) === k); if (i !== undefined) ACT.stage({ i }); } }
+    });
+    box.addEventListener('submit', (ev) => { ev.preventDefault(); const ta = document.getElementById('help-q'); const q = ta.value; ta.value = ''; helpAsk(q); });
+    box.addEventListener('keydown', (ev) => { if (ev.target.id === 'help-q' && ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); box.querySelector('[data-help-form]').requestSubmit(); } if (ev.key === 'Escape' && helpState.open) { ev.stopPropagation(); helpState.open = false; helpRender(); } });
+    helpRender();
+    // L'assistant n'apparaît que si la page peut interroger Claude (page publiée sur claude.ai, capacité déclarée).
+    const C = window.claude;
+    if (!C || typeof C.use !== 'function') { helpState.sample = null; helpRender(); return; }
+    C.use('sample').then((fn) => { helpState.sample = fn || null; helpRender(); }).catch(() => { helpState.sample = null; helpRender(); });
+  }
   normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); applyDueSalaries(); applyDueManagers(); applyDueChanges(); purgeCandidates(); syncArrivals(); arrivalReminders(); needReminders(); save();
   if (V2_FIRST) { ui.modal = { type: 'v2-news' }; try { localStorage.setItem('teamora-v2-news', '1'); } catch (e) { /* ignore */ } }
-  render();
+  render(); helpInit();
 })();

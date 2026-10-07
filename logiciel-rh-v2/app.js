@@ -1069,6 +1069,8 @@
       return { n: n + 2, r, contrat, date: date || TODAY, sal, errs }; });
     return { rows, sep };
   }
+  const importReady = () => { const st = ui.importText && ui.importText.trim() ? parseImport(ui.importText) : null; return st && st.rows ? st.rows.filter((x) => !x.errs.length).length : 0; };
+  const importNextLabel = () => (importReady() ? `Importer ${plural(importReady(), 'collaborateur', 'collaborateurs')} et continuer` : 'Continuer');
   function importSection(wiz) {
     const st = ui.importText != null ? parseImport(ui.importText) : null, ok = st && st.rows ? st.rows.filter((x) => !x.errs.length) : [];
     const count = db.employees.filter((e) => e.stage < 15).length;
@@ -1170,7 +1172,7 @@
         <div class="card card-b">${checks.map(([, lab, ok]) => `<div class="todo"><span class="chk-dot ${ok ? 'ok' : 'warn'}"></span><div class="t"><b>${esc(lab)}</b></div><span class="pill ${ok ? 'ok' : 'neutral'}">${ok ? 'Fait' : 'Plus tard'}</span></div>`).join('')}</div>
         <div class="wiz-nav"><button type="button" class="btn ghost" data-act="wiz-go" data-s="paie">${ic('left')}Retour</button><button type="button" class="btn primary" data-act="wiz-finish">${ic('check')}Lancer Teamora</button></div>`; }
     else inner = `<form data-form="settings" data-sec="${k}" data-wiz="1" novalidate>${setSection(k, true)}<div id="set-msg" aria-live="polite"></div>
-        <div class="wiz-nav"><button type="button" class="btn ghost" data-act="wiz-go" data-s="${WIZ[i - 1][0]}">${ic('left')}Retour</button><span class="wiz-r">${k === 'import' ? '' : `<button type="button" class="btn ghost" data-act="wiz-go" data-s="${WIZ[i + 1][0]}">Passer</button>`}<button class="btn primary">${k === 'import' ? 'Continuer' : 'Enregistrer et continuer'}${ic('arrow')}</button></span></div></form>`;
+        <div class="wiz-nav"><button type="button" class="btn ghost" data-act="wiz-go" data-s="${WIZ[i - 1][0]}">${ic('left')}Retour</button><span class="wiz-r">${k === 'import' ? '' : `<button type="button" class="btn ghost" data-act="wiz-go" data-s="${WIZ[i + 1][0]}">Passer</button>`}<button class="btn primary" id="wiz-next">${k === 'import' ? importNextLabel() : 'Enregistrer et continuer'}${ic('arrow')}</button></span></div></form>`;
     return `<div class="wiz-page"><header class="wiz-top"><span class="brand-mark">${LOGO}</span><div><b>Installation de Teamora</b><small>${esc(COMPANY.nom || 'Nouvelle entreprise')}</small></div><button type="button" class="btn ghost sm" data-act="tenant-nova">Revenir à la démo Nova Studio</button></header>
       <ol class="wiz-steps">${WIZ.map(([x, lab], n) => `<li class="${n < i ? 'ok' : n === i ? 'now' : ''}"><i class="num">${n < i ? '✓' : n + 1}</i><span>${lab}</span></li>`).join('')}</ol>
       <section class="card wiz-card"><div class="card-h"><h3>${k === 'bienvenue' ? 'Créons ton espace' : k === 'fin' ? 'Récapitulatif' : l}</h3><span class="muted num" style="font-size:13px">Étape ${i + 1} sur ${WIZ.length}</span></div><div class="card-b">${inner}</div></section></div>`;
@@ -1217,7 +1219,12 @@
   Object.assign(MOD_FORMS, {
     settings(v, form) {
       const k = form.dataset.sec, wiz = form.dataset.wiz === '1', box = form.querySelector('#set-msg');
-      if (k === 'import') { if (wiz) { ui.wizStep = WIZ[WIZ.findIndex(([x]) => x === 'import') + 1][0]; render(); } return; }
+      if (k === 'import') {
+        // Des lignes valides attendent dans l'aperçu : « Continuer » les importe plutôt que de les perdre.
+        const st = ui.importText && ui.importText.trim() ? parseImport(ui.importText) : null, ready = st && st.rows ? st.rows.filter((x) => !x.errs.length).length : 0;
+        if (st && !ready && wiz) { box.innerHTML = `<div class="lint bad"><b>${ic('x')}Aucune ligne importable</b><p>Corrige le fichier ou vide la zone de texte pour passer cette étape.</p></div>`; return; }
+        if (ready) runImport();
+        if (wiz) { ui.wizStep = WIZ[WIZ.findIndex(([x]) => x === 'import') + 1][0]; window.scrollTo(0, 0); render(); } return; }
       const r = saveSection(k, v);
       if (r.errs.length) { box.innerHTML = `<div class="lint bad"><b>${ic('x')}À corriger avant d’enregistrer</b>${r.errs.map((x) => `<p>${esc(x)}</p>`).join('')}</div>`; return; }
       if (wiz) { ui.wizStep = WIZ[WIZ.findIndex(([x]) => x === k) + 1][0]; if (r.warns.length) toast(r.warns[0], 'info'); commit(); window.scrollTo(0, 0); return; }
@@ -1236,7 +1243,8 @@
       applySettings(); ui.wizStep = 'entreprise'; save(); render(); window.scrollTo(0, 0);
     },
   });
-  MOD_INP['set-import'] = (val) => { ui.importText = val; const box = document.getElementById('imp-prev'); if (box) box.innerHTML = importPreview(val.trim() ? parseImport(val) : null); };
+  MOD_INP['set-import'] = (val) => { ui.importText = val; const box = document.getElementById('imp-prev'); if (box) box.innerHTML = importPreview(val.trim() ? parseImport(val) : null);
+    const nx = document.getElementById('wiz-next'); if (nx) nx.innerHTML = `${importNextLabel()}${ic('arrow')}`; };
   // ---- V2 · liste « À traiter » et nouveautés de la version
   MODALS.todo = (m, shell) => { const items = todoItems();
     return shell('À traiter', `<div class="modal-b">${items.length ? items.map((x) => `<div class="todo-sec"><div class="todo-sec-h"><span class="stage-dot" style="background:${STAGE_COLORS[x.i]}">${ic(stageDef(x.i).icon)}</span><b>${esc(x.name)}</b><span class="badge-dot">${x.n}</span>
@@ -4563,7 +4571,7 @@
   function route() {
     if (db.settings.setupDone === false || !emp('e1')) { ui.view = 'setup'; ui.stage = null; ui.profile = 'rh'; ui.selfOf = null; return; }
     if (ui.view === 'setup') ui.view = 'accueil';
-    if (!profileOk(ui.profile)) { ui.profile = 'rh'; ui.selfOf = null; }
+    if (!ui.selfOf && !profileOk(ui.profile)) { ui.profile = 'rh'; ui.selfOf = null; }
     if (ui.view === 'accueil' || !VIEWS[ui.view]) { ui.view = 'accueil'; ui.stage = null; return; }
     if (ui.view === 'reporting' || ui.view === 'modeles' || ui.view === 'parametres') { if (ui.profile !== 'rh') ui.view = 'accueil'; ui.stage = null; return; }
     const vis = visibleStages();

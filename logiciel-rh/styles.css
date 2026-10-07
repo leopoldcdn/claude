@@ -883,3 +883,9 @@ html.org-dragging, html.org-dragging * { cursor: grabbing !important; user-selec
 .ot ul:has(> li.mv)::before, .oc.tgt + ul::before { border-color: var(--ok); border-left-width: 3px; }
 @keyframes oc-pop { from { transform: scale(.92); opacity: .4; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .oc.mv { animation: none; } }
+/* Listes déroulantes : flèche dessinée, avec une marge à droite */
+select, .select { -webkit-appearance: none; appearance: none; padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23858ab0' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center; background-size: 14px; }
+.select.sm { padding-right: 30px; background-position: right 10px center; background-size: 12px; }
+select[multiple], select[size]:not([size="1"]) { background-image: none; padding-right: 12px; }

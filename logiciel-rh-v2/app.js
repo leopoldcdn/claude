@@ -1404,7 +1404,7 @@
     const pv = ui.orgPreview, cls = [orgFiltered() ? (orgMatch(e) ? 'hit' : 'dim') : '', e.id === me().id ? 'me' : '', pv && pv.id === e.id ? 'mv' : '', pv && pv.to === e.id ? 'tgt' : ''].join(' ');
     return `<div class="oc ${cls}" style="--d:${DEPT_HUE[e.dept] || 'var(--accent)'}" data-oid="${e.id}" ${rh && e.managerId ? 'data-drag="1"' : ''}>${pv && pv.id === e.id ? '<span class="oc-new">Nouvelle place</span>' : ''}
       <button type="button" class="oc-b" data-act="org-open" data-id="${e.id}">${avatar(e, 'sm')}<span><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small><i>${esc(e.dept)}${orgSite(e) !== SITES()[0] ? ` · ${esc(orgSite(e))}` : ''}</i></span></button>
-      ${e.stage < 3 ? `<span class="pill info oc-tag">Arrivée le ${fmtShort(e.startDate)}</span>` : ''}${rh && nx ? `<span class="pill warn oc-tag" title="Changement de manager programmé">→ ${esc(nx.firstName)} au ${fmtShort(e.managerNext.from)}</span>` : ''}${e.id === me().id ? '<span class="oc-me">Moi</span>' : ''}
+      ${e.stage < 3 ? `<span class="pill info oc-tag">Arrivée le ${fmtShort(e.startDate)}</span>` : ''}${rh && nx ? `<span class="pill warn oc-tag" title="Changement de manager programmé">→ ${esc(nx.firstName)} au ${fmtShort(e.managerNext.from)}</span>` : ''}${rh && e.changeNext && !nx ? `<span class="pill warn oc-tag" title="${esc(situationDiff(e, e.changeNext).join(' · '))}">${esc(e.changeNext.dept !== e.dept ? `→ ${e.changeNext.dept}` : e.changeNext.managerId !== e.managerId && emp(e.changeNext.managerId) ? `→ ${emp(e.changeNext.managerId).firstName}` : e.changeNext.label)} au ${fmtShort(e.changeNext.from)}</span>` : ''}${e.id === me().id ? '<span class="oc-me">Moi</span>' : ''}
       ${kids.length ? `<button type="button" class="oc-n" data-act="org-fold" data-id="${e.id}" aria-expanded="${!fold}" title="${fold ? 'Déplier' : 'Replier'} l’équipe"><span class="num">${kids.length}</span> direct${kids.length > 1 ? 's' : ''}${n !== kids.length ? ` · <span class="num">${n}</span> au total` : ''}${ic('right').replace('<svg', '<svg class="chev"')}</button>` : ''}</div>`;
   }
   const teamHas = (id) => reportsOf(id).some((k) => orgMatch(k) || teamHas(k.id));
@@ -1988,7 +1988,8 @@
       ${f('mv-mgr', 'Manager', `<select id="mv-mgr" name="managerId" class="select"><option value="">Aucun</option>${empOptions(employed(), e.managerId)}</select>`)}${f('mv-salary', 'Salaire annuel brut (€)', `<input id="mv-salary" name="salary" type="number" min="0" step="100" class="input num" value="${e.salary}">`)}
       ${f('mv-q', 'Temps de travail', `<select id="mv-q" name="quotite" class="select">${[100, 90, 80, 70, 60, 50].map((x) => `<option value="${x}" ${x === q ? 'selected' : ''}>${x === 100 ? 'Temps plein' : `Temps partiel ${x} %`}</option>`).join('')}</select>`)}
       <p class="hint full" style="margin:0">Le salaire est exprimé sur la base d’un temps plein ; la paie applique la quotité.</p>
-      ${f('mv-date', 'Date d’effet', `<input id="mv-date" name="date" type="date" class="input" value="${shiftMonth(monthKey(TODAY), 1)}-01">`, true)}</div>`, 'Enregistrer et générer l’avenant');
+      ${f('mv-date', 'Date d’effet', `<input id="mv-date" name="date" type="date" class="input" value="${shiftMonth(monthKey(TODAY), 1)}-01">`, true)}
+      <p class="hint full" style="margin:0">Date future : le changement est programmé ; la fiche et l’organigramme se mettent à jour à cette date. Date du jour ou passée : effet immédiat.</p></div>`, 'Enregistrer et générer l’avenant');
   };
   Object.assign(MOD_ACT, {
     'apply-internal'(d) {
@@ -2020,12 +2021,12 @@
       // Date future : tout le changement est programmé (et plus seulement le salaire) ; il s'applique à sa date.
       if (v.date > TODAY) { e.changeNext = Object.assign({ from: v.date, label: v.label }, ch); if (ch.salary !== e.salary) e.salaryNext = { amount: ch.salary, from: v.date }; }
       else applySituation(e, ch, v.date, v.label);
-      if (!contractual) { if (ui.modal.wishId) db.wishes.find((x) => x.id === ui.modal.wishId).status = 'Réalisé'; ui.modal = null; toast(v.date > TODAY ? `Changement programmé au ${fmtDate(v.date)}` : 'Changement enregistré'); commit(); return; }
+      if (!contractual) { if (ui.modal.wishId) db.wishes.find((x) => x.id === ui.modal.wishId).status = 'Réalisé'; ui.modal = null; toast(v.date > TODAY ? `Changement programmé au ${fmtDate(v.date)} : la fiche et l’organigramme seront mis à jour à cette date` : 'Changement enregistré'); commit(); return; }
       const av = addDoc(e.id, 'avenant', { title: `Avenant · ${ch.title}`, data: { title: ch.title, dept: ch.dept, salary, effective: v.date } }); av.html = fillTpl(tplOf('avenant').body, docCtx(e, av), tplOf('avenant').fields);
       if (ui.modal.wishId) db.wishes.find((x) => x.id === ui.modal.wishId).status = 'Réalisé';
       tickJourney(e.id, 10, 2); tickJourney(e.id, 5, 0);
       notify(e.id, `${v.label} à compter du ${fmtDate(v.date)} : votre avenant vous sera remis par les RH.`); if (e.managerId) notify(e.managerId, `${v.label} de ${fullName(e)} au ${fmtDate(v.date)}.`);
-      ui.modal = { type: 'doc-edit', id: av.id }; toast('Changement enregistré · relisez l’avenant avant de le remettre'); commit();
+      ui.modal = { type: 'doc-edit', id: av.id }; toast(v.date > TODAY ? `Changement programmé au ${fmtDate(v.date)} · relisez l’avenant avant de le remettre` : 'Changement enregistré · relisez l’avenant avant de le remettre'); commit();
     },
   });
 
@@ -4888,6 +4889,13 @@
     if (t.dataset.act !== 'notif' && ui.notif && !t.closest('.notif-pop')) ui.notif = false;
     const fn = ACT[t.dataset.act]; if (fn) journaled(t.dataset.act, t.dataset, () => fn(t.dataset, t, ev));
   });
+  // Changement de situation : choisir un service propose son responsable comme manager (modifiable).
+  document.addEventListener('change', (ev) => {
+    const t = ev.target; if (t.id !== 'mv-dept') return;
+    const f = t.form, who = f && f.elements.empId && f.elements.empId.value, head = DEPT_HEAD[t.value], m = document.getElementById('mv-mgr');
+    if (!m || !head || head === who || !emp(head) || m.value === head) return;
+    m.value = head; m.dispatchEvent(new Event('change', { bubbles: true })); toast(`Manager proposé : ${fullName(emp(head))}, responsable du service ${t.value}`, 'info');
+  });
   const runChange = (t) => {
     if (t.type === 'date' && t.value && Number(t.value.slice(0, 4)) < 1900) { toast('Année incomplète : saisis-la sur 4 chiffres (ex. 1990).', 'info'); return; }
     journaled(t.dataset.change, t.dataset, () => CHG[t.dataset.change](t.value, t.dataset, t));
@@ -5121,6 +5129,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
       });
       q.addEventListener('blur', () => { setTimeout(() => { if (document.activeElement === q) return; close(); if (!q.value.trim() && none !== null && sel.value) choose({ v: '', t: none }); else q.value = curText(); }, 120); });
       list.addEventListener('mousedown', (ev) => { ev.preventDefault(); const o = ev.target.closest('.pick-o'); if (o) choose(shown[Number(o.dataset.i)]); });
+      sel.addEventListener('change', () => { if (document.activeElement !== q) q.value = curText(); });
       sel.hidden = true; sel.tabIndex = -1; sel.setAttribute('aria-hidden', 'true');
       sel.parentNode.insertBefore(wrap, sel); wrap.append(q, list, sel);
     });

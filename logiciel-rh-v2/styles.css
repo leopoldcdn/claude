@@ -1046,3 +1046,6 @@ body:has(.help-panel) .toasts { right: 440px; }
 .wiz-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 .wiz-r { display: flex; gap: 10px; }
 .wiz-done { text-align: center; padding: 8px 0 4px; } .wiz-done > svg { width: 44px; height: 44px; color: #fff; background: var(--ok); border-radius: 50%; padding: 10px; } .wiz-done h3 { margin: 10px 0 4px; font-size: 20px; } .wiz-done p { margin: 0; color: var(--muted); }
+.imp-tools { margin: 4px 0 14px; }
+.imp-table table { width: 100%; font-size: 13px; } .imp-table th, .imp-table td { padding: 8px 10px; } .imp-table th:first-child, .imp-table td:first-child { width: 48px; }
+#imp-prev .toolbar { margin-bottom: 4px; }

@@ -4,20 +4,21 @@ Prototype fonctionnel pour ordinateur (largeur minimale 1 024 px, pas de version
 Les données de départ (`data.js`, schéma version 8) sont fictives ; vos modifications sont conservées dans le navigateur
 (localStorage) et le bouton « Réinitialiser la démo » restaure l'état initial.
 
-- **La roue est le menu** : il n'y a plus de barre latérale. Chaque étape du parcours collaborateur ouvre le module
+- **La roue est le menu** : il n'y a plus de barre latérale, ni de parcours chronologique. Chaque rubrique ouvre le module
   qui la gère : Besoin RH et Recrutement → Recrutement ; Vie administrative → Collaborateurs ; Temps & absences → Absences ;
   Rémunération → Paie ; Performance → Entretiens ; puis Formation, Mobilité, Santé & QVT, Relations individuelles.
-  Les étapes Pré-embauche, Embauche, Intégration, Préparation du départ, Départ et Après le départ ouvrent une page
-  d'étape (personnes concernées, tâches à cocher, passage à l'étape suivante). Au survol, les étapes sortent du cercle
+  Les rubriques Pré-embauche, Embauche, Intégration, Préparation du départ, Départ et Après le départ ouvrent le suivi des
+  arrivées et des départs (personnes concernées, points à suivre). Au survol, les rubriques sortent du cercle
   central. L'accueil ne montre que la roue, sur un fond en dégradé qui bouge lentement : pas de tableau de bord, tout se
-  traite dans la rubrique concernée, et la pastille orange d'une étape est la seule alerte (nombre de sujets qui vous
+  traite dans la rubrique concernée, et la pastille orange d'une rubrique est la seule alerte (nombre de sujets qui vous
   attendent). Les indicateurs sont dans le Reporting RH.
-  Sur les autres pages, un bandeau reprend les mêmes étapes en pictogrammes (avec leur badge) ; le nom s'affiche au survol,
+  Sur les autres pages, un bandeau reprend les mêmes rubriques en pictogrammes (avec leur badge) ; le nom s'affiche au survol,
   et le logo ou la maison ramène à la roue.
-- **Étapes par profil** : une étape n'apparaît que si le profil a besoin de son module. La Manager voit l'étape
+- **Rubriques par profil** : une rubrique n'apparaît que si le profil a besoin de son module. La Manager voit la rubrique
   Rémunération : validation des variables de paie de son équipe et révision salariale (pas d'accès aux bulletins). La Salariée ne voit pas Besoin RH ni Recrutement ; Vie administrative ouvre
-  « Mon profil », Rémunération « Mes bulletins », et les étapes d'arrivée ou de départ n'apparaissent que lorsque c'est
-  son étape en cours.
+  « Mon profil », Rémunération « Mes bulletins », et les rubriques d'arrivée ou de départ n'apparaissent que lorsqu'elle
+  est concernée. Il n'y a pas de « parcours » : un collaborateur est en arrivée, en intégration, en poste ou en départ.
+  Sa fiche ne montre plus d'étape ; pendant une arrivée, une intégration ou un départ, une carte ouvre le dossier concerné.
 - **Deux espaces pour les RH et les managers** : un interrupteur en haut à droite bascule entre la gestion (« Salariés » pour
   les RH, « Mon équipe » pour le manager) et « Mon espace », le menu salarié avec leurs propres congés, bulletins, entretiens
   et documents. La rubrique ouverte est conservée quand elle existe des deux côtés, le choix est mémorisé, et une pastille
@@ -70,7 +71,7 @@ Les données de départ (`data.js`, schéma version 8) sont fictives ; vos modif
   (poste, rémunération, date d'entrée, délai de réponse, alerte hors fourchette validée), lettre générée, statuts envoyée,
   expirée, acceptée, déclinée, retirée ; l'acceptation fait entrer le candidat en pré-embauche et en embauche. Vivier des
   candidats non retenus ; tout dossier non embauché est supprimé automatiquement 2 ans après le dernier contact.
-- **Pré-embauche, Embauche, Intégration** (pages d'étape) : la pré-embauche et l'embauche avancent en parallèle, chacune
+- **Pré-embauche, Embauche, Intégration** (suivi des arrivées) : la pré-embauche et l'embauche avancent en parallèle, chacune
   avec sa barre de progression ; la recrue passe automatiquement en intégration quand les deux sont terminées et le
   contrat signé. Pré-embauche : côté RH, état civil, pièces demandées selon le contrat (CDI, CDD, alternance, stage)
   que la recrue dépose et que les RH valident ou refusent avec un motif, vérification du titre de séjour en préfecture
@@ -80,7 +81,7 @@ Les données de départ (`data.js`, schéma version 8) sont fictives ; vos modif
   (8 jours avant), registre unique du personnel, informations obligatoires à 7 jours et 1 mois (décret du 30 octobre 2023),
   affectation et période d'essai, mutuelle, prévoyance des cadres, visite d'information et de prévention. Intégration :
   programme commun à toute l'entreprise, que les RH composent (ajouter, renommer, dater, attribuer, supprimer une étape), points à 30, 60 et 90 jours, rapport d'étonnement, période d'essai avec délai de prévenance,
-  renouvellement (accord écrit) ou rupture. Les sous-étapes de la roue se cochent toutes seules.
+  renouvellement (accord écrit) ou rupture. Les points à suivre se cochent tout seuls ; la confirmation de la période d'essai clôt l'intégration.
 - **Vie administrative** (Collaborateurs) : annuaire, échéancier (titres de séjour, fins de contrat, périodes d'essai,
   visites médicales), demandes de modification des salariés avec justificatif et validation RH, organigramme.
 - **Organigramme** (visible par tous ; le salarié le trouve dans Vie administrative → Organigramme) : arbre de haut en bas,
@@ -107,7 +108,7 @@ Les données de départ (`data.js`, schéma version 8) sont fictives ; vos modif
 - **Santé** : retours après une longue absence (rendez-vous de liaison, visite de reprise dans les 8 jours) et versions
   annuelles du DUERP conservées 40 ans.
 - **Relations individuelles** : date de présentation de la convocation et contrôle du délai de 5 jours ouvrables.
-- **Préparation du départ, Départ, Après le départ** (pages d'étape) : préavis Syntec, calendrier de la rupture
+- **Préparation du départ, Départ, Après le départ** (suivi des départs) : préavis Syntec, calendrier de la rupture
   conventionnelle (rétractation, homologation), chiffrage des indemnités, documents de sortie, restitution ; entretien de
   départ et enseignements, passation, fin des accès, portabilité ; archivage, durées de conservation, demandes des anciens
   salariés, réembauche (« boomerang ») vers une offre ouverte.
@@ -138,7 +139,7 @@ Les données de départ (`data.js`, schéma version 8) sont fictives ; vos modif
   ancienneté, masse salariale ; graphiques par service, femmes-hommes par catégorie, pyramide des âges, entrées et
   sorties, absences par motif, masse salariale mensuelle, sources de candidatures, baromètre QVT, formation et égalité
   salariale. Info-bulle au survol et tableau de données sous chaque graphique.
-- **Profils** : RH (Olivia, 16 étapes), Manager (Thomas, équipe Design, 16 étapes), Salariée (Léa, 8 étapes, ou une recrue) ; les étapes ne sont pas numérotées à l’écran — chacun voit ses propres écrans.
+- **Profils** : RH (Olivia, 16 rubriques), Manager (Thomas, équipe Design, 16 rubriques), Salariée (Léa, 8 rubriques, ou une recrue) ; les rubriques ne sont pas numérotées à l’écran — chacun voit ses propres écrans.
 
 ## Matrice des droits
 

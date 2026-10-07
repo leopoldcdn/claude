@@ -120,8 +120,6 @@ h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; letter-spacing: -0
 .pill.info { background: var(--info-soft); color: var(--info); }
 .pill.neutral { background: var(--surface-2); color: var(--muted); }
 .pill.accent { background: var(--accent-soft); color: var(--accent); }
-.stage-chip { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; white-space: nowrap; }
-.stage-chip i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
 .card-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
 .card-h h3 { font-size: 16px; font-weight: 650; }
@@ -301,8 +299,6 @@ tfoot td { font-weight: 700; background: var(--surface-2); }
 .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; padding-top: 6px; }
 .info-grid div { font-size: 14.5px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 .info-grid span { display: block; font-size: 12.5px; color: var(--muted); font-weight: 500; }
-.journey-strip { display: grid; grid-template-columns: repeat(16, 1fr); gap: 4px; }
-.journey-strip i { height: 10px; border-radius: 3px; background: var(--surface-2); }
 .modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; }
 .modal-box { width: min(620px, 100%); max-height: calc(100% - 32px); overflow-y: auto; background: var(--surface); border-radius: 18px; box-shadow: var(--shadow-lg); }
 .modal-box.wide { width: min(780px, 100%); }
@@ -889,3 +885,6 @@ select, .select { -webkit-appearance: none; appearance: none; padding-right: 38p
   background-repeat: no-repeat; background-position: right 14px center; background-size: 14px; }
 .select.sm { padding-right: 30px; background-position: right 10px center; background-size: 12px; }
 select[multiple], select[size]:not([size="1"]) { background-image: none; padding-right: 12px; }
+.proc-card { display: flex; align-items: center; gap: 12px; }
+.proc-card > div { flex: 1; min-width: 0; }
+.proc-card b { display: block; font-size: 14px; } .proc-card small { display: block; color: var(--muted); font-size: 12.5px; }

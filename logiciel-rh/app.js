@@ -122,7 +122,6 @@
   const avatarName = (id, name, cls = '') => `<span class="av ${cls}" style="background:${avColor(id)}" aria-hidden="true">${esc(name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase())}</span>`;
   const DEPTS = ['Direction', 'RH', 'Design', 'Tech', 'Marketing', 'Sales', 'Finance'];
   const DEPT_HEAD = { Direction: 'e5', RH: 'e1', Design: 'e2', Tech: 'e6', Marketing: 'e7', Sales: 'e8', Finance: 'e9' };
-  const stageChip = (i) => `<span class="stage-chip"><i style="background:${STAGE_COLORS[i]}"></i>${esc(STAGES[i].short)}</span>`;
 
   const leaveOn = (e, day) => db.leaves.find((l) => l.empId === e.id && l.status === 'Approuvée' && l.start <= day && l.end >= day);
   function statusOf(e) {
@@ -168,7 +167,7 @@
     t.innerHTML = (kind === 'ok' ? ic('check') : '') + `<span>${esc(msg)}</span>`;
     box.appendChild(t); while (box.children.length > 3) box.firstChild.remove(); setTimeout(() => t.remove(), 3600);
   }
-  // Sous-étapes d'une étape ; celles de l'intégration suivent le programme défini par les RH.
+  // Points à suivre d'une rubrique d'arrivée ou de départ ; ceux de l'intégration suivent le programme défini par les RH.
   const CHECK_STEPS = ['Point de suivi à 30 jours', 'Rapport d’étonnement', 'Fin de période d’essai'];
   const stageSteps = (i) => (i === 4 ? (db.onboardingPlan || []).map((x) => x.label).concat(CHECK_STEPS) : STAGES[i].steps);
   function journeyOf(id, stage) {
@@ -188,6 +187,9 @@
   const salaryAt = (e, m) => (e.salaryNext && `${m}-01` >= e.salaryNext.from ? e.salaryNext.amount : e.salary);
   function normalizeEmployees() {
     db.employees.forEach((e) => {
+      // Plus de chronologie entre l'intégration et le départ : un collaborateur en poste a un seul état.
+      if (e.stage > 5 && e.stage < 13) e.stage = 5;
+      if (e.stage === 4 && db.onboarding && db.onboarding[e.id] && db.onboarding[e.id].trialDecision === 'Confirmée') e.stage = 5;
       if (!e.category) e.category = e.contract === 'Alternance' || e.contract === 'Stage' ? 'Employé' : e.salary >= 45000 ? 'Cadre' : 'Employé';
       if (e.zone === undefined) e.zone = 'France'; if (e.nationality === undefined) e.nationality = '';
       if (e.sex === undefined) e.sex = null; if (!e.family) e.family = 'Célibataire'; if (e.iban === undefined) e.iban = '—';
@@ -308,7 +310,7 @@
   const VIEW_LABELS = {
     rh: { accueil: 'Accueil', reporting: 'Reporting RH', modeles: 'Modèles de documents', besoins: 'Besoins de recrutement', collaborateurs: 'Collaborateurs', absences: 'Absences', paie: 'Paie', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Relations individuelles' },
     manager: { accueil: 'Accueil', besoins: 'Besoins de recrutement', collaborateurs: 'Mon équipe', absences: 'Absences', paie: 'Rémunération de l’équipe', recrutement: 'Recrutement', entretiens: 'Entretiens', formation: 'Formation', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Signalements' },
-    salarie: { accueil: 'Mon parcours', arrivee: 'Mon arrivée', contrat: 'Contrat de travail', profil: 'Mon profil', absences: 'Mes absences', bulletins: 'Mes bulletins', entretiens: 'Mes entretiens', formation: 'Formations', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Échanges RH' },
+    salarie: { accueil: 'Accueil', arrivee: 'Mon arrivée', contrat: 'Contrat de travail', profil: 'Mon profil', absences: 'Mes absences', bulletins: 'Mes bulletins', entretiens: 'Mes entretiens', formation: 'Formations', mobilite: 'Mobilité', sante: 'Santé & QVT', relations: 'Échanges RH' },
   };
   // Stage indexes shown in the wheel for the current profile, in journey order.
   function visibleStages() {
@@ -373,7 +375,7 @@
   // Outside the home page, the wheel's stages stay reachable as a strip, in the same order and colours.
   function stageRail() {
     if (ui.view === 'accueil') return '';
-    return `<nav class="rail" aria-label="Étapes du parcours"><button type="button" class="rail-home" data-act="go" data-v="accueil" aria-label="Retour à la roue" title="Retour à la roue">${ic('home')}</button>${ui.profile === 'rh' ? `<button type="button" class="rail-home rail-rep" data-act="go" data-v="reporting" aria-label="Reporting RH" title="Reporting RH" ${ui.view === 'reporting' ? 'aria-current="page"' : ''}>${ic('chart')}</button><button type="button" class="rail-home rail-rep" data-act="go" data-v="modeles" aria-label="Modèles de documents" title="Modèles de documents" ${ui.view === 'modeles' ? 'aria-current="page"' : ''}>${ic('file')}</button><span class="rail-sep"></span>` : ''}
+    return `<nav class="rail" aria-label="Rubriques"><button type="button" class="rail-home" data-act="go" data-v="accueil" aria-label="Retour à la roue" title="Retour à la roue">${ic('home')}</button>${ui.profile === 'rh' ? `<button type="button" class="rail-home rail-rep" data-act="go" data-v="reporting" aria-label="Reporting RH" title="Reporting RH" ${ui.view === 'reporting' ? 'aria-current="page"' : ''}>${ic('chart')}</button><button type="button" class="rail-home rail-rep" data-act="go" data-v="modeles" aria-label="Modèles de documents" title="Modèles de documents" ${ui.view === 'modeles' ? 'aria-current="page"' : ''}>${ic('file')}</button><span class="rail-sep"></span>` : ''}
       ${visibleStages().map((i) => { const name = STAGES[i].short;
         return `<button type="button" data-act="stage" data-i="${i}" style="--c:${STAGE_COLORS[i]}" aria-label="${esc(name)}" title="${esc(name)}" ${ui.stage === i ? 'aria-current="page"' : ''}>${ic(STAGES[i].icon)}${stageBadge(i)}</button>`; }).join('')}</nav>`;
   }
@@ -397,7 +399,7 @@
     wheelN = vis.length;
     const nodes = vis.map((i) => {
       const s = STAGES[i], cls = '';
-      return `<button type="button" class="node ${cls}" data-act="stage" data-i="${i}" style="background:${STAGE_COLORS[i]}" aria-label="${esc(s.title)} · ${esc(stageView(i) === 'etape' ? 'suivi de l’étape' : VIEW_LABELS[ui.profile][stageView(i)])}" tabindex="${ui.wheelOpen ? 0 : -1}">${ic(s.icon)}${stageBadge(i)}</button>`;
+      return `<button type="button" class="node ${cls}" data-act="stage" data-i="${i}" style="background:${STAGE_COLORS[i]}" aria-label="${esc(s.title)} · ${esc(stageView(i) === 'etape' ? 'suivi' : VIEW_LABELS[ui.profile][stageView(i)])}" tabindex="${ui.wheelOpen ? 0 : -1}">${ic(s.icon)}${stageBadge(i)}</button>`;
     }).join('');
     const labels = vis.map((i, k) => {
       const s = STAGES[i], p = nodePos(k, W.LR), c = Math.cos(ang(k)), sn = Math.sin(ang(k));
@@ -408,13 +410,13 @@
     // Recrue pas encore arrivée : date d'arrivée et compte à rebours ; ensuite, « Mon espace RH ».
     const hubText = sal && locked(m) ? `<small>MON ARRIVÉE</small><b>${esc(fmtDate(m.startDate, { day: 'numeric', month: 'long' }))}</b><span class="hub-n num">J-${dayDiff(TODAY, m.startDate)}</span>`
       : sal ? '<b>Mon espace<br>RH</b>'
-      : ui.profile === 'manager' ? `<small>PARCOURS</small><b>Équipe ${esc(m.dept)}</b><span class="hub-n num">${plural(scopeEmployees().filter(isEmployed).length, 'personne', 'personnes')}</span>`
-        : `<small>PARCOURS</small><b>Collaborateur</b><span class="hub-n num">${plural(db.employees.filter(isEmployed).length, 'collaborateur', 'collaborateurs')}</span>`;
+      : ui.profile === 'manager' ? `<small>MON ÉQUIPE</small><b>${esc(m.dept)}</b><span class="hub-n num">${plural(scopeEmployees().filter(isEmployed).length, 'personne', 'personnes')}</span>`
+        : `<small>NOVA STUDIO</small><b>Collaborateurs</b><span class="hub-n num">${plural(db.employees.filter(isEmployed).length, 'collaborateur', 'collaborateurs')}</span>`;
     return `<div class="wheel-box" id="wheel-box"><div class="wheel" id="wheel">${labels}${nodes}
-      <button type="button" class="hub" data-act="hub" aria-expanded="${ui.wheelOpen}" aria-label="${ui.wheelOpen ? 'Replier' : 'Déplier'} le menu du parcours">${hubText}</button></div></div>
+      <button type="button" class="hub" data-act="hub" aria-expanded="${ui.wheelOpen}" aria-label="${ui.wheelOpen ? 'Replier' : 'Déplier'} le menu">${hubText}</button></div></div>
       <p class="wheel-hint" id="wheel-hint">${ui.wheelOpen ? HINT_OPEN : HINT_CLOSED}</p>`;
   }
-  const HINT_OPEN = 'Cliquez sur une étape pour ouvrir son module';
+  const HINT_OPEN = 'Cliquez sur une rubrique pour l’ouvrir';
   const HINT_CLOSED = 'Survolez ou touchez la roue pour afficher le menu';
   function stepsList(arr, steps, editable, empId, stage) {
     return `<div class="steps">${steps.map((t, k) => `<div class="step ${arr[k] ? 'done' : ''}">${editable
@@ -423,8 +425,8 @@
   }
   function stageHead(i, closable = false) {
     const s = STAGES[i], c = STAGE_COLORS[i];
-    return `<div class="stage-head"><span class="stage-ic" style="background:${c}">${ic(s.icon)}</span><div style="flex:1;min-width:0"><small style="color:${c}">ÉTAPE DU PARCOURS</small><h2>${esc(s.title)}</h2></div>
-      ${closable ? `<button type="button" class="icon-btn" data-act="stage" data-i="${i}" aria-label="Fermer l’étape">${ic('x')}</button>` : ''}</div>`;
+    return `<div class="stage-head"><span class="stage-ic" style="background:${c}">${ic(s.icon)}</span><div style="flex:1;min-width:0"><small style="color:${c}">${i <= 4 ? 'ARRIVÉE DES COLLABORATEURS' : i >= 13 ? 'DÉPART DES COLLABORATEURS' : 'RUBRIQUE'}</small><h2>${esc(s.title)}</h2></div>
+      ${closable ? `<button type="button" class="icon-btn" data-act="stage" data-i="${i}" aria-label="Fermer">${ic('x')}</button>` : ''}</div>`;
   }
   const MODULE_LINK = { recrutement: ['recrutement', 'Ouvrir le recrutement'], absences: ['absences', 'Ouvrir les absences'], paie: ['paie', 'Ouvrir la paie'], collaborateurs: ['collaborateurs', 'Ouvrir les collaborateurs'],
     entretiens: ['entretiens', 'Ouvrir les entretiens'], formation: ['formation', 'Ouvrir la formation'], mobilite: ['mobilite', 'Ouvrir la mobilité'], sante: ['sante', 'Ouvrir Santé & QVT'], relations: ['relations', 'Ouvrir les relations individuelles'] };
@@ -439,22 +441,22 @@
     const s = STAGES[i], steps = stageSteps(i);
     if (ui.profile === 'salarie') {
       const e = me();
-      const arr = i < e.stage ? steps.map(() => true) : i === e.stage ? journeyOf(e.id, i) : steps.map(() => false);
-      const state = i < e.stage ? '<span class="pill ok">Terminée</span>' : i === e.stage ? '<span class="pill accent">En cours</span>' : '<span class="pill neutral">À venir</span>';
-      return `<div class="card card-b">${stageHead(i)}</div><div class="card"><div class="card-h"><h3>Sous-étapes</h3>${state}</div><div class="card-b">${stepsList(arr, steps, false)}</div></div>${i === 4 ? myIntegration(e) : ''}${moduleBtn(i) ? `<div>${moduleBtn(i)}</div>` : ''}`;
+      const arr = journeyOf(e.id, i);
+      return `<div class="card card-b">${stageHead(i)}</div><div class="card"><div class="card-h"><h3>Points à suivre</h3><span class="muted" style="font-size:13px">${arr.filter(Boolean).length} sur ${arr.length}</span></div><div class="card-b">${stepsList(arr, steps, false)}</div></div>${i === 4 ? myIntegration(e) : ''}${moduleBtn(i) ? `<div>${moduleBtn(i)}</div>` : ''}`;
     }
     const rh = ui.profile === 'rh', arrival = i >= 2 && i <= 4;
     const people = scopeEmployees().filter((e) => atStage(e, i));
-    const body = `<div class="card"><div class="card-h"><h3>Collaborateurs à cette étape</h3><span class="pill accent num">${people.length}</span></div><div class="card-b"><div class="people">${people.length ? people.map((e) => {
+    const body = `<div class="card"><div class="card-h"><h3>Collaborateurs concernés</h3><span class="pill accent num">${people.length}</span></div><div class="card-b"><div class="people">${people.length ? people.map((e) => {
       const arr = journeyOf(e.id, i), done = arr.filter(Boolean).length, open = ui.selPerson === e.id, todo = i <= 4 ? arrivalActions(e, i).length : rh && departActions(e).length;
-      const next = i === 2 || i === 3 ? '' : rh && i < 15 ? `<button type="button" class="btn ${done === arr.length ? 'primary' : 'ghost'} sm" data-act="advance" data-id="${e.id}">Passer à « ${esc(STAGES[i + 1].short)} »${ic('arrow')}</button>` : '';
-      return `<button type="button" class="person-row" data-act="person" data-id="${e.id}" aria-expanded="${open}">${avatar(e)}<span class="who"><b>${esc(fullName(e))}</b><small>${esc(e.title)} · ${done}/${arr.length} sous-étapes${i === 2 || i === 3 ? ` · arrivée le ${fmtShort(e.startDate)}` : ''}</small></span>${todo ? `<span class="badge-dot num" title="À traiter">${todo}</span>` : ''}<span class="mini-bar"><i style="width:${(done / arr.length) * 100}%"></i></span></button>
+      // Seul le départ s'enchaîne en plusieurs temps (préparation, formalités de sortie, archivage) ; l'intégration se termine avec la confirmation de la période d'essai.
+      const next = rh && (i === 13 || i === 14) ? `<button type="button" class="btn ${done === arr.length ? 'primary' : 'ghost'} sm" data-act="advance" data-id="${e.id}">Passer à « ${esc(STAGES[i + 1].short)} »${ic('arrow')}</button>` : '';
+      return `<button type="button" class="person-row" data-act="person" data-id="${e.id}" aria-expanded="${open}">${avatar(e)}<span class="who"><b>${esc(fullName(e))}</b><small>${esc(e.title)} · ${done}/${arr.length} points${i === 2 || i === 3 ? ` · arrivée le ${fmtShort(e.startDate)}` : ''}</small></span>${todo ? `<span class="badge-dot num" title="À traiter">${todo}</span>` : ''}<span class="mini-bar"><i style="width:${(done / arr.length) * 100}%"></i></span></button>
         ${open ? `<div class="card card-b">${stepsList(arr, steps, !arrival && i < 13, e.id, i)}${arrival ? arrivalDossier(e, i) : i >= 13 ? departDossier(e, i) : ''}<div class="toolbar" style="margin-top:16px">
-          ${next}<button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir la fiche</button>${done < arr.length ? `<span class="hint">${plural(arr.length - done, 'sous-étape restante', 'sous-étapes restantes')}</span>` : ''}</div>
+          ${next}<button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir la fiche</button>${done < arr.length ? `<span class="hint">${plural(arr.length - done, 'point restant', 'points restants')}</span>` : ''}</div>
           ${i === 2 || i === 3 ? `<p class="hint" style="margin:10px 0 0">La pré-embauche et l’embauche avancent en parallèle. ${esc(e.firstName)} passe automatiquement en intégration quand les deux sont terminées et le contrat signé.</p>`
-            : ui.profile === 'manager' ? '<p class="hint" style="margin:10px 0 0">Les RH font passer le collaborateur à l’étape suivante.</p>' : ''}</div>` : ''}`; }).join('')
-      : '<p class="muted" style="margin:0">Aucun collaborateur à cette étape pour le moment.</p>'}</div></div></div>
-      ${i === 14 ? exitStats() : ''}${i === 4 && rh ? planConfig() : ''}${people.length ? '' : `<div class="card"><div class="card-h"><h3>Sous-étapes de l’étape</h3></div><div class="card-b">${stepsList(steps.map(() => false), steps, false)}</div></div>`}${moduleBtn(i)}`;
+            : i === 4 ? '<p class="hint" style="margin:10px 0 0">L’intégration se termine quand la période d’essai est confirmée.</p>' : ''}</div>` : ''}`; }).join('')
+      : '<p class="muted" style="margin:0">Personne n’est concerné pour le moment.</p>'}</div></div></div>
+      ${i === 14 ? exitStats() : ''}${i === 4 && rh ? planConfig() : ''}${people.length ? '' : `<div class="card"><div class="card-h"><h3>Points à suivre</h3></div><div class="card-b">${stepsList(steps.map(() => false), steps, false)}</div></div>`}${moduleBtn(i)}`;
     return `<div class="card card-b">${stageHead(i)}</div>${body}`;
   }
   const viewHome = () => `<div class="home-bg" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="home">${wheelHTML()}</div>`;
@@ -515,15 +517,15 @@
     const q = ui.q.trim().toLowerCase();
     const list = scopeEmployees().filter((e) => (!q || `${fullName(e)} ${e.title} ${e.email} ${e.dept}`.toLowerCase().includes(q))
       && (!ui.fDept || e.dept === ui.fDept) && (!ui.fStatus || statusOf(e)[0] === ui.fStatus));
-    const key = { name: (e) => e.lastName, dept: (e) => e.dept, start: (e) => e.startDate, stage: (e) => pad(e.stage) }[ui.sort];
+    const key = { name: (e) => e.lastName, dept: (e) => e.dept, start: (e) => e.startDate }[ui.sort];
     return list.sort((a, b) => key(a).localeCompare(key(b), 'fr') * ui.sortDir);
   }
   function empTable(list) {
     if (!list.length) return '<div class="empty">Aucun collaborateur ne correspond à votre recherche.</div>';
     const th = (k, l) => `<th><button type="button" data-act="sort" data-k="${k}">${l}${ui.sort === k ? (ui.sortDir > 0 ? ' ↑' : ' ↓') : ''}</button></th>`;
-    return `<table><thead><tr>${th('name', 'Collaborateur')}<th>Poste</th>${th('dept', 'Service')}<th>Statut</th>${th('stage', 'Étape du parcours')}${th('start', 'Entrée')}<th>Manager</th></tr></thead><tbody>
+    return `<table><thead><tr>${th('name', 'Collaborateur')}<th>Poste</th>${th('dept', 'Service')}<th>Statut</th>${th('start', 'Entrée')}<th>Manager</th></tr></thead><tbody>
       ${list.map((e) => `<tr class="click" data-act="open-emp" data-id="${e.id}" tabindex="0"><td><div class="who-cell">${avatar(e)}<div><b>${esc(fullName(e))}</b><small>${esc(e.email)}</small></div></div></td>
-        <td>${esc(e.title)}</td><td>${esc(e.dept)}</td><td>${statusPill(e)}</td><td>${stageChip(e.stage)}</td><td class="num">${fmtDate(e.startDate)}</td><td>${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}</td></tr>`).join('')}</tbody></table>`;
+        <td>${esc(e.title)}</td><td>${esc(e.dept)}</td><td>${statusPill(e)}</td><td class="num">${fmtDate(e.startDate)}</td><td>${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}</td></tr>`).join('')}</tbody></table>`;
   }
   function viewEmployees() {
     const list = filteredEmployees();
@@ -536,9 +538,16 @@
       <div class="card"><div class="table-wrap" id="emp-table">${empTable(list)}</div></div>`;
   }
 
+  // Arrivée ou départ en cours : accès direct au dossier correspondant.
+  function procCard(e) {
+    const k = inArrival(e) ? 'arrivée' : e.stage === 4 ? 'intégration' : e.stage >= 13 && e.stage < 15 ? 'départ' : null;
+    if (!k || ui.profile === 'salarie') return '';
+    const label = { arrivée: `Arrivée le ${fmtDate(e.startDate)} · pré-embauche et embauche en cours`, intégration: 'Intégration et période d’essai en cours', départ: `${STAGES[e.stage].title} en cours` }[k];
+    return `<div class="card card-b proc-card"><div><b>${label}</b><small>Suivi des formalités dans le dossier ${k === 'départ' ? 'de départ' : k === 'arrivée' ? 'd’arrivée' : 'd’intégration'}</small></div><button type="button" class="btn primary sm" data-act="open-dossier" data-id="${e.id}">Ouvrir le dossier${ic('arrow')}</button></div>`;
+  }
   function empDrawer(e) {
     const tab = ui.drawer.tab || 'infos', rh = ui.profile === 'rh';
-    const tabs = [['infos', 'Informations'], ['parcours', 'Parcours'], ['absences', 'Absences']].concat(rh ? [['remu', 'Rémunération'], ['documents', 'Documents']] : []);
+    const tabs = [['infos', 'Informations'], ['absences', 'Absences']].concat(rh ? [['remu', 'Rémunération'], ['documents', 'Documents']] : []);
     const mgr = e.managerId ? emp(e.managerId) : null;
     let body = '';
     if (tab === 'infos') {
@@ -546,13 +555,8 @@
         <div><span>Manager</span>${mgr ? esc(fullName(mgr)) : '—'}</div><div><span>Contrat</span>${esc(e.contract)}</div><div><span>Date d’entrée</span>${fmtDate(e.startDate)}</div><div><span>Ancienneté</span>${seniority(e.startDate)}</div>
         <div><span>Lieu de travail</span>${esc(e.location)}</div>${rh ? `<div><span>Date de naissance</span>${fmtDate(e.birthDate)}</div><div><span>Adresse</span>${esc(e.address) || '—'}</div>` : ''}<div><span>Contact d’urgence</span>${esc(e.emergency) || '—'}</div></div>
         ${(() => { const h = db.history.filter((x) => x.empId === e.id).sort((a, b) => b.date.localeCompare(a.date)); return h.length ? `<div class="card card-b"><b>Historique de carrière</b><ol class="timeline" style="margin-top:10px">${h.map((x) => `<li><small>${fmtDate(x.date)} · ${esc(x.label)}</small><p>${esc(x.detail)}</p></li>`).join('')}</ol></div>` : ''; })()}
+        ${procCard(e)}
         ${e.exit ? `<div class="card card-b"><b>Départ prévu</b><p class="muted" style="margin:4px 0 0">${esc(e.exit.reason)} · dernier jour le ${fmtDate(e.exit.lastDay)}${e.exit.comment ? ` · ${esc(e.exit.comment)}` : ''}</p></div>` : ''}`;
-    } else if (tab === 'parcours') {
-      const canEdit = rh || (ui.profile === 'manager' && e.managerId === me().id);
-      body = `<div class="journey-strip" aria-label="Étape en cours : ${esc(STAGES[e.stage].title)}">${STAGES.map((s, i) => `<i title="${esc(s.title)}" style="${i <= e.stage ? `background:${STAGE_COLORS[i]};` : ''}${i === e.stage ? 'outline:2px solid var(--fg);outline-offset:1px' : ''}"></i>`).join('')}</div>
-        <div class="card card-b">${stageHead(e.stage, false)}<div style="margin-top:12px">${stepsList(journeyOf(e.id, e.stage), stageSteps(e.stage), canEdit && !inArrival(e) && e.stage !== 4, e.id, e.stage)}</div>
-        ${inArrival(e) ? `<div class="toolbar" style="margin-top:12px"><button type="button" class="btn primary sm" data-act="open-dossier" data-id="${e.id}">Ouvrir le dossier d’arrivée${ic('arrow')}</button></div>`
-          : rh && e.stage < 15 ? `<div class="toolbar" style="margin-top:12px"><button type="button" class="btn primary sm" data-act="advance" data-id="${e.id}">Passer à « ${esc(STAGES[e.stage + 1].short)} »${ic('arrow')}</button></div>` : ''}</div>`;
     } else if (tab === 'absences') {
       const ls = db.leaves.filter((l) => l.empId === e.id).sort((a, b) => b.start.localeCompare(a.start));
       body = `<div class="balances"><div class="card bal"><span class="l">Congés payés</span><div class="v num">${e.cp} <small>j</small></div></div><div class="card bal"><span class="l">RTT</span><div class="v num">${e.rtt} <small>j</small></div></div><div class="card bal"><span class="l">Demandes</span><div class="v num">${ls.length}</div></div></div>
@@ -845,7 +849,7 @@
     const e = me(), mgr = emp(e.managerId);
     return `<div class="card"><div class="drawer-h" style="padding:22px 24px">${avatar(e, 'lg')}<div><h2>${esc(fullName(e))}</h2><p>${esc(e.title)} · ${esc(e.dept)} · ${statusPill(e)}</p></div></div>
       <div class="card-b" style="border-top:1px solid var(--line)"><div class="info-grid"><div><span>E-mail professionnel</span>${esc(e.email)}</div><div><span>Manager</span>${mgr ? esc(fullName(mgr)) : '—'}</div><div><span>Contrat</span>${esc(e.contract)}</div>
-        <div><span>Date d’entrée</span>${fmtDate(e.startDate)} · ${seniority(e.startDate)}</div><div><span>Étape du parcours</span>${stageChip(e.stage)}</div><div><span>Salaire annuel brut</span><span class="num">${eur0(e.salary)}</span></div>
+        <div><span>Date d’entrée</span>${fmtDate(e.startDate)} · ${seniority(e.startDate)}</div><div><span>Salaire annuel brut</span><span class="num">${eur0(e.salary)}</span></div>
         <div><span>Adresse postale</span>${esc(e.address) || '—'}</div><div><span>Coordonnées bancaires</span><span class="num">${esc(e.iban)}</span></div><div><span>Situation familiale</span>${esc(e.family || '—')}</div></div></div></div>
       <form class="card" data-form="profile" novalidate><div class="card-h"><h3>Mes informations personnelles</h3><span class="muted" style="font-size:13px">Les RH sont prévenus de chaque modification</span></div><div class="card-b"><div class="form-grid">
         <div class="field"><label for="p-phone">Téléphone</label><input id="p-phone" name="phone" class="input" value="${esc(e.phone)}" autocomplete="tel"></div>
@@ -2425,7 +2429,7 @@
     msg(form) { const c = findCand(ui.modal.id), [subj, body] = MSG_TPL[new FormData(form).get('tpl')][1](c, candJob(c)); document.getElementById('ms-subj').value = subj; document.getElementById('ms-body').value = body; },
     refus(form) { const fd = new FormData(form), c = findCand(ui.modal.id), r = fd.get('reason') === 'Autre motif' ? fd.get('other') : fd.get('reason'); document.getElementById('rf-body').value = refusBody(c, candJob(c), r, fd.get('pool') === 'on'); document.getElementById('rf-other').hidden = fd.get('reason') !== 'Autre motif'; },
     offer(form) { const c = findCand(ui.modal.id), j = candJob(c), s = Number(new FormData(form).get('salary')) || 0;
-      document.getElementById('of-warn').innerHTML = s > j.salaryMax ? `<p class="lint bad" style="margin:0">Au-dessus de la fourchette validée à l’étape « Besoin RH » (${esc(j.budget)}) : prévoyez l’accord de la direction.</p>` : s && s < j.salaryMin ? `<p class="hint" style="margin:0">En dessous de la fourchette validée (${esc(j.budget)}).</p>` : `<p class="hint" style="margin:0">Dans la fourchette validée (${esc(j.budget)}).</p>`; },
+      document.getElementById('of-warn').innerHTML = s > j.salaryMax ? `<p class="lint bad" style="margin:0">Au-dessus de la fourchette validée dans le besoin (${esc(j.budget)}) : prévoyez l’accord de la direction.</p>` : s && s < j.salaryMin ? `<p class="hint" style="margin:0">En dessous de la fourchette validée (${esc(j.budget)}).</p>` : `<p class="hint" style="margin:0">Dans la fourchette validée (${esc(j.budget)}).</p>`; },
   });
   Object.assign(MOD_FORMS, {
     'iv-eval'(v) {
@@ -2778,7 +2782,7 @@
     'arr-prev'(d) { dossier(arrE(d)).prevoyance = true; toast('Affiliation à la prévoyance enregistrée'); commit(); },
     'arr-vip'(d) { const e = arrE(d), date = addDays(e.startDate > TODAY ? e.startDate : TODAY, 21); db.visits.push({ id: uid('v'), empId: e.id, kind: "Visite d'information et de prévention", date, status: 'Planifiée', result: null }); notify(e.id, `Visite d’information et de prévention prévue le ${fmtDate(date)}.`); toast('Visite planifiée · visible dans Santé & QVT'); commit(); },
     'arr-plan'(d) { dossier(arrE(d)).plan[d.k] = TODAY; toast('Étape du programme terminée'); commit(); },
-    'arr-trial'(d) { const e = arrE(d), x = dossier(e), doc = addDoc(e.id, 'essai'); ui.modal = { type: 'doc-edit', id: doc.id }; Object.assign(x, { trialDecision: 'Confirmée', trialDecisionAt: TODAY, trialDoc: doc.id }); notify(e.id, 'Votre période d’essai est confirmée : bienvenue définitivement chez Nova Studio !'); if (e.managerId) notify(e.managerId, `Période d’essai de ${fullName(e)} confirmée.`); toast('Période d’essai confirmée'); commit(); },
+    'arr-trial'(d) { const e = arrE(d), x = dossier(e), doc = addDoc(e.id, 'essai'); ui.modal = { type: 'doc-edit', id: doc.id }; Object.assign(x, { trialDecision: 'Confirmée', trialDecisionAt: TODAY, trialDoc: doc.id }); e.stage = 5; notify(e.id, 'Votre période d’essai est confirmée : bienvenue définitivement chez Nova Studio !'); if (e.managerId) notify(e.managerId, `Période d’essai de ${fullName(e)} confirmée.`); toast(`Période d’essai confirmée · ${fullName(e)} est en poste`); commit(); },
     'trial-renew'(d) { ui.modal = { type: 'trial-renew', id: d.id }; render(); },
     'trial-break'(d) { ui.modal = { type: 'trial-break', id: d.id }; render(); },
   });
@@ -2827,7 +2831,7 @@
       e.exit = { reason: 'Rupture de la période d’essai', lastDay: v.lastDay, comment: (v.comment || '').trim() }; e.stage = 13;
       db.journey[e.id] = db.journey[e.id] || {}; db.journey[e.id][13] = [true, false, false, false, false];
       notify(e.id, `Fin de votre période d’essai : dernier jour le ${fmtDate(v.lastDay)}.`); if (e.managerId) notify(e.managerId, `Fin de la période d’essai de ${fullName(e)} le ${fmtDate(v.lastDay)}.`);
-      ui.modal = null; ui.selPerson = null; toast(`${fullName(e)} passe à l’étape « Préparation du départ »`); commit();
+      ui.modal = null; ui.selPerson = null; toast(`Départ de ${fullName(e)} lancé`); commit();
     },
   });
   MODALS['doc-refuse'] = (m, shell, formShell, opt, f) => formShell(`Refuser la pièce · ${esc(ARR_DOCS.find(([k]) => k === m.k)[1])}`, 'doc-refuse',
@@ -3020,7 +3024,7 @@
     return `${card('Écarts de rémunération femmes-hommes', '', `<div class="card-b">${gapTable(rows)}
         <p class="hint" style="margin:12px 0 0">Un écart de plus de 5 % entre femmes et hommes d’une même catégorie, non justifié par des critères objectifs, devra être corrigé selon la directive européenne 2023/970 sur la transparence salariale. Sa transposition en France est en cours.</p></div>`)}
       <div class="two">${card('Obligations selon l’effectif', '', `<div class="card-b"><div class="todo"><div class="t"><b>Index de l’égalité professionnelle</b><small>Obligatoire à partir de 50 salariés : Nova Studio (${n} salariés) n’est pas concernée.</small></div><span class="pill neutral">Non applicable</span></div>
-          <div class="todo"><div class="t"><b>Fourchette de salaire dans les offres</b><small>Déjà affichée à l’étape « Besoin RH » ; l’historique de salaire des candidats n’est pas demandé.</small></div><span class="pill ok">En place</span></div>
+          <div class="todo"><div class="t"><b>Fourchette de salaire dans les offres</b><small>Déjà validée dans le besoin de recrutement ; l’historique de salaire des candidats n’est pas demandé.</small></div><span class="pill ok">En place</span></div>
           <div class="todo"><div class="t"><b>Droit à l’information des salariés</b><small>Chaque salarié peut demander la rémunération moyenne, par sexe, des salariés de sa catégorie.</small></div><span class="pill ok">En place</span></div></div>`)}
         ${card('Demandes d’information', `<span class="muted num">${reqs.length}</span>`, `<div class="card-b">${reqs.length ? reqs.map((r) => `<div class="todo">${avatar(emp(r.empId), 'sm')}<div class="t"><b>${esc(fullName(emp(r.empId)))} · catégorie ${esc(r.cat)}</b><small>Demandée et transmise le ${fmtShort(r.date)}</small></div><span class="pill ok">Répondue</span></div>`).join('') : '<p class="muted" style="margin:0">Aucune demande pour le moment.</p>'}</div>`)}</div>`;
   }
@@ -3835,11 +3839,11 @@
         ${f('e-mgr', 'Manager', `<select id="e-mgr" name="managerId" class="select"><option value="">Aucun</option>${opt(mgrs, e.managerId)}</select>`)}${f('e-contract', 'Contrat', `<select id="e-contract" name="contract" class="select">${opt(['CDI', 'CDD', 'Alternance', 'Stage'], e.contract)}</select>`)}
         ${f('e-salary', 'Salaire annuel brut (€)', `<input id="e-salary" name="salary" type="number" min="0" step="100" class="input num" value="${esc(e.salary)}" required>`)}${f('e-start', 'Date d’entrée', `<input id="e-start" name="startDate" type="date" class="input" value="${esc(e.startDate)}" required>`)}
         ${f('e-phone', 'Téléphone', `<input id="e-phone" name="phone" class="input" value="${esc(e.phone)}">`)}${f('e-loc', 'Lieu de travail', `<select id="e-loc" name="location" class="select">${opt(['Paris', 'Lyon', 'Télétravail majoritaire'], e.location)}</select>`)}
-        ${m.id ? '' : f('e-stage', 'Étape du parcours', `<select id="e-stage" name="stage" class="select">${opt([[2, 'Arrivée (pré-embauche et embauche)'], [4, 'Intégration']].map(([v, l]) => [String(v), l]), '2')}</select>`, true)}</div>`, m.id ? 'Enregistrer' : 'Ajouter', true);
+        ${m.id ? '' : f('e-stage', 'Situation', `<select id="e-stage" name="stage" class="select">${opt([[2, 'Arrivée (pré-embauche et embauche)'], [4, 'Intégration']].map(([v, l]) => [String(v), l]), '2')}</select>`, true)}</div>`, m.id ? 'Enregistrer' : 'Ajouter', true);
     }
     if (m.type === 'exit') {
       const e = emp(m.id);
-      return formShell(`Départ de ${esc(fullName(e))}`, 'exit', `<p class="muted" style="margin:0">Le collaborateur passe à l’étape « Préparation du départ » : préavis, documents de sortie et restitution du matériel.</p><div class="form-grid">
+      return formShell(`Départ de ${esc(fullName(e))}`, 'exit', `<p class="muted" style="margin:0">Le départ est lancé : préavis, documents de sortie et restitution du matériel.</p><div class="form-grid">
         ${f('x-reason', 'Motif', `<select id="x-reason" name="reason" class="select">${opt(['Démission', 'Rupture conventionnelle', 'Fin de CDD', 'Licenciement', 'Départ à la retraite'])}</select>`)}${f('x-day', 'Dernier jour travaillé', `<input id="x-day" name="lastDay" type="date" class="input" value="${addDays(TODAY, 30)}">`)}
         ${f('x-comment', 'Commentaire (facultatif)', '<input id="x-comment" name="comment" class="input" maxlength="140">', true)}</div>`, 'Démarrer le départ');
     }
@@ -3941,9 +3945,9 @@
     db.journey[e.id][e.stage] = stageSteps(e.stage).map(() => true);
     e.stage = inArrival(e) ? 4 : e.stage + 1;
     if (e.stage === 14) ['certificat', 'solde', 'france-travail'].forEach((k) => { if (!db.documents.some((d) => d.empId === e.id && d.kind === k)) addDoc(e.id, k); });
-    notify(e.id, `Votre parcours passe à l’étape « ${STAGES[e.stage].title} ».`);
-    if (e.managerId && e.managerId !== me().id) notify(e.managerId, `${fullName(e)} passe à l’étape « ${STAGES[e.stage].short} ».`);
-    toast(`${fullName(e)} passe à l’étape « ${STAGES[e.stage].short} »`);
+    notify(e.id, `Votre départ : ${STAGES[e.stage].title.toLowerCase()}.`);
+    if (e.managerId && e.managerId !== me().id) notify(e.managerId, `Départ de ${fullName(e)} : ${STAGES[e.stage].short.toLowerCase()}.`);
+    toast(`Départ de ${fullName(e)} : ${STAGES[e.stage].short.toLowerCase()}`);
     ui.selPerson = null;
     commit();
   }
@@ -4068,7 +4072,7 @@
         const email = `${data.firstName}.${data.lastName}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z.]/g, '') + '@novastudio.fr';
         db.employees.push(Object.assign({ id, email, birthDate: '', address: '', emergency: '', cp: 0, rtt: 0, exit: null, stage: Number(v.stage), registeredAt: Number(v.stage) >= 3 ? TODAY : null }, data)); normalizeEmployees();
         if (data.managerId) notify(data.managerId, `${data.firstName} ${data.lastName} rejoint votre équipe le ${fmtDate(data.startDate)}.`);
-        toast(`${data.firstName} ${data.lastName} ajouté·e à l’étape « ${STAGES[Number(v.stage)].short} »`);
+        toast(`${data.firstName} ${data.lastName} ajouté·e (${STAGES[Number(v.stage)].short.toLowerCase()})`);
       }
       ui.modal = null; commit();
     },
@@ -4079,7 +4083,7 @@
       e.stage = 13; db.journey[e.id] = db.journey[e.id] || {}; db.journey[e.id][13] = [true, false, false, false, false];
       notify(e.id, `Votre départ est enregistré : dernier jour le ${fmtDate(v.lastDay)}.`);
       if (e.managerId) notify(e.managerId, `Départ de ${fullName(e)} (${v.reason}) le ${fmtDate(v.lastDay)}.`);
-      ui.modal = null; ui.drawer.tab = 'parcours'; toast(`${fullName(e)} passe à l’étape « Préparation du départ »`); commit();
+      ui.modal = null; ui.drawer.tab = 'infos'; toast(`Départ de ${fullName(e)} lancé`); commit();
     },
     async cand(v) {
       if (!v.name.trim()) return formError('Indiquez le nom du candidat.');

@@ -207,6 +207,16 @@
       if (e.registeredAt === undefined) e.registeredAt = e.stage >= 3 ? e.startDate : null;
     });
   }
+  // Un contrat déclaré signé sans document (données importées ou signature sur papier ancienne) reçoit son exemplaire, figé, pour rester consultable.
+  function ensureSignedContracts() {
+    Object.entries(db.onboarding || {}).forEach(([id, d]) => {
+      const c = d && d.contract, e = emp(id);
+      if (!e || !c || c.status !== 'Signé' || (c.docId && db.documents.some((x) => x.id === c.docId))) return;
+      const doc = addDoc(id, 'contrat', { date: c.sentAt || c.signedAt || e.startDate });
+      Object.assign(doc, { status: 'Signé', signedAt: c.signedAt || doc.date, issuedAt: c.sentAt || c.signedAt || doc.date, html: unmark(doc.html || '') });
+      c.docId = doc.id; if (!c.signedAt) c.signedAt = doc.signedAt; if (c.paper === undefined) c.paper = true;
+    });
+  }
   // Statut des documents de départ : remis ou signés, sauf contrat en attente et documents de sortie pas encore remis.
   function normalizeDocs() {
     db.documents.forEach((d) => {
@@ -4280,7 +4290,7 @@
     'cand-new'(d) { ui.modal = { type: 'cand', jobId: d.id }; render(); },
     'cand-move'(d) { moveCandidate(d.id, d.s); },
     reset() { ui.modal = { type: 'reset' }; render(); },
-    'reset-ok'() { db = window.TEAMORA_SEED(); normalizeEmployees(); normalizeDocs(); purgeCandidates(); syncArrivals(); save(); ui = Object.assign({ profile: ui.profile, selfOf: ui.selfOf, view: 'accueil' }, freshUI()); render(); toast('Démo réinitialisée'); },
+    'reset-ok'() { db = window.TEAMORA_SEED(); normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); purgeCandidates(); syncArrivals(); save(); ui = Object.assign({ profile: ui.profile, selfOf: ui.selfOf, view: 'accueil' }, freshUI()); render(); toast('Démo réinitialisée'); },
   };
   const CHG = {
     fDept(v) { ui.fDept = v; render(); },
@@ -4453,7 +4463,7 @@
   document.addEventListener('mouseover', (ev) => { const t = ev.target.closest && ev.target.closest('[data-tip]'); if (!t) { tip.classList.remove('on'); return; } tip.textContent = t.dataset.tip; tip.classList.add('on'); });
   document.addEventListener('mousemove', (ev) => { if (!tip.classList.contains('on')) return; const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8); tip.style.transform = `translate(${x}px, ${ev.clientY + 16}px)`; });
 
-  normalizeEmployees(); normalizeDocs(); applyDueSalaries(); applyDueManagers(); applyDueChanges(); purgeCandidates(); syncArrivals(); arrivalReminders(); needReminders(); save();
+  normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); applyDueSalaries(); applyDueManagers(); applyDueChanges(); purgeCandidates(); syncArrivals(); arrivalReminders(); needReminders(); save();
   if (V2_FIRST) { ui.modal = { type: 'v2-news' }; try { localStorage.setItem('teamora-v2-news', '1'); } catch (e) { /* ignore */ } }
   render();
 })();

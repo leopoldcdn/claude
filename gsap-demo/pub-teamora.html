@@ -10,8 +10,8 @@
   @font-face { font-family: 'Inter'; font-weight: 700; src: url(node_modules/@fontsource/inter/files/inter-latin-700-normal.woff2) format('woff2'); }
   @font-face { font-family: 'Inter'; font-weight: 800; src: url(node_modules/@fontsource/inter/files/inter-latin-800-normal.woff2) format('woff2'); }
 
-  :root { --bg: #f4f5fb; --surface: #fff; --surface-2: #eef0f8; --line: #e0e3ef; --fg: #151935; --muted: #5f6589; --faint: #8d92b0;
-    --accent: #4f46e5; --accent-soft: #ebeafd; --ok: #0c8a5f; --ok-soft: #e3f6ee; --warn: #b95a0b; --warn-soft: #fdf0e1; --bad: #c8314a; --bad-soft: #fbe7ea; --info: #2563c9; --info-soft: #e5eefc;
+  :root { --bg: #f4f5fb; --surface-2: #eef0f8; --line: #e0e3ef; --fg: #151935; --muted: #5f6589; --faint: #8d92b0;
+    --accent: #4f46e5; --accent-soft: #ebeafd; --ok: #0c8a5f; --ok-soft: #e3f6ee; --warn: #b95a0b; --warn-soft: #fdf0e1;
     --shadow: 0 1px 2px rgba(21, 25, 53, .06), 0 10px 30px rgba(21, 25, 53, .08); --shadow-lg: 0 30px 80px rgba(21, 25, 53, .18); }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 1920px; height: 1080px; overflow: hidden; }
@@ -19,268 +19,168 @@
   .h { opacity: 0; }
   svg { flex: none; }
   #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); }
+  .scene { position: absolute; inset: 0; opacity: 0; }
   .abs { position: absolute; }
 
-  /* Background blobs (radial gradients instead of blur) */
   .blob { position: absolute; border-radius: 50%; }
   #b1 { left: -500px; top: -520px; width: 1400px; height: 1400px; background: radial-gradient(circle, #6366f155 0%, #6366f100 65%); }
   #b2 { right: -480px; top: -420px; width: 1300px; height: 1300px; background: radial-gradient(circle, #ec489944 0%, #ec489900 65%); }
   #b3 { left: 300px; bottom: -760px; width: 1500px; height: 1500px; background: radial-gradient(circle, #06b6d444 0%, #06b6d400 65%); }
   #b4 { right: -300px; bottom: -500px; width: 1000px; height: 1000px; background: radial-gradient(circle, #f59e0b33 0%, #f59e0b00 65%); }
 
-  /* ---------- Scene 1 : clutter ---------- */
-  .cl { position: absolute; background: #fff; border-radius: 14px; box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 14px; padding: 16px 20px; font-size: 20px; font-weight: 600; white-space: nowrap; opacity: 0; }
-  .cl svg { width: 30px; height: 30px; }
-  .cl small { display: block; font-size: 15px; color: var(--faint); font-weight: 500; }
-  .cl.postit { background: #fef08a; box-shadow: 0 18px 40px #a1620740; font-style: italic; font-weight: 700; color: #713f12; padding: 22px 24px; border-radius: 4px; }
-  .cl.alert { background: #fff1f2; color: #9f1239; }
-  #words { position: absolute; left: 0; right: 0; top: 380px; text-align: center; z-index: 5; }
-  #words span { display: inline-block; font-size: 96px; font-weight: 800; letter-spacing: -3px; margin: 0 18px; opacity: 0; }
+  /* ---------- Hook ---------- */
+  #hook { opacity: 1; z-index: 10; }
+  .it { position: absolute; left: 0; top: 0; background: #fff; border-radius: 16px; box-shadow: 0 20px 50px rgba(21, 25, 53, .2); display: flex; align-items: center; gap: 14px; padding: 16px 22px; font-size: 21px; font-weight: 700; white-space: nowrap; opacity: 0; }
+  .it svg { width: 30px; height: 30px; }
+  .it small { display: block; font-size: 15px; color: var(--faint); font-weight: 500; }
+  .it.postit { background: #fef08a; box-shadow: 0 16px 36px #a1620740; font-style: italic; color: #713f12; border-radius: 4px; padding: 22px 24px; }
+  .it.alert { background: #fff1f2; color: #9f1239; }
+  .it.chat { background: #4f46e5; color: #fff; border-bottom-left-radius: 4px; }
+  .it.chat small { color: #c7d2fe; }
+  #count { position: absolute; left: 1720px; top: 70px; width: 140px; height: 140px; border-radius: 50%; background: #e11d48; color: #fff; font-size: 54px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 10px #e11d4833, 0 20px 50px #e11d4866; z-index: 12; opacity: 0; font-variant-numeric: tabular-nums; }
+  #shock { position: absolute; left: 960px; top: 540px; width: 200px; height: 200px; margin: -100px 0 0 -100px; border-radius: 50%; border: 30px solid #fff; opacity: 0; z-index: 48; }
 
   /* ---------- Teamo + bubbles ---------- */
-  #teamo { position: absolute; left: 0; top: 0; width: 160px; height: 160px; margin: -80px 0 0 -80px; z-index: 40; opacity: 0; filter: drop-shadow(0 18px 30px #4f46e555); }
+  #teamo { position: absolute; left: 0; top: 0; width: 170px; height: 170px; margin: -85px 0 0 -85px; z-index: 40; opacity: 0; filter: drop-shadow(0 18px 30px #4f46e555); }
   #teamo svg { width: 100%; height: 100%; display: block; }
   #teamo .eyes { transform-box: fill-box; transform-origin: 50% 50%; }
-  .bub { position: absolute; left: 0; top: 0; z-index: 41; max-width: 700px; background: #fff; border-radius: 26px; padding: 24px 30px; font-size: 31px; font-weight: 600; line-height: 1.3; color: var(--fg); box-shadow: 0 24px 60px #1519352e, 0 0 0 2px #4f46e522; opacity: 0; }
-  .bub::after { content: ''; position: absolute; bottom: 26px; width: 28px; height: 28px; background: #fff; transform: rotate(45deg); }
-  #bubR { transform-origin: 100% 100%; } #bubR::after { right: -10px; }
-  #bubL { transform-origin: 0 100%; } #bubL::after { left: -10px; }
-  .bub .tx b { color: var(--accent); }
-  .bub .ghost { visibility: hidden; display: block; height: 0; overflow: hidden; }
+  .bub { position: absolute; left: 0; top: 0; z-index: 41; background: #fff; border-radius: 26px; padding: 24px 30px; font-size: 34px; font-weight: 700; line-height: 1.25; letter-spacing: -0.3px; color: var(--fg); box-shadow: 0 24px 60px #1519352e, 0 0 0 2px #4f46e522; opacity: 0; }
+  .bub::after { content: ''; position: absolute; width: 30px; height: 30px; background: #fff; transform: rotate(45deg); }
+  #bubT { max-width: 470px; transform-origin: 80% 100%; } #bubT::after { bottom: -12px; right: 80px; }
+  #bubL { max-width: 560px; transform-origin: 0 100%; } #bubL::after { left: -11px; bottom: 30px; }
+  .bub .gh { visibility: hidden; }
+  .bub .tx { position: absolute; left: 30px; top: 24px; right: 30px; }
+  .bub b { color: var(--accent); }
 
-  /* ---------- App chrome (V3 style) ---------- */
-  #hdr { position: absolute; left: 0; top: 0; right: 0; height: 96px; background: #ffffffd9; border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 40px; gap: 22px; z-index: 20; opacity: 0; }
-  .logo { width: 56px; height: 56px; border-radius: 16px; background: linear-gradient(140deg, #4f46e5, #0ea5c6); color: #fff; display: flex; align-items: center; justify-content: center; }
-  .logo svg { width: 32px; height: 32px; }
-  #hdr .ttl { padding-left: 22px; border-left: 1px solid var(--line); }
-  #hdr .ttl small { display: block; font-size: 15px; font-weight: 700; color: var(--faint); position: relative; height: 20px; }
-  #hdr .ttl b { display: block; font-size: 30px; font-weight: 800; letter-spacing: -0.5px; position: relative; height: 38px; }
-  #hdr .ttl s { text-decoration: none; position: absolute; left: 0; top: 0; white-space: nowrap; }
-  .seg { display: flex; background: var(--surface-2); border-radius: 14px; padding: 5px; gap: 4px; }
-  .seg span { display: flex; align-items: center; gap: 9px; padding: 9px 16px; border-radius: 10px; font-size: 17px; font-weight: 700; color: var(--muted); }
-  .seg span.on { background: #fff; color: var(--fg); box-shadow: var(--shadow); }
-  .seg.sp span.on { background: var(--accent); color: #fff; }
-  .av { width: 30px; height: 30px; border-radius: 50%; color: #fff; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex: none; }
-  .todo-btn { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #fff; padding: 12px 18px; border-radius: 14px; font-size: 18px; font-weight: 700; }
-  .todo-btn svg { width: 20px; height: 20px; }
-  .todo-btn em { font-style: normal; background: #fff; color: var(--accent); border-radius: 99px; padding: 2px 10px; font-size: 16px; font-weight: 800; min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; }
-  .bell { width: 52px; height: 52px; border-radius: 14px; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; color: var(--muted); background: #fff; }
-  .bell svg { width: 24px; height: 24px; }
-
-  #rail { position: absolute; left: 0; right: 0; top: 96px; height: 84px; background: #ffffffcc; border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 40px; gap: 14px; z-index: 19; opacity: 0; }
-  #rail .ri { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; position: relative; flex: none; }
-  #rail .ri svg { width: 24px; height: 24px; }
-  #rail .ri.g { background: #fff; border: 1px solid var(--line); color: var(--muted); border-radius: 14px; }
-  #rail .sep { width: 1px; height: 40px; background: var(--line); margin: 0 10px; }
-  #rail .ri .bd { position: absolute; top: -7px; right: -9px; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 99px; background: var(--warn); color: #fff; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; }
-  #ring { position: absolute; top: 110px; left: 0; width: 64px; height: 64px; border-radius: 50%; z-index: 21; opacity: 0; }
-
-  /* ---------- Home wheel ---------- */
-  #home { position: absolute; inset: 0; z-index: 5; }
-  #wheel { position: absolute; left: 960px; top: 600px; width: 0; height: 0; }
+  /* ---------- Home wheel (V3 identity) ---------- */
+  #home { z-index: 5; }
+  #wheel { position: absolute; left: 780px; top: 560px; width: 0; height: 0; }
   .node { position: absolute; left: -46px; top: -46px; width: 92px; height: 92px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; opacity: 0;
     box-shadow: 0 0 0 5px #ffffffaa, 0 14px 30px rgba(21, 25, 53, .22); }
   .node svg { width: 38px; height: 38px; }
   .node .bd { position: absolute; top: -8px; right: -10px; min-width: 34px; height: 34px; padding: 0 8px; border-radius: 99px; background: var(--warn); color: #fff; font-size: 17px; font-weight: 800; display: flex; align-items: center; justify-content: center; border: 3px solid #fff; transform: scale(0); }
   .node .ck { position: absolute; top: -8px; right: -10px; width: 36px; height: 36px; border-radius: 50%; background: #10b981; border: 3px solid #fff; display: flex; align-items: center; justify-content: center; transform: scale(0); }
   .node .ck svg { width: 18px; height: 18px; }
-  .lab { position: absolute; width: 260px; font-size: 22px; font-weight: 700; color: var(--fg); line-height: 1.15; }
+  #labels { position: absolute; left: 780px; top: 560px; }
+  .lab { position: absolute; width: 250px; font-size: 22px; font-weight: 700; line-height: 1.15; }
   .lab-in { opacity: 0; }
-  #hub { position: absolute; left: 790px; top: 430px; width: 340px; height: 340px; border-radius: 50%; z-index: 3; color: #fff; text-align: center; display: flex; align-items: center; justify-content: center;
+  #hub { position: absolute; left: 620px; top: 400px; width: 320px; height: 320px; border-radius: 50%; z-index: 3; color: #fff; text-align: center; display: flex; align-items: center; justify-content: center;
     background: radial-gradient(circle at 30% 25%, #ffffff40 0%, #ffffff00 40%), linear-gradient(150deg, #4f46e5 0%, #0ea5c6 100%); box-shadow: 0 0 0 18px #ffffff99, 0 0 0 19px #4f46e522, 0 40px 90px #4f46e555; transform: scale(0); }
-  .hub-in small { display: block; font-size: 18px; font-weight: 700; letter-spacing: 5px; color: #e0e7ff; }
-  .hub-in b { display: block; font-size: 46px; font-weight: 800; letter-spacing: -1px; margin-top: 8px; }
-  .hub-in span { display: inline-block; margin-top: 16px; font-size: 19px; font-weight: 700; background: #ffffff2e; padding: 9px 18px; border-radius: 99px; }
-  #hub-logo { position: absolute; width: 190px; height: 190px; opacity: 0; color: #fff; }
+  .hub-in small { display: block; font-size: 17px; font-weight: 700; letter-spacing: 5px; color: #e0e7ff; }
+  .hub-in b { display: block; font-size: 42px; font-weight: 800; letter-spacing: -1px; margin-top: 8px; }
+  .hub-in span { display: inline-block; margin-top: 16px; font-size: 19px; font-weight: 700; background: #ffffff2e; padding: 9px 18px; border-radius: 99px; font-variant-numeric: tabular-nums; }
+  #hub-rub { position: absolute; inset: 0; }
+  #hub-rub div { position: absolute; left: 30px; right: 30px; top: 50%; margin-top: -40px; height: 80px; display: flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 800; line-height: 1.1; letter-spacing: -0.5px; opacity: 0; }
+  #hub-logo { position: absolute; width: 180px; height: 180px; opacity: 0; color: #fff; }
 
-  /* ---------- Pages ---------- */
-  .page { position: absolute; left: 0; top: 180px; width: 1920px; height: 900px; padding: 34px 60px; z-index: 6; opacity: 0; }
-  .card { background: #fff; border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); position: absolute; }
-  .card-h { display: flex; align-items: center; justify-content: space-between; padding: 22px 28px 12px; }
-  .card-h h3 { font-size: 23px; font-weight: 800; letter-spacing: -0.3px; }
-  .pill { display: inline-flex; align-items: center; gap: 7px; padding: 6px 14px; border-radius: 99px; font-size: 16px; font-weight: 700; white-space: nowrap; }
-  .pill svg { width: 15px; height: 15px; }
-  .pill.ok { background: var(--ok-soft); color: var(--ok); } .pill.warn { background: var(--warn-soft); color: var(--warn); } .pill.bad { background: var(--bad-soft); color: var(--bad); }
-  .pill.info { background: var(--info-soft); color: var(--info); } .pill.neu { background: var(--surface-2); color: var(--muted); } .pill.acc { background: var(--accent-soft); color: var(--accent); }
-  .stk { position: relative; display: inline-block; height: 34px; }
-  .stk > * { position: absolute; right: 0; top: 0; }
-  .who { display: flex; align-items: center; gap: 14px; }
-  .who .av { width: 44px; height: 44px; font-size: 15px; }
-  .who b { display: block; font-size: 19px; font-weight: 700; }
-  .who small { display: block; font-size: 15px; color: var(--faint); font-weight: 500; }
-  .btn { display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 20px; border-radius: 12px; font-size: 17px; font-weight: 700; background: var(--accent); color: #fff; }
-  .btn svg { width: 18px; height: 18px; }
+  /* ---------- Feature scenes ---------- */
+  .chrome { position: absolute; left: 60px; top: 50px; display: flex; align-items: center; gap: 18px; z-index: 6; }
+  .logo { width: 56px; height: 56px; border-radius: 16px; background: linear-gradient(140deg, #4f46e5, #0ea5c6); color: #fff; display: flex; align-items: center; justify-content: center; }
+  .logo svg { width: 32px; height: 32px; }
+  .chrome > b { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .rpill { display: flex; align-items: center; gap: 10px; padding: 9px 18px 9px 9px; border-radius: 99px; background: #fff; box-shadow: var(--shadow); font-size: 20px; font-weight: 700; }
+  .rpill i { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; }
+  .rpill i svg { width: 20px; height: 20px; }
+  .card { position: absolute; background: #fff; border-radius: 28px; box-shadow: var(--shadow-lg); }
+  .kick { font-size: 18px; font-weight: 800; letter-spacing: 3px; color: var(--faint); }
+  .pill { display: inline-flex; align-items: center; gap: 9px; padding: 10px 20px; border-radius: 99px; font-size: 22px; font-weight: 700; white-space: nowrap; }
+  .pill svg { width: 22px; height: 22px; }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); } .pill.warn { background: var(--warn-soft); color: var(--warn); } .pill.acc { background: var(--accent-soft); color: var(--accent); }
+  .stk { position: relative; display: inline-block; height: 46px; }
+  .stk > * { position: absolute; left: 0; top: 0; }
+  .av { border-radius: 50%; color: #fff; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 
   /* Recrutement */
-  .frise { display: flex; align-items: flex-start; justify-content: space-between; position: relative; padding: 6px 70px 24px; }
-  .frise .ln { position: absolute; left: 140px; right: 140px; top: 30px; height: 5px; background: var(--surface-2); border-radius: 3px; }
-  .frise .ln i { display: block; height: 100%; width: 0; background: #10b981; border-radius: 3px; }
-  .fz { width: 160px; text-align: center; position: relative; }
-  .fz .c { width: 50px; height: 50px; border-radius: 50%; margin: 0 auto; background: #fff; border: 4px solid #d5d9ea; display: flex; align-items: center; justify-content: center; position: relative; }
-  .fz .c i { position: absolute; inset: -4px; border-radius: 50%; background: #10b981; display: flex; align-items: center; justify-content: center; transform: scale(0); }
-  .fz .c svg { width: 24px; height: 24px; color: #fff; }
-  .fz b { display: block; font-size: 18px; margin-top: 10px; }
-  .fz small { display: block; font-size: 14px; color: var(--faint); }
-  .offer-tx { padding: 6px 28px 28px; font-size: 21px; line-height: 1.6; color: #2d3254; }
-  .offer-tx .hl { position: relative; border-radius: 6px; padding: 1px 3px; }
-  .offer-tx .hl s { text-decoration: none; }
-  .warnbox { position: absolute; display: flex; gap: 12px; align-items: flex-start; background: #fff; border: 2px solid #f59e0b; border-radius: 14px; padding: 14px 18px; box-shadow: var(--shadow-lg); font-size: 16px; font-weight: 600; color: #7c2d12; width: 470px; opacity: 0; z-index: 3; }
-  .warnbox svg { width: 24px; height: 24px; color: #f59e0b; }
-  .kb-col { position: absolute; top: 64px; width: 216px; bottom: 22px; background: var(--surface-2); border-radius: 16px; }
-  .kb-col h4 { display: flex; justify-content: space-between; padding: 14px 14px 0; font-size: 17px; font-weight: 800; }
-  .kb-col h4 span { color: var(--muted); }
-  .kc { position: absolute; width: 200px; height: 74px; background: #fff; border-radius: 13px; box-shadow: 0 2px 8px #1519351a; display: flex; align-items: center; gap: 10px; padding: 0 12px; }
-  .kc .av { width: 38px; height: 38px; font-size: 13px; }
-  .kc b { display: block; font-size: 15.5px; font-weight: 700; white-space: nowrap; }
-  .kc small { display: block; font-size: 13px; color: var(--faint); white-space: nowrap; }
+  .sent { font-size: 46px; font-weight: 700; line-height: 1.35; letter-spacing: -0.8px; color: #2d3254; }
+  .hl { position: relative; display: inline-block; border-radius: 10px; padding: 0 8px; }
+  .hl s { text-decoration: none; white-space: nowrap; }
+  .hl s + s { position: absolute; left: 8px; top: 0; }
+  .zone { position: absolute; top: 300px; width: 520px; height: 300px; border: 3px dashed #cfd4e6; border-radius: 26px; }
+  .zone h4 { position: absolute; left: 26px; top: 20px; font-size: 24px; font-weight: 800; color: var(--muted); }
+  .cand { position: absolute; width: 440px; height: 130px; background: #fff; border-radius: 22px; box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 20px; padding: 0 24px; }
+  .cand b { display: block; font-size: 30px; font-weight: 800; } .cand small { display: block; font-size: 20px; color: var(--faint); font-weight: 600; }
+  .burst { position: absolute; width: 160px; height: 160px; margin: -80px 0 0 -80px; border-radius: 50%; border: 8px solid #10b981; opacity: 0; }
 
   /* Arrivées */
-  .tabs { display: flex; gap: 34px; padding: 0 28px; border-bottom: 1px solid var(--line); }
-  .tabs span { padding: 14px 2px 14px; font-size: 18px; font-weight: 700; color: var(--muted); display: flex; flex-direction: column; gap: 8px; }
-  .tabs span.on { color: var(--accent); box-shadow: inset 0 -3px 0 var(--accent); }
-  .tabs .bar { width: 170px; }
-  .bar { height: 9px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
-  .bar i { display: block; height: 100%; width: 0; border-radius: 5px; background: #10b981; }
-  .rc { display: flex; align-items: center; gap: 14px; padding: 16px 22px; border-top: 1px solid #eef0f8; position: relative; }
-  .rc .av { width: 44px; height: 44px; font-size: 15px; }
-  .rc b { display: block; font-size: 18px; } .rc small { display: block; font-size: 14px; color: var(--faint); }
-  .rc .bar { margin-top: 8px; width: 220px; height: 6px; }
-  .rc.sel { background: var(--accent-soft); box-shadow: inset 4px 0 0 var(--accent); }
-  .row { display: flex; align-items: center; gap: 14px; padding: 15px 28px; border-top: 1px solid #eef0f8; font-size: 19px; font-weight: 600; }
-  .row .ic { width: 40px; height: 40px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; }
-  .row .ic svg { width: 22px; height: 22px; }
-  .row .stk { margin-left: auto; width: 170px; }
-  .row small { display: block; font-size: 14px; color: var(--faint); font-weight: 500; }
-  .sigbox { margin: 8px 28px 0; height: 170px; border: 2px dashed #cbd5e1; border-radius: 16px; position: relative; }
-  .sigbox label { position: absolute; left: 16px; top: 12px; font-size: 14px; color: var(--faint); font-weight: 700; }
-  .sigbox svg { position: absolute; left: 40px; top: 30px; }
-  .sigbox path { stroke-dasharray: 1000; stroke-dashoffset: 1000; }
+  .arow { position: absolute; left: 50px; right: 50px; height: 110px; }
+  .arow h4 { font-size: 26px; font-weight: 800; }
+  .arow .bar { position: absolute; left: 0; right: 0; top: 46px; height: 14px; background: var(--surface-2); border-radius: 7px; overflow: hidden; }
+  .arow .bar i { display: block; height: 100%; width: 0; background: #10b981; border-radius: 7px; }
+  .arow .chips { position: absolute; left: 0; top: 74px; display: flex; gap: 12px; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px; border-radius: 99px; background: var(--ok-soft); color: var(--ok); font-size: 19px; font-weight: 700; opacity: 0; }
+  .chip svg { width: 18px; height: 18px; }
 
   /* Paie */
-  .steps { display: flex; gap: 0; padding: 4px 28px 0; border-bottom: 1px solid var(--line); }
-  .stp { flex: 1; display: flex; align-items: center; gap: 12px; padding: 16px 0 18px; font-size: 18px; font-weight: 700; color: var(--faint); position: relative; }
-  .stp .n { width: 34px; height: 34px; border-radius: 50%; background: var(--surface-2); color: var(--muted); display: flex; align-items: center; justify-content: center; font-size: 16px; position: relative; }
-  .stp .n i { position: absolute; inset: 0; border-radius: 50%; background: #10b981; display: flex; align-items: center; justify-content: center; transform: scale(0); }
-  .stp .n svg { width: 18px; height: 18px; color: #fff; }
-  .stp .u { position: absolute; left: 0; right: 30px; bottom: -1px; height: 4px; background: var(--accent); transform: scaleX(0); transform-origin: 0 50%; }
-  .pz { position: absolute; left: 0; right: 0; top: 160px; bottom: 0; opacity: 0; }
-  .tr { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr 180px; align-items: center; gap: 14px; padding: 0 28px; height: 66px; border-top: 1px solid #eef0f8; font-size: 18px; }
-  .tr.th { height: 46px; border-top: 0; font-size: 13px; font-weight: 800; letter-spacing: 1.3px; color: var(--faint); text-transform: uppercase; }
-  .tr .who .av { width: 38px; height: 38px; font-size: 13px; } .tr .who b { font-size: 17px; } .tr .who small { font-size: 13px; }
-  .chk { display: flex; align-items: center; gap: 16px; padding: 18px 28px; border-top: 1px solid #eef0f8; font-size: 20px; font-weight: 600; }
-  .chk .ci { width: 38px; height: 38px; border-radius: 50%; border: 3px solid #d5d9ea; position: relative; flex: none; }
-  .chk .ci i { position: absolute; inset: -3px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transform: scale(0); }
-  .chk .ci svg { width: 20px; height: 20px; color: #fff; }
-  .chk small { display: block; font-size: 15px; color: var(--faint); font-weight: 500; }
-  .chk .stk { margin-left: auto; width: 190px; }
-  .csv { position: absolute; display: flex; align-items: center; gap: 14px; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 18px 22px; box-shadow: var(--shadow-lg); font-size: 19px; font-weight: 700; }
-  .csv .fi { width: 46px; height: 56px; border-radius: 8px; background: #dcfce7; color: #15803d; font-size: 12px; font-weight: 800; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px; }
-  .presta { position: absolute; width: 360px; height: 220px; border-radius: 20px; border: 2px dashed #c7d2fe; background: #f5f7ff; text-align: center; padding-top: 40px; }
-  .presta b { display: block; font-size: 22px; margin-top: 12px; } .presta small { font-size: 16px; color: var(--muted); }
-  .presta .ok2 { position: absolute; right: -14px; top: -14px; width: 46px; height: 46px; border-radius: 50%; background: #10b981; display: flex; align-items: center; justify-content: center; transform: scale(0); }
-  .presta .ok2 svg { width: 24px; height: 24px; color: #fff; }
-  .slip { position: absolute; width: 150px; height: 190px; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 14px; opacity: 0; }
-  .slip b { display: block; font-size: 13px; font-weight: 800; } .slip small { display: block; font-size: 11px; color: var(--faint); }
-  .slip i { display: block; height: 7px; border-radius: 4px; background: var(--surface-2); margin-top: 10px; }
-  .slip em { position: absolute; left: 14px; right: 14px; bottom: 14px; font-style: normal; font-size: 15px; font-weight: 800; color: var(--ok); }
+  .tile { position: absolute; top: 380px; width: 270px; height: 290px; background: #fff; border-radius: 26px; box-shadow: var(--shadow); text-align: center; padding-top: 34px; border: 3px solid transparent; }
+  .tile .ti { width: 76px; height: 76px; border-radius: 50%; margin: 0 auto; background: var(--surface-2); color: var(--faint); display: flex; align-items: center; justify-content: center; position: relative; }
+  .tile .ti svg { width: 36px; height: 36px; }
+  .tile .ti em { position: absolute; right: -6px; top: -6px; width: 34px; height: 34px; border-radius: 50%; background: #10b981; border: 3px solid #fff; display: flex; align-items: center; justify-content: center; transform: scale(0); }
+  .tile .ti em svg { width: 16px; height: 16px; color: #fff; }
+  .tile b { display: block; font-size: 54px; font-weight: 800; letter-spacing: -1.5px; margin-top: 22px; color: #c3c8de; font-variant-numeric: tabular-nums; }
+  .tile small { display: block; font-size: 20px; font-weight: 700; color: var(--faint); margin-top: 4px; }
+  .pline { position: absolute; top: 523px; height: 6px; background: var(--surface-2); border-radius: 3px; }
+  .pline i { display: block; height: 100%; width: 0; background: #10b981; border-radius: 3px; }
 
-  /* Shuffle cards (other rubrics) */
-  .shc { position: absolute; left: 960px; top: 600px; width: 760px; height: 300px; margin: -150px 0 0 -380px; background: #fff; border-radius: 28px; box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 34px; padding: 0 50px; opacity: 0; z-index: 8; }
-  .shc .ic { width: 130px; height: 130px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; flex: none; }
-  .shc .ic svg { width: 62px; height: 62px; }
-  .shc small { display: block; font-size: 18px; font-weight: 800; letter-spacing: 3px; }
-  .shc b { display: block; font-size: 44px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; margin-top: 6px; }
-  .shc p { font-size: 22px; color: var(--muted); margin-top: 10px; font-weight: 500; }
-
-  /* Obligations */
-  .big { font-size: 140px; font-weight: 800; letter-spacing: -5px; line-height: 1; font-variant-numeric: tabular-nums; }
-  .chart { position: absolute; left: 40px; right: 40px; bottom: 40px; height: 300px; display: flex; align-items: flex-end; gap: 12px; border-bottom: 2px solid var(--line); }
-  .chart i { flex: 1; background: linear-gradient(180deg, #6366f1, #4f46e5); border-radius: 8px 8px 0 0; height: 0; }
-  .chart .thr { position: absolute; left: 0; right: 0; border-top: 2px dashed; opacity: 0; }
-  .chart .thr span { position: absolute; right: 0; top: -34px; font-size: 16px; font-weight: 800; padding: 3px 10px; border-radius: 8px; color: #fff; }
-  .seuil { position: absolute; left: 0; width: 820px; height: 170px; display: flex; align-items: center; gap: 24px; padding: 0 30px; }
-  .seuil .sn { width: 104px; height: 104px; border-radius: 26px; background: var(--surface-2); color: var(--faint); display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; font-weight: 800; }
-  .seuil .sn b { font-size: 40px; line-height: 1; } .seuil .sn small { font-size: 13px; letter-spacing: 1px; }
-  .seuil h4 { font-size: 26px; font-weight: 800; } .seuil p { font-size: 18px; color: var(--muted); margin-top: 4px; }
-  .seuil .stk { margin-left: auto; width: 170px; height: 34px; }
-  .toast { position: absolute; display: flex; align-items: center; gap: 16px; background: #1e1b4b; color: #fff; border-radius: 18px; padding: 20px 26px; font-size: 20px; font-weight: 600; box-shadow: var(--shadow-lg); opacity: 0; z-index: 9; }
-  .toast svg { width: 28px; height: 28px; color: #fbbf24; }
+  /* Grandir */
+  #g-num { position: absolute; left: 160px; width: 1240px; top: 250px; text-align: center; font-size: 300px; font-weight: 800; letter-spacing: -12px; line-height: 1; font-variant-numeric: tabular-nums;
+    background: linear-gradient(150deg, #4f46e5, #0ea5c6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .gchip { position: absolute; top: 640px; display: flex; align-items: center; gap: 16px; padding: 16px 26px 16px 16px; border-radius: 24px; background: #fff; box-shadow: var(--shadow-lg); font-size: 25px; font-weight: 800; opacity: 0; }
+  .gchip span { width: 70px; height: 70px; border-radius: 18px; color: #fff; font-size: 30px; display: flex; align-items: center; justify-content: center; }
 
   /* Teamo panel */
-  #panel { position: absolute; left: 1060px; top: 210px; width: 760px; height: 640px; background: #fff; border-radius: 28px; box-shadow: 0 40px 120px #15193540, 0 0 0 1px var(--line); z-index: 30; opacity: 0; overflow: hidden; }
-  #panel .ph { display: flex; align-items: center; gap: 16px; padding: 22px 28px; background: linear-gradient(120deg, #4f46e5, #0ea5c6); color: #fff; }
-  #panel .ph svg { width: 54px; height: 54px; }
-  #panel .ph b { display: block; font-size: 24px; } #panel .ph small { font-size: 16px; opacity: .85; }
-  .msg { position: absolute; max-width: 560px; border-radius: 22px; padding: 18px 22px; font-size: 22px; line-height: 1.45; font-weight: 500; opacity: 0; }
-  .msg.me { right: 28px; background: var(--accent); color: #fff; border-bottom-right-radius: 6px; }
-  .msg.bot { left: 28px; background: var(--surface-2); color: var(--fg); border-bottom-left-radius: 6px; }
-  #dim { position: absolute; inset: 0; background: #15193566; z-index: 25; opacity: 0; }
+  #panel { position: absolute; left: 780px; top: 230px; width: 820px; height: 560px; background: #fff; border-radius: 30px; box-shadow: 0 40px 120px #15193540, 0 0 0 1px var(--line); z-index: 30; opacity: 0; overflow: hidden; }
+  #panel .ph { display: flex; align-items: center; gap: 16px; padding: 22px 30px; background: linear-gradient(120deg, #4f46e5, #0ea5c6); color: #fff; }
+  #panel .ph svg { width: 56px; height: 56px; }
+  #panel .ph b { display: block; font-size: 26px; } #panel .ph small { font-size: 17px; opacity: .85; }
+  .msg { position: absolute; max-width: 620px; border-radius: 24px; padding: 20px 26px; font-size: 30px; line-height: 1.35; font-weight: 600; opacity: 0; }
+  .msg.me { right: 30px; background: var(--accent); color: #fff; border-bottom-right-radius: 6px; }
+  .msg.bot { left: 30px; background: var(--surface-2); color: var(--fg); border-bottom-left-radius: 6px; }
+  .msg b { color: var(--accent); }
+  .msg .gh { visibility: hidden; } .msg .tx { position: absolute; left: 26px; top: 20px; right: 26px; }
 
   /* Brand */
-  #brand { position: absolute; left: 0; right: 0; top: 640px; text-align: center; z-index: 12; }
-  #brand .name { font-size: 120px; font-weight: 800; letter-spacing: -4px; color: var(--fg); }
+  #brand { position: absolute; left: 0; right: 0; top: 600px; text-align: center; z-index: 12; }
+  #brand .name { font-size: 130px; font-weight: 800; letter-spacing: -4px; }
   #brand .name span { display: inline-block; opacity: 0; }
-  #brand .tag { font-size: 36px; color: var(--muted); margin-top: 8px; font-weight: 600; }
+  #brand .tag { font-size: 38px; color: var(--muted); margin-top: 6px; font-weight: 600; }
   #brand .tag b { color: var(--accent); }
-  #brand .url { display: inline-block; font-size: 24px; color: var(--accent); margin-top: 28px; font-weight: 700; background: var(--accent-soft); padding: 10px 24px; border-radius: 99px; }
+  #brand .url { display: inline-block; font-size: 26px; color: var(--accent); margin-top: 30px; font-weight: 700; background: var(--accent-soft); padding: 10px 26px; border-radius: 99px; }
 
   .zoomer { position: absolute; left: -46px; top: -46px; width: 92px; height: 92px; border-radius: 50%; z-index: 18; opacity: 0; }
-  #cursor { position: absolute; left: 0; top: 0; width: 38px; height: 38px; opacity: 0; z-index: 60; }
-  .ripple { position: absolute; left: -30px; top: -30px; width: 60px; height: 60px; border-radius: 50%; background: var(--accent); opacity: 0; z-index: 59; }
-  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 50; }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 47; }
 </style>
 </head>
 <body>
 <div id="stage">
   <div class="blob" id="b1"></div><div class="blob" id="b2"></div><div class="blob" id="b3"></div><div class="blob" id="b4"></div>
 
-  <!-- Scene 1 -->
-  <div id="clutter"></div>
-  <div id="words"><span>Recruter.</span><span>Accueillir.</span><span>Payer.</span><span>Accompagner.</span></div>
+  <div class="scene" id="hook"><div id="items"></div><div id="count">0</div></div>
 
-  <!-- App chrome -->
-  <div id="hdr">
-    <div class="logo" id="hdr-logo"></div>
-    <div class="ttl"><small id="hdr-small"></small><b id="hdr-title"></b></div>
-    <div style="flex:1"></div>
-    <div class="seg"><span class="on"><i class="av" style="background:#6366f1">OB</i>RH</span><span><i class="av" style="background:#db2777">TP</i>Manager</span><span><i class="av" style="background:#0891b2">LM</i>Salarié</span></div>
-    <div class="seg sp"><span class="on">Salariés</span><span>Mon espace</span></div>
-    <div class="todo-btn" id="todo-btn"></div>
-    <div class="bell" id="bell"></div>
-  </div>
-  <div id="rail"></div>
-  <div id="ring"></div>
-
-  <!-- Home -->
-  <div id="home">
+  <div class="scene" id="home">
     <div id="wheel"></div>
-    <div id="labels" class="abs" style="left:960px;top:600px"></div>
-    <div id="hub"><div class="hub-in"><small>NOVA STUDIO</small><b>Collaborateurs</b><span>20 collaborateurs</span></div><div id="hub-logo"></div></div>
+    <div id="labels"></div>
+    <div id="hub"><div class="hub-in"><small>NOVA STUDIO</small><b>Collaborateurs</b><span id="hub-n">20 collaborateurs</span></div><div id="hub-rub"></div><div id="hub-logo"></div></div>
   </div>
   <div id="brand"><div class="name" data-split>Teamora</div><div class="tag h">L'ERP repensé pour <b>suivre la vie de vos collaborateurs</b></div><div class="url h">teamora.app</div></div>
 
-  <!-- Pages -->
-  <div class="page" id="pRec"></div>
-  <div class="page" id="pArr"></div>
-  <div class="page" id="pPay"></div>
-  <div id="shuffle"></div>
-  <div class="page" id="pObl"></div>
-  <div id="dim"></div>
+  <div class="scene" id="sRec"></div>
+  <div class="scene" id="sArr"></div>
+  <div class="scene" id="sPay"></div>
+  <div class="scene" id="sGrow"></div>
   <div id="panel"></div>
 
   <div id="zoomers"></div>
   <div id="teamo"></div>
-  <div class="bub" id="bubR"><span class="tx"></span></div>
-  <div class="bub" id="bubL"><span class="tx"></span></div>
+  <div class="bub" id="bubT"><span class="gh"></span><span class="tx"></span></div>
+  <div class="bub" id="bubL"><span class="gh"></span><span class="tx"></span></div>
+  <div id="shock"></div>
   <div id="flash"></div>
-  <svg id="cursor" viewBox="0 0 24 24"><path d="M3 2l7.5 19 2.6-7.9L21 10.5z" fill="#151935" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
 </div>
 
 <script src="node_modules/gsap/dist/gsap.min.js"></script>
 <script>
 // ================= Icons & data =================
 const P = {
-  home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
   users: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2c2.6-.4 4.4 1.2 5 4.3"/>',
   target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
@@ -295,446 +195,323 @@ const P = {
   chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/>',
   door: '<path d="M14 3H6v18h8"/><path d="M14 3l6 2v16l-6-2z"/><path d="M10 12h.01"/>',
   check: '<path d="M5 12l5 5 9-10"/>',
-  bell: '<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 21a2 2 0 0 0 4 0"/>',
   mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
   file: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
   alert: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
   cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
-  chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
-  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
   send: '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>',
+  shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
 };
 const ic = (n, w = 2) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${P[n]}</svg>`;
 const CHK = ic('check', 3.2);
-// The 12 rubrics of the Teamora V3 wheel (same order, colours and badge counts as the demo).
 const RUB = [
-  ['Besoin RH', 'Expression du besoin RH', 'target', '#6366f1', 3],
-  ['Recrutement', 'Recrutement', 'search', '#7c3aed', 9],
-  ['Arrivées', 'Arrivées', 'docCheck', '#a855f7', 4],
-  ['Vie administrative', 'Vie administrative', 'folder', '#e11d48', 6, 'Annuaire, échéances, organigramme'],
-  ['Temps & absences', 'Temps de travail et absences', 'clock', '#ea580c', 8, 'Congés, arrêts, télétravail, feuilles de temps'],
-  ['Rémunération', 'Rémunération et avantages', 'euro', '#d97706', 14],
-  ['Performance', 'Performance et entretiens', 'star', '#ca8a04', 1, 'Entretiens annuels et professionnels'],
-  ['Formation', 'Formation', 'cap', '#65a30d', 1, 'Catalogue, plan, OPCO et CPF'],
-  ['Mobilité', 'Mobilité', 'trend', '#16a34a', 2, 'Offres internes, revue des talents'],
-  ['Santé & QVT', 'Santé & QVT', 'heart', '#059669', 2, 'Visites médicales, DUERP, baromètre'],
-  ['Relations indiv.', 'Relations individuelles', 'chat', '#0d9488', 1, 'Procédures et délais légaux'],
-  ['Départs', 'Départs', 'door', '#0891b2', 3, 'Préavis, documents de sortie, fin des accès'],
+  ['Besoin RH', 'target', '#6366f1', 3], ['Recrutement', 'search', '#7c3aed', 9], ['Arrivées', 'docCheck', '#a855f7', 4], ['Vie administrative', 'folder', '#e11d48', 6],
+  ['Temps & absences', 'clock', '#ea580c', 8], ['Rémunération', 'euro', '#d97706', 14], ['Performance', 'star', '#ca8a04', 1], ['Formation', 'cap', '#65a30d', 1],
+  ['Mobilité', 'trend', '#16a34a', 2], ['Santé & QVT', 'heart', '#059669', 2], ['Relations indiv.', 'chat', '#0d9488', 1], ['Départs', 'door', '#0891b2', 3],
 ];
-const TODO = RUB.reduce((a, r) => a + r[4], 0);
+const TODO = RUB.reduce((a, r) => a + r[3], 0);
 const TEAMO = (id) => `<svg viewBox="0 0 64 64"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#0ea5c6"/></linearGradient></defs>
   <circle cx="32" cy="32" r="32" fill="url(#${id})"/><path d="M32 10.5v5.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle class="dot" cx="32" cy="9" r="3.4" fill="#fde68a"/>
   <path d="M13.5 31c0-8.3 7.6-14.5 18.5-14.5S50.5 22.7 50.5 31v5c0 8.3-7.6 13.5-18.5 13.5h-5.6l-7.6 5.6 1.7-7C15.6 45.6 13.5 41.6 13.5 36z" fill="#fff"/>
   <g class="eyes"><ellipse cx="25" cy="32.5" rx="3.1" ry="3.7" fill="#1e1b4b"/><ellipse cx="39" cy="32.5" rx="3.1" ry="3.7" fill="#1e1b4b"/><circle cx="26.1" cy="31.2" r="1" fill="#fff"/><circle cx="40.1" cy="31.2" r="1" fill="#fff"/></g>
-  <path class="mouth" d="M26.5 40.2c3.2 3 7.8 3 11 0" stroke="#1e1b4b" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="20.2" cy="38.6" r="2.3" fill="#f9a8d4" opacity=".85"/><circle cx="43.8" cy="38.6" r="2.3" fill="#f9a8d4" opacity=".85"/></svg>`;
+  <path d="M26.5 40.2c3.2 3 7.8 3 11 0" stroke="#1e1b4b" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="20.2" cy="38.6" r="2.3" fill="#f9a8d4" opacity=".85"/><circle cx="43.8" cy="38.6" r="2.3" fill="#f9a8d4" opacity=".85"/></svg>`;
 const $ = (s) => document.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const int = (v) => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-const rnd = mulberry32(7);
-const pill = (t, k, extra = '') => `<span class="pill ${k}" ${extra}>${k === 'ok' ? ic('check', 3) : ''}${t}</span>`;
-const av = (i, c) => `<i class="av" style="background:${c}">${i}</i>`;
+const rnd = mulberry32(11);
+const av = (i, c, s) => `<i class="av" style="background:${c};width:${s}px;height:${s}px;font-size:${Math.round(s * 0.34)}px;font-style:normal">${i}</i>`;
+const rpill = (i) => `<div class="chrome"><div class="logo">${ic('users', 2.2)}</div><b>Teamora</b><div class="rpill"><i style="background:${RUB[i][2]}">${ic(RUB[i][1])}</i>${RUB[i][0]}</div></div>`;
 
-// ================= Build : scene 1 clutter =================
-const CLUT = [
-  ['file', 'Absences_2026_v3_FINAL.xlsx', 'modifié par 3 personnes', 230, 150, -6], ['mail', 'RE: RE: TR: DPAE ??', 'Thomas · 23:48', 1250, 120, 4],
-  ['postit', 'Visite médicale Léa ?!', '', 1500, 330, 7], ['alert', 'Entretien pro en retard', '2 ans dépassés', 160, 520, -3],
-  ['cal', 'Fin de période d’essai', 'demain · Julie B.', 1330, 620, -5], ['file', 'Contrat_Chloé_v2_signé(1).pdf', 'Téléchargements', 520, 820, 3],
-  ['mail', 'Bulletins d’octobre ?', 'Cabinet de paie', 1180, 860, -4], ['postit', 'Index égalité avant le 1er mars !!', '', 120, 790, 5],
-  ['file', 'Organigramme_2024.pptx', 'obsolète', 760, 90, 2], ['alert', 'Titre de séjour expire', 'dans 12 jours', 1560, 820, 6],
-  ['mail', 'Demande de congés (3e relance)', 'Hugo L.', 300, 330, 4], ['postit', 'CSE : élections ?', '', 860, 870, -7],
+// ================= Build : hook items (requests and reminders) =================
+const POOL = [
+  ['mail', 'Demande de congés', 'Hugo · 3e relance'], ['alert', 'DPAE à déclarer', 'avant vendredi'], ['postit', 'Visite médicale Léa ?!'], ['chat', 'Tu as vu mon message ?', 'Thomas · manager'],
+  ['cal', 'Fin de période d’essai', 'demain · Julie'], ['file', 'Absences_2026_FINAL_v3.xlsx', 'conflit de version'], ['mail', 'Bulletins d’octobre ?', 'Cabinet de paie'], ['alert', 'Titre de séjour expire', 'dans 12 jours'],
+  ['postit', 'Index égalité avant le 1er mars !!'], ['chat', 'Je peux poser mon RTT ?', 'Inès'], ['mail', 'Attestation employeur', 'ancien salarié'], ['alert', 'Entretien pro en retard', '2 ans dépassés'],
+  ['file', 'Contrat_Chloé_v2(1).pdf', 'à signer'], ['cal', 'Élections du CSE', 'à organiser'], ['chat', 'Mon arrêt, je l’envoie où ?', 'Sarah'], ['mail', 'RE: RE: TR: mutuelle', 'nouvel arrivant'],
+  ['postit', 'Badge + PC pour lundi'], ['alert', 'Heures sup. non validées', '4 managers'], ['mail', 'Note de frais refusée ?', 'James'], ['file', 'Organigramme_2024.pptx', 'obsolète'],
 ];
-$('#clutter').innerHTML = CLUT.map(([k, t, s, x, y, r], n) => {
-  const icn = k === 'postit' ? '' : ic(k === 'cal' ? 'cal' : k);
-  const col = k === 'file' ? '#16a34a' : k === 'mail' ? '#2563eb' : k === 'alert' ? '#e11d48' : '#7c3aed';
-  return `<div class="cl ${k}" id="cl${n}" style="left:${x}px;top:${y}px;transform:rotate(${r}deg)">${icn ? `<span style="color:${col}">${icn}</span>` : ''}<div>${t}${s ? `<small>${s}</small>` : ''}</div></div>`;
+const NIT = 64, HOOK_END = 5.75;
+const COL = { file: '#16a34a', mail: '#2563eb', alert: '#e11d48', cal: '#7c3aed', chat: '#fff' };
+const ITEMS = Array.from({ length: NIT }, (_, k) => {
+  const [type, t, s] = POOL[k % POOL.length];
+  return { type, t, s, x: 40 + rnd() * 1560, y: 30 + rnd() * 960, r: (rnd() - 0.5) * 16, at: 0.15 + (HOOK_END - 0.15) * Math.sqrt(k / NIT) };
+});
+$('#items').innerHTML = ITEMS.map((it, k) => {
+  const icn = it.type === 'postit' ? '' : `<span style="color:${COL[it.type]}">${ic(it.type)}</span>`;
+  return `<div class="it ${it.type}" id="it${k}">${icn}<div>${it.t}${it.s ? `<small>${it.s}</small>` : ''}</div></div>`;
 }).join('');
 
-// ================= Build : chrome =================
-$('#hdr-logo').innerHTML = ic('users', 2.2);
-$('#bell').innerHTML = ic('bell');
-$('#todo-btn').innerHTML = `${ic('check', 3)}À traiter <em id="todo-n">0</em>`;
-const RAIL_G = ['home', 'chart', 'file', 'docCheck', 'gear'];
-$('#rail').innerHTML = RAIL_G.map((g, k) => `<div class="ri g" id="rg${k}">${ic(g)}</div>`).join('') + '<div class="sep"></div>'
-  + RUB.map((r, i) => `<div class="ri" id="rr${i}" style="background:${r[3]}">${ic(r[2])}<span class="bd">${r[4]}</span></div>`).join('');
-const TITLES = {
-  home: ['Nova Studio · Olivia Bennett', 'Accueil', '#8d92b0'], rec: ['Recrutement', 'Recrutement · Designer produit (UI)', RUB[1][3]],
-  arr: ['Arrivées', 'Arrivées', RUB[2][3]], pay: ['Rémunération et avantages', 'Paie', RUB[5][3]], obl: ['Nova Studio · Olivia Bennett', 'Obligations selon l’effectif', '#8d92b0'],
-};
-$('#hdr-small').innerHTML = Object.entries(TITLES).map(([k, [s, , c]]) => `<s id="hs-${k}" class="h" style="color:${c}">${s}</s>`).join('');
-$('#hdr-title').innerHTML = Object.entries(TITLES).map(([k, [, t]]) => `<s id="ht-${k}" class="h">${t}</s>`).join('');
-
 // ================= Build : wheel =================
-const CX = 960, CY = 600, R = 330, LR = 395;
+const CX = 780, CY = 560, R = 300, LR = 368;
 const ang = (i) => (-90 + i * 30) * Math.PI / 180;
 const pos = (i, r = R) => ({ x: Math.cos(ang(i)) * r, y: Math.sin(ang(i)) * r });
 const scr = (i) => { const p = pos(i); return { x: CX + p.x, y: CY + p.y }; };
-$('#wheel').innerHTML = RUB.map((r, i) => `<div class="node" id="n${i}" style="background:${r[3]}">${ic(r[2])}<span class="bd">${r[4]}</span><span class="ck">${CHK}</span></div>`).join('');
+$('#wheel').innerHTML = RUB.map((r, i) => `<div class="node" id="n${i}" style="background:${r[2]}">${ic(r[1])}<span class="bd">${r[3]}</span><span class="ck">${CHK}</span></div>`).join('');
 $('#labels').innerHTML = RUB.map((r, i) => {
-  const p = pos(i, LR + 10), c = Math.cos(ang(i)), sn = Math.sin(ang(i));
+  const p = pos(i, LR), c = Math.cos(ang(i)), sn = Math.sin(ang(i));
   let tr, al;
-  if (c > 0.3) { tr = 'translate(0,-50%)'; al = 'left'; } else if (c < -0.3) { tr = 'translate(-100%,-50%)'; al = 'right'; } else { tr = sn < 0 ? 'translate(-50%,-110%)' : 'translate(-50%,10%)'; al = 'center'; }
+  if (c > 0.3) { tr = 'translate(0,-50%)'; al = 'left'; } else if (c < -0.3) { tr = 'translate(-100%,-50%)'; al = 'right'; } else { tr = sn < 0 ? 'translate(-50%,-115%)' : 'translate(-50%,15%)'; al = 'center'; }
   return `<div class="lab" style="left:${p.x}px;top:${p.y}px;transform:${tr};text-align:${al}"><div class="lab-in">${r[0]}</div></div>`;
 }).join('');
-$('#hub-logo').innerHTML = ic('users', 1.8).replace('<svg', '<svg width="190" height="190"');
-$('#zoomers').innerHTML = [1, 3].map((i) => `<div class="zoomer" id="z${i}" style="background:${RUB[i][3]}"></div>`).join('');
+const REST = [3, 4, 6, 7, 8, 9, 10, 11];
+$('#hub-rub').innerHTML = REST.map((i) => `<div id="hr${i}">${RUB[i][0]}</div>`).join('');
+$('#hub-logo').innerHTML = ic('users', 1.8).replace('<svg', '<svg width="180" height="180"');
+$('#zoomers').innerHTML = `<div class="zoomer" id="z1" style="background:${RUB[1][2]}"></div>`;
 $('#teamo').innerHTML = TEAMO('tg-main');
 $$('[data-split]').forEach((el) => { el.innerHTML = [...el.textContent].map((c) => `<span>${c}</span>`).join(''); });
 
-// ================= Build : Recrutement page =================
-const KX = (c) => 18 + c * 230, KY = (s) => 112 + s * 88;
-const KCARDS = [['LM', 'Lina Moreau', 'UX Designer', '#0d9488', 0, 0], ['RM', 'Rayan Masson', 'UI Designer', '#ea580c', 0, 1], ['ZL', 'Zoé Lambert', 'Product Designer', '#16a34a', 0, 2],
-  ['ML', 'Manon Lefèvre', 'Designer produit', '#c026d3', 1, 0], ['HD', 'Hamza Diallo', 'UX/UI Designer', '#d97706', 1, 1], ['CG', 'Chloé Garnier', 'UX Designer Senior', '#7c3aed', 2, 0], ['YB', 'Yasmine Benali', 'Designer produit', '#2563eb', 2, 1]];
-$('#pRec').innerHTML = `
-  <div class="card" style="left:60px;top:34px;width:1800px;height:190px">
-    <div class="card-h"><h3>BES-2026-009 · Designer produit (UI) <span style="color:var(--faint);font-weight:600;font-size:19px">· Design · CDD Paris</span></h3>
-      <span class="stk" style="width:330px"><span class="pill warn" id="r-st1">En validation</span><span class="pill ok h" id="r-st2">Offre publiée · OFF-2026-012</span></span></div>
-    <div class="frise"><div class="ln"><i id="r-ln"></i></div>${[['Demande', 'Thomas Petit'], ['RH', 'Olivia Bennett'], ['Direction', 'Claire Durand'], ['Publication', 'Site carrière']].map(([b, s]) => `<div class="fz"><div class="c"><i>${CHK}</i></div><b>${b}</b><small>${s}</small></div>`).join('')}</div>
+// ================= Build : scenes =================
+$('#sRec').innerHTML = rpill(1) + `
+  <div id="rA" class="card" style="left:200px;top:250px;width:1200px;height:400px;padding:50px 60px">
+    <div class="kick">OFFRE · DESIGNER PRODUIT (UI)</div>
+    <div class="sent" style="margin-top:22px">Nous recherchons un·e designer <span class="hl" id="r-hl"><s id="r-bad">jeune et dynamique</s><s id="r-good" class="h">curieux·se et rigoureux·se</s></span> pour notre équipe produit.</div>
+    <div style="margin-top:34px" class="stk"><span class="pill warn h" id="r-w">${ic('alert', 2.4)}Terme discriminatoire (âge)</span><span class="pill ok h" id="r-ok">${ic('shield', 2.2)}Offre conforme</span></div>
   </div>
-  <div class="card" style="left:60px;top:250px;width:820px;height:590px">
-    <div class="card-h"><h3>L’offre</h3><span class="stk" style="width:260px"><span class="pill warn" id="r-w1">1 terme à vérifier</span><span class="pill ok h" id="r-w2">Aucune alerte</span></span></div>
-    <div class="offer-tx">Rejoignez l’équipe Design de Nova Studio ! Nous recherchons un·e designer produit
-      <span class="hl" id="r-hl"><s id="r-bad">jeune et dynamique</s><s id="r-good" class="h" style="position:absolute;left:3px;top:1px;white-space:nowrap">curieux·se et rigoureux·se</s></span><span id="r-rest">
-      pour concevoir les interfaces de nos applications. Vous travaillerez avec les développeurs et la recherche utilisateur, du prototype au design system.<br><br>
-      <b>Profil :</b> 3 ans d’expérience, maîtrise de Figma, sens du détail.</span></div>
-    <div class="warnbox" id="r-warn" style="left:250px;top:240px">${ic('alert')}<div>Terme potentiellement discriminatoire (âge). Teamora vous propose une formulation neutre.</div></div>
-  </div>
-  <div class="card" style="left:910px;top:250px;width:950px;height:590px" id="r-kb">
-    <div class="card-h"><h3>Candidats</h3><span class="pill acc">7 actifs</span></div>
-    ${['Reçue', 'Présélection', 'Entretien', 'Proposition'].map((n, c) => `<div class="kb-col" style="left:${KX(c) - 8}px"><h4>${n}<span id="kc${c}">${[3, 2, 2, 0][c]}</span></h4></div>`).join('')}
-    ${KCARDS.map(([i, n, r, c, col, s]) => `<div class="kc" id="kc-${i}" style="left:${KX(col)}px;top:${KY(s)}px">${av(i, c)}<div><b>${n}</b><small>${r}</small></div></div>`).join('')}
-    <div class="abs" style="left:${KX(3)}px;top:${KY(1) + 6}px;width:200px;text-align:center"><span class="stk" style="width:200px"><span class="pill warn h" id="r-p1" style="left:12px">Proposition envoyée</span><span class="pill ok h" id="r-p2" style="left:44px">Acceptée</span></span></div>
+  <div id="rB" class="h">
+    <div class="zone" style="left:200px"><h4>Entretien</h4></div>
+    <div class="zone" style="left:880px"><h4>Proposition</h4></div>
+    <div class="cand" id="r-cand" style="left:240px;top:400px">${av('CG', '#7c3aed', 76)}<div><b>Chloé Garnier</b><small>UX Designer Senior · ★ 4,6</small></div></div>
+    <div class="abs" style="left:920px;top:550px"><span class="stk" style="width:400px"><span class="pill warn h" id="r-p1">Proposition envoyée</span><span class="pill ok h" id="r-p2">${CHK}Acceptée</span></span></div>
+    <div class="burst" id="r-burst" style="left:1140px;top:465px"></div>
   </div>`;
-
-// ================= Build : Arrivées page =================
-$('#pArr').innerHTML = `
-  <div class="card" style="left:60px;top:34px;width:470px;height:800px">
-    <div class="card-h"><h3>Recrues</h3><span class="btn" style="height:40px;font-size:15px">+ Nouvelle arrivée</span></div>
-    <div style="height:10px"></div>
-    ${[['CG', 'Chloé Garnier', 'UX Designer Senior · arrivée le 3 nov.', '#7c3aed', 30, 1], ['NL', 'Nathan Lefebvre', 'Développeur back-end · essai', '#dc2626', 70], ['AP', 'Aisha Patel', 'UX Researcher · arrivée le 2 nov.', '#7c3aed', 55], ['JB', 'Julie Bernard', 'Alternante marketing · essai', '#2563eb', 85], ['ED', 'Emma Dubois', 'Brand Designer · essai', '#c026d3', 90], ['MR', 'Maëlle Roussel', 'Stagiaire UX · intégration', '#db2777', 60]]
-      .map(([i, n, s, c, p, sel]) => `<div class="rc ${sel ? 'sel' : ''}" ${sel ? 'id="a-sel"' : ''}>${av(i, c)}<div><b>${n}</b><small>${s}</small><div class="bar"><i ${sel ? 'id="a-mini"' : ''} style="width:${p}%"></i></div></div></div>`).join('')}
-  </div>
-  <div class="card" style="left:560px;top:34px;width:1300px;height:800px">
-    <div class="card-h" style="padding-bottom:18px"><div class="who">${av('CG', '#7c3aed').replace('class="av"', 'class="av" style="width:64px;height:64px;font-size:20px;background:#7c3aed"')}<div><b style="font-size:28px">Chloé Garnier</b><small style="font-size:17px">UX Designer Senior · Design · CDI · arrivée le 3 novembre 2026</small></div></div>
-      <span class="stk" style="width:220px"><span class="pill acc" id="a-st1">Pré-embauche</span><span class="pill ok h" id="a-st2">En intégration</span></span></div>
-    <div class="tabs">${['Pré-embauche', 'Embauche', 'Intégration'].map((t, k) => `<span class="${k ? '' : 'on'}">${t}<span class="bar"><i id="a-b${k}"></i></span></span>`).join('')}</div>
-    <div class="abs" style="left:0;top:190px;width:640px">
-      <div class="row" style="border-top:0;font-size:15px;color:var(--faint);font-weight:800;letter-spacing:1.2px">PIÈCES DÉPOSÉES PAR CHLOÉ</div>
-      ${['Pièce d’identité', 'RIB', 'Carte Vitale', 'Diplôme'].map((d) => `<div class="row a-doc"><span class="ic">${ic('file')}</span>${d}<span class="stk"><span class="pill info wt" style="right:0">Déposée</span><span class="pill ok h okp" style="right:0">Validée</span></span></div>`).join('')}
-      <div class="row" style="font-size:15px;color:var(--faint);font-weight:800;letter-spacing:1.2px;margin-top:10px">EMBAUCHE</div>
-      ${[['DPAE', 'déclarée dans la fenêtre légale (8 jours avant)'], ['Registre unique du personnel', 'inscription automatique'], ['Mutuelle et prévoyance', 'affiliation à l’entrée']].map(([d, s]) => `<div class="row a-emb"><span class="ic">${ic('docCheck')}</span><div>${d}<small>${s}</small></div><span class="stk"><span class="pill neu wt" style="right:0">À faire</span><span class="pill ok h okp" style="right:0">Fait</span></span></div>`).join('')}
-    </div>
-    <div class="abs" style="left:660px;top:190px;width:620px">
-      <div class="row" style="border-top:0;font-size:15px;color:var(--faint);font-weight:800;letter-spacing:1.2px">CONTRAT DE TRAVAIL · CDI</div>
-      <div class="sigbox"><label>Signature de Chloé Garnier</label>
-        <svg width="520" height="120" viewBox="0 0 420 96" fill="none"><path id="a-sig" d="M10 70 C 30 20, 50 20, 46 58 S 70 86, 86 44 C 96 18, 104 70, 120 58 C 132 48, 136 40, 150 52 C 160 62, 170 30, 184 40 C 198 50, 196 70, 214 56 C 232 42, 240 30, 262 44 C 280 56, 300 62, 330 40 L 400 30" stroke="#1e1b4b" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-      <div style="display:flex;justify-content:flex-end;padding:16px 28px"><span class="stk" style="width:300px"><span class="pill warn" id="a-c1" style="right:0">En attente de signature</span><span class="pill ok h" id="a-c2" style="right:0">Signé le 21 octobre 2026</span></span></div>
-      <div class="row" style="font-size:15px;color:var(--faint);font-weight:800;letter-spacing:1.2px">PRÉPARATION DE L’ARRIVÉE</div>
-      ${['Poste et matériel', 'Comptes et accès', 'Message de bienvenue'].map((d) => `<div class="row a-prep"><span class="ic">${ic('check')}</span>${d}<span class="stk"><span class="pill neu wt" style="right:0">À préparer</span><span class="pill ok h okp" style="right:0">Prêt</span></span></div>`).join('')}
-    </div>
+$('#sArr').innerHTML = rpill(2) + `
+  <div class="card" style="left:200px;top:190px;width:1200px;height:620px">
+    <div style="display:flex;align-items:center;gap:26px;padding:44px 50px 0">${av('CG', '#7c3aed', 104)}<div><div style="font-size:44px;font-weight:800;letter-spacing:-1px">Chloé Garnier</div><div style="font-size:24px;color:var(--faint);font-weight:600;margin-top:2px">UX Designer Senior · arrive le 3 novembre</div></div>
+      <div style="margin-left:auto;width:340px" class="stk"><span class="pill acc" id="a-s1" style="left:auto;right:0">Pré-embauche</span><span class="pill ok h" id="a-s2" style="left:auto;right:0">${CHK}Prête pour le jour J</span></div></div>
+    ${[['Pré-embauche', ['Pièces validées', 'Contrat signé']], ['Embauche', ['DPAE déclarée', 'Registre', 'Mutuelle']], ['Intégration', ['Programme prêt', 'Parrain désigné']]]
+      .map(([t, ch], k) => `<div class="arow" style="top:${200 + k * 135}px"><h4>${t}</h4><div class="bar"><i id="a-b${k}"></i></div><div class="chips">${ch.map((c) => `<span class="chip a-c${k}">${CHK}${c}</span>`).join('')}</div></div>`).join('')}
   </div>`;
-
-// ================= Build : Paie page =================
-const PAYROWS = [['OB', 'Olivia Bennett', 'Responsable RH', '#6366f1', 'Sofia R.'], ['JB', 'Julie Bernard', 'Alternante marketing', '#2563eb', 'Sofia R.'], ['JC', 'James Carter', 'Lead Developer', '#7c3aed', 'Claire D.'],
-  ['SC', 'Sarah Cohen', 'Comptable', '#ea580c', 'Noah W.'], ['ED', 'Emma Dubois', 'Brand Designer', '#c026d3', 'Thomas P.'], ['MD', 'Marc Dupont', 'Chargé de recrutement', '#0891b2', 'Olivia B.']];
-$('#pPay').innerHTML = `
-  <div class="card" style="left:60px;top:34px;width:1800px;height:800px" id="pay-card">
-    <div class="card-h"><h3 style="font-size:26px">Paie d’octobre 2026</h3><span class="stk" style="width:300px"><span class="pill warn" id="p-st1" style="right:0">En préparation</span><span class="pill ok h" id="p-st2" style="right:0">Bulletins diffusés</span></span></div>
-    <div class="steps">${['Variables du mois', 'Contrôles', 'Envoi au prestataire', 'Bulletins'].map((t, k) => `<div class="stp" id="ps${k}"><span class="n">${k + 1}<i>${CHK}</i></span>${t}<span class="u"></span></div>`).join('')}</div>
-    <div class="pz" id="pz0">
-      <div class="tr th"><span>Collaborateur</span><span>Absences</span><span>Heures sup.</span><span>Prime</span><span>Transport</span><span>Manager</span></div>
-      ${PAYROWS.map(([i, n, r, c, m], k) => `<div class="tr"><div class="who">${av(i, c)}<div><b>${n}</b><small>${r}</small></div></div><span>${['—', '2 j CP', '—', '1 j maladie', '—', '—'][k]}</span><span>${['—', '—', '4 h', '—', '—', '2 h'][k]}</span><span>${['—', '—', '800 €', '—', '400 €', '—'][k]}</span><span>44,40 €</span><span class="stk" style="width:170px"><span class="pill warn wt" style="left:0">À valider</span><span class="pill ok h okp" style="left:0">Validé</span></span></div>`).join('')}
-    </div>
-    <div class="pz" id="pz1">
-      ${[['SMIC et minimum conventionnel', '18 bulletins vérifiés', 'ok'], ['Écart de plus de 20 % avec septembre', 'James Carter · prime exceptionnelle', 'warn'], ['RIB et DPAE des entrants', 'Chloé Garnier, Aisha Patel', 'ok'], ['Absences en attente de validation', 'aucune', 'ok'], ['Arrêts sans attestation', 'aucun', 'ok']]
-        .map(([t, s, k]) => `<div class="chk p-chk"><span class="ci"><i style="background:${k === 'ok' ? '#10b981' : '#f59e0b'}">${k === 'ok' ? CHK : ic('alert', 2.6)}</i></span><div>${t}<small>${s}</small></div><span class="stk"><span class="pill ${k === 'ok' ? 'ok' : 'warn'} h okp" style="right:0">${k === 'ok' ? 'Conforme' : 'Justifié'}</span></span></div>`).join('')}
-    </div>
-    <div class="pz" id="pz2">
-      <div class="csv" id="p-csv" style="left:220px;top:200px"><span class="fi">CSV</span><div>variables-octobre-2026.csv<small style="display:block;font-size:15px;color:var(--faint);font-weight:500">18 salariés · 214 lignes</small></div></div>
-      <div class="presta" style="left:1180px;top:130px"><span style="color:var(--accent)">${ic('send').replace('<svg', '<svg width="56" height="56"')}</span><b>Cabinet Expert &amp; Paie</b><small>prestataire de paie</small><span class="ok2" id="p-ok">${CHK}</span></div>
-    </div>
-    <div class="pz" id="pz3">
-      ${Array.from({ length: 12 }, (_, k) => `<div class="slip" style="left:${70 + (k % 6) * 280}px;top:${40 + Math.floor(k / 6) * 230}px"><b>Bulletin · oct. 2026</b><small>${['Olivia Bennett', 'Julie Bernard', 'James Carter', 'Sarah Cohen', 'Emma Dubois', 'Marc Dupont', 'Claire Durand', 'Inès Haddad', 'Hugo Laurent', 'Léa Martin', 'Yanis Morel', 'Liam O’Connor'][k]}</small><i></i><i style="width:70%"></i><i style="width:85%"></i><em>Diffusé ✓</em></div>`).join('')}
-    </div>
-  </div>`;
-
-// ================= Build : shuffle cards =================
-const SHUF = [3, 4, 6, 7, 8, 9, 10, 11];
-$('#shuffle').innerHTML = SHUF.map((i) => `<div class="shc" id="sh${i}"><div class="ic" style="background:${RUB[i][3]};box-shadow:0 20px 50px ${RUB[i][3]}66">${ic(RUB[i][2])}</div><div><small style="color:${RUB[i][3]}">RUBRIQUE</small><b>${RUB[i][1]}</b><p>${RUB[i][5]}</p></div></div>`).join('');
-
-// ================= Build : Obligations page =================
-const SEUILS = [[11, 'Dialogue social', 'Élections du CSE pas à pas, mandats, réunions', '#7c3aed'], [20, 'Emploi des personnes handicapées', 'Obligation d’emploi de 6 %, contribution estimée', '#ea580c'], [50, 'Index égalité', 'Calcul des 4 indicateurs, publication avant le 1er mars', '#0891b2']];
-$('#pObl').innerHTML = `
-  <div class="card" style="left:60px;top:34px;width:880px;height:800px">
-    <div class="card-h"><h3>Effectif moyen (12 mois)</h3><span class="pill acc">équivalent temps plein</span></div>
-    <div style="padding:10px 28px"><span class="big" id="o-n">9</span><span style="font-size:30px;font-weight:700;color:var(--muted);margin-left:14px">salariés</span></div>
-    <div class="chart" id="o-chart">${Array.from({ length: 16 }, () => '<i></i>').join('')}
-      ${SEUILS.map(([n, , , c], k) => `<div class="thr" id="o-t${k}" style="bottom:${n / 56 * 300}px;border-color:${c}"><span style="background:${c}">${n}</span></div>`).join('')}</div>
-  </div>
-  <div class="card" style="left:970px;top:34px;width:890px;height:800px">
-    <div class="card-h"><h3>Obligations selon l’effectif</h3><span class="pill neu" id="o-cnt">Dès le 1er salarié · 8 en place</span></div>
-    ${SEUILS.map(([n, t, s], k) => `<div class="seuil" id="o-s${k}" style="top:${110 + k * 190}px"><div class="sn"><b>${n}</b><small>SALARIÉS</small></div><div><h4>${t}</h4><p>${s}</p></div><span class="stk"><span class="pill neu wt" style="right:0">Pas encore</span><span class="pill warn h okp" style="right:0">À préparer</span></span></div>`).join('')}
-  </div>
-  <div class="toast" id="o-toast" style="left:100px;top:560px">${ic('bell')}Seuil de 50 salariés prévu en mars 2027 : 3 obligations à préparer</div>`;
-const CHART_H = [9, 9, 10, 10, 11, 11, 13, 15, 17, 20, 22, 26, 31, 38, 44, 50];
-
-// ================= Build : Teamo panel =================
+const TILES = [['users', '18/18', 'Variables validées'], ['shield', '0', 'Anomalie'], ['send', 'CSV', 'Envoyé au prestataire'], ['file', '18', 'Bulletins diffusés']];
+$('#sPay').innerHTML = rpill(5) + `
+  <div class="abs" style="left:200px;top:220px"><div class="kick">PAIE D’OCTOBRE 2026</div><div style="font-size:56px;font-weight:800;letter-spacing:-1.5px;margin-top:8px">4 étapes, chaque mois.</div></div>
+  <div class="pline" style="left:335px;width:930px"><i id="p-line"></i></div>
+  ${TILES.map(([icn, v, l], k) => `<div class="tile" id="pt${k}" style="left:${200 + k * 310}px"><div class="ti">${ic(icn)}<em>${CHK}</em></div><b>${v}</b><small>${l}</small></div>`).join('')}`;
+const GS = [[11, 'Élections du CSE', '#7c3aed'], [20, 'Emploi handicap 6 %', '#ea580c'], [50, 'Index égalité', '#0891b2']];
+$('#sGrow').innerHTML = `<div class="abs kick" style="left:160px;width:1240px;top:200px;text-align:center;font-size:22px">EFFECTIF DE VOTRE ENTREPRISE</div>
+  <div id="g-num">9</div>
+  ${GS.map(([n, t, c], k) => `<div class="gchip" id="g${k}" style="left:${170 + k * 420}px"><span style="background:${c}">${n}</span>${t}</div>`).join('')}`;
 $('#panel').innerHTML = `<div class="ph">${TEAMO('tg-panel')}<div><b>Teamo</b><small>L’assistant de Teamora</small></div></div>
-  <div class="msg me" id="m-q" style="top:150px"><span class="tx"></span></div>
-  <div class="msg bot" id="m-a" style="top:270px"><span class="tx"></span></div>`;
+  <div class="msg me" id="m-q" style="top:140px"><span class="gh"></span><span class="tx"></span></div>
+  <div class="msg bot" id="m-a" style="top:270px"><span class="gh"></span><span class="tx"></span></div>`;
 
 // ================= Timeline helpers =================
 const tl = gsap.timeline({ paused: true, defaults: { ease: 'power3.out', immediateRender: false } });
-const show = (t, sel, from = { y: 20 }, d = 0.5, extra = {}) => tl.fromTo(sel, { opacity: 0, ...from }, { opacity: 1, y: 0, x: 0, scale: 1, duration: d, ...extra }, t);
-const hide = (t, sel, d = 0.3, to = {}) => tl.to(sel, { opacity: 0, duration: d, ease: 'power2.in', ...to }, t);
-const swap = (t, a, b) => { hide(t, a, 0.15); show(t + 0.1, b, { scale: 0.7 }, 0.4, { ease: 'back.out(2.5)' }); };
+const show = (t, sel, from = { y: 20 }, d = 0.45, extra = {}) => tl.fromTo(sel, { opacity: 0, ...from }, { opacity: 1, y: 0, x: 0, scale: 1, duration: d, ...extra }, t);
+const hide = (t, sel, d = 0.25, to = {}) => tl.to(sel, { opacity: 0, duration: d, ease: 'power2.in', ...to }, t);
+const swap = (t, a, b) => { hide(t, a, 0.12); show(t + 0.08, b, { scale: 0.7 }, 0.35, { ease: 'back.out(2.5)' }); };
 function counter(t, el, from, to, d, fmt = int, ease = 'power2.out') {
   const o = { v: from }; const set = () => { $(el).textContent = fmt(o.v); };
   tl.fromTo(o, { v: from }, { v: to, duration: d, ease, onUpdate: set, onComplete: set }, t);
 }
-function typeInto(t, el, text, d) {
-  const o = { n: 0 }; const set = () => { el.innerHTML = text.slice(0, Math.round(o.n)).replace(/\*([^*]*)\*?/g, '<b>$1</b>'); };
-  tl.fromTo(o, { n: 0 }, { n: text.length, duration: d, ease: 'none', onUpdate: set, onComplete: set }, t);
+const md = (s) => s.replace(/\*([^*]*)\*?/g, '<b>$1</b>');
+// Types text into a box whose size is fixed by an invisible copy of the full text.
+function typeInto(t, box, text, d) {
+  const o = { n: 0 }, gh = box.querySelector('.gh'), tx = box.querySelector('.tx');
+  const set = () => { gh.innerHTML = md(text); tx.innerHTML = md(text.slice(0, Math.round(o.n))); };
+  tl.fromTo(o, { n: 0 }, { n: text.length, duration: d, ease: 'none', onUpdate: set, onComplete: set, onStart: set }, t);
 }
-const moveCursor = (t, pt, d = 0.6, ease = 'power2.inOut') => tl.to('#cursor', { x: pt.x, y: pt.y, duration: d, ease }, t);
-const cursorIn = (t, pt) => tl.set('#cursor', { x: pt.x, y: pt.y, scale: 1 }, t).fromTo('#cursor', { opacity: 0 }, { opacity: 1, duration: 0.25 }, t);
-const cursorOut = (t) => tl.to('#cursor', { opacity: 0, duration: 0.25 }, t);
-function click(t, pt) {
-  const r = document.createElement('div'); r.className = 'ripple'; $('#stage').appendChild(r);
-  tl.set(r, { x: pt.x, y: pt.y }, t).fromTo(r, { scale: 0, opacity: 0.4 }, { scale: 1.5, opacity: 0, duration: 0.5 }, t)
-    .to('#cursor', { scale: 0.82, duration: 0.08, yoyo: true, repeat: 1, ease: 'power1.inOut' }, t);
-}
-// Teamo
-const teamoTo = (t, x, y, d = 0.7, s = 1, ease = 'power3.inOut') => tl.to('#teamo', { x, y, scale: s, duration: d, ease }, t);
-function blink(t) { tl.to('#teamo .eyes', { scaleY: 0.1, duration: 0.07, yoyo: true, repeat: 1, ease: 'none' }, t); }
+const teamoTo = (t, x, y, d = 0.6, s = 1, ease = 'power3.inOut') => tl.to('#teamo', { x, y, scale: s, duration: d, ease }, t);
+const blink = (t) => tl.to('#teamo .eyes', { scaleY: 0.1, duration: 0.07, yoyo: true, repeat: 1, ease: 'none' }, t);
 function bob(t, d) { const n = Math.max(1, Math.round(d / 0.36)); tl.to('#teamo svg', { y: -10, duration: 0.18, yoyo: true, repeat: n * 2 - 1, ease: 'sine.inOut' }, t); }
-// Speech bubble anchored to a point; side 'R' = bubble left of Teamo (tail on its right), 'L' = bubble right of Teamo.
-function say(t0, t1, text, side, ax, ay) {
-  const b = $(`#bub${side}`), tx = b.querySelector('.tx'), clean = text.replace(/\*/g, '');
-  const dType = clean.length / 40;
-  tl.set(b, { x: ax, y: ay, xPercent: side === 'R' ? -100 : 0, yPercent: -100 }, t0)
-    .call(() => { tx.innerHTML = ''; }, null, t0)
-    .fromTo(b, { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2)' }, t0);
-  typeInto(t0 + 0.15, tx, text, dType);
-  bob(t0 + 0.1, dType);
-  tl.to(b, { opacity: 0, scale: 0.9, duration: 0.25, ease: 'power2.in' }, t1);
+const TX = 1770, TY = 935; // Teamo's corner
+// 'T' = bubble above Teamo's corner ; 'L' = bubble on Teamo's right.
+function say(t0, t1, text, side = 'T', ax = 1880, ay = 830) {
+  const b = $(`#bub${side}`), dType = text.replace(/\*/g, '').length / 42;
+  typeInto(t0, b, text, dType);
+  tl.set(b, { x: ax, y: ay, xPercent: side === 'T' ? -100 : 0, yPercent: -100 }, t0)
+    .fromTo(b, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(2.2)' }, t0);
+  bob(t0 + 0.05, dType);
+  tl.to(b, { opacity: 0, scale: 0.9, duration: 0.2, ease: 'power2.in' }, t1);
 }
-// Header title swap
-let curT = null;
-function title(t, k) {
-  if (curT) { hide(t, `#hs-${curT}, #ht-${curT}`, 0.2, { y: -10 }); }
-  show(t + 0.1, `#hs-${k}, #ht-${k}`, { y: 12 }, 0.35);
-  curT = k;
-}
-let ringAt = null;
-function ring(t, i) {
-  const el = i === 'obl' ? $('#rg3') : $(`#rr${i}`);
-  const x = el.offsetLeft + 25 - 32, c = i === 'obl' ? '#4f46e5' : RUB[i][3];
-  tl.to('#ring', { x, boxShadow: `0 0 0 4px #fff, 0 0 0 7px ${c}`, opacity: 1, duration: ringAt === null ? 0.01 : 0.4, ease: 'power2.inOut' }, t);
-  ringAt = i;
-}
-function zoomIn(t, i, sceneSel) {
-  const p = scr(i), z = `#z${i}`;
-  tl.set(z, { x: p.x, y: p.y, scale: 1, opacity: 1 }, t).to(z, { scale: 46, duration: 0.6, ease: 'power3.in' }, t)
-    .set(sceneSel, { opacity: 1 }, t + 0.6).set('#home', { opacity: 0 }, t + 0.6)
-    .to(z, { opacity: 0, duration: 0.45, ease: 'power1.out' }, t + 0.6);
+// Whip-pan between two scenes
+function whip(t, from, to) {
+  tl.to(from, { x: -1920, duration: 0.45, ease: 'power3.in' }, t).set(from, { opacity: 0 }, t + 0.45)
+    .set(to, { opacity: 1 }, t + 0.38).fromTo(to, { x: 1920 }, { x: 0, duration: 0.5, ease: 'power3.out' }, t + 0.38);
 }
 
-// ================= Ambient : background blobs drift =================
-tl.fromTo('#b1', { x: 0, y: 0 }, { x: 240, y: 160, duration: 60, ease: 'sine.inOut' }, 0);
-tl.fromTo('#b2', { x: 0, y: 0 }, { x: -200, y: 220, duration: 60, ease: 'sine.inOut' }, 0);
-tl.fromTo('#b3', { x: 0, y: 0 }, { x: 260, y: -160, duration: 60, ease: 'sine.inOut' }, 0);
-tl.fromTo('#b4', { x: 0, y: 0 }, { x: -180, y: -120, duration: 60, ease: 'sine.inOut' }, 0);
-[3.4, 8.2, 12.6, 17.5, 23.1, 28.4, 34.2, 41.0, 46.3, 52.6, 58.4].forEach(blink);
+// ================= Ambient =================
+tl.fromTo('#b1', { x: 0, y: 0 }, { x: 240, y: 160, duration: 56.5, ease: 'sine.inOut' }, 0);
+tl.fromTo('#b2', { x: 0, y: 0 }, { x: -200, y: 220, duration: 56.5, ease: 'sine.inOut' }, 0);
+tl.fromTo('#b3', { x: 0, y: 0 }, { x: 260, y: -160, duration: 56.5, ease: 'sine.inOut' }, 0);
+tl.fromTo('#b4', { x: 0, y: 0 }, { x: -180, y: -120, duration: 56.5, ease: 'sine.inOut' }, 0);
+[9.6, 13.2, 18.4, 23.6, 29.1, 34.4, 40.2, 45.0, 51.3, 54.6].forEach(blink);
 
-// ================= Scene 1 · chaos (0 → 5) =================
-CLUT.forEach((c, n) => {
-  const t = 0.15 + n * 0.2;
-  tl.fromTo(`#cl${n}`, { opacity: 0, scale: 0.4, rotation: c[5] - 25 }, { opacity: 1, scale: 1, rotation: c[5], duration: 0.5, ease: 'back.out(2)' }, t);
-  tl.to(`#cl${n}`, { x: (rnd() - 0.5) * 30, y: (rnd() - 0.5) * 24, rotation: c[5] + (rnd() - 0.5) * 6, duration: 2.6, ease: 'sine.inOut' }, t + 0.5);
+// ================= 1 · Hook : requests and reminders, faster and faster (0 → 6) =================
+ITEMS.forEach((it, k) => {
+  tl.fromTo(`#it${k}`, { opacity: 0, scale: 1.35, x: it.x, y: it.y - 30, rotation: it.r * 2 },
+    { opacity: 1, scale: 1, x: it.x, y: it.y, rotation: it.r, duration: 0.3, ease: 'back.out(2.2)' }, it.at);
 });
-$$('#words span').forEach((w, k) => tl.fromTo(w, { opacity: 0, y: 40, scale: 0.8 }, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: 'back.out(2)' }, 0.25 + k * 0.4));
-tl.to('#words span', { opacity: 0, y: -30, duration: 0.3, stagger: 0.05, ease: 'power2.in' }, 2.2);
-// Teamo pops up bottom-left
-tl.set('#teamo', { x: 190, y: 1200, scale: 1 }, 0).to('#teamo', { opacity: 1, duration: 0.01 }, 2.05);
-teamoTo(2.05, 190, 900, 0.55, 1, 'back.out(1.6)');
-say(2.35, 4.95, 'Les RH, c’est mille choses à suivre. Et souvent *autant d’outils.*', 'L', 300, 860);
-
-// ================= Scene 2 · Teamo tidies up, the wheel appears (5 → 10) =================
-teamoTo(5.0, 960, 560, 0.6, 1.6, 'power3.inOut');
-CLUT.forEach((c, n) => {
-  const t = 5.35 + n * 0.05;
-  tl.to(`#cl${n}`, { left: 960, top: 560, xPercent: -50, yPercent: -50, scale: 0.05, rotation: c[5] + 540, opacity: 0, duration: 0.75, ease: 'power3.in' }, t);
+show(0.15, '#count', { scale: 0.3 }, 0.3, { ease: 'back.out(3)' });
+const CNT_T = 4.9, CNT_K = ITEMS.filter((it) => it.at < CNT_T).length;
+ITEMS.slice(0, CNT_K).forEach((it, k) => {
+  const n = k + 1, set = () => { $('#count').textContent = n; };
+  tl.to({}, { duration: 0.01, onComplete: set }, it.at);
 });
-tl.to('#teamo', { scaleX: 1.9, scaleY: 1.35, duration: 0.15, yoyo: true, repeat: 3, ease: 'sine.inOut' }, 5.7);
-tl.to('#teamo .mouth', { scaleY: 1.6, transformOrigin: '50% 0%', duration: 0.2, yoyo: true, repeat: 3 }, 5.6);
-// hub grows where Teamo was, Teamo slides to its corner
-tl.fromTo('#hub', { scale: 0 }, { scale: 1, duration: 0.9, ease: 'back.out(1.5)' }, 6.55);
-tl.fromTo('.hub-in > *', { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.1 }, 7.0);
-teamoTo(6.45, 1765, 945, 0.8, 1);
-show(7.0, '#hdr', { y: -40 }, 0.6);
-counter(7.0, '#todo-n', 0, 0, 0.01);
-title(7.1, 'home');
-say(7.3, 9.85, 'Bonjour, moi c’est *Teamo* ! Laissez-moi vous montrer *Teamora.*', 'R', 1660, 900);
+counter(CNT_T, '#count', CNT_K, 140, 0.9, (v) => (v > 99 ? '99+' : int(v)), 'power2.in');
+for (let t = 0.3; t < HOOK_END;) {
+  const p = t / HOOK_END, d = 0.5 - 0.42 * p;
+  tl.fromTo('#count', { scale: 1 }, { scale: 1.12 + 0.25 * p, duration: d * 0.35, yoyo: true, repeat: 1, ease: 'power1.out' }, t);
+  t += d;
+}
+// shaking, ever stronger
+for (let t = 1.6; t < 5.95; t += 0.05) {
+  const a = 1 + 22 * Math.pow((t - 1.6) / 4.35, 2.2);
+  tl.to('#hook', { x: (rnd() - 0.5) * 2 * a, y: (rnd() - 0.5) * 2 * a, rotation: (rnd() - 0.5) * a * 0.04, duration: 0.05, ease: 'none' }, t);
+}
+// explosion
+tl.to('#flash', { opacity: 1, duration: 0.12, ease: 'power2.in' }, 5.9);
+ITEMS.forEach((it, k) => {
+  const dx = it.x + 150 - 960, dy = it.y + 30 - 540, l = Math.hypot(dx, dy) || 1;
+  tl.to(`#it${k}`, { x: it.x + dx / l * 1600, y: it.y + dy / l * 1100, rotation: it.r + (rnd() - 0.5) * 300, scale: 0.6, duration: 0.6, ease: 'power3.out' }, 6.0);
+});
+tl.to('#count', { scale: 3, opacity: 0, duration: 0.4 }, 6.0);
+tl.fromTo('#shock', { scale: 0.2, opacity: 1 }, { scale: 14, opacity: 0, duration: 0.7, ease: 'power2.out' }, 6.02);
+tl.set('#hook', { opacity: 0 }, 6.5);
+tl.to('#flash', { opacity: 0, duration: 0.55, ease: 'power2.out' }, 6.05);
 
-// ================= Scene 3 · the wheel (10 → 18) =================
-tl.to('#hub', { scale: 1.05, duration: 0.4, ease: 'power2.out' }, 10.0).to('#hub', { scale: 1, duration: 0.5 }, 10.5);
+// ================= 2 · Order : the home wheel (6 → 14) =================
+tl.set('#home', { opacity: 1 }, 6.05);
+tl.fromTo('#hub', { scale: 0 }, { scale: 1, duration: 0.9, ease: 'back.out(1.6)' }, 6.25);
+tl.fromTo('.hub-in > *', { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.08 }, 6.6);
+// hover : the rubrics slide out from behind the hub (Teamora's signature animation)
+tl.to('#hub', { scale: 1.05, duration: 0.35, ease: 'power2.out' }, 7.2).to('#hub', { scale: 1, duration: 0.45 }, 7.55);
 RUB.forEach((r, i) => {
-  const p = pos(i), t = 10.1 + i * 0.07;
+  const p = pos(i), t = 7.3 + i * 0.06;
   tl.fromTo(`#n${i}`, { x: 0, y: 0, scale: 0.4, opacity: 0 }, { x: p.x, y: p.y, scale: 1, opacity: 1, duration: 0.85, ease: 'back.out(1.5)' }, t);
-  tl.fromTo($$('.lab-in')[i], { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.4 }, t + 0.5);
+  tl.fromTo($$('.lab-in')[i], { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.35 }, t + 0.45);
 });
-say(11.4, 14.5, 'Toute la vie RH sur une seule roue : *12 rubriques*, du besoin de recrutement au départ.', 'R', 1660, 900);
-RUB.forEach((r, i) => tl.to(`#n${i} .bd`, { scale: 1, duration: 0.4, ease: 'back.out(3)' }, 14.7 + i * 0.1));
-counter(14.7, '#todo-n', 0, TODO, 1.3);
-tl.to('#todo-btn', { scale: 1.08, duration: 0.2, yoyo: true, repeat: 1 }, 16.0);
-say(14.75, 17.9, 'Une pastille, c’est *ce qui vous attend.* Rien d’autre à chercher.', 'R', 1660, 900);
+tl.set('#teamo', { x: TX, y: 1250, scale: 1, opacity: 1 }, 8.2);
+teamoTo(8.2, TX, TY, 0.55, 1, 'back.out(1.7)');
+say(8.5, 10.85, 'Respirez. Avec *Teamora*, tout reprend sa place.');
+RUB.forEach((r, i) => tl.to(`#n${i} .bd`, { scale: 1, duration: 0.35, ease: 'back.out(3)' }, 11.0 + i * 0.08));
+counter(11.0, '#hub-n', 0, TODO, 1.0, (v) => `${int(v)} à traiter`);
+say(11.05, 13.75, '12 rubriques. Une pastille, c’est *ce qui vous attend.*');
 
-// ================= Scene 4 · Recruter (18 → 25) =================
-cursorIn(17.6, { x: 1500, y: 1000 });
-moveCursor(17.6, scr(1), 0.6);
-tl.to('#n1', { scale: 1.18, duration: 0.25, ease: 'back.out(2)' }, 18.1);
-click(18.3, scr(1));
-cursorOut(18.4);
-zoomIn(18.4, 1, '#pRec');
-show(18.9, '#rail', { y: -20 }, 0.4);
-ring(19.0, 1); title(19.0, 'rec');
-tl.fromTo('#pRec .card', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.08 }, 19.0);
-$$('#pRec .fz').forEach((f, k) => tl.to(f.querySelector('i'), { scale: 1, duration: 0.35, ease: 'back.out(3)' }, 19.5 + k * 0.28));
-tl.to('#r-ln', { width: '100%', duration: 1.0, ease: 'none' }, 19.55);
-swap(20.6, '#r-st1', '#r-st2');
-tl.to('#r-hl', { backgroundColor: '#fde68a', boxShadow: '0 0 0 2px #f59e0b', duration: 0.3 }, 20.8);
-show(21.0, '#r-warn', { y: 15, scale: 0.9 }, 0.35);
-tl.to('#r-bad', { opacity: 0, duration: 0.2 }, 21.9).to('#r-good', { opacity: 1, duration: 0.3 }, 22.0)
-  .to('#r-hl', { width: 300, backgroundColor: '#dcfce7', boxShadow: '0 0 0 2px #10b981', duration: 0.3 }, 21.95);
-tl.set('#r-hl', { display: 'inline-block' }, 21.9);
-hide(22.2, '#r-warn', 0.25);
-swap(22.2, '#r-w1', '#r-w2');
-// drag Chloé to "Proposition"
-const KB = { x: 910, y: 180 + 250 }; // candidates card on stage (page top 180)
-const grab = { x: KB.x + KX(2) + 70, y: KB.y + KY(0) + 37 }, drop = { x: KB.x + KX(3) + 70, y: KB.y + KY(0) + 37 };
-cursorIn(22.3, { x: 1700, y: 1000 });
-moveCursor(22.3, grab, 0.55);
-tl.to('#kc-CG', { scale: 1.07, rotation: -3, boxShadow: '0 18px 40px #7c3aed55', duration: 0.2 }, 22.9)
-  .to('#kc-CG', { left: KX(3), duration: 0.7, ease: 'power2.inOut' }, 23.05)
-  .to('#cursor', { x: drop.x, y: drop.y, duration: 0.7, ease: 'power2.inOut' }, 23.05)
-  .to('#kc-CG', { scale: 1, rotation: 0, duration: 0.25, ease: 'back.out(2)' }, 23.75);
-counter(23.8, '#kc2', 2, 1, 0.1); counter(23.8, '#kc3', 0, 1, 0.1);
-cursorOut(23.9);
-show(23.9, '#r-p1', { y: -8 }, 0.3);
-swap(24.45, '#r-p1', '#r-p2');
-say(19.5, 24.6, 'Besoin validé, offre relue : même les *termes à risque* sont repérés.', 'R', 1660, 900);
+// ================= 3 · Recruter (14 → 20.3) =================
+tl.to('#n1', { scale: 1.25, duration: 0.25, ease: 'back.out(2)' }, 13.75);
+const z = scr(1);
+tl.set('#z1', { x: z.x, y: z.y, scale: 1, opacity: 1 }, 13.95).to('#z1', { scale: 50, duration: 0.5, ease: 'power3.in' }, 13.95)
+  .set('#sRec', { opacity: 1 }, 14.45).set('#home', { opacity: 0 }, 14.45).to('#z1', { opacity: 0, duration: 0.4 }, 14.45);
+show(14.5, '#sRec .chrome', { y: -20 }, 0.4);
+show(14.55, '#rA', { y: 40 }, 0.5);
+tl.to('#r-hl', { backgroundColor: '#fde68a', boxShadow: '0 0 0 3px #f59e0b', duration: 0.25 }, 15.15);
+tl.fromTo('#r-hl', { scale: 1 }, { scale: 1.06, duration: 0.15, yoyo: true, repeat: 1 }, 15.15);
+show(15.3, '#r-w', { scale: 0.6 }, 0.35, { ease: 'back.out(2.5)' });
+tl.to('#r-bad', { opacity: 0, duration: 0.12 }, 16.2).set('#r-bad', { display: 'none' }, 16.32)
+  .set('#r-good', { position: 'static' }, 16.32).to('#r-good', { opacity: 1, duration: 0.25 }, 16.32)
+  .to('#r-hl', { backgroundColor: '#dcfce7', boxShadow: '0 0 0 3px #10b981', duration: 0.3 }, 16.25);
+swap(16.45, '#r-w', '#r-ok');
+say(14.7, 16.9, 'Recruter, *sans faux pas.*');
+tl.to('#rA', { y: -60, opacity: 0, duration: 0.35, ease: 'power2.in' }, 17.1);
+tl.set('#rB', { opacity: 1 }, 17.3);
+tl.fromTo('#rB .zone', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.08 }, 17.3);
+show(17.4, '#r-cand', { y: 30 }, 0.4);
+tl.to('#r-cand', { scale: 1.06, rotation: -3, duration: 0.15 }, 17.95)
+  .to('#r-cand', { left: 920, duration: 0.55, ease: 'power3.inOut' }, 18.05)
+  .to('#r-cand', { scale: 1, rotation: 0, duration: 0.25, ease: 'back.out(2)' }, 18.6);
+show(18.7, '#r-p1', { y: -8 }, 0.25);
+swap(19.15, '#r-p1', '#r-p2');
+tl.fromTo('#r-burst', { scale: 0.3, opacity: 1 }, { scale: 3.2, opacity: 0, duration: 0.6, ease: 'power2.out' }, 19.2);
+say(17.35, 19.95, 'Le bon candidat dit *oui.*');
 
-// ================= Scene 5 · Arrivées (25 → 32) =================
-tl.to('#pRec', { opacity: 0, x: -120, duration: 0.45, ease: 'power2.in' }, 25.0);
-tl.fromTo('#pArr', { opacity: 0, x: 140 }, { opacity: 1, x: 0, duration: 0.55 }, 25.3);
-ring(25.2, 2); title(25.2, 'arr');
-tl.fromTo('#a-sel', { backgroundColor: '#fde68a' }, { backgroundColor: '#ebeafd', duration: 1.0 }, 25.8);
-$$('#pArr .a-doc').forEach((r, k) => { const t = 26.1 + k * 0.28; hide(t, r.querySelector('.wt'), 0.12); show(t + 0.08, r.querySelector('.okp'), { scale: 0.6 }, 0.3, { ease: 'back.out(2.5)' }); });
-tl.to('#a-b0', { width: '60%', duration: 1.1, ease: 'power1.inOut' }, 26.1);
-tl.to('#a-sig', { strokeDashoffset: 0, duration: 1.1, ease: 'power1.inOut' }, 27.2);
-swap(28.3, '#a-c1', '#a-c2');
-tl.to('#a-b0', { width: '85%', duration: 0.4 }, 28.3);
-$$('#pArr .a-emb').forEach((r, k) => { const t = 28.7 + k * 0.3; hide(t, r.querySelector('.wt'), 0.12); show(t + 0.08, r.querySelector('.okp'), { scale: 0.6 }, 0.3, { ease: 'back.out(2.5)' }); });
-tl.to('#a-b1', { width: '100%', duration: 1.0, ease: 'power1.inOut' }, 28.7);
-$$('#pArr .a-prep').forEach((r, k) => { const t = 29.2 + k * 0.25; hide(t, r.querySelector('.wt'), 0.12); show(t + 0.08, r.querySelector('.okp'), { scale: 0.6 }, 0.3, { ease: 'back.out(2.5)' }); });
-tl.to('#a-b0', { width: '100%', duration: 0.5 }, 29.6);
-swap(30.3, '#a-st1', '#a-st2');
-tl.to('#a-b2', { width: '12%', duration: 0.6 }, 30.4).to('#a-mini', { width: '72%', duration: 0.8 }, 30.3);
-say(25.6, 31.7, 'Le candidat dit oui ? Son *dossier d’arrivée* est prêt : pièces, contrat, DPAE dans les délais.', 'R', 1660, 900);
+// ================= 4 · Accueillir (20.3 → 26.3) =================
+whip(20.2, '#sRec', '#sArr');
+$$('#sArr .a-c0').forEach((c, k) => show(21.05 + k * 0.45, c, { scale: 0.5 }, 0.3, { ease: 'back.out(2.5)' }));
+tl.to('#a-b0', { width: '100%', duration: 0.95, ease: 'power1.inOut' }, 20.9);
+$$('#sArr .a-c1').forEach((c, k) => show(22.05 + k * 0.3, c, { scale: 0.5 }, 0.3, { ease: 'back.out(2.5)' }));
+tl.to('#a-b1', { width: '100%', duration: 0.9, ease: 'power1.inOut' }, 21.95);
+$$('#sArr .a-c2').forEach((c, k) => show(23.0 + k * 0.3, c, { scale: 0.5 }, 0.3, { ease: 'back.out(2.5)' }));
+tl.to('#a-b2', { width: '35%', duration: 0.7, ease: 'power1.inOut' }, 22.95);
+swap(23.7, '#a-s1', '#a-s2');
+say(20.75, 23.1, 'Accueillir, *sans rien oublier.*');
+say(23.4, 25.95, 'Pièces, contrat, DPAE : *dans les délais.*');
 
-// ================= Scene 6 · Paie (32 → 39) =================
-tl.to('#pArr', { opacity: 0, x: -120, duration: 0.45, ease: 'power2.in' }, 31.9);
-tl.fromTo('#pPay', { opacity: 0, x: 140 }, { opacity: 1, x: 0, duration: 0.55 }, 32.2);
-ring(32.1, 5); title(32.1, 'pay');
-const stepOn = (t, k) => tl.to(`#ps${k}`, { color: '#151935', duration: 0.2 }, t).to(`#ps${k} .u`, { scaleX: 1, duration: 0.35 }, t).to(`#ps${k} .n`, { backgroundColor: '#ebeafd', color: '#4f46e5', duration: 0.2 }, t);
-const stepDone = (t, k) => tl.to(`#ps${k} .n i`, { scale: 1, duration: 0.35, ease: 'back.out(3)' }, t).to(`#ps${k} .u`, { backgroundColor: '#10b981', duration: 0.2 }, t);
-stepOn(32.5, 0); show(32.6, '#pz0', { y: 20 }, 0.4);
-$$('#pz0 .tr:not(.th)').forEach((r, k) => { const t = 33.1 + k * 0.17; hide(t, r.querySelector('.wt'), 0.1); show(t + 0.06, r.querySelector('.okp'), { scale: 0.6 }, 0.25, { ease: 'back.out(2.5)' }); });
-stepDone(34.2, 0); hide(34.3, '#pz0', 0.2);
-stepOn(34.4, 1); show(34.45, '#pz1', { y: 20 }, 0.35);
-$$('#pz1 .p-chk').forEach((r, k) => { const t = 34.7 + k * 0.2; tl.to(r.querySelector('.ci i'), { scale: 1, duration: 0.3, ease: 'back.out(3)' }, t); show(t + 0.05, r.querySelector('.okp'), { scale: 0.6 }, 0.25, { ease: 'back.out(2.5)' }); });
-stepDone(35.8, 1); hide(35.9, '#pz1', 0.2);
-stepOn(36.0, 2); show(36.05, '#pz2', { y: 20 }, 0.3);
-tl.to('#p-csv', { x: 1010, y: -30, scale: 0.55, opacity: 0.2, duration: 0.7, ease: 'power3.in' }, 36.35);
-tl.to('#p-ok', { scale: 1, duration: 0.35, ease: 'back.out(3)' }, 37.0);
-stepDone(37.1, 2); hide(37.2, '#pz2', 0.2);
-stepOn(37.3, 3); tl.set('#pz3', { opacity: 1 }, 37.3);
-tl.fromTo('#pz3 .slip', { opacity: 0, y: 40, scale: 0.8 }, { opacity: 1, y: 0, scale: 1, duration: 0.35, stagger: 0.05, ease: 'back.out(2)' }, 37.35);
-stepDone(38.2, 3); swap(38.2, '#p-st1', '#p-st2');
-say(32.6, 38.7, 'Chaque mois, les variables remontent, les contrôles tournent… et les *bulletins* partent.', 'R', 1660, 900);
-
-// ================= Scene 7 · everything else (39 → 43) =================
-tl.to('#pPay', { opacity: 0, scale: 0.92, duration: 0.4, ease: 'power2.in' }, 38.9);
-hide(38.9, '#ring', 0.2);
-const SD = [0.62, 0.55, 0.5, 0.45, 0.4, 0.36, 0.33, 0.32];
-let st = 39.2;
-SHUF.forEach((i, k) => {
-  const d = SD[k], el = `#sh${i}`;
-  tl.fromTo(el, { opacity: 0, x: 900, rotation: 8, scale: 0.9 }, { opacity: 1, x: 0, rotation: (k % 2 ? 2 : -2), scale: 1, duration: d * 0.5, ease: 'power3.out' }, st)
-    .to(el, { x: -900, rotation: -8, opacity: 0, duration: d * 0.5, ease: 'power3.in' }, st + d * 0.55);
-  ring(st, i);
-  st += d;
+// ================= 5 · Payer (26.3 → 32.3) =================
+whip(26.2, '#sArr', '#sPay');
+tl.to('#p-line', { width: '100%', duration: 3.0, ease: 'none' }, 27.0);
+TILES.forEach((tile, k) => {
+  const t = 27.0 + k * 0.95, el = `#pt${k}`;
+  tl.to(el, { borderColor: '#10b981', y: -14, boxShadow: '0 30px 60px rgba(16, 185, 129, .25)', duration: 0.3 }, t)
+    .to(`${el} .ti`, { backgroundColor: '#e3f6ee', color: '#0c8a5f', duration: 0.25 }, t)
+    .to(`${el} b`, { color: '#151935', duration: 0.25 }, t)
+    .to(`${el} .ti em`, { scale: 1, duration: 0.3, ease: 'back.out(3)' }, t + 0.15)
+    .to(el, { y: 0, duration: 0.4, ease: 'power2.out' }, t + 0.35);
 });
-show(39.2, '#ring', {}, 0.2);
-say(39.3, 42.6, 'Et ainsi de suite, *jusqu’au départ.*', 'R', 1660, 900);
+counter(27.0, '#pt0 b', 0, 18, 0.5, (v) => `${int(v)}/18`);
+counter(29.85, '#pt3 b', 0, 18, 0.5);
+say(26.75, 29.0, 'Payer, *sans stress.*');
+say(29.3, 31.9, 'Contrôles automatiques, *bulletins diffusés.*');
 
-// ================= Scene 8 · grow (43 → 50) =================
-tl.fromTo('#pObl', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.5 }, 42.85);
-ring(42.8, 'obl'); title(42.8, 'obl');
-const bars = $$('#o-chart > i');
-bars.forEach((b, k) => tl.fromTo(b, { height: 0 }, { height: CHART_H[k] / 56 * 300, duration: 0.3, ease: 'power2.out' }, 43.4 + k * 0.28));
-CHART_H.forEach((v, k) => { const o = { v: k ? CHART_H[k - 1] : 9 }; const set = () => { $('#o-n').textContent = int(o.v); }; tl.fromTo(o, { v: o.v }, { v, duration: 0.25, ease: 'none', onUpdate: set, onComplete: set }, 43.4 + k * 0.28); });
-SEUILS.forEach(([n, , , c], k) => {
-  const idx = CHART_H.findIndex((v) => v >= n), t = 43.4 + idx * 0.28 + 0.2;
-  show(t, `#o-t${k}`, {}, 0.3);
-  tl.to(`#o-s${k} .sn`, { backgroundColor: c, color: '#fff', duration: 0.3 }, t).fromTo(`#o-s${k}`, { scale: 1 }, { scale: 1.04, duration: 0.18, yoyo: true, repeat: 1 }, t);
-  hide(t, `#o-s${k} .wt`, 0.12); show(t + 0.08, `#o-s${k} .okp`, { scale: 0.6 }, 0.3, { ease: 'back.out(2.5)' });
+// ================= 6 · Everything else, on the wheel (32.3 → 36.3) =================
+tl.to('#sPay', { opacity: 0, scale: 0.94, duration: 0.35, ease: 'power2.in' }, 32.2);
+tl.set('#home', { opacity: 1 }, 32.4).fromTo('#home', { scale: 1.08 }, { scale: 1, duration: 0.5 }, 32.4);
+tl.set('#n1', { scale: 1 }, 32.4);
+tl.to('.hub-in', { opacity: 0, duration: 0.2 }, 32.55);
+const RD = [0.55, 0.48, 0.43, 0.39, 0.35, 0.32, 0.3, 0.6];
+let rt = 32.7;
+REST.forEach((i, k) => {
+  const d = RD[k], fi = Math.min(0.2, d * 0.4), fo = Math.min(0.15, d * 0.3);
+  tl.fromTo(`#hr${i}`, { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: fi }, rt);
+  if (k < REST.length - 1) tl.to(`#hr${i}`, { opacity: 0, y: -26, duration: fo, ease: 'power2.in' }, rt + d - fo);
+  tl.to(`#n${i}`, { scale: 1.35, boxShadow: `0 0 0 10px ${RUB[i][2]}44, 0 14px 40px ${RUB[i][2]}aa`, duration: fi }, rt)
+    .to(`#n${i}`, { scale: 1, boxShadow: '0 0 0 5px #ffffffaa, 0 14px 30px rgba(21, 25, 53, .22)', duration: 0.25 }, rt + d * 0.7);
+  rt += d;
 });
-show(48.2, '#o-toast', { y: 30 }, 0.45, { ease: 'back.out(1.6)' });
-say(43.5, 49.7, 'Vous grandissez ? Teamora fait apparaître vos *nouvelles obligations*, avant même le seuil.', 'R', 1660, 900);
+say(32.75, 35.9, 'Et tout le reste, *jusqu’au départ.*');
 
-// ================= Scene 9 · ask Teamo (50 → 55) =================
-show(49.9, '#dim', {}, 0.4);
-hide(49.9, '#o-toast', 0.3);
-teamoTo(49.9, 830, 690, 0.7, 1.25);
-say(50.4, 52.2, 'Une question ? *Je suis là.*', 'R', 730, 640);
-tl.fromTo('#panel', { opacity: 0, scale: 0.85, y: 40, transformOrigin: '0% 100%' }, { opacity: 1, scale: 1, y: 0, duration: 0.5, ease: 'back.out(1.5)' }, 51.0);
-show(51.55, '#m-q', { y: 10 }, 0.25);
-typeInto(51.6, $('#m-q .tx'), 'Quand organiser l’élection du CSE ?', 0.8);
-show(52.5, '#m-a', { y: 10 }, 0.25);
-typeInto(52.55, $('#m-a .tx'), 'Dès que vous comptez *11 salariés pendant 12 mois de suite.* Je vous guide pas à pas : information du personnel, invitation des syndicats, protocole, puis 1er tour sous 90 jours.', 2.1);
-bob(52.6, 2.0);
+// ================= 7 · Grandir (36.3 → 42.3) =================
+tl.to('#hub', { scale: 9, duration: 0.55, ease: 'power3.in' }, 36.1);
+tl.to('#hr11', { opacity: 0, duration: 0.15 }, 36.1);
+tl.set('#home', { opacity: 0 }, 36.65).set('#hub', { scale: 1 }, 36.65);
+tl.set('#sGrow', { opacity: 1 }, 36.6).fromTo('#sGrow', { opacity: 0 }, { opacity: 1, duration: 0.35 }, 36.6);
+const GROW = [[37.2, 9, 11, 0.6], [38.1, 11, 20, 0.7], [39.1, 20, 50, 1.0]];
+GROW.forEach(([t, a, b, d], k) => {
+  counter(t, '#g-num', a, b, d, int, 'power1.inOut');
+  tl.fromTo('#g-num', { scale: 1 }, { scale: 1.08, duration: 0.15, yoyo: true, repeat: 1 }, t + d);
+  show(t + d, `#g${k}`, { y: 40, scale: 0.7 }, 0.4, { ease: 'back.out(2)' });
+});
+say(37.0, 39.15, 'Vous grandissez ?');
+say(39.45, 42.0, 'Vos *obligations* suivent, avant chaque seuil.');
 
-// ================= Scene 10 · signature (55 → 60) =================
-tl.to('#flash', { opacity: 0.85, duration: 0.25, ease: 'power2.in' }, 54.85);
-tl.set(['#panel', '#dim', '#pObl', '#rail', '#ring'], { opacity: 0 }, 55.1).set('#home', { opacity: 1 }, 55.1);
-tl.to('#flash', { opacity: 0, duration: 0.5 }, 55.1);
-teamoTo(55.1, 1765, 945, 0.01, 1);
+// ================= 8 · Ask Teamo (42.3 → 48.3) =================
+tl.to('#sGrow', { opacity: 0, duration: 0.3 }, 42.2);
+teamoTo(42.2, 470, 560, 0.7, 1.7, 'back.inOut(1.2)');
+say(42.85, 44.2, 'Une question ? *Je suis là.*', 'L', 640, 470);
+tl.fromTo('#panel', { opacity: 0, scale: 0.85, x: -60 }, { opacity: 1, scale: 1, x: 0, duration: 0.5, ease: 'back.out(1.5)' }, 44.2);
+show(44.6, '#m-q', { y: 12 }, 0.25);
+typeInto(44.65, $('#m-q'), 'Quand organiser l’élection du CSE ?', 0.75);
+show(45.55, '#m-a', { y: 12 }, 0.25);
+typeInto(45.6, $('#m-a'), 'Dès *11 salariés pendant 12 mois.* Je vous guide pas à pas, jusqu’au 1er tour.', 1.6);
+bob(45.6, 1.6);
+
+// ================= 9 · Signature (48.3 → 56.5) =================
+tl.to('#panel', { opacity: 0, scale: 0.9, duration: 0.3, ease: 'power2.in' }, 48.1);
+tl.set('#home', { opacity: 1 }, 48.35).fromTo('#home', { opacity: 0 }, { opacity: 1, duration: 0.4 }, 48.35);
+tl.set('#hr11', { opacity: 0 }, 48.35).to('.hub-in', { opacity: 1, duration: 0.3 }, 48.4);
+teamoTo(48.3, TX, TY, 0.6, 1);
 RUB.forEach((r, i) => {
-  const t = 55.4 + i * 0.07;
-  tl.to(`#n${i} .bd`, { scale: 0, duration: 0.2, ease: 'power2.in' }, t).to(`#n${i} .ck`, { scale: 1, duration: 0.35, ease: 'back.out(3)' }, t + 0.15);
+  const t = 48.8 + i * 0.06;
+  tl.to(`#n${i} .bd`, { scale: 0, duration: 0.15, ease: 'power2.in' }, t).to(`#n${i} .ck`, { scale: 1, duration: 0.3, ease: 'back.out(3)' }, t + 0.12);
 });
-counter(55.4, '#todo-n', TODO, 0, 0.9);
-title(55.2, 'home');
-const F = 56.6;
-tl.to('.lab-in', { opacity: 0, duration: 0.3, stagger: 0.02 }, F - 0.2);
-hide(F - 0.2, '#hdr', 0.4, { y: -30 });
-tl.to('#wheel', { rotation: 200, duration: 1.3, ease: 'power2.in' }, F);
+counter(48.8, '#hub-n', TODO, 0, 0.8, (v) => `${int(v)} à traiter`);
+const F = 50.1;
+tl.to('.lab-in', { opacity: 0, duration: 0.25, stagger: 0.015 }, F);
+// the rubrics slide back behind the hub (reverse of the opening)
 RUB.forEach((_, i) => {
-  tl.to(`#n${i}`, { x: 0, y: 0, scale: 0.3, duration: 1.1, ease: 'power3.in' }, F + (11 - i) * 0.02);
-  tl.set(`#n${i}`, { opacity: 0 }, F + 1.15 + (11 - i) * 0.02);
+  tl.to(`#n${i}`, { x: 0, y: 0, scale: 0.4, duration: 0.6, ease: 'back.in(1.4)' }, F + 0.2 + (11 - i) * 0.035);
+  tl.set(`#n${i}`, { opacity: 0 }, F + 0.8 + (11 - i) * 0.035);
 });
-tl.to('#hub', { scale: 1.1, duration: 0.25, ease: 'power2.out' }, F + 1.1)
-  .to('.hub-in', { opacity: 0, scale: 0.8, duration: 0.25, ease: 'power2.in' }, F + 1.1)
-  .to('#hub', { scale: 0.62, borderRadius: '28%', y: -200, duration: 0.8, ease: 'power4.inOut' }, F + 1.3)
-  .fromTo('#hub-logo', { opacity: 0, scale: 0.4, rotation: -60 }, { opacity: 1, scale: 1, rotation: 0, duration: 0.6, ease: 'back.out(1.8)' }, F + 1.8)
-  .fromTo('#brand .name span', { opacity: 0, y: 70 }, { opacity: 1, y: 0, duration: 0.55, stagger: 0.045, ease: 'back.out(1.6)' }, F + 1.95);
-show(F + 2.45, '#brand .tag', { y: 20 }, 0.5);
-show(F + 2.8, '#brand .url', {}, 0.5);
-teamoTo(F + 1.9, 1340, 410, 0.7, 1, 'back.out(1.4)');
-tl.to('#teamo', { rotation: 12, duration: 0.18, yoyo: true, repeat: 5, ease: 'sine.inOut' }, F + 2.6);
-tl.to({}, { duration: 0.01 }, 60);
+tl.to('#hub', { scale: 1.08, duration: 0.2, ease: 'power2.out' }, F + 1.15)
+  .to('.hub-in', { opacity: 0, scale: 0.8, duration: 0.2 }, F + 1.15)
+  .to('#hub', { x: 180, y: -250, scale: 0.62, borderRadius: '28%', duration: 0.75, ease: 'power4.inOut' }, F + 1.3)
+  .fromTo('#hub-logo', { opacity: 0, scale: 0.4, rotation: -60 }, { opacity: 1, scale: 1, rotation: 0, duration: 0.55, ease: 'back.out(1.8)' }, F + 1.75)
+  .fromTo('#brand .name span', { opacity: 0, y: 70 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.04, ease: 'back.out(1.6)' }, F + 1.9);
+show(F + 2.35, '#brand .tag', { y: 20 }, 0.45);
+show(F + 2.7, '#brand .url', {}, 0.45);
+teamoTo(F + 1.8, 1180, 310, 0.6, 0.9, 'back.out(1.4)');
+tl.to('#teamo', { rotation: 12, duration: 0.17, yoyo: true, repeat: 5, ease: 'sine.inOut' }, F + 2.5);
+tl.to({}, { duration: 0.01 }, 56.5);
 
 window.tl = tl;
 window.ready = document.fonts.ready.then(() => true);

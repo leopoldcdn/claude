@@ -25,6 +25,11 @@
 - **Simulation (démo)** : simuler un effectif (et depuis quand) pour voir le logiciel s'adapter ; bandeau visible, pas de
   notification pendant la simulation.
 
+- **Teamo connaît l'effectif** (profil RH uniquement) : effectif moyen, années passées, projection, prochain seuil, état de
+  chaque obligation qui concerne l'entreprise, obligations du prochain palier et alertes — données agrégées seulement :
+  aucun nom, aucun salaire ni montant estimé (qui révélerait la masse salariale), aucun détail sur le handicap, les
+  signalements, les référents ou les états des lieux individuels. Une mention dans la fenêtre de Teamo l'indique.
+
 ### Les obligations, seuil par seuil
 - **Dès le 1er salarié** : DPAE, registre, suivi médical (déjà en place) ; DUERP avec alerte de mise à jour annuelle à
   partir de 11 ; liste des 10 affichages obligatoires ; complémentaire santé (contrôle des 50 %) ; entretien de parcours

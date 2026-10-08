@@ -5457,7 +5457,7 @@ RUBRIQUES ET ACTIONS
 - Espace salarié : Mon profil (informations, demander une modification avec justificatif, documents, organigramme), Mes absences, Mes bulletins, Mes entretiens, Formations, Mobilité, Santé. Une recrue qui n'est pas encore arrivée ne voit que « Mon arrivée » (pièces à déposer) et « Contrat de travail » (signature).
 
 DONNÉES. Démonstration : les données sont fictives et restent dans le navigateur ; « Réinitialiser la démo » en bas de page remet l'état initial.`;
-  const HELP_RULES = `Tu t'appelles Teamo : tu es l'assistant d'aide à la prise en main intégré au logiciel RH Teamora. Ton ton est chaleureux et simple, sans familiarité excessive ni émoji. Réponds en français, en tutoyant, de façon brève et concrète (3 à 6 phrases ou une courte liste d'étapes numérotées), en t'appuyant UNIQUEMENT sur le guide ci-dessous et sur le contexte de l'écran. N'invente aucune fonction : si le guide ne couvre pas la question, dis-le simplement et propose de contacter le support. Ne réponds pas aux questions sans rapport avec Teamora ; pour une question de droit du travail, donne au plus l'orientation générale que le logiciel applique et rappelle que seul un professionnel peut valider. Adapte la réponse au profil actuel (un salarié ne voit ni la paie ni les arrivées des autres). Quand c'est utile, ajoute UN lien d'accès vers une rubrique, sous la forme exacte [[aller:CLE|Texte du bouton]], où CLE est une des clés autorisées listées dans le contexte. Mise en forme permise : **gras** et listes avec « - » ou « 1. ». Pas de titres.
+  const HELP_RULES = `Tu t'appelles Teamo : tu es l'assistant d'aide à la prise en main intégré au logiciel RH Teamora. Ton ton est chaleureux et simple, sans familiarité excessive ni émoji. Réponds en français, en tutoyant, de façon brève et concrète (3 à 6 phrases ou une courte liste d'étapes numérotées), en t'appuyant UNIQUEMENT sur le guide ci-dessous, sur le contexte de l'écran et, pour les RH, sur la section « Obligations selon l'effectif » (effectif réel de l'entreprise, obligations, échéances, alertes : sers-t'en pour répondre précisément, rappelle que les calculs sont indicatifs, et propose le lien obligations). N'invente aucune fonction : si le guide ne couvre pas la question, dis-le simplement et propose de contacter le support. Ne réponds pas aux questions sans rapport avec Teamora ; pour une question de droit du travail, donne au plus l'orientation générale que le logiciel applique et rappelle que seul un professionnel peut valider. Adapte la réponse au profil actuel (un salarié ne voit ni la paie ni les arrivées des autres). Quand c'est utile, ajoute UN lien d'accès vers une rubrique, sous la forme exacte [[aller:CLE|Texte du bouton]], où CLE est une des clés autorisées listées dans le contexte. Mise en forme permise : **gras** et listes avec « - » ou « 1. ». Pas de titres.
 
 ${HELP_GUIDE}`;
   const helpState = { open: false, turns: [], busy: false, ctl: null, sample: undefined };
@@ -5471,11 +5471,35 @@ ${HELP_GUIDE}`;
       <g class="teamo-eyes"><ellipse cx="25" cy="32.5" rx="3.1" ry="3.7" fill="#1e1b4b"/><ellipse cx="39" cy="32.5" rx="3.1" ry="3.7" fill="#1e1b4b"/><circle cx="26.1" cy="31.2" r="1" fill="#fff"/><circle cx="40.1" cy="31.2" r="1" fill="#fff"/></g>
       <path d="M26.5 40.2c3.2 3 7.8 3 11 0" stroke="#1e1b4b" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="20.2" cy="38.6" r="2.3" fill="#f9a8d4" opacity=".85"/><circle cx="43.8" cy="38.6" r="2.3" fill="#f9a8d4" opacity=".85"/></svg>`;
   }
+  // V3 · ce que Teamo sait des obligations : uniquement des données agrégées sur l'entreprise (RGPD).
+  // Jamais de nom, de salaire, ni de détail sur les obligations sensibles (handicap, signalements, référents, états des lieux individuels).
+  const HELP_SAFE = ['dpae', 'registre', 'duerp', 'affichages', 'medical', 'entretienpro', 'mutuelle', 'cse', 'formation1', 'mobilite', 'partage', 'cse50', 'nao', 'index', 'index5', 'ri', 'participation', 'restauration', 'penibilite', 'logement', 'pse', 'alternants', 'cssct', 'gepp', 'rixain'];
+  function helpCompliance() {
+    if (ui.profile !== 'rh' || ui.selfOf || !db.compliance) return '';
+    const st = effState(), obl = obligations(), next = SEUILS.find((n) => st.avg12 < n), safe = (x) => (HELP_SAFE.includes(x.k) ? (x.state.l.replace(/\s*·?\s*≈[^·]*€[^·]*/g, '').trim() || null) : null); // sans les montants estimés (ils révéleraient la masse salariale)
+    const stat = (x) => (x.on ? `${PILL_S[x.state.s][1]}${safe(x) ? ` (${safe(x)})` : ''}` : x.soon ? `à venir en ${monthLabel(x.soon.m).toLowerCase()} (${x.soon.why})` : 'non applicable');
+    const line = (x) => `- [${x.seuil || 'dès 1'}] ${x.title} · règle : ${RULE_LABEL[x.rule]} · ${stat(x)}`;
+    const concerned = obl.filter((x) => !x.seuil || st.avg12 >= x.seuil || x.on || x.soon);
+    return `OBLIGATIONS SELON L'EFFECTIF (données agrégées, calcul indicatif à faire valider par un professionnel du droit social)
+${st.sim ? `ATTENTION : simulation en cours (effectif simulé de ${fmtN(db.compliance.sim.n)}), pas les données réelles.
+` : ''}Effectif moyen sur 12 mois : ${fmtN(st.avg12)} (équivalent temps plein, hors alternants et stagiaires) · aujourd’hui : ${fmtN(st.now)}
+Effectifs moyens par année : ${Object.entries(st.years).map(([y, v]) => `${y} : ${v === null ? 'non renseigné' : fmtN(v)}`).join(' ; ')}
+Effectif prévu (arrivées et départs déjà connus) : ${st.proj.filter((x, i) => i % 3 === 2).map((x) => `${monthLabel(x.m).toLowerCase()} : ${fmtN(x.v)}`).join(' ; ')}
+Prochain seuil : ${next ? `${next} salariés${projCross(next, st) ? ` (prévu en ${monthLabel(projCross(next, st).m).toLowerCase()})` : ' (pas dans les 12 prochains mois)'}` : 'aucun'}
+Obligations qui concernent l'entreprise :
+${concerned.map(line).join('\n')}
+${next ? `Ce qui arrivera à ${next} salariés :
+${obl.filter((x) => x.seuil === next).map((x) => `- ${x.title} (${RULE_LABEL[x.rule]})`).join('\n')}
+` : ''}Alertes en cours : ${complianceTodo().filter((x) => !/^al/.test(x.k)).map((x) => { const o = obl.find((y) => y.k === x.k); return o ? `${x.l}${safe(o) ? ` (${safe(o)})` : ''}` : x.l; }).join(' ; ') || 'aucune'}
+Pour simuler une embauche : chaque salarié à temps plein en CDI ou CDD compte pour 1 (temps partiel au prorata) ; les alternants et stagiaires ne comptent pas.
+
+`;
+  }
   function helpContext() {
     const v = ui.view, title = v === 'etape' ? stageDef(ui.stage).title : (VIEW_LABELS[ui.profile] || {})[v] || v;
-    const targets = visibleStages().map((i) => [stageView(i), stageDef(i).short]).concat(ui.profile === 'rh' ? [['reporting', 'Reporting RH'], ['modeles', 'Modèles de documents']] : []).concat([['accueil', 'Accueil (roue)']]);
+    const targets = visibleStages().map((i) => [stageView(i), stageDef(i).short]).concat(ui.profile === 'rh' ? [['reporting', 'Reporting RH'], ['modeles', 'Modèles de documents'], ['obligations', 'Obligations selon l’effectif'], ['parametres', 'Paramètres']] : []).concat([['accueil', 'Accueil (roue)']]);
     const todo = todoItems().map((x) => `${x.name} : ${x.n}`).join(', ') || 'rien';
-    return `CONTEXTE DE L'ÉCRAN
+    return `${helpCompliance()}CONTEXTE DE L'ÉCRAN
 Profil : ${PROFILES[persona()].label}${ui.selfOf ? ' (dans son espace personnel)' : ''} · poste de l’utilisateur : ${me().title}
 Écran ouvert : ${title}${ui.modal ? ` (fenêtre ouverte : ${ui.modal.type})` : ''}${ui.drawer ? ' (une fiche est ouverte)' : ''}
 À traiter pour ce profil : ${todo}
@@ -5511,7 +5535,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
         ${s.turns.length ? '' : `<div class="help-sugg"><small>Pour commencer</small>${helpSuggestions().map((q) => `<button type="button" class="help-chip" data-help="ask" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`}
         <form class="help-form" data-help-form novalidate><label class="sr" for="help-q">Ta question à Teamo</label><textarea id="help-q" class="input" rows="1" maxlength="600" placeholder="Écris ta question à Teamo…" ${s.busy ? 'disabled' : ''}></textarea>
           ${s.busy ? `<button type="button" class="icon-btn help-send stop" data-help="stop" title="Arrêter" aria-label="Arrêter la réponse"><span class="sq"></span></button>` : `<button class="icon-btn help-send" title="Envoyer" aria-label="Envoyer">${ic('arrow')}</button>`}</form>
-        <p class="help-note">Teamo s’appuie sur Claude : ses réponses peuvent contenir des erreurs. Démo sur ton compte Claude ; aucune donnée de salarié n’est envoyée.</p></section>` : ''}`;
+        <p class="help-note">Teamo s’appuie sur Claude : ses réponses peuvent contenir des erreurs. Démo sur ton compte Claude.${ui.profile === 'rh' && !ui.selfOf ? ' Teamo voit l’écran ouvert, l’effectif et l’état des obligations, sans aucune donnée individuelle.' : ' Aucune donnée de salarié n’est envoyée.'}</p></section>` : ''}`;
     const log = document.getElementById('help-log'); if (log) log.scrollTop = log.scrollHeight;
   }
   async function helpAsk(q) {

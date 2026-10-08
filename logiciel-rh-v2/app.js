@@ -3311,7 +3311,7 @@
     const sec = (title, body) => `<h4 class="sub" style="margin-top:18px">${title}</h4>${body}`;
     // Le manager ne voit en embauche que l'avancement (les puces), sans le détail administratif.
     if (i === 3 && !rh) return '';
-    let html = `<p class="hint" style="margin:12px 0 0">${when} · ${esc(e.contract)} · ${esc(e.title)} · manager : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}${d.buddy ? ` · parrain : ${esc(fullName(emp(d.buddy)))}` : ''}</p>`;
+    let html = `<p class="hint" style="margin:12px 0 0">${when} · ${esc(e.contract)} · ${esc(e.title)} · manager : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}${d.buddy && emp(d.buddy) ? ` · parrain : ${esc(fullName(emp(d.buddy)))}` : d.buddy === 'none' ? ' · sans parrain' : ''}</p>`;
     if (i === 2) {
       if (rh) {
         const sel = (f, list, v) => `<select class="select" data-change="arr-civ" data-id="${e.id}" data-f="${f}" aria-label="${f}">${list.map((x) => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
@@ -3328,9 +3328,13 @@
           `<span class="pill ${st}">${c.status === 'Envoyé' ? 'En attente de signature' : c.status === 'Signé' ? `${ic('lock')}Signé${c.paper ? ' sur papier' : ''}` : c.status}${c.signedAt ? ` le ${fmtShort(c.signedAt)}` : ''}</span>${c.docId ? docBtn(db.documents.find((x) => x.id === c.docId), c.status === 'Signé' ? 'Voir le contrat signé' : 'Voir') : ''}
           ${c.status === 'À préparer' ? b('arr-contract', 'Générer le contrat', 'data-s="Prêt"', 'primary') : c.status === 'Prêt' ? b('arr-contract', 'Envoyer pour signature', 'data-s="Envoyé"') : c.status === 'Envoyé' ? b('arr-contract', 'Signé sur papier', 'data-s="Signé"') : ''}`));
       }
-      const buddies = db.employees.filter((x) => isEmployed(x) && x.id !== e.id && x.id !== e.managerId && (x.dept === e.dept || x.dept === 'RH'));
+      // Tout l'effectif présent peut parrainer (sauf la recrue et son manager), en commençant par son service ; « Pas de parrain » est un choix assumé.
+      const buddies = db.employees.filter((x) => isEmployed(x) && x.stage >= 4 && x.id !== e.id && x.id !== e.managerId).sort((a, z) => (z.dept === e.dept) - (a.dept === e.dept) || a.lastName.localeCompare(z.lastName, 'fr'));
+      const noBuddy = d.buddy === 'none', bd = d.buddy && emp(d.buddy), canB = can('manager');
       html += sec('Préparation de l’arrivée', PREP_TASKS.map(([k, l, o]) => row(l, OWNER[o], d.prep[k] ? ok(d.prep[k]) : can(o) ? b('arr-prep', 'Fait', `data-k="${k}"`) : pend('À faire', 'neutral'))).join('')
-        + row('Parrain ou marraine', 'Un collègue qui transmet les codes de l’équipe, distinct du manager', `<select class="select" data-change="arr-buddy" data-id="${e.id}" ${can('manager') ? '' : 'disabled'} aria-label="Parrain"><option value="">Choisir…</option>${buddies.map((x) => `<option value="${x.id}" ${x.id === d.buddy ? 'selected' : ''}>${esc(fullName(x))}</option>`).join('')}</select>`));
+        + row('Parrain ou marraine', 'Un collègue qui transmet les codes de l’équipe, distinct du manager', noBuddy ? `<span class="pill neutral">Pas de parrain</span>${canB ? `<button type="button" class="btn ghost sm" data-act="arr-buddy-set" data-id="${e.id}" data-v="">Changer</button>` : ''}`
+          : !canB ? (bd ? `<span class="pill ok">${esc(fullName(bd))}</span>` : pend('À désigner')) : `<div class="succ-pick"><select class="select" data-change="arr-buddy" data-id="${e.id}" aria-label="Parrain ou marraine"><option value="">Rechercher un salarié…</option>${buddies.map((x) => `<option value="${x.id}" ${x.id === d.buddy ? 'selected' : ''}>${esc(fullName(x))}</option>`).join('')}</select>
+            <label class="agree"><input type="checkbox" data-change="arr-buddy-none" data-id="${e.id}"> Pas de parrain</label></div>`));
       if (mgr) html += `<p class="hint" style="margin:10px 0 0">Les pièces du dossier et le contrat sont gérés par les RH.</p>`;
     }
     if (i === 3) {
@@ -3413,7 +3417,7 @@
       <div class="card"><div class="card-h"><h3>Où en est mon arrivée</h3></div><div class="card-b">${stepsList(arrivalSteps(e, 2), STAGES[2].steps, false)}</div></div>
       ${c.status === 'Envoyé' ? `<div class="card card-b callout"><b>${ic('edit')}Votre contrat de travail est prêt à signer</b><button type="button" class="btn primary sm" data-act="go" data-v="contrat">Signer mon contrat${ic('arrow')}</button></div>` : ''}
       ${card('Mes documents', `<span class="muted num" style="font-size:13px">${plural(reqDocs(e).filter(([k]) => d.docs[k]).length, 'pièce validée', 'pièces validées')} sur ${reqDocs(e).length}</span>`, `<div class="card-b"><p class="hint" style="margin:0 0 6px">Pièces demandées pour un contrat ${esc(e.contract)}. Les RH les vérifient et vous préviennent si l’une doit être redéposée.</p>${docs}</div>`)}
-      ${card('Mon premier jour', '', `<div class="card-b"><div class="info-grid"><div><span>Date et lieu</span>${fmtDate(e.startDate, { weekday: 'long', day: 'numeric', month: 'long' })} · ${esc(e.location)}</div><div><span>Manager</span>${mgr ? esc(fullName(mgr)) : '—'}</div><div><span>Parrain ou marraine</span>${buddy ? esc(fullName(buddy)) : 'Bientôt désigné'}</div><div><span>Contact RH</span>Olivia Bennett · rh@novastudio.fr</div></div>
+      ${card('Mon premier jour', '', `<div class="card-b"><div class="info-grid"><div><span>Date et lieu</span>${fmtDate(e.startDate, { weekday: 'long', day: 'numeric', month: 'long' })} · ${esc(e.location)}</div><div><span>Manager</span>${mgr ? esc(fullName(mgr)) : '—'}</div><div><span>Parrain ou marraine</span>${buddy ? esc(fullName(buddy)) : d.buddy === 'none' ? 'Pas de parrain prévu : ton manager t’accompagne' : 'Bientôt désigné'}</div><div><span>Contact RH</span>${esc(fullName(emp(db.settings.company.signataire) || emp('e1')))} · rh@${esc(COMPANY.domaine)}</div></div>
         <h4 class="sub" style="margin-top:16px">Au programme</h4>${first.map(([, l, day]) => `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${day ? `J+${day}` : 'Premier jour'}</small></div></div>`).join('') || '<p class="muted" style="margin:0">Le programme sera bientôt disponible.</p>'}</div>`)}</div>`;
   }
   function viewContrat() {
@@ -3496,6 +3500,7 @@
     'arr-assign'(d) { const e = arrE(d); dossier(e).assignedAt = TODAY; toast('Affectation confirmée'); commit(); },
     'arr-prev'(d) { dossier(arrE(d)).prevoyance = true; toast('Affiliation à la prévoyance enregistrée'); commit(); },
     'arr-vip'(d) { const e = arrE(d), date = addDays(e.startDate > TODAY ? e.startDate : TODAY, 21); db.visits.push({ id: uid('v'), empId: e.id, kind: "Visite d'information et de prévention", date, status: 'Planifiée', result: null }); notify(e.id, `Visite d’information et de prévention prévue le ${fmtDate(date)}.`); toast('Visite planifiée · visible dans Santé & QVT'); commit(); },
+    'arr-buddy-set'(d) { dossier(emp(d.id)).buddy = null; render(); setTimeout(() => { const q = document.querySelector('.succ-pick .emp-pick input'); if (q) q.focus(); }, 0); },
     'arr-plan'(d) { dossier(arrE(d)).plan[d.k] = TODAY; toast('Étape du programme terminée'); commit(); },
     'arr-trial'(d) { const e = arrE(d), x = dossier(e), doc = addDoc(e.id, 'essai'); ui.modal = { type: 'doc-edit', id: doc.id }; Object.assign(x, { trialDecision: 'Confirmée', trialDecisionAt: TODAY, trialDoc: doc.id }); notify(e.id, 'Votre période d’essai est confirmée : bienvenue définitivement chez ' + COMPANY.nom + ' !'); if (e.managerId) notify(e.managerId, `Période d’essai de ${fullName(e)} confirmée.`); toast('Période d’essai confirmée'); commit(); },
     'trial-renew'(d) { ui.modal = { type: 'trial-renew', id: d.id }; render(); },
@@ -3505,6 +3510,7 @@
     'arr-civ'(v, d) { const e = emp(d.id); e[d.f] = v === '—' ? null : v;
       if (d.f === 'nationality' && zoneOf(v) && zoneOf(v) !== e.zone) { e.zone = zoneOf(v); if (e.zone === 'Hors UE') toast('Nationalité hors UE, EEE et Suisse : titre de séjour autorisant à travailler ajouté aux pièces', 'info'); }
       commit(); },
+    'arr-buddy-none'(v, d, t) { if (!t.checked) return; dossier(emp(d.id)).buddy = 'none'; toast('Pas de parrain pour cette arrivée'); commit(); },
     'arr-buddy'(v, d) { const e = emp(d.id); dossier(e).buddy = v || null; if (v) notify(v, `Vous êtes le parrain ou la marraine de ${fullName(e)}, qui arrive le ${fmtDate(e.startDate)}.`); toast(v ? 'Parrain désigné' : 'Parrain retiré'); commit(); },
     'arr-mutuelle'(v, d) { dossier(emp(d.id)).mutuelle = v || null; toast('Mutuelle enregistrée'); commit(); },
     // Dépôt d'une pièce par la recrue : le fichier est gardé dans ce navigateur s'il est léger (aperçu), sinon seul son nom l'est.

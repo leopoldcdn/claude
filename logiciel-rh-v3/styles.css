@@ -1077,3 +1077,4 @@ body:has(.help-panel) .toasts { right: 440px; }
 .eff-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .obl-ix td small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; margin-top: 2px; }
 .obl-tabs .tabs { flex-wrap: wrap; overflow: visible; row-gap: 0; }
+.fin-grid { display: grid; grid-template-columns: 70px minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; align-items: center; max-width: 640px; } .fin-grid .lbl { margin: 0; }

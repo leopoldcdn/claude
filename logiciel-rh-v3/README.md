@@ -30,6 +30,18 @@
   aucun nom, aucun salaire ni montant estimé (qui révélerait la masse salariale), aucun détail sur le handicap, les
   signalements, les référents ou les états des lieux individuels. Une mention dans la fenêtre de Teamo l'indique.
 
+- **Toutes les conventions collectives** (Paramètres > Convention et assistant de démarrage) : champ de recherche parmi
+  673 conventions (nom, mot-clé sans accents ou numéro IDCC), plus « Aucune convention : Code du travail ». La liste vient
+  de `conventions.js`, extrait du jeu de données KALI de SocialGouv (`@socialgouv/kali-data`, licence Apache-2.0, dernière
+  liste complète publiée) ; à remplacer en production par l'API officielle, avec proposition de la convention à partir du
+  SIRET (`siret2idcc` / API Recherche d'entreprises). Le nom et l'IDCC apparaissent dans les contrats, la fiche de paie et
+  les documents. Syntec (IDCC 1486) garde ses règles intégrées. Pour toute autre convention, Teamora applique les minima du
+  Code du travail et affiche « Règles de la convention à vérifier », jusqu'à ce que la RH saisisse dans le panneau
+  « Règles de la convention » la période d'essai (par catégorie, renouvellement), les préavis de démission et de
+  licenciement (le plus favorable au salarié est retenu) et l'ancienneté requise pour le maintien de salaire (12 mois au
+  plus), puis coche « J'ai vérifié ces règles ». Ces règles alimentent la période d'essai, les préavis, la paie
+  (maintien de salaire) et la jauge « Espace prêt ». Sans convention, l'essai n'est pas renouvelable.
+
 ### Les obligations, seuil par seuil
 - **Dès le 1er salarié** : DPAE, registre, suivi médical (déjà en place) ; DUERP avec alerte de mise à jour annuelle à
   partir de 11 ; liste des 10 affichages obligatoires ; complémentaire santé (contrôle des 50 %) ; entretien de parcours
@@ -51,7 +63,7 @@
 - **1 000** : écarts femmes-hommes parmi les cadres dirigeants (loi Rixain).
 
 ### À faire valider
-Les règles de calcul (exclusions, prorata, règle des 5 ans), les barèmes (index, heures de délégation, contribution
+Les règles de calcul (exclusions, prorata, règle des 5 ans), les règles saisies par convention, les barèmes (index, heures de délégation, contribution
 handicap) et les échéances sont des approximations à faire valider par un professionnel du droit social avant toute
 commercialisation. Les contributions sont des estimations : le calcul exact reste celui du prestataire de paie.
 

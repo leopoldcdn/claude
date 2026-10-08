@@ -276,14 +276,14 @@
     const x = payExtra(m, e.id), pr = payrollOf(m), d = dossierLight(e);
     const bonus = Number(pr.bonus[e.id] || 0), ppv = Number((pr.ppv || {})[e.id] || 0);
     const ot = overtimePay(Object.assign({}, e, { salary: sal }), m), abs = absencesOf(e, m);
-    // Absences : retenue, indemnités journalières (50 % du salaire journalier, après 3 jours de carence) et maintien Syntec après 1 an d'ancienneté.
-    const daily = monthly / wd, ijDay = Math.min((sal / 365) * 0.5, (1.8 * SMIC_M * 3 / 91.25) * 0.5), senior = dayDiff(e.startDate, start) >= 365;
+    // Absences : retenue, indemnités journalières (50 % du salaire journalier, après 3 jours de carence) et maintien de salaire après l'ancienneté prévue par la convention (1 an au plus).
+    const daily = monthly / wd, ijDay = Math.min((sal / 365) * 0.5, (1.8 * SMIC_M * 3 / 91.25) * 0.5), senior = start >= addMonths(e.startDate, CONV().rules.maintien);
     const earn = [[quot < 1 ? `Salaire de base · temps partiel ${Math.round(quot * 100)} %` : 'Salaire de base', e.category === 'Cadre' ? `Forfait ${Math.round(218 * quot)} jours` : `${String(Math.round(HOURS_M * quot * 100) / 100).replace('.', ',')} h`, '', base]];
     let ij = 0;
     abs.sick.forEach((s) => {
       const ret = daily * s.work, ijs = ijDay * s.paid; ij += s.l.subrogation ? ijs : 0;
       earn.push([`Absence ${{ Maladie: 'maladie', 'Accident du travail': 'accident du travail', Maternité: 'congé de maternité', 'Paternité et accueil de l’enfant': 'congé de paternité' }[s.l.type] || 'maladie'} du ${fmtShort(s.from)} au ${fmtShort(s.to)}`, `${plural(s.work, 'jour', 'jours')}`, '', -ret]);
-      if (senior) earn.push([`Complément employeur (maintien de salaire ${CONV().short})`, '', '', Math.max(0, ret - ijs)]);
+      if (senior) earn.push([`Complément employeur (maintien de salaire${CONV().kind === 'code' ? ' légal' : ` ${CONV().short}`})`, '', '', Math.max(0, ret - ijs)]);
     });
     if (abs.unpaid) earn.push(['Absence non rémunérée (sans solde, congé parental, enfant malade)', `${plural(abs.unpaid, 'jour', 'jours')}`, '', -daily * abs.unpaid]);
     if (ot.amount) earn.push([`Heures supplémentaires (${fmtH(ot.h25)} à 25 %${ot.h50 ? `, ${fmtH(ot.h50)} à 50 %` : ''})`, fmtH(ot.h25 + ot.h50), '', ot.amount]);
@@ -946,17 +946,29 @@
   const MOD_ACT = {}, MOD_CHG = {}, MOD_FORMS = {}, MODALS = {}, DRAWERS = {}, MOD_LIVE = {}, MOD_INP = {};
   // ================================================================ V2 · Paramètres de l'entreprise et assistant de démarrage
   // Tout ce qui était propre à Nova Studio (identité, convention, sites, services, règles de temps et de paie…) vit dans db.settings.
-  const CONVENTIONS = {
-    syntec: { short: 'Syntec', label: 'Syntec — bureaux d’études techniques, ingénieurs-conseils, sociétés de conseil (IDCC 1486)', idcc: 'Syntec (IDCC 1486)', convention: 'nationale des bureaux d’études techniques (Syntec)',
-      presets: ['Période d’essai : 2 mois (employés), 3 mois (agents de maîtrise), 4 mois (cadres), renouvelable une fois', 'Préavis : 1 à 2 mois (ETAM selon l’ancienneté), 3 mois (cadres)', 'Maintien de salaire en cas de maladie après 1 an d’ancienneté', 'Classifications ETAM et cadres (positions et coefficients)'] },
-    code: { short: 'Code du travail', label: 'Aucune convention collective — règles du Code du travail', idcc: 'Aucune (Code du travail)', convention: 'du Code du travail (aucune convention collective applicable)',
-      presets: ['Période d’essai : durées maximales légales (2, 3 ou 4 mois selon la catégorie)', 'Préavis de licenciement légal : 1 mois de 6 mois à 2 ans d’ancienneté, 2 mois au-delà ; démission selon l’usage', 'Maintien de salaire légal (art. L1226-1) après 1 an d’ancienneté, à partir du 8e jour', 'Classifications à définir par l’entreprise'] },
-  };
-  const CONV = () => CONVENTIONS[(db.settings || {}).convention] || CONVENTIONS.syntec;
+  // V3 : toutes les conventions collectives (liste IDCC de conventions.js). Syntec garde ses règles intégrées ;
+  // pour les autres, les minima du Code du travail s'appliquent tant que la RH n'a pas saisi les règles de la convention.
+  const CONV_SYNTEC = '1486', CODE_RULES = { essaiE: 2, essaiAM: 3, essaiC: 4, renouv: false, demNC: 1, demC: 1, licNC: 0, licC: 0, maintien: 12 };
+  const CONV_LIST = () => window.TEAMORA_CONVENTIONS || [];
+  const convRow = (n) => CONV_LIST().find((x) => x[0] === n);
+  const convName = (t) => (/^convention collective\s+/i.test(t) ? t.replace(/^convention collective\s+/i, '') : `« ${t} »`);
+  const convRules = (s, n) => { const r = s.convRules; return r && r.idcc === n ? Object.assign({}, CODE_RULES, r) : Object.assign({}, CODE_RULES, { ok: false }); };
+  function convOf(n, s = db.settings || {}) {
+    if (!n || n === 'code') return { key: 'code', kind: 'code', idcc: '', short: 'Code du travail', label: 'Aucune convention collective : règles du Code du travail', idccLabel: 'Aucune (Code du travail)', convention: 'du Code du travail (aucune convention collective applicable)', mention: 'règles du Code du travail (aucune convention collective)',
+      rules: Object.assign({}, CODE_RULES), ok: true,
+      presets: ['Période d’essai : durées maximales légales (2, 3 ou 4 mois selon la catégorie), sans renouvellement', 'Préavis de licenciement légal : 1 mois de 6 mois à 2 ans d’ancienneté, 2 mois au-delà ; démission selon l’usage', 'Maintien de salaire légal (art. L1226-1) après 1 an d’ancienneté, à partir du 8e jour', 'Classifications à définir par l’entreprise'] };
+    if (n === CONV_SYNTEC) return { key: n, kind: 'syntec', idcc: n, short: 'Syntec', label: 'Syntec : bureaux d’études techniques, ingénieurs-conseils, sociétés de conseil (IDCC 1486)', idccLabel: 'Syntec (IDCC 1486)', convention: 'nationale des bureaux d’études techniques (Syntec, IDCC 1486)', mention: 'convention collective Syntec (IDCC 1486)',
+      rules: { essaiE: 2, essaiAM: 3, essaiC: 4, renouv: true, maintien: 12 }, ok: true,
+      presets: ['Période d’essai : 2 mois (employés), 3 mois (agents de maîtrise), 4 mois (cadres), renouvelable une fois', 'Préavis : 1 à 2 mois (ETAM selon l’ancienneté), 3 mois (cadres)', 'Maintien de salaire en cas de maladie après 1 an d’ancienneté', 'Classifications ETAM et cadres (positions et coefficients)'] };
+    const row = convRow(n) || [n, `Convention IDCC ${n}`, `Convention collective IDCC ${n}`], rules = convRules(s, n);
+    return { key: n, kind: 'other', idcc: n, short: row[1], label: `${row[1]} (IDCC ${n})`, idccLabel: `${row[1]} (IDCC ${n})`, convention: `${convName(row[2])} (IDCC ${n})`, mention: `convention collective ${row[1]} (IDCC ${n})`, title: row[2],
+      rules, ok: !!rules.ok, presets: [] };
+  }
+  const CONV = () => convOf((db.settings || {}).convention);
   const LEAVE_OPTIONAL = ['RTT', 'Sans solde', 'Télétravail'];
   function defaultSettings() {
     return { company: { nom: 'Nova Studio', raison: 'Nova Studio SAS', adresse: '12 rue de la Paix', cp: '75002', ville: 'Paris', siret: '000 000 000 00000', naf: '7410Z · Activités spécialisées de design', urssaf: 'Urssaf Île-de-France', domaine: 'novastudio.fr', logo: null, signataire: 'e1' },
-      convention: 'syntec', directionId: 'e5',
+      convention: '1486', convRules: null, directionId: 'e5',
       sites: [{ id: 's1', nom: 'Paris', adresse: '12 rue de la Paix, 75002 Paris', transport: 88.8 }, { id: 's2', nom: 'Lyon', adresse: '24 quai Saint-Antoine, 69002 Lyon', transport: 74.7 }],
       services: [['Direction', 'e5'], ['RH', 'e1'], ['Design', 'e2'], ['Tech', 'e6'], ['Marketing', 'e7'], ['Sales', 'e8'], ['Finance', 'e9']].map(([nom, head]) => ({ nom, head })),
       temps: { heures: 35, forfait: 218, ttMax: 2 }, conges: { decompte: 'ouvrés', off: [], backup: true },
@@ -974,7 +986,7 @@
   function applySettings() {
     const s = db.settings, c = s.company, cv = CONV();
     Object.assign(COMPANY, { nom: c.nom || 'Mon entreprise', entreprise: c.raison || c.nom || 'Mon entreprise', entreprise_adresse: [c.adresse, [c.cp, c.ville].filter(Boolean).join(' ')].filter(Boolean).join(', '), siret: c.siret || '—', convention: cv.convention, ville: c.ville || '', domaine: c.domaine || 'entreprise.fr', logo: c.logo || null });
-    Object.assign(COMPANY_PAY, { naf: c.naf || '—', urssaf: c.urssaf || '—', idcc: cv.idcc });
+    Object.assign(COMPANY_PAY, { naf: c.naf || '—', urssaf: c.urssaf || '—', idcc: cv.idccLabel });
     DEPTS.splice(0, DEPTS.length, ...s.services.map((x) => x.nom)); Object.keys(DEPT_HEAD).forEach((k) => delete DEPT_HEAD[k]); s.services.forEach((x) => { DEPT_HEAD[x.nom] = x.head || DIR_ID(); });
     Object.keys(TRANSPORT).forEach((k) => delete TRANSPORT[k]); s.sites.forEach((x) => { TRANSPORT[x.nom] = Number(x.transport) || 0; });
     ({ trValeur: TR_VALUE, trEmployeur: TR_EMPLOYER, mutSal: MUT_S, mutEmp: MUT_P, ttJour: TT_DAY, cloture: PAY_CUTOFF } = s.paie); PROVIDER = s.paie.prestataire || 'prestataire de paie'; TT_ALLOW_MAX = Math.round(TT_DAY * 22 * 100) / 100;
@@ -990,13 +1002,14 @@
     ['company', 'temps', 'conges', 'paie', 'recrutement', 'droits'].forEach((k) => { db.settings[k] = Object.assign({}, d[k], db.settings[k]); });
     ['effectifs', 'finances'].forEach((k) => { if (!db.settings[k] || typeof db.settings[k] !== 'object') db.settings[k] = d[k]; });
     ['sites', 'services'].forEach((k) => { if (!Array.isArray(db.settings[k])) db.settings[k] = d[k]; });
+    if (db.settings.convention !== 'code' && !/^\d{4}$/.test(db.settings.convention || '')) db.settings.convention = '1486'; // V2 : « syntec »
     db.employees.forEach((e) => { if (e.id === 'e1') e.admin = true; });
   }
   // ---- Complétude : ce qu'il reste à régler pour que Teamora fonctionne pleinement.
   function setupChecks() {
     const s = db.settings, c = s.company, emps = db.employees.filter((e) => e.stage < 15);
     return [['entreprise', 'Identité de l’entreprise (nom, raison sociale, adresse, SIRET, NAF, Urssaf)', !!(c.nom && c.raison && c.adresse && c.ville && sirenDigits(c.siret).length === 14 && c.naf && c.urssaf)],
-      ['entreprise', 'Logo de l’entreprise (documents)', !!c.logo], ['convention', 'Convention collective et temps de travail', !!s.convention],
+      ['entreprise', 'Logo de l’entreprise (documents)', !!c.logo], ['convention', 'Convention collective et temps de travail', !!s.convention], ...(CONV().kind === 'other' ? [['convention', 'Règles de la convention collective vérifiées (essai, préavis, maintien de salaire)', CONV().ok]] : []),
       ['sites', 'Au moins un site', s.sites.length > 0], ['services', 'Services avec un responsable', s.services.length > 0 && s.services.every((x) => x.head && emp(x.head))],
       ['services', 'Direction désignée', !!emp(s.directionId)], ['services', 'Responsables cohérents avec l’organigramme', !orgIssues().length], ['import', 'Collaborateurs enregistrés (au moins 2)', emps.length >= 2],
       ['utilisateurs', 'Au moins un administrateur RH', db.employees.some((e) => e.admin && e.stage < 15)], ['paie', 'Prestataire de paie et règles de paie', !!s.paie.prestataire]];
@@ -1008,6 +1021,24 @@
   const fld = (id, label, input, full, hint) => `<div class="field${full ? ' full' : ''}"><label for="${id}">${label}</label>${input}${hint ? `<small class="field-hint">${hint}</small>` : ''}</div>`;
   const inp = (id, name, val, attrs = '') => `<input id="${id}" name="${name}" class="input" value="${esc(val == null ? '' : String(val))}" ${attrs}>`;
   const empOpt = (cur, list, none) => `${none ? `<option value="">${none}</option>` : ''}${list.map((e) => `<option value="${e.id}" ${e.id === cur ? 'selected' : ''}>${esc(fullName(e))} · ${esc(e.title)}</option>`).join('')}`;
+  // Règles de la convention choisie : rappel pour Syntec et le Code du travail, saisie manuelle pour les autres conventions.
+  function convInfo(cv) {
+    if (cv.kind !== 'other') return `<div class="conv-card"><b>${esc(cv.label)}</b><ul>${cv.presets.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></div>
+      <p class="hint" style="margin:8px 0 14px">Teamora applique ces règles (essai, préavis, maintien de salaire) ; elles restent ajustables plus favorablement au salarié, jamais en dessous du minimum. Convention choisie : <b id="conv-cur">${esc(cv.short)}</b>.</p>`;
+    const r = cv.rules, n = (id, name, label, max) => `<input id="${id}" name="${name}" class="input num" type="number" min="0" max="${max}" step="1" value="${esc(String(r[name]))}" aria-label="${label}">`;
+    const row = (t, hint, cells) => `<tr><th scope="row">${t}<small>${hint}</small></th>${cells}</tr>`;
+    return `<div class="conv-card"><b>${esc(cv.short)} · IDCC ${cv.idcc}</b><small class="muted">${esc(cv.title)}</small>
+        <div class="conv-warn ${cv.ok ? 'ok' : ''}">${ic(cv.ok ? 'check' : 'bell')}${cv.ok ? 'Règles de la convention vérifiées et saisies par l’entreprise.' : 'Règles de la convention à vérifier : Teamora applique en attendant les minima du Code du travail.'}</div></div>
+      <div class="conv-rules"><h4>Règles de la convention</h4><p class="hint" style="margin:0 0 10px">À reprendre du texte de la convention (Légifrance ou avenants de la branche), en mois. Préavis de licenciement : 0 = minimum légal ; Teamora retient toujours le plus favorable au salarié.</p>
+        <table class="conv-tbl"><thead><tr><th></th><th scope="col">Employés, ouvriers</th><th scope="col">Agents de maîtrise</th><th scope="col">Cadres</th></tr></thead><tbody>
+          ${row('Période d’essai', 'Légal : 2, 3 et 4 mois au plus', `<td>${n('cr-e', 'essaiE', 'Essai employés et ouvriers (mois)', 8)}</td><td>${n('cr-am', 'essaiAM', 'Essai agents de maîtrise (mois)', 8)}</td><td>${n('cr-c', 'essaiC', 'Essai cadres (mois)', 8)}</td>`)}
+          ${row('Préavis de démission', 'Non-cadres, puis cadres · aucun minimum légal', `<td colspan="2">${n('cr-dn', 'demNC', 'Préavis de démission non-cadres (mois)', 6)}</td><td>${n('cr-dc', 'demC', 'Préavis de démission cadres (mois)', 6)}</td>`)}
+          ${row('Préavis de licenciement', 'Non-cadres, puis cadres · légal : 1 mois de 6 mois à 2 ans, 2 mois au-delà', `<td colspan="2">${n('cr-ln', 'licNC', 'Préavis de licenciement non-cadres (mois)', 6)}</td><td>${n('cr-lc', 'licC', 'Préavis de licenciement cadres (mois)', 6)}</td>`)}
+          ${row('Maintien de salaire', 'Ancienneté requise ; légal : 12 mois au plus', `<td colspan="3">${n('cr-m', 'maintien', 'Maintien de salaire : ancienneté requise (mois)', 12)}</td>`)}
+          ${row('Renouvellement de l’essai', 'Seulement si un accord de branche étendu le prévoit', `<td colspan="3"><label class="agree"><input type="checkbox" name="renouv" value="1" ${r.renouv ? 'checked' : ''}>Prévu par la convention</label></td>`)}
+        </tbody></table>
+        <label class="agree" style="margin-top:10px"><input type="checkbox" name="convOk" value="1" ${cv.ok ? 'checked' : ''}>J’ai vérifié ces règles dans le texte de la convention</label></div>`;
+  }
   function setSection(k, wiz) {
     const s = db.settings, c = s.company, people = db.employees.filter((e) => e.stage < 15).sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr'));
     if (k === 'entreprise') return `<div class="form-grid">${fld('st-nom', 'Nom d’usage', inp('st-nom', 'nom', c.nom, 'maxlength="60" required'), false, 'Affiché dans Teamora et les courriers')}${fld('st-raison', 'Raison sociale', inp('st-raison', 'raison', c.raison, 'maxlength="80"'), false, 'Ex. Nova Studio SAS')}
@@ -1017,9 +1048,10 @@
       ${wiz ? '' : fld('st-sign', 'Signataire des documents', `<select id="st-sign" name="signataire" class="select">${empOpt(c.signataire, people)}</select>`, false, 'Apparaît dans les contrats et attestations')}
       <div class="field full"><span class="lbl">Logo</span><div class="logo-row">${c.logo ? `<img class="logo-prev" src="${c.logo}" alt="Logo de l’entreprise">` : '<span class="logo-prev empty">Aucun logo</span>'}<label class="btn ghost sm upload">${ic('image')}${c.logo ? 'Remplacer' : 'Ajouter un logo'}<input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" data-change="set-logo" aria-label="Logo de l’entreprise"></label>${c.logo ? '<button type="button" class="btn ghost sm" data-act="set-logo-del">Retirer</button>' : ''}</div><small class="field-hint">En tête des documents (contrats, attestations, certificats)</small></div></div>${effFields()}`;
     if (k === 'convention') { const cv = CONV();
-      return `<div class="conv-pick">${Object.entries(CONVENTIONS).map(([key, x]) => `<label class="conv-opt ${s.convention === key ? 'on' : ''}"><input type="radio" name="convention" value="${key}" ${s.convention === key ? 'checked' : ''} data-change="set-conv"><b>${x.label}</b><ul>${x.presets.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></label>`).join('')}</div>
-        <p class="hint" style="margin:8px 0 14px">La convention préremplit les règles ci-dessus ; elles restent ajustables plus favorablement au salarié, jamais en dessous du minimum. Convention choisie : <b id="conv-cur">${esc(cv.short)}</b>.</p>
-        <div class="form-grid">${fld('st-h', 'Durée hebdomadaire collective (heures)', inp('st-h', 'heures', s.temps.heures, 'type="number" min="1" max="48" step="0.5"'), false, 'Durée légale : 35 h ; maximum absolu : 48 h')}${fld('st-fj', 'Forfait annuel en jours (cadres)', inp('st-fj', 'forfait', s.temps.forfait, 'type="number" min="100" max="218"'), false, 'Au plus 218 jours (art. L3121-64)')}
+      return `<div class="field full conv-search"><label for="st-conv">Convention collective applicable</label><select id="st-conv" name="convention" class="select" data-search="1" data-placeholder="Rechercher par nom, mot-clé ou numéro IDCC…" data-change="set-conv"><option value="" ${cv.kind === 'code' ? 'selected' : ''}>Aucune convention : Code du travail</option>${CONV_LIST().map((x) => `<option value="${x[0]}" data-sub="IDCC ${x[0]} · ${esc(x[2])}" ${cv.idcc === x[0] ? 'selected' : ''}>${esc(x[1])}</option>`).join('')}</select>
+        <small class="field-hint">${CONV_LIST().length} conventions (liste Légifrance). Le numéro IDCC figure sur les bulletins de paie ; en production, il sera proposé à partir du SIRET.</small></div>
+        <div id="conv-info">${convInfo(cv)}</div>
+      <div class="form-grid">${fld('st-h', 'Durée hebdomadaire collective (heures)', inp('st-h', 'heures', s.temps.heures, 'type="number" min="1" max="48" step="0.5"'), false, 'Durée légale : 35 h ; maximum absolu : 48 h')}${fld('st-fj', 'Forfait annuel en jours (cadres)', inp('st-fj', 'forfait', s.temps.forfait, 'type="number" min="100" max="218"'), false, 'Au plus 218 jours (art. L3121-64)')}
           ${fld('st-tt', 'Télétravail : jours maximum par semaine', inp('st-tt', 'ttMax', s.temps.ttMax, 'type="number" min="0" max="5"'), false, 'Selon la charte ou l’accord télétravail')}</div>`; }
     if (k === 'sites') return `<div class="set-list">${s.sites.map((x, i) => `<div class="set-row"><div class="form-grid">${fld(`st-sn${i}`, 'Nom du site', inp(`st-sn${i}`, `nom_${i}`, x.nom, 'maxlength="40"'))}${fld(`st-sa${i}`, 'Adresse', inp(`st-sa${i}`, `adresse_${i}`, x.adresse, 'maxlength="120"'))}
         ${fld(`st-st${i}`, 'Abonnement transport mensuel (€)', inp(`st-st${i}`, `transport_${i}`, x.transport, 'type="number" min="0" step="0.1"'), false, 'L’employeur en rembourse 50 %')}</div><input type="hidden" name="id_${i}" value="${x.id}">
@@ -1123,7 +1155,13 @@
     if (k === 'convention') { const h = num(v.heures), f = num(v.forfait), t = num(v.ttMax);
       if (!(h >= 1 && h <= 48)) errs.push('La durée hebdomadaire doit être comprise entre 1 et 48 heures (maximum légal).'); else if (h > 35) warns.push(`Au-delà de 35 h, les ${h - 35} h par semaine sont des heures supplémentaires majorées.`);
       if (!(f >= 100 && f <= 218)) errs.push('Le forfait annuel ne peut pas dépasser 218 jours (art. L3121-64).'); if (!(t >= 0 && t <= 5)) errs.push('Le télétravail est compris entre 0 et 5 jours par semaine.');
-      if (!errs.length) Object.assign(s, { convention: v.convention || s.convention, temps: { heures: h, forfait: f, ttMax: t } }); }
+      const key = v.convention === undefined ? s.convention : (v.convention || 'code'), rules = {};
+      if (key !== 'code' && key !== CONV_SYNTEC && v.essaiE !== undefined) {
+        ['essaiE', 'essaiAM', 'essaiC', 'demNC', 'demC', 'licNC', 'licC', 'maintien'].forEach((x) => { rules[x] = num(v[x] || 0); if (!(rules[x] >= 0) || !Number.isInteger(rules[x])) { const m = 'Les règles de la convention sont des nombres entiers de mois, positifs.'; if (!errs.includes(m)) errs.push(m); } });
+        if (rules.maintien > 12) errs.push('Le maintien de salaire ne peut pas exiger plus d’un an d’ancienneté (art. L1226-1).');
+        [['essaiE', 2, 'employés'], ['essaiAM', 3, 'agents de maîtrise'], ['essaiC', 4, 'cadres']].forEach(([x, m, l]) => { if (rules[x] > m) warns.push(`Essai ${l} au-delà de ${m} mois : possible seulement si la convention date d’avant le 26 juin 2008 (à vérifier).`); });
+        Object.assign(rules, { idcc: key, renouv: !!v.renouv, ok: !!v.convOk }); }
+      if (!errs.length) Object.assign(s, { convention: key, temps: { heures: h, forfait: f, ttMax: t } }, rules.idcc ? { convRules: rules } : {}); }
     if (k === 'sites') { const list = []; Object.keys(v).filter((x) => x.startsWith('nom_')).forEach((x) => { const i = x.slice(4); list.push({ id: v[`id_${i}`] || uid('s'), nom: v[x].trim(), adresse: (v[`adresse_${i}`] || '').trim(), transport: num(v[`transport_${i}`]) || 0 }); });
       if (!list.length) errs.push('Il faut au moins un site.'); if (list.some((x) => !x.nom)) errs.push('Chaque site a un nom.'); if (new Set(list.map((x) => x.nom.toLowerCase())).size < list.length) errs.push('Deux sites portent le même nom.');
       if (list.some((x) => x.transport < 0)) errs.push('Le prix d’un abonnement ne peut pas être négatif.');
@@ -1222,7 +1260,7 @@
       if (src.length > 400000) { toast(/svg/.test(src) ? 'Ce SVG est trop lourd (plus de 300 Ko) : exporte le logo en PNG.' : 'Logo trop lourd même après réduction : choisis une autre image.', 'info'); return; }
       db.settings.company.logo = src; applySettings(); db.settingsLog.unshift({ at: TODAY, by: me() ? me().id : 'e1', section: 'Entreprise', changes: ['Logo modifié'] }); toast('Logo enregistré'); commit(); } catch (e) { toast(e.message, 'info'); } },
     // Aperçu immédiat du choix (enregistré avec le formulaire).
-    'set-conv'(v) { document.querySelectorAll('.conv-opt').forEach((el) => el.classList.toggle('on', el.querySelector('input').checked)); const c = document.getElementById('conv-cur'); if (c) c.textContent = (CONVENTIONS[v] || CONV()).short; },
+    'set-conv'(v) { const box = document.getElementById('conv-info'); if (box) box.innerHTML = convInfo(convOf(v || 'code')); },
     'set-import-file'(v, d, t) { const f = t.files && t.files[0]; if (!f) return; const fr = new FileReader(); fr.onload = () => { ui.importText = String(fr.result || ''); render(); }; fr.readAsText(f, 'utf-8'); },
   });
   Object.assign(MOD_FORMS, {
@@ -1639,7 +1677,7 @@
         <p class="hint" style="margin:8px 0 0">Ces montants sont des estimations : ils sont transmis à votre prestataire de paie (${esc(PROVIDER)}), qui les calcule sur les bulletins.${Object.keys(fin).length ? '' : ' Chiffre d’affaires et résultat à renseigner dans Paramètres > Entreprise pour le partage de la valeur.'}</p></div>`)}`;
   }
   Object.assign(MOD_ACT, {
-    'obl-go'(d) { ui.oblTab = d.t; ui.modal = null; if (ui.view !== 'obligations') { ui.view = 'obligations'; ui.stage = null; } window.scrollTo(0, 0); render(); },
+    'obl-go'(d) { if (d.t === 'param') { Object.assign(ui, { modal: null, view: 'parametres', stage: null, setSec: 'convention' }); window.scrollTo(0, 0); render(); return; } ui.oblTab = d.t; ui.modal = null; if (ui.view !== 'obligations') { ui.view = 'obligations'; ui.stage = null; } window.scrollTo(0, 0); render(); },
     'obl-view'(d) { ui.modal = null; if (d.s) ui.setSec = d.s; if (d.v === 'parametres' || d.v === 'modeles' || d.v === 'reporting' || d.v === 'obligations') { ACT.go({ v: d.v }); return; } const i = visibleStages().find((x) => stageView(x) === d.v); if (i !== undefined) ACT.stage({ i }); else ACT.go({ v: 'accueil' }); },
     'obl-sim'() { const n = Number((document.getElementById('obl-sim-n') || {}).value), since = (document.getElementById('obl-sim-s') || {}).value || '5ans'; if (!(n >= 1)) { toast('Indique un effectif à simuler.', 'info'); return; } db.compliance.sim = { n, since }; toast(`Simulation : ${n} salariés`); save(); render(); },
     'obl-sim-off'() { db.compliance.sim = null; toast('Simulation arrêtée'); save(); render(); },
@@ -1700,7 +1738,7 @@
     ['Organisation', [['Arrivées et Départs regroupés', 'Pré-embauche, embauche et intégration forment un seul dossier par recrue, en onglets ; idem pour les trois temps du départ. La roue passe de 16 à 12 rubriques.', 'arrivees'],
       ['Liste « À traiter »', 'Un bouton en haut rassemble tout ce qui t’attend, rubrique par rubrique et personne par personne.', null],
       ['Teamo, l’assistant', 'Bouton « Teamo » en bas à droite : pose tes questions sur l’utilisation de Teamora ; Teamo (propulsé par Claude) tient compte de l’écran ouvert et propose un lien vers la bonne rubrique. Disponible sur la page publiée.', null],
-      ['Paramètres de l’entreprise', 'Pictogramme engrenage (RH) : identité et logo, convention (Syntec ou Code du travail), temps de travail, sites, services et Direction, import des collaborateurs (CSV), administrateurs et droits, absences, paie, recrutement. Garde-fous légaux et historique des modifications.', 'parametres'],
+      ['Paramètres de l’entreprise', 'Pictogramme engrenage (RH) : identité et logo, convention collective (recherche parmi toutes les conventions par nom ou IDCC, règles à saisir hors Syntec), temps de travail, sites, services et Direction, import des collaborateurs (CSV), administrateurs et droits, absences, paie, recrutement. Garde-fous légaux et historique des modifications.', 'parametres'],
       ['Installation d’une nouvelle entreprise', 'En bas de page, « Tester l’installation » ouvre une entreprise vierge et son assistant de démarrage en 8 étapes ; la démo Nova Studio reste disponible.', null],
       ['Barre du haut allégée', 'Modèles et Reporting restent dans le bandeau de gauche ; la barre du haut garde le profil, l’espace, « À traiter » et les notifications.', null]]],
     ['Arrivée', [['Statuts réels', '« Arrivée le … », « Essai jusqu’au … », « En intégration », « En poste », « Départ le … · motif » remplacent les libellés génériques.', 'collaborateurs'],
@@ -1721,6 +1759,7 @@
       ['Obligations selon l’effectif', 'Pictogramme dans le bandeau (RH) : chaque obligation avec son seuil, sa règle de franchissement (immédiat, 12 mois consécutifs, 5 ans), son état et l’écran où la traiter.', 'apercu'],
       ['Alertes', 'Seuil qui approche, obligation qui entre en vigueur (notification aux RH et à la Direction), échéances : elles arrivent dans « À traiter ».', 'apercu'],
       ['Simulation', 'Pour la démo : simuler un effectif (60, 300, 1 200…) et voir le logiciel s’adapter.', 'apercu']]],
+    ['Paramètres', [['Toutes les conventions collectives', 'Recherche parmi 673 conventions par nom ou numéro IDCC (Paramètres > Convention). Hors Syntec, les minima du Code du travail s’appliquent jusqu’à la saisie des règles de la convention (essai, préavis, maintien de salaire).', 'param']]],
     ['Nouveaux écrans', [['Dialogue social', 'Élections du CSE pas à pas (délais légaux, carence), élus, réunions, heures de délégation ; à 50 : consultations, budgets, BDESE, délégué syndical et négociations ; à 300 : commissions.', 'social'],
       ['Index égalité', 'Calcul indicatif à 4 ou 5 indicateurs selon l’effectif, publication avant le 1er mars.', 'index'],
       ['Travailleurs handicapés', 'Taux d’emploi, bénéficiaires (données réservées aux RH), contribution estimée.', 'handicap'],
@@ -3603,7 +3642,7 @@
   function addWorkDays(s, n) { let d = s; while (n > 0) { d = addDays(d, 1); if (parse(d).getDay() !== 0) n -= 1; } return d; }
   function trialInfo(e) {
     const d = dossier(e), alt = e.contract === 'Alternance';
-    const months = e.contract === 'CDI' ? ({ Cadre: 4, 'Agent de maîtrise': 3 }[e.category] || 2) : e.contract === 'CDD' ? 1 : 0;
+    const cr = CONV().rules, months = e.contract === 'CDI' ? ({ Cadre: cr.essaiC, 'Agent de maîtrise': cr.essaiAM }[e.category] || cr.essaiE) : e.contract === 'CDD' ? 1 : 0;
     if (!months && !alt) return null;
     // CDD (art. L1242-10) : 1 jour par semaine de contrat, 2 semaines au plus si le contrat dure 6 mois ou moins, 1 mois au-delà.
     if (e.contract === 'CDD' && e.endDate && e.endDate <= addDays(addMonths(e.startDate, 6), -1)) {
@@ -3614,7 +3653,7 @@
     let end = alt ? addDays(e.startDate, 44) : addDays(addMonths(e.startDate, months), -1);
     if (d.trialRenewed) end = addDays(addMonths(addDays(end, 1), months), -1);
     const presence = dayDiff(e.startDate, end), notice = alt ? 0 : presence > 90 ? 30 : presence > 30 ? 14 : presence >= 8 ? 2 : 1;
-    return { end, notice, months, alt, decideBy: addDays(end, -notice), renewable: e.contract === 'CDI' && !d.trialRenewed,
+    return { end, notice, months, alt, decideBy: addDays(end, -notice), renewable: e.contract === 'CDI' && !d.trialRenewed && !!cr.renouv,
       label: alt ? '45 jours de formation pratique en entreprise' : `${months} mois${d.trialRenewed ? `, renouvelée de ${months} mois` : ''}` };
   }
   function arrivalSteps(e, stage) {
@@ -3706,7 +3745,7 @@
             : `${pend(st === 'refused' ? 'À redéposer' : 'En attente du dépôt', st === 'refused' ? 'bad' : 'neutral')}${b('arr-doc', 'Reçu sur papier', `data-k="${k}"`)}`); }).join('')
           + (needsTitre(e) ? row('Vérification du titre auprès de la préfecture', `Au plus tard le ${fmtDate(subWorkDays(start, 2))}, 2 jours ouvrables avant l’embauche (art. R5221-41)`, d.titreCheck ? ok(d.titreCheck, 'Demande envoyée') : b('arr-titre', 'Demande envoyée')) : ''));
         const c = d.contract, st = { 'À préparer': 'neutral', Prêt: 'info', Envoyé: 'warn', Signé: 'ok' }[c.status];
-        html += sec('Contrat de travail', row(`Contrat ${esc(e.contract)} · ${esc(e.title)}`, `${e.contract === 'CDD' ? 'À transmettre au plus tard 2 jours ouvrables après l’embauche (art. L1242-13). ' : ''}${c.status === 'Envoyé' ? `Envoyé le ${fmtShort(c.sentAt)} : ${esc(e.firstName)} le signe à la main depuis l’onglet « Contrat de travail » de son espace.` : 'Poste, rémunération, durée du travail, période d’essai, convention collective Syntec.'}`,
+        html += sec('Contrat de travail', row(`Contrat ${esc(e.contract)} · ${esc(e.title)}`, `${e.contract === 'CDD' ? 'À transmettre au plus tard 2 jours ouvrables après l’embauche (art. L1242-13). ' : ''}${c.status === 'Envoyé' ? `Envoyé le ${fmtShort(c.sentAt)} : ${esc(e.firstName)} le signe à la main depuis l’onglet « Contrat de travail » de son espace.` : `Poste, rémunération, durée du travail, période d’essai, ${CONV().mention}.`}`,
           `<span class="pill ${st}">${c.status === 'Envoyé' ? 'En attente de signature' : c.status === 'Signé' ? `${ic('lock')}Signé${c.paper ? ' sur papier' : ''}` : c.status}${c.signedAt ? ` le ${fmtShort(c.signedAt)}` : ''}</span>${c.docId ? docBtn(db.documents.find((x) => x.id === c.docId), c.status === 'Signé' ? 'Voir le contrat signé' : 'Voir') : ''}
           ${c.status === 'À préparer' ? b('arr-contract', 'Générer le contrat', 'data-s="Prêt"', 'primary') : c.status === 'Prêt' ? b('arr-contract', 'Envoyer pour signature', 'data-s="Envoyé"') : c.status === 'Envoyé' ? b('arr-contract', 'Signé sur papier', 'data-s="Signé"') : ''}`));
       }
@@ -3953,7 +3992,7 @@
       `<div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="button" class="btn bad" data-act="plan-del-ok" data-k="${x.k}">Supprimer</button></div>`); };
   MODALS.register = (m, shell) => shell('Registre unique du personnel', `<div class="modal-b"><p class="hint" style="margin:0 0 12px">Tenu dès le premier salarié, dans l’ordre des embauches. Les mentions sont conservées 5 ans après le départ du salarié.</p>${registerHTML()}</div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true);
   MODALS['trial-renew'] = (m, shell, formShell) => { const e = emp(m.id), t = trialInfo(e);
-    return formShell(`Renouveler la période d’essai · ${esc(fullName(e))}`, 'trial-renew', `<p style="margin:0 0 12px">La période d’essai serait prolongée de ${t.months} mois, jusqu’au ${fmtDate(addDays(addMonths(addDays(t.end, 1), t.months), -1))}. Le renouvellement doit être prévu par le contrat et par la convention collective (Syntec l’autorise).</p>
+    return formShell(`Renouveler la période d’essai · ${esc(fullName(e))}`, 'trial-renew', `<p style="margin:0 0 12px">La période d’essai serait prolongée de ${t.months} mois, jusqu’au ${fmtDate(addDays(addMonths(addDays(t.end, 1), t.months), -1))}. Le renouvellement doit être prévu par le contrat et par la convention collective (${CONV().kind === 'syntec' ? 'Syntec l’autorise' : 'prévu par la convention saisie dans les paramètres'}).</p>
       <label style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="agree"> J’ai reçu l’accord écrit du salarié, daté d’avant le ${fmtDate(t.end)}</label>`, 'Renouveler'); };
   MODALS['trial-break'] = (m, shell, formShell, opt, f) => { const e = emp(m.id), t = trialInfo(e), min = addDays(TODAY, t.notice);
     return formShell(`Mettre fin à la période d’essai · ${esc(fullName(e))}`, 'trial-break', `<p style="margin:0 0 12px">${t.notice ? `Délai de prévenance : ${NOTICE_LABEL[t.notice]}. La rupture prend effet au plus tôt le ${fmtDate(min)}.` : 'Aucun délai de prévenance.'} Aucune indemnité de rupture n’est due ; la rupture doit être notifiée par écrit.</p>
@@ -4255,7 +4294,7 @@
     return `<div class="kpis">${[['Satisfaction à chaud', `${avg(hot, 'rating')} / 5`, plural(hot.length, 'avis', 'avis')], ['Mise en pratique à 3 mois', `${avg(done, 'cold')} / 4`, plural(done.length, 'évaluation', 'évaluations')], ['Évaluations à froid à faire', due.length, 'Formations terminées depuis plus de 3 mois']].map(([l, v, s2]) => `<div class="card kpi"><span class="l">${l}</span><span class="v num">${v}</span><span class="s">${s2}</span></div>`).join('')}</div>
       ${card('Évaluer la mise en pratique (à froid)', '', `<div class="req-list">${due.length ? due.map((x) => enrRow(x, `<label class="sr" for="cold-${x.id}">Mise en pratique</label><select id="cold-${x.id}" class="select" data-change="train-cold" data-id="${x.id}"><option value="">Mise en pratique…</option>${Object.entries(COLD).map(([k, l]) => `<option value="${k}">${k} · ${l}</option>`).join('')}</select>`)).join('') : '<div class="empty">Aucune évaluation à froid en attente.</div>'}</div>`)}
       ${ui.profile === 'rh' ? card('Financement du plan', '', `<div class="card-b">${byFund.map(([f, v]) => `<div class="crit-row"><span>${f}</span><b class="num">${eur0(v)}</b></div>`).join('')}
-        <p class="hint" style="margin:10px 0 0">Entreprise de moins de 50 salariés : le plan de développement des compétences peut être financé par l’OPCO (Atlas pour la convention Syntec). La formation d’adaptation au poste reste à la charge de l’employeur.</p></div>
+        <p class="hint" style="margin:10px 0 0">Entreprise de moins de 50 salariés : le plan de développement des compétences peut être financé par l’OPCO ${CONV().kind === 'syntec' ? '(Atlas pour la convention Syntec)' : 'de la branche'}. La formation d’adaptation au poste reste à la charge de l’employeur.</p></div>
         <div class="req-list">${db.enrollments.filter((x) => ['Validée', 'Terminée', 'Validée manager'].includes(x.status)).map((x) => enrRow(x, `<label class="sr" for="fund-${x.id}">Financement</label><select id="fund-${x.id}" class="select" data-change="train-fund" data-id="${x.id}">${FUNDS.map((f) => `<option ${f === (x.fund || FUNDS[0]) ? 'selected' : ''}>${f}</option>`).join('')}</select>`)).join('')}</div>`) : ''}`;
   }
 
@@ -4338,10 +4377,14 @@
     if (/Prise d’acte|Décès/.test(r)) return { months: 0, label: 'aucun, la rupture est immédiate' };
     if (/apprentissage|stage/.test(r)) return { months: 0, label: 'aucun, fin au terme prévu' };
     if (/Présomption/.test(r)) return { months: base, label: `${base} mois, comme une démission (souvent non exécuté)` };
-    if (/Mise à la retraite/.test(r)) return { months: base, label: `${base} mois (préavis de licenciement, ${CONV().short})` };
-    if (db.settings.convention === 'code') { const lm = yrs >= 2 ? 2 : yrs >= 0.5 ? 1 : 0;
+    if (/Mise à la retraite/.test(r)) { const m = CONV().kind === 'syntec' ? base : Math.max(yrs >= 2 ? 2 : 1, cadre ? CONV().rules.licC || 0 : CONV().rules.licNC || 0); return { months: m, label: `${m} mois (préavis de licenciement, ${CONV().short})` }; }
+    const cv = CONV(), lm = yrs >= 2 ? 2 : yrs >= 0.5 ? 1 : 0;
+    if (cv.kind === 'code') {
       if (/Démission/.test(r)) return { months: 1, label: '1 mois selon l’usage (aucune convention collective : à vérifier dans le contrat)' };
       if (/Licenciement/.test(r)) return { months: lm, label: lm ? `${lm} mois de préavis légal de licenciement (art. L1234-1)` : 'selon l’usage (moins de 6 mois d’ancienneté)' }; }
+    if (cv.kind === 'other') { const cr = cv.rules, todo = cv.ok ? `convention ${cv.short}` : 'règles de la convention à vérifier';
+      if (/Démission/.test(r)) { const m = cadre ? cr.demC : cr.demNC; return { months: m, label: `${m ? `${String(m).replace('.', ',')} mois` : 'aucun'} (${todo})` }; }
+      if (/Licenciement/.test(r)) { const m = Math.max(lm, cadre ? cr.licC : cr.licNC); return { months: m, label: m ? `${String(m).replace('.', ',')} mois de préavis de licenciement (${m > lm ? `convention ${cv.short}` : 'minimum légal'}${cv.ok ? '' : ', règles de la convention à vérifier'})` : 'selon l’usage (moins de 6 mois d’ancienneté)' }; } }
     if (/Démission/.test(r)) return { months: base, label: `${base} mois (convention Syntec, ${cadre ? 'cadre' : 'ETAM'})` };
     if (/Licenciement/.test(r)) return { months: base, label: `${base} mois de préavis de licenciement (Syntec)` };
     if (/retraite/i.test(r)) { const m = yrs >= 2 ? 2 : 1; return { months: m, label: `${m} mois (départ volontaire à la retraite)` }; }
@@ -4389,7 +4432,7 @@
         rc ? ok(d.rc.signed, 'Signée') : `${rh ? `<input type="date" class="input" data-change="rc-signed" data-id="${e.id}" aria-label="Date de signature">` : ''}`);
       html += sec('Motif et préavis', notice);
       const ind = exitIndemnities(e);
-      html += sec('Chiffrage de la fin de contrat', row('Indemnités', `${ind.legal ? `Indemnité ${/conventionnelle/.test(x.reason) ? 'de rupture (au moins l’indemnité légale)' : 'légale de licenciement'} : <b class="num">${eur0(ind.legal)}</b> (1/4 de mois par année jusqu’à 10 ans, 1/3 au-delà) · ` : ''}Indemnité compensatrice de congés payés (${e.cp} j) : <b class="num">${eur0(ind.cpPay)}</b>${ind.precarite ? ` · Indemnité de fin de CDD (10 %) : <b class="num">${eur0(ind.precarite)}</b>` : ''}. Vérifier l’indemnité conventionnelle Syntec si plus favorable.`, d.calcOk ? ok(d.calcOk, 'Validé') : b('dep-set', 'Valider le chiffrage', 'data-k="calcOk"')));
+      html += sec('Chiffrage de la fin de contrat', row('Indemnités', `${ind.legal ? `Indemnité ${/conventionnelle/.test(x.reason) ? 'de rupture (au moins l’indemnité légale)' : 'légale de licenciement'} : <b class="num">${eur0(ind.legal)}</b> (1/4 de mois par année jusqu’à 10 ans, 1/3 au-delà) · ` : ''}Indemnité compensatrice de congés payés (${e.cp} j) : <b class="num">${eur0(ind.cpPay)}</b>${ind.precarite ? ` · Indemnité de fin de CDD (10 %) : <b class="num">${eur0(ind.precarite)}</b>` : ''}.${CONV().kind === 'code' ? '' : ` Vérifier l’indemnité conventionnelle ${CONV().short} si plus favorable.`}`, d.calcOk ? ok(d.calcOk, 'Validé') : b('dep-set', 'Valider le chiffrage', 'data-k="calcOk"')));
       const docs = exitDocs(e);
       // Un document par ligne : chacun a son propre état et son bouton.
       const DOC_SUB = { certificat: 'Remis au salarié le dernier jour', solde: 'Remis le dernier jour, signé par le salarié (contestable pendant 6 mois)', 'france-travail': 'Transmise via la DSN ; une copie est remise au salarié' };
@@ -5483,6 +5526,7 @@ ${HELP_GUIDE}`;
     return `OBLIGATIONS SELON L'EFFECTIF (données agrégées, calcul indicatif à faire valider par un professionnel du droit social)
 ${st.sim ? `ATTENTION : simulation en cours (effectif simulé de ${fmtN(db.compliance.sim.n)}), pas les données réelles.
 ` : ''}Effectif moyen sur 12 mois : ${fmtN(st.avg12)} (équivalent temps plein, hors alternants et stagiaires) · aujourd’hui : ${fmtN(st.now)}
+Convention collective : ${CONV().kind === 'code' ? 'aucune (Code du travail)' : `${CONV().short} (IDCC ${CONV().idcc})${CONV().ok ? '' : ', règles non encore vérifiées : minima du Code du travail appliqués'}`}
 Effectifs moyens par année : ${Object.entries(st.years).map(([y, v]) => `${y} : ${v === null ? 'non renseigné' : fmtN(v)}`).join(' ; ')}
 Effectif prévu (arrivées et départs déjà connus) : ${st.proj.filter((x, i) => i % 3 === 2).map((x) => `${monthLabel(x.m).toLowerCase()} : ${fmtN(x.v)}`).join(' ; ')}
 Prochain seuil : ${next ? `${next} salariés${projCross(next, st) ? ` (prévu en ${monthLabel(projCross(next, st).m).toLowerCase()})` : ' (pas dans les 12 prochains mois)'}` : 'aucun'}
@@ -5603,7 +5647,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
       const none = blank && !/…$/.test(blank.textContent.trim()) ? blank.textContent.trim() : null;
       const noMatch = isEmp ? 'Aucun salarié ne correspond' : 'Aucune proposition ne correspond';
       const items = opts.filter((o) => o.value).map((o) => { const t = o.textContent.trim();
-        if (!isEmp) { const g = o.parentElement.tagName === 'OPTGROUP' ? o.parentElement.label : ''; return { v: o.value, t, sub: g, key: pickNorm(`${t} ${g}`), names: pickNorm(t).split(/[\s-]+/) }; }
+        if (!isEmp) { const g = o.dataset.sub || (o.parentElement.tagName === 'OPTGROUP' ? o.parentElement.label : ''); return { v: o.value, t, sub: g, key: pickNorm(`${t} ${g}`), names: pickNorm(t).split(/[\s-]+/) }; }
         const e = emp(o.value); return { v: o.value, t, sub: [e.title, e.dept].filter((x) => x && !t.includes(x)).join(' · '), key: pickNorm(`${t} ${e.title} ${e.dept} ${e.email}`), names: pickNorm(`${e.firstName} ${e.lastName}`).split(/[\s-]+/) }; });
       const wrap = document.createElement('span'); wrap.className = 'emp-pick' + (sel.classList.contains('as-emp') ? ' top' : '') + (sel.classList.contains('sm') ? ' sm' : '');
       const q = document.createElement('input'); q.type = 'search'; q.className = 'input' + (sel.classList.contains('sm') ? ' sm' : ''); q.placeholder = placeholder; q.autocomplete = 'off'; q.disabled = sel.disabled;

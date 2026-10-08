@@ -1020,10 +1020,14 @@ body:has(.help-panel) .toasts { right: 440px; }
 .set-row.simple { align-items: center; background: none; } .set-row.simple .t { flex: 1; min-width: 0; } .set-row.simple .t small { display: block; color: var(--muted); font-size: 12.5px; }
 .field-hint { display: block; color: var(--faint); font-size: 12px; margin-top: 4px; }
 .lbl { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
-.conv-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.conv-opt { display: block; border: 1.5px solid var(--line); border-radius: 12px; padding: 14px 16px; cursor: pointer; background: var(--surface); }
-.conv-opt input { margin: 0 8px 0 0; accent-color: var(--accent); } .conv-opt b { font-size: 14px; } .conv-opt ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 12.5px; } .conv-opt li { margin: 3px 0; }
-.conv-opt.on { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
+.conv-search { margin-bottom: 12px; }
+.conv-card { border: 1.5px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--surface); }
+.conv-card > b { font-size: 14px; display: block; } .conv-card > small { display: block; margin-top: 2px; font-size: 12.5px; }
+.conv-card ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 12.5px; } .conv-card li { margin: 3px 0; }
+.conv-warn { display: flex; gap: 8px; align-items: center; margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: var(--warn-soft); color: var(--warn); font-size: 13px; font-weight: 600; }
+.conv-warn.ok { background: var(--ok-soft); color: var(--ok); } .conv-warn svg { width: 16px; height: 16px; flex: none; }
+.conv-rules { margin: 14px 0 18px; padding: 14px 16px; border: 1px dashed var(--line); border-radius: 12px; }
+.conv-rules h4 { margin: 0 0 4px; font-size: 14px; } .conv-rules .form-grid { align-items: end; }
 .logo-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .logo-prev { width: 120px; height: 56px; object-fit: contain; border: 1px dashed var(--line-strong); border-radius: 8px; background: #fff; padding: 4px; }
 .logo-prev.empty { display: inline-grid; place-items: center; color: var(--faint); font-size: 12px; background: var(--surface-2); }
@@ -1078,3 +1082,10 @@ body:has(.help-panel) .toasts { right: 440px; }
 .obl-ix td small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; margin-top: 2px; }
 .obl-tabs .tabs { flex-wrap: wrap; overflow: visible; row-gap: 0; }
 .fin-grid { display: grid; grid-template-columns: 70px minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; align-items: center; max-width: 640px; } .fin-grid .lbl { margin: 0; }
+.conv-tbl { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.conv-tbl th, .conv-tbl td { padding: 8px; text-align: left; vertical-align: middle; text-transform: none; letter-spacing: 0; white-space: normal; background: none; color: var(--fg); border-top: 1px solid var(--line); }
+.conv-tbl thead th { border-top: 0; font-size: 12px; font-weight: 600; color: var(--muted); padding-top: 0; }
+.conv-tbl thead th:first-child { width: 34%; }
+.conv-tbl tbody th { font-size: 13.5px; font-weight: 600; } .conv-tbl tbody th small { display: block; font-weight: 400; color: var(--faint); font-size: 12px; margin-top: 2px; }
+.conv-tbl td[colspan="2"] .input { width: calc(50% - 8px); } .conv-tbl td[colspan="3"] .input { width: calc(33.3% - 11px); }
+.conv-tbl .input { width: 100%; } .conv-tbl td[colspan="2"] .input, .conv-tbl td[colspan="3"] .input { min-width: 0; }

@@ -18,60 +18,31 @@
   body { background: #e6e3de; font-family: 'Inter', sans-serif; color: var(--fg); }
   .h { opacity: 0; }
   svg { flex: none; }
-  #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; }
+  #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: linear-gradient(180deg, #c9cedd 0%, #e9ebf2 60%, #f4f5f9 100%); }
   .abs { position: absolute; }
 
-  /* ================= Studio : the computer on a desk ================= */
-  #studio { position: absolute; inset: 0; z-index: 2; background: linear-gradient(180deg, #f1efeb 0%, #e7e4df 70%); transform-origin: 960px 429px; }
+  /* ================= Hook : a computer desktop, full screen ================= */
+  #studio { position: absolute; inset: 0; z-index: 2; background: linear-gradient(140deg, #dfe4ee 0%, #eceef4 50%, #e4e0ea 100%); transform-origin: 960px 540px; }
   #shake { position: absolute; inset: 0; }
-  #desk { position: absolute; left: -100px; right: -100px; top: 790px; bottom: -100px; background: linear-gradient(180deg, #d9d2c6 0%, #cbc2b4 100%); }
-  #desk::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 6px; background: #ece6dc; }
-  .shadow { position: absolute; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(60, 50, 40, .28) 0%, rgba(60, 50, 40, 0) 70%); }
-  #mon { position: absolute; left: 560px; top: 170px; width: 800px; height: 530px; }
-  #bezel { position: absolute; left: 0; top: 0; width: 800px; height: 470px; border-radius: 22px 22px 0 0; background: #17191f; box-shadow: 0 30px 60px rgba(40, 35, 30, .25); }
-  #chin { position: absolute; left: 0; top: 470px; width: 800px; height: 60px; border-radius: 0 0 22px 22px; background: linear-gradient(180deg, #e3e4e8, #cfd1d6); }
-  #neck { position: absolute; left: 345px; top: 530px; width: 110px; height: 92px; background: linear-gradient(90deg, #bfc1c6, #dfe0e4 50%, #bfc1c6); clip-path: polygon(12% 0, 88% 0, 100% 100%, 0 100%); }
-  #base { position: absolute; left: 270px; top: 612px; width: 260px; height: 16px; border-radius: 8px; background: linear-gradient(180deg, #e1e2e6, #b9bbc0); }
-  #screen { position: absolute; left: 576px; top: 186px; width: 768px; height: 438px; border-radius: 8px; overflow: hidden; background: linear-gradient(140deg, #dfe6f3, #eef0f6 50%, #e6e1ee); }
-  #kbd { position: absolute; left: 700px; top: 860px; width: 520px; height: 64px; border-radius: 12px; background-color: #f4f4f2; box-shadow: 0 6px 0 #d6d4cf, 0 14px 24px rgba(60, 50, 40, .18);
-    background-image: repeating-linear-gradient(90deg, transparent 0 4px, #e3e2de 4px 5px, transparent 5px 34px), repeating-linear-gradient(180deg, transparent 0 4px, #e3e2de 4px 5px, transparent 5px 16px); }
-  #mouse { position: absolute; left: 1290px; top: 864px; width: 58px; height: 84px; border-radius: 29px; background: #f4f4f2; box-shadow: 0 6px 0 #d6d4cf, 0 14px 24px rgba(60, 50, 40, .18); }
-  #mug { position: absolute; left: 400px; top: 770px; width: 86px; height: 100px; border-radius: 8px 8px 18px 18px; background: linear-gradient(90deg, #f6f3ee, #fff 45%, #e9e5de); box-shadow: 0 10px 20px rgba(60, 50, 40, .15); }
-  #mug::after { content: ''; position: absolute; right: -30px; top: 22px; width: 34px; height: 46px; border: 9px solid #ece8e1; border-left: 0; border-radius: 0 24px 24px 0; }
-  #pot { position: absolute; left: 1560px; top: 735px; width: 110px; height: 105px; border-radius: 10px 10px 26px 26px; background: linear-gradient(90deg, #c9b8a3, #e0d2c0 45%, #bfae98); }
-  .leaf { position: absolute; width: 60px; height: 150px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: linear-gradient(90deg, #8ea98a, #a9c1a3); transform-origin: 50% 100%; }
-
-  /* Screen content */
-  #s-bar { position: absolute; left: 0; right: 0; top: 0; height: 22px; background: #ffffffb0; display: flex; align-items: center; padding: 0 12px; gap: 10px; font-size: 11px; font-weight: 700; color: #4b5068; }
-  #s-bar i { width: 8px; height: 8px; border-radius: 50%; background: #c9ccd6; }
-  #s-badge { position: absolute; right: 10px; top: 3px; min-width: 30px; height: 16px; border-radius: 8px; background: #e11d48; color: #fff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 5px; opacity: 0; }
-  #s-dock { position: absolute; left: 50%; bottom: 8px; width: 260px; margin-left: -130px; height: 36px; border-radius: 12px; background: #ffffff90; display: flex; gap: 8px; align-items: center; justify-content: center; }
-  #s-dock i { width: 24px; height: 24px; border-radius: 7px; }
-  .stoast { position: absolute; right: 10px; width: 230px; height: 46px; border-radius: 10px; background: #fff; box-shadow: 0 6px 16px rgba(0, 0, 0, .15); display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 11px; font-weight: 700; opacity: 0; }
-  .stoast span { width: 22px; height: 22px; border-radius: 6px; flex: none; }
-  .stoast small { display: block; font-size: 9.5px; color: #8d92b0; font-weight: 500; }
-  #s-red { position: absolute; inset: 0; background: radial-gradient(circle, #e11d4800 40%, #e11d4855 100%); opacity: 0; }
-  #s-app { position: absolute; inset: 0; opacity: 0; background: #f4f5fb; }
-  #s-app .bl { position: absolute; border-radius: 50%; }
-  #s-app .hd { position: absolute; left: 0; right: 0; top: 0; height: 38px; background: #ffffffd9; border-bottom: 1px solid #e0e3ef; display: flex; align-items: center; padding: 0 16px; gap: 8px; font-size: 12px; font-weight: 800; }
-  #s-app .hd i { width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(140deg, #4f46e5, #0ea5c6); }
-  #s-hub { position: absolute; left: 316px; top: 175px; width: 136px; height: 136px; border-radius: 50%; background: linear-gradient(150deg, #4f46e5, #0ea5c6); box-shadow: 0 0 0 7px #ffffff99, 0 16px 36px #4f46e555; color: #fff; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; transform: scale(0); }
-  #s-hub small { font-size: 7px; letter-spacing: 2px; color: #e0e7ff; }
-  #s-hub span { font-size: 8px; background: #ffffff2e; padding: 3px 8px; border-radius: 99px; margin-top: 5px; }
-  #s-wheel { position: absolute; left: 384px; top: 243px; }
-  .snode { position: absolute; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: 0 0 0 2px #ffffffaa, 0 6px 12px rgba(21, 25, 53, .2); opacity: 0; }
-  .snode svg { width: 16px; height: 16px; }
-  .snode .ck { position: absolute; right: -5px; top: -5px; width: 16px; height: 16px; border-radius: 50%; background: #10b981; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; }
-  .snode .ck svg { width: 8px; height: 8px; }
-  #s-brand { position: absolute; inset: 0; text-align: center; opacity: 0; }
-  #s-brand .lg { width: 96px; height: 96px; border-radius: 28px; margin: 70px auto 0; background: linear-gradient(140deg, #4f46e5, #0ea5c6); color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 16px 36px #4f46e555; }
-  #s-brand .lg svg { width: 56px; height: 56px; }
-  #s-brand .nm { font-size: 70px; font-weight: 800; letter-spacing: -2.5px; margin-top: 16px; }
-  #s-brand .nm span { display: inline-block; opacity: 0; }
-  #s-brand .tg { font-size: 22px; font-weight: 600; color: var(--muted); margin-top: 2px; }
-  #s-brand .tg b { color: var(--accent); }
-  #s-brand .ur { display: inline-block; font-size: 15px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 6px 16px; border-radius: 99px; margin-top: 16px; }
-
+  #d-bar { position: absolute; left: 0; right: 0; top: 0; height: 44px; background: #ffffffb8; display: flex; align-items: center; padding: 0 26px; gap: 18px; font-size: 18px; font-weight: 700; color: #4b5068; }
+  #d-bar i { width: 14px; height: 14px; border-radius: 50%; background: #c9ccd6; }
+  #d-badge { position: absolute; right: 26px; top: 9px; min-width: 52px; height: 27px; border-radius: 14px; background: #e11d48; color: #fff; font-size: 17px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 9px; opacity: 0; font-variant-numeric: tabular-nums; }
+  #d-dock { position: absolute; left: 50%; bottom: 18px; width: 560px; margin-left: -280px; height: 84px; border-radius: 26px; background: #ffffff8c; display: flex; gap: 18px; align-items: center; justify-content: center; box-shadow: 0 10px 30px rgba(21, 25, 53, .08); }
+  #d-dock i { width: 58px; height: 58px; border-radius: 16px; }
+  .stoast { position: absolute; right: 24px; width: 470px; height: 86px; border-radius: 18px; background: #fff; box-shadow: 0 14px 34px rgba(21, 25, 53, .16); display: flex; align-items: center; gap: 16px; padding: 0 20px; font-size: 21px; font-weight: 700; opacity: 0; }
+  .stoast span { width: 46px; height: 46px; border-radius: 12px; flex: none; }
+  .stoast small { display: block; font-size: 16px; color: #8d92b0; font-weight: 500; }
+  #d-red { position: absolute; inset: 0; background: radial-gradient(circle, #e11d4800 45%, #e11d4840 100%); opacity: 0; }
+  #brand { position: absolute; left: 0; right: 0; top: 560px; text-align: center; z-index: 12; }
+  #brand .name { font-size: 130px; font-weight: 800; letter-spacing: -4px; }
+  #brand .name span { display: inline-block; opacity: 0; }
+  #brand .tag { font-size: 38px; color: var(--muted); margin-top: 6px; font-weight: 600; }
+  #brand .tag b { color: var(--accent); }
+  #brand .url { display: inline-block; font-size: 26px; color: var(--accent); margin-top: 30px; font-weight: 700; background: var(--accent-soft); padding: 10px 26px; border-radius: 99px; }
+  #h-logo { position: absolute; width: 180px; height: 180px; opacity: 0; color: #fff; }
+  .node .ck { position: absolute; top: -8px; right: -10px; width: 36px; height: 36px; border-radius: 50%; background: #10b981; border: 3px solid #fff; display: flex; align-items: center; justify-content: center; transform: scale(0); color: #fff; }
+  .node .ck svg { width: 18px; height: 18px; }
+  .zoomer { position: absolute; left: -48px; top: -48px; width: 96px; height: 96px; border-radius: 50%; opacity: 0; }
   /* Requests flooding in */
   .rq { position: absolute; left: 0; top: 0; background: #fff; border-radius: 16px; box-shadow: 0 20px 44px rgba(40, 35, 30, .22); display: flex; align-items: center; gap: 13px; padding: 15px 20px; font-size: 20px; font-weight: 700; white-space: nowrap; opacity: 0; color: var(--fg); }
   .rq svg { width: 28px; height: 28px; }
@@ -80,8 +51,13 @@
   .rq.alert { background: #fff1f2; color: #9f1239; }
   .rq.chat { background: #4f46e5; color: #fff; border-bottom-left-radius: 4px; }
   .rq.chat small { color: #c7d2fe; }
-  #drop { position: absolute; left: 0; top: 0; width: 90px; height: 120px; margin: -60px 0 0 -45px; z-index: 30; opacity: 0; }
-  #splash { position: absolute; left: 960px; top: 405px; width: 160px; height: 160px; margin: -80px 0 0 -80px; border-radius: 50%; border: 10px solid #6366f1; opacity: 0; z-index: 29; }
+  #drop { position: absolute; left: 0; top: 0; width: 120px; height: 160px; margin: -120px 0 0 -60px; z-index: 30; opacity: 0; transform-origin: 50% 100%; }
+  .plane { position: absolute; left: 960px; top: 540px; border-radius: 50%; opacity: 0; pointer-events: none; }
+  #pshadow { width: 200px; height: 200px; margin: -100px 0 0 -100px; background: radial-gradient(circle, rgba(30, 27, 75, .55) 0%, rgba(30, 27, 75, 0) 70%); }
+  #puddle { width: 320px; height: 320px; margin: -160px 0 0 -160px; background: radial-gradient(circle at 40% 35%, #c7d2fe 0%, #6366f1 35%, #4f46e5 60%, #0ea5c6 100%); box-shadow: 0 0 0 10px #6366f133; }
+  .rip { width: 200px; height: 200px; margin: -100px 0 0 -100px; border: 9px solid #6366f1; }
+  .dl { position: absolute; left: 0; top: 0; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #e0e7ff 0%, #6366f1 45%, #0ea5c6 100%); opacity: 0; z-index: 31; }
+  #splash { position: absolute; left: 960px; top: 540px; width: 160px; height: 160px; margin: -80px 0 0 -80px; border-radius: 50%; border: 10px solid #6366f1; opacity: 0; z-index: 29; }
 
   /* ================= 3D world : software pages ================= */
   #w3 { position: absolute; inset: 0; z-index: 3; perspective: 1700px; perspective-origin: 960px 540px; opacity: 0; overflow: hidden; background: #e9ebf4; }
@@ -241,35 +217,22 @@
 <body>
 <div id="stage">
   <div id="studio"><div id="shake">
-    <div id="desk"></div>
-    <div class="shadow" style="left:700px;top:780px;width:520px;height:60px"></div>
-    <div class="shadow" style="left:360px;top:850px;width:180px;height:40px"></div>
-    <div class="shadow" style="left:1520px;top:820px;width:200px;height:40px"></div>
-    <div id="mug"></div>
-    <div id="pot"></div>
-    <div class="leaf" style="left:1560px;top:600px;transform:rotate(-24deg)"></div><div class="leaf" style="left:1590px;top:575px;transform:rotate(-4deg);height:170px"></div><div class="leaf" style="left:1620px;top:600px;transform:rotate(20deg)"></div>
-    <div id="mon"><div id="bezel"></div><div id="chin"></div><div id="neck"></div><div id="base"></div></div>
-    <div id="screen">
-      <div id="s-bar"><i></i><i></i><i></i><span style="margin-left:6px">Mail · Agenda · Fichiers</span><span id="s-badge">0</span></div>
-      <div id="s-toasts"></div>
-      <div id="s-dock"><i style="background:#60a5fa"></i><i style="background:#34d399"></i><i style="background:#fbbf24"></i><i style="background:#f472b6"></i><i style="background:#a78bfa"></i></div>
-      <div id="s-red"></div>
-      <div id="s-app">
-        <div class="bl" style="left:-160px;top:-170px;width:560px;height:560px;background:radial-gradient(circle,#6366f155 0%,#6366f100 65%)"></div>
-        <div class="bl" style="right:-160px;top:-120px;width:520px;height:520px;background:radial-gradient(circle,#ec489944 0%,#ec489900 65%)"></div>
-        <div class="bl" style="left:150px;bottom:-320px;width:600px;height:600px;background:radial-gradient(circle,#06b6d444 0%,#06b6d400 65%)"></div>
-        <div class="hd"><i></i>Accueil</div>
-        <div id="s-wheel"></div>
-        <div id="s-hub"><small>NOVA STUDIO</small>Collaborateurs<span>0 à traiter</span></div>
-        <div id="s-brand"><div class="lg"></div><div class="nm" data-split>Teamora</div><div class="tg">L'ERP repensé pour <b>suivre la vie de vos collaborateurs</b></div><div class="ur">teamora.app</div></div>
-      </div>
-    </div>
-    <div id="kbd"></div><div id="mouse"></div>
+    <div id="d-bar"><i></i><i></i><i></i><span style="margin-left:10px">Mail · Agenda · Fichiers · Tableurs</span><span id="d-badge">0</span></div>
+    <div id="d-toasts"></div>
+    <div id="d-dock"><i style="background:#60a5fa"></i><i style="background:#34d399"></i><i style="background:#fbbf24"></i><i style="background:#f472b6"></i><i style="background:#a78bfa"></i><i style="background:#94a3b8"></i></div>
+    <div id="d-red"></div>
     <div id="reqs"></div>
+    <div class="plane" id="pshadow"></div><div class="plane rip" id="rip0"></div><div class="plane rip" id="rip1"></div><div class="plane rip" id="rip2"></div><div class="plane" id="puddle"></div>
   </div></div>
+  <div id="drops"></div>
+  <div id="brand"><div class="name" data-split>Teamora</div><div class="tag h">L'ERP repensé pour <b>suivre la vie de vos collaborateurs</b></div><div class="url h">teamora.app</div></div>
   <div id="splash"></div>
-  <svg id="drop" viewBox="0 0 90 120"><defs><linearGradient id="dg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#0ea5c6"/></linearGradient></defs>
-    <path d="M45 4 C 58 34, 84 58, 84 80 A 39 39 0 0 1 6 80 C 6 58, 32 34, 45 4 Z" fill="url(#dg)"/><ellipse cx="30" cy="74" rx="8" ry="13" fill="#fff" opacity=".45"/></svg>
+  <svg id="drop" viewBox="0 0 90 120"><defs>
+    <radialGradient id="dg" cx="0.38" cy="0.62" r="0.62"><stop offset="0" stop-color="#a5b4fc"/><stop offset="0.45" stop-color="#6366f1"/><stop offset="0.85" stop-color="#4338ca"/><stop offset="1" stop-color="#0e7490"/></radialGradient>
+    <linearGradient id="dr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#22d3ee" stop-opacity="0"/><stop offset="1" stop-color="#22d3ee" stop-opacity=".7"/></linearGradient></defs>
+    <path d="M45 4 C 58 34, 84 58, 84 80 A 39 39 0 0 1 6 80 C 6 58, 32 34, 45 4 Z" fill="url(#dg)"/>
+    <path d="M45 4 C 58 34, 84 58, 84 80 A 39 39 0 0 1 60 116 C 74 100, 76 80, 66 60 Z" fill="url(#dr)"/>
+    <ellipse cx="30" cy="70" rx="9" ry="16" fill="#fff" opacity=".6" transform="rotate(-18 30 70)"/><circle cx="36" cy="96" r="4" fill="#fff" opacity=".5"/></svg>
 
   <div id="w3">
     <div class="pg" id="pHome"></div>
@@ -342,7 +305,8 @@ const rail = (on) => `<div class="rail">${['home', 'chart', 'file', 'docCheck', 
   ${RUB.map((r, i) => `<div class="ri ${on === i ? 'on' : ''}" style="background:${r[2]};${on === i ? `color:${r[2]}` : ''}"><span style="color:#fff;display:flex">${ic(r[1])}</span><span class="bd">${r[3]}</span></div>`).join('')}</div>`;
 
 // ================= Build : studio =================
-const SCX = 960, SCY = 405; // screen centre on stage
+const SCX = 960, SCY = 540; // centre of the desktop
+const IMY = 540 + 70; // where the centre of the tilted desktop sits on screen (drop impact)
 const POOL = [
   ['mail', 'Demande de congés', 'Hugo · 3e relance'], ['alert', 'DPAE à déclarer', 'avant vendredi'], ['postit', 'Visite médicale Léa ?!'], ['chat', 'Tu as vu mon message ?', 'Thomas · manager'],
   ['cal', 'Fin de période d’essai', 'demain · Julie'], ['file', 'Absences_2026_FINAL_v3.xlsx', 'conflit de version'], ['mail', 'Bulletins d’octobre ?', 'Cabinet de paie'], ['alert', 'Titre de séjour expire', 'dans 12 jours'],
@@ -363,12 +327,10 @@ const RQS = Array.from({ length: NRQ }, (_, k) => {
 const ORDER = [...RQS.keys()].sort((a, b) => RQS[a].type.localeCompare(RQS[b].type) || a - b);
 ORDER.forEach((k, n) => { const c = n % 9, r = Math.floor(n / 9); RQS[k].gx = 130 + c * 190; RQS[k].gy = 60 + r * 92; });
 $('#reqs').innerHTML = RQS.map((q, k) => `<div class="rq ${q.type}" id="rq${k}">${q.type === 'postit' ? '' : `<span style="color:${COL[q.type]}">${ic(q.type)}</span>`}<div>${q.t}${q.s ? `<small>${q.s}</small>` : ''}</div></div>`).join('');
+const DROPS = Array.from({ length: 18 }, (_, k) => { const a = (k / 18) * Math.PI * 2 + (rnd() - 0.5) * 0.3, r = 160 + rnd() * 260;
+  return { dx: Math.cos(a) * r * 1.4, up: 90 + rnd() * 160, down: Math.sin(a) * r * 0.45, s: 0.6 + rnd() * 1.1 }; });
 const STOASTS = [['Demande de congés', 'Hugo L.', '#60a5fa'], ['DPAE à déclarer', 'Rappel', '#f87171'], ['Contrat à signer', 'Chloé G.', '#34d399'], ['Visite médicale', 'Léa M.', '#fbbf24'], ['Note de frais', 'James C.', '#a78bfa'], ['Relance RTT', 'Inès H.', '#60a5fa'], ['Bulletins ?', 'Cabinet de paie', '#f87171']];
-$('#s-toasts').innerHTML = STOASTS.map(([t, s, c], k) => `<div class="stoast" id="st${k}" style="top:${30 + k * 52}px"><span style="background:${c}"></span><div>${t}<small>${s}</small></div></div>`).join('');
-// mini wheel on the screen (home page geometry scaled by 1/2.5)
-const SR = 132;
-$('#s-wheel').innerHTML = RUB.map((r, i) => { const a = (-90 + i * 30) * Math.PI / 180; return `<div class="snode" id="sn${i}" style="background:${r[2]};left:${Math.cos(a) * SR - 19}px;top:${Math.sin(a) * SR - 19}px">${ic(r[1])}<span class="ck">${CHK}</span></div>`; }).join('');
-$('#s-brand .lg').innerHTML = ic('users', 2);
+$('#d-toasts').innerHTML = STOASTS.map(([t, s, c], k) => `<div class="stoast" id="st${k}" style="top:${64 + k * 98}px"><span style="background:${c}"></span><div>${t}<small>${s}</small></div></div>`).join('');
 $$('[data-split]').forEach((el) => { el.innerHTML = [...el.textContent].map((c) => `<span>${c}</span>`).join(''); });
 
 // ================= Build : 3D pages =================
@@ -376,11 +338,11 @@ const HX = 960, HY = 600, HR = 330, HLR = 400;
 const hang = (i) => (-90 + i * 30) * Math.PI / 180;
 const hpos = (i, r = HR) => ({ x: Math.cos(hang(i)) * r, y: Math.sin(hang(i)) * r });
 $('#pHome').innerHTML = blobs() + header('Nova Studio · Olivia Bennett', 'Accueil') + `
-  <div class="abs" style="left:${HX}px;top:${HY}px">${RUB.map((r, i) => `<div class="node" id="hn${i}" style="background:${r[2]}">${ic(r[1])}<span class="bd">${r[3]}</span></div>`).join('')}
+  <div class="abs" style="left:${HX}px;top:${HY}px">${RUB.map((r, i) => `<div class="node" id="hn${i}" style="background:${r[2]}">${ic(r[1])}<span class="bd">${r[3]}</span><span class="ck">${CHK}</span></div>`).join('')}
   ${RUB.map((r, i) => { const p = hpos(i, HLR), c = Math.cos(hang(i)), sn = Math.sin(hang(i)); let tr, al;
     if (c > 0.3) { tr = 'translate(0,-50%)'; al = 'left'; } else if (c < -0.3) { tr = 'translate(-100%,-50%)'; al = 'right'; } else { tr = sn < 0 ? 'translate(-50%,-115%)' : 'translate(-50%,15%)'; al = 'center'; }
     return `<div class="lab" style="left:${p.x}px;top:${p.y}px;transform:${tr};text-align:${al}"><div class="lab-in">${r[0]}</div></div>`; }).join('')}</div>
-  <div id="h-hub"><div class="hub-in"><small>NOVA STUDIO</small><b>Collaborateurs</b><span id="h-n">0 à traiter</span></div></div>
+  <div class="zoomer" id="h-z" style="left:${HX - 48}px;top:${HY - 48}px;background:${RUB[1][2]}"></div><div id="h-hub"><div class="hub-in"><small>NOVA STUDIO</small><b>Collaborateurs</b><span id="h-n">0 à traiter</span></div><div id="h-logo"></div></div>
   <div class="focus" id="h-f" style="left:770px;top:410px;width:380px;height:380px;border-radius:50%"></div>`;
 
 const KX = (c) => 20 + c * 232, KY = (s) => 116 + s * 92;
@@ -463,6 +425,8 @@ $('#panel').innerHTML = `<div class="ph">${TEAMO('tg-p')}<div><b>Teamo</b><small
   <div class="msg me" id="m-q" style="top:140px"><span class="gh"></span><span class="tx"></span></div>
   <div class="msg bot" id="m-a" style="top:270px"><span class="gh"></span><span class="tx"></span></div>`;
 $('#teamo').innerHTML = TEAMO('tg-main');
+$('#drops').innerHTML = DROPS.map((_, k) => `<div class="dl" id="dl${k}"></div>`).join('');
+$('#h-logo').innerHTML = ic('users', 1.8).replace('<svg', '<svg width="180" height="180"');
 
 // ================= Timeline helpers =================
 const tl = gsap.timeline({ paused: true, defaults: { ease: 'power3.out', immediateRender: false } });
@@ -505,61 +469,80 @@ const focus = (t, sel, d = 1.2) => { tl.fromTo(sel, { opacity: 0, scale: 1.15 },
 
 [0.9, 4.2, 9.6, 13.8, 18.6, 23.9, 29.4, 34.6, 40.2, 45.3, 51.0, 56.4].forEach(blink);
 
-// ================= 1 · The computer, then the flood (0 → 7.2) =================
-tl.fromTo('#studio', { scale: 1.06 }, { scale: 1, duration: 7, ease: 'power1.out' }, 0);
+// ================= 1 · The desktop, then the flood (0 → 7.2) =================
+tl.fromTo('#studio', { scale: 1.04 }, { scale: 1, duration: 6.2, ease: 'power1.out' }, 0);
 RQS.forEach((q, k) => {
   tl.fromTo(`#rq${k}`, { opacity: 0, x: q.from.x, y: q.from.y, scale: q.from.s, rotation: q.r * 4 },
     { opacity: 1, x: q.x, y: q.y, scale: 1, rotation: q.r, duration: 0.55, ease: 'power3.out' }, q.at);
 });
-STOASTS.forEach((_, k) => show(1.6 + 4.6 * (1 - Math.pow(0.82, k)) / 0.82 * 0.18, `#st${k}`, { x: 40 }, 0.3));
-show(1.4, '#s-badge', { scale: 0.4 }, 0.3);
-RQS.forEach((q, k) => { const n = k + 1; tl.to({}, { duration: 0.01, onComplete: () => { $('#s-badge').textContent = n > 99 ? '99+' : n; } }, q.at); });
-tl.to('#s-red', { opacity: 1, duration: 1.4, ease: 'power2.in' }, 5.3);
+STOASTS.forEach((_, k) => show(1.3 + 4.4 * Math.sqrt(k / STOASTS.length), `#st${k}`, { x: 60 }, 0.3));
+show(1.25, '#d-badge', { scale: 0.4 }, 0.3);
+RQS.forEach((q, k) => { const n = k + 1; tl.to({}, { duration: 0.01, onComplete: () => { $('#d-badge').textContent = n > 99 ? '99+' : n; } }, q.at); });
+tl.to('#d-red', { opacity: 1, duration: 1.4, ease: 'power2.in' }, 5.3);
 for (let t = 2.6; t < 7.15; t += 0.05) {
   const a = 0.5 + 16 * Math.pow((t - 2.6) / 4.55, 2.4);
   tl.to('#shake', { x: (rnd() - 0.5) * 2 * a, y: (rnd() - 0.5) * 2 * a, rotation: (rnd() - 0.5) * a * 0.03, duration: 0.05, ease: 'none' }, t);
 }
 
-// ================= 2 · Teamo falls like a drop and puts everything in order (6.75 → 10.5) =================
-tl.set('#drop', { x: SCX, y: -150, opacity: 1, scaleX: 0.85, scaleY: 1.2 }, 6.75)
-  .to('#drop', { y: SCY, duration: 0.45, ease: 'power2.in' }, 6.75)
-  .to('#drop', { scaleX: 1.6, scaleY: 0.45, duration: 0.12, ease: 'power2.out' }, 7.2)
-  .to('#drop', { opacity: 0, duration: 0.15 }, 7.3);
-tl.set('#shake', { x: 0, y: 0, rotation: 0 }, 7.2);
-tl.fromTo('#splash', { scale: 0.2, opacity: 1 }, { scale: 9, opacity: 0, duration: 0.8, ease: 'power2.out' }, 7.2);
-tl.to('#s-red', { opacity: 0, duration: 0.3 }, 7.2);
-hide(7.2, '#s-toasts .stoast', 0.2);
-RQS.forEach((q, k) => tl.to(`#rq${k}`, { x: q.gx, y: q.gy, rotation: 0, scale: 0.72, duration: 0.55, ease: 'power3.inOut' }, 7.3 + (k % 9) * 0.012));
+// ================= 2 · Teamo falls like a drop and puts everything in order (6.75 → 10.4) =================
+// the desktop tilts back like a surface, the drop falls onto it
+tl.to('#studio', { rotationX: 54, scale: 0.86, y: 70, transformPerspective: 1300, duration: 0.6, ease: 'power3.inOut' }, 6.2);
+tl.set('#drop', { x: SCX, y: -260, opacity: 1, scaleX: 0.8, scaleY: 1.05 }, 6.5)
+  .to('#drop', { y: IMY, scaleY: 1.4, scaleX: 0.75, duration: 0.65, ease: 'power2.in' }, 6.5)
+  .to('#drop', { scaleX: 2.1, scaleY: 0.3, duration: 0.09, ease: 'power2.out' }, 7.15)
+  .to('#drop', { opacity: 0, duration: 0.08 }, 7.22);
+tl.fromTo('#pshadow', { opacity: 0.05, scale: 3 }, { opacity: 0.85, scale: 0.7, duration: 0.65, ease: 'power2.in' }, 6.5)
+  .to('#pshadow', { opacity: 0, duration: 0.2 }, 7.15);
+// impact : puddle, ripples spreading in perspective, droplets
+tl.set('#shake', { x: 0, y: 0, rotation: 0 }, 7.15);
+tl.fromTo('#puddle', { opacity: 1, scale: 0.15 }, { scale: 1, duration: 0.35, ease: 'elastic.out(1, 0.5)' }, 7.15)
+  .to('#puddle', { scale: 0, opacity: 0, duration: 0.3, ease: 'power3.in' }, 7.5);
+[0, 1, 2].forEach((k) => tl.fromTo(`#rip${k}`, { opacity: 0.9, scale: 0.4 }, { opacity: 0, scale: 9 - k * 2, duration: 1.0, ease: 'power2.out' }, 7.15 + k * 0.12));
+DROPS.forEach((d, k) => {
+  tl.set(`#dl${k}`, { x: SCX, y: IMY, scale: d.s, opacity: 1 }, 7.15)
+    .to(`#dl${k}`, { x: SCX + d.dx * 0.6, y: IMY - d.up, duration: 0.28, ease: 'power2.out' }, 7.15)
+    .to(`#dl${k}`, { x: SCX + d.dx, y: IMY + d.down, scale: d.s * 0.5, duration: 0.32, ease: 'power2.in' }, 7.43)
+    .to(`#dl${k}`, { opacity: 0, duration: 0.1 }, 7.7);
+});
+tl.to('#d-red', { opacity: 0, duration: 0.3 }, 7.15);
+hide(7.15, '#d-toasts .stoast', 0.2);
+// the shock pushes everything away, then the desktop straightens up and everything lines up
+RQS.forEach((q, k) => { const dx = q.x + 150 - SCX, dy = q.y + 30 - SCY, l = Math.hypot(dx, dy) || 1;
+  tl.to(`#rq${k}`, { x: q.x + dx / l * 90, y: q.y + dy / l * 90, rotation: q.r * 2, duration: 0.25, ease: 'power2.out' }, 7.15); });
+tl.to('#studio', { rotationX: 0, scale: 1, y: 0, duration: 0.65, ease: 'power3.inOut' }, 7.4);
+RQS.forEach((q, k) => tl.to(`#rq${k}`, { x: q.gx, y: q.gy, rotation: 0, scale: 0.72, duration: 0.55, ease: 'power3.inOut' }, 7.45 + (k % 9) * 0.012));
 RQS.forEach((q, k) => { const n = ORDER.indexOf(k);
-  tl.to(`#rq${k}`, { x: SCX - 120, y: SCY - 30, scale: 0.05, opacity: 0, duration: 0.5, ease: 'power3.in' }, 8.0 + (n % 18) * 0.012 + Math.floor(n / 18) * 0.05); });
-tl.set('#s-app', { opacity: 1 }, 8.35).fromTo('#s-app', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 8.35);
-hide(8.4, '#s-badge', 0.2);
-tl.fromTo('#s-hub', { scale: 0 }, { scale: 1, duration: 0.6, ease: 'back.out(1.8)' }, 8.55);
-tl.set('#teamo', { x: SCX, y: SCY, scale: 0.3, opacity: 1 }, 7.3)
-  .to('#teamo', { x: 1440, duration: 0.7, ease: 'power1.out' }, 7.3)
-  .to('#teamo', { y: 250, duration: 0.3, ease: 'power2.out' }, 7.3).to('#teamo', { y: 690, duration: 0.45, ease: 'bounce.out' }, 7.6)
-  .to('#teamo', { scale: 1, duration: 0.5, ease: 'back.out(2)' }, 7.4);
-say(8.9, 10.45, 'Respirez. *Je m’occupe de tout.*', 'T', 1560, 590);
+  tl.to(`#rq${k}`, { x: HX - 120, y: HY - 30, scale: 0.05, opacity: 0, duration: 0.5, ease: 'power3.in' }, 8.0 + (n % 18) * 0.012 + Math.floor(n / 18) * 0.05); });
+// Teamora's home appears, flat, where everything was absorbed
+tl.set('#w3', { opacity: 1 }, 8.3).fromTo('#w3', { opacity: 0 }, { opacity: 1, duration: 0.35 }, 8.3);
+camSet(8.3, '#pHome', 960, 540, 0, 0, 0);
+tl.set('#studio', { opacity: 0 }, 8.7);
+tl.fromTo('#h-hub', { scale: 0 }, { scale: 1, duration: 0.7, ease: 'back.out(1.8)' }, 8.45);
+tl.set('#teamo', { x: SCX, y: IMY + 30, scale: 0.2, opacity: 1 }, 7.45)
+  .to('#teamo', { y: IMY - 130, scale: 1.25, duration: 0.35, ease: 'back.out(2)' }, 7.45)
+  .to('#teamo', { x: TX, duration: 0.75, ease: 'power1.inOut' }, 7.85)
+  .to('#teamo', { y: 420, duration: 0.25, ease: 'power2.out' }, 7.85).to('#teamo', { y: TY, scale: 1, duration: 0.5, ease: 'bounce.out' }, 8.1);
+say(8.7, 10.3, 'Respirez. *Je m’occupe de tout.*');
 
-// ================= 3 · Into the screen : the home wheel in 3D (10.5 → 15.9) =================
-tl.to('#studio', { scale: 2.5, y: 540 - 429, duration: 0.9, ease: 'power3.in' }, 10.5);
-teamoTo(10.55, TX, TY, 0.8, 1);
-tl.set('#w3', { opacity: 1 }, 11.4).set('#studio', { opacity: 0 }, 11.4);
-camSet(11.4, '#pHome', 960, 540, 0, 0, 0);
-RUB.forEach((r, i) => { const p = hpos(i), t = 11.65 + i * 0.06;
+// ================= 3 · The home wheel, flat (10.4 → 15.5) =================
+tl.to('#h-hub', { scale: 1.05, duration: 0.3, ease: 'power2.out' }, 10.35).to('#h-hub', { scale: 1, duration: 0.45 }, 10.65);
+RUB.forEach((r, i) => { const p = hpos(i), t = 10.45 + i * 0.06;
   tl.fromTo(`#hn${i}`, { x: 0, y: 0, scale: 0.4, opacity: 0 }, { x: p.x, y: p.y, scale: 1, opacity: 1, duration: 0.85, ease: 'back.out(1.5)' }, t);
   tl.fromTo($$('#pHome .lab-in')[i], { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.35 }, t + 0.45); });
-cam(11.5, '#pHome', 1.7, 'power2.inOut', 960, 580, -380, 26, -16);
-RUB.forEach((r, i) => tl.to(`#hn${i} .bd`, { scale: 1, duration: 0.3, ease: 'back.out(3)' }, 13.3 + i * 0.07));
-counter(13.3, '#h-n', 0, TODO, 0.9, (v) => `${int(v)} à traiter`);
-cam(13.2, '#pHome', 1.3, 'power2.inOut', 960, 620, 520, 8, 8);
-focus(14.0, '#h-f', 1.1);
-say(11.7, 13.4, '12 rubriques : *toute la vie RH.*');
-say(13.65, 15.5, 'Une pastille, c’est *ce qui vous attend.*');
-pageOut(15.5, '#pHome');
-
+RUB.forEach((r, i) => tl.to(`#hn${i} .bd`, { scale: 1, duration: 0.3, ease: 'back.out(3)' }, 12.4 + i * 0.07));
+counter(12.4, '#h-n', 0, TODO, 0.9, (v) => `${int(v)} à traiter`);
+cam(12.5, '#pHome', 1.2, 'power2.inOut', 960, 600, 300, 0, 0);
+focus(13.2, '#h-f', 1.0);
+cam(14.2, '#pHome', 0.6, 'power2.inOut', 960, 540, 0, 0, 0);
+say(10.7, 12.4, '12 rubriques : *toute la vie RH.*');
+say(12.65, 14.75, 'Une pastille, c’est *ce qui vous attend.*');
+// click on Recrutement : its colour fills the screen, then the first management page arrives in 3D
+tl.to('#hn1', { scale: 1.25, duration: 0.2, ease: 'back.out(2)' }, 14.75);
+tl.set('#h-z', { x: hpos(1).x, y: hpos(1).y, scale: 1, opacity: 1 }, 14.95).to('#h-z', { scale: 45, duration: 0.5, ease: 'power3.in' }, 14.95);
+tl.set('#pHome', { opacity: 0 }, 15.5);
+tl.fromTo('#w3', { backgroundColor: '#7c3aed' }, { backgroundColor: '#e9ebf4', duration: 0.5 }, 15.5);
 // ================= 4 · Recruitment (15.75 → 24.3) =================
-pageIn(15.75, '#pRec', [960, 560, -520, 20, -18]);
+pageIn(15.55, '#pRec', [960, 560, -520, 20, -18]);
 cam(16.55, '#pRec', 0.75, 'power2.inOut', 1060, 320, 200, 12, 0);
 $$('#pRec .fz').forEach((f, k) => tl.to(f.querySelector('i'), { scale: 1, duration: 0.3, ease: 'back.out(3)' }, 16.95 + k * 0.22));
 tl.to('#r-ln', { width: '100%', duration: 0.75, ease: 'none' }, 17.0);
@@ -673,26 +656,33 @@ show(50.4, '#m-a', { y: 12 }, 0.25);
 typeInto(50.45, $('#m-a'), 'Dès *11 salariés pendant 12 mois.* Je vous guide pas à pas, jusqu’au 1er tour.', 1.5);
 bob(50.45, 1.5);
 
-// ================= 10 · Back to the desk, all is in order (52.2 → 60) =================
+// ================= 10 · Back home, all is in order (52.2 → 58.6) =================
 tl.to('#panel', { opacity: 0, scale: 0.9, duration: 0.3, ease: 'power2.in' }, 52.2);
-tl.set('#studio', { opacity: 1, scale: 2.5, y: 540 - 429 }, 52.45).set('#w3', { opacity: 0 }, 52.45);
-tl.set('#s-wheel .snode', { opacity: 1 }, 52.45);
-tl.call(() => { $('#s-hub span').textContent = '0 à traiter'; }, null, 52.45);
-tl.to('#studio', { scale: 1, y: 0, duration: 1.2, ease: 'power3.inOut' }, 52.55);
-teamoTo(52.5, 1440, 690, 1.1, 1, 'power3.inOut');
-say(53.85, 55.45, 'Tout est *en ordre.*', 'T', 1560, 590);
-RUB.forEach((_, i) => { const a = (-90 + i * 30) * Math.PI / 180;
-  tl.fromTo(`#sn${i}`, { x: 0, y: 0 }, { x: -Math.cos(a) * SR, y: -Math.sin(a) * SR, scale: 0.4, opacity: 0, duration: 0.45, ease: 'back.in(1.5)' }, 55.5 + (11 - i) * 0.025); });
-tl.to('#s-hub', { scale: 0, duration: 0.35, ease: 'back.in(1.6)' }, 55.85);
-tl.set('#s-brand', { opacity: 1 }, 56.1);
-tl.fromTo('#s-brand .lg', { scale: 0, rotation: -60 }, { scale: 1, rotation: 0, duration: 0.6, ease: 'back.out(1.8)' }, 56.1);
-tl.fromTo('#s-brand .nm span', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.04, ease: 'back.out(1.6)' }, 56.35);
-show(56.8, '#s-brand .tg', { y: 12 }, 0.4); show(57.1, '#s-brand .ur', {}, 0.4);
-tl.to('#studio', { scale: 1.55, y: 540 - 429 + 40, duration: 2.6, ease: 'power2.inOut' }, 56.0);
-teamoTo(56.0, 1690, 760, 2.6, 1.4, 'power2.inOut');
-tl.to('#teamo', { rotation: 12, duration: 0.17, yoyo: true, repeat: 5, ease: 'sine.inOut' }, 57.8);
-tl.to({}, { duration: 0.01 }, 60);
-
+camSet(52.4, '#pHome', 960, 540, 0, 0, 0);
+tl.set('#h-z', { opacity: 0 }, 52.4).set('#hn1', { scale: 1 }, 52.4);
+tl.fromTo('#pHome', { opacity: 0, scale: 1.06 }, { opacity: 1, scale: 1, duration: 0.5 }, 52.4);
+teamoTo(52.3, TX, TY, 0.7, 1);
+RUB.forEach((r, i) => { const t = 52.9 + i * 0.06;
+  tl.to(`#hn${i} .bd`, { scale: 0, duration: 0.15, ease: 'power2.in' }, t).to(`#hn${i} .ck`, { scale: 1, duration: 0.3, ease: 'back.out(3)' }, t + 0.12); });
+counter(52.9, '#h-n', TODO, 0, 0.8, (v) => `${int(v)} à traiter`);
+say(53.3, 54.9, 'Tout est *en ordre.*');
+const F = 55.0;
+tl.to('#pHome .lab-in', { opacity: 0, duration: 0.25, stagger: 0.015 }, F);
+hide(F + 0.9, '#pHome .hdr', 0.4, { y: -40 });
+RUB.forEach((_, i) => {
+  tl.to(`#hn${i}`, { x: 0, y: 0, scale: 0.4, duration: 0.6, ease: 'back.in(1.4)' }, F + 0.15 + (11 - i) * 0.035);
+  tl.set(`#hn${i}`, { opacity: 0 }, F + 0.75 + (11 - i) * 0.035);
+});
+tl.to('#h-hub', { scale: 1.08, duration: 0.2, ease: 'power2.out' }, F + 1.1)
+  .to('#pHome .hub-in', { opacity: 0, scale: 0.8, duration: 0.2 }, F + 1.1)
+  .to('#h-hub', { y: -250, scale: 0.62, borderRadius: '28%', duration: 0.75, ease: 'power4.inOut' }, F + 1.25)
+  .fromTo('#h-logo', { opacity: 0, scale: 0.4, rotation: -60 }, { opacity: 1, scale: 1, rotation: 0, duration: 0.55, ease: 'back.out(1.8)' }, F + 1.7)
+  .fromTo('#brand .name span', { opacity: 0, y: 70 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.04, ease: 'back.out(1.6)' }, F + 1.85);
+show(F + 2.3, '#brand .tag', { y: 20 }, 0.45);
+show(F + 2.65, '#brand .url', {}, 0.45);
+teamoTo(F + 1.75, 1180, 350, 0.6, 0.9, 'back.out(1.4)');
+tl.to('#teamo', { rotation: 12, duration: 0.17, yoyo: true, repeat: 5, ease: 'sine.inOut' }, F + 2.5);
+tl.to({}, { duration: 0.01 }, 58.6);
 window.tl = tl;
 window.ready = document.fonts.ready.then(() => true);
 </script>

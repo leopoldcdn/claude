@@ -1,0 +1,16 @@
+﻿prenom;nom;email;poste;service;contrat;entree;salaire;manager;site
+Camille;Martin;camille.martin@viewsales.fr;Directrice générale;Direction;CDI;01/03/2016;98000;;Paris
+Julien;Moreau;julien.moreau@viewsales.fr;Directeur commercial;Ventes;CDI;15/09/2017;82000;camille.martin@viewsales.fr;Paris
+Sarah;Lefebvre;sarah.lefebvre@viewsales.fr;Responsable grands comptes;Ventes;CDI;04/01/2019;56000;julien.moreau@viewsales.fr;Paris
+Hugo;Garcia;hugo.garcia@viewsales.fr;Commercial terrain;Ventes;CDI;02/05/2022;38000;julien.moreau@viewsales.fr;Lyon
+Inès;Benali;ines.benali@viewsales.fr;Commerciale sédentaire;Ventes;CDD;01/09/2026;31000;sarah.lefebvre@viewsales.fr;Paris
+Thomas;Roux;thomas.roux@viewsales.fr;Chargé d'affaires;Ventes;CDI;03/11/2025;40000;sarah.lefebvre@viewsales.fr;Lyon
+Manon;Fournier;manon.fournier@viewsales.fr;Responsable marketing;Marketing;CDI;12/02/2018;58000;camille.martin@viewsales.fr;Paris
+Lucas;Girard;lucas.girard@viewsales.fr;Chargé de communication;Marketing;CDI;06/06/2023;36000;manon.fournier@viewsales.fr;Paris
+Emma;Bonnet;emma.bonnet@viewsales.fr;Alternante marketing digital;Marketing;Alternance;01/09/2025;14500;manon.fournier@viewsales.fr;Paris
+Nicolas;Lambert;nicolas.lambert@viewsales.fr;Responsable administratif et financier;Finance;CDI;20/08/2016;68000;camille.martin@viewsales.fr;Paris
+Chloé;Fontaine;chloe.fontaine@viewsales.fr;Comptable;Finance;CDI;14/03/2021;39000;nicolas.lambert@viewsales.fr;Paris
+Karim;Haddad;karim.haddad@viewsales.fr;Responsable service client;Service client;CDI;09/10/2019;47000;camille.martin@viewsales.fr;Lyon
+Léna;Muller;lena.muller@viewsales.fr;Conseillère clientèle;Service client;CDI;17/01/2024;29500;karim.haddad@viewsales.fr;Lyon
+Antoine;Chevalier;antoine.chevalier@viewsales.fr;Conseiller clientèle;Service client;CDD;05/10/2026;28000;karim.haddad@viewsales.fr;Lyon
+Zoé;Perrin;zoe.perrin@viewsales.fr;Stagiaire relation client;Service client;Stage;02/11/2026;0;karim.haddad@viewsales.fr;Lyon

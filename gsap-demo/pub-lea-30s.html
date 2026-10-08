@@ -172,9 +172,10 @@ $$('[data-split]').forEach((el) => { el.innerHTML = [...el.textContent].map((c) 
 
 // The moments of Léa's working life : [rubric, date, title, body html]
 const MOM = [
-  [0, 'Mars 2024', 'L’équipe Design a besoin d’<b>une UX designer.</b>', `<div class="row" style="border:0">${pill('Demande', 'ok')} ${pill('RH', 'ok')} ${pill('Direction', 'ok')} ${pill('Offre publiée', 'acc')}</div>`],
+  [0, 'Mars 2024', 'L’équipe Design recrute<br><b>une UX designer.</b>', `<div class="row" style="border:0">${pill('Demande', 'ok')} ${pill('RH', 'ok')} ${pill('Direction', 'ok')} ${pill('Offre publiée', 'acc')}</div>`],
   [1, 'Avril 2024', 'Léa postule.<br><b>Et dit oui.</b>', `<div class="uicard"><div class="av">${LEA('lc1')}</div><div><b>Léa Martin</b><small>UX Designer · ★ 4,8</small></div><span class="pill warn m-a" style="margin-left:auto">Proposition envoyée</span><span class="pill ok m-b h" style="position:absolute;right:22px">${CHK}Acceptée</span></div>`],
   [2, 'Nov. 2024', 'Premier jour.<br><b>Tout est prêt.</b>', ['Contrat signé', 'DPAE déclarée', 'Badge et PC prêts'].map((t) => `<div class="row m-r">${ic('check', 2.6).replace('<svg', '<svg style="width:28px;height:28px;color:#10b981"')}${t}${pill('Fait', 'ok')}</div>`).join('')],
+  // [3] déménagement, [7] formation, [10] télétravail : ticked on the wheel without a card
   [3, 'Févr. 2025', 'Elle déménage.<br><b>Une demande, c’est réglé.</b>', `<div class="uicard"><div>${ic('home').replace('<svg', '<svg style="width:44px;height:44px;color:#e11d48"')}</div><div><b>18 rue des Martyrs, Paris</b><small>justificatif joint</small></div><span class="pill ok m-b h" style="margin-left:auto">${CHK}Validé</span></div>`],
   [4, 'Août 2025', 'Ses premières vacances,<br><b>validées en un clic.</b>', `<div class="cal">${Array.from({ length: 14 }, (_, k) => `<i class="${k >= 3 && k < 10 ? 'm-d' : ''}">${k + 1}</i>`).join('')}</div>`],
   [5, 'Janv. 2026', 'Sa première <b>augmentation.</b>', `<div style="display:flex;align-items:center;gap:26px"><span class="big" style="color:#d97706">+5 %</span><div class="uicard" style="flex:1"><div>${ic('file').replace('<svg', '<svg style="width:40px;height:40px;color:#d97706"')}</div><div><b>Bulletin de janvier</b><small>diffusé · avenant signé</small></div></div></div>`],
@@ -183,7 +184,7 @@ const MOM = [
   [8, 'Sept. 2028', 'Léa devient<br><b>Lead Designer.</b>', `<div style="display:flex;align-items:center;gap:22px"><span style="width:84px;height:84px;border-radius:50%;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center">${ic('up', 2.6).replace('<svg', '<svg style="width:44px;height:44px"')}</span><div><b style="font-size:34px;display:block">UX Designer → Lead Designer</b><small style="font-size:21px;color:var(--faint);font-weight:600">avenant généré automatiquement</small></div></div>`],
   [9, 'Mai 2029', 'Un bébé.<br><b>Un retour en douceur.</b>', `<div class="row m-r" style="border:0">${ic('heart', 2.4).replace('<svg', '<svg style="width:30px;height:30px;color:#059669"')}Congé maternité${pill('Suivi', 'ok')}</div><div class="row m-r">${ic('check', 2.6).replace('<svg', '<svg style="width:28px;height:28px;color:#059669"')}Reprise à 4/5, poste aménagé${pill('Accordé', 'ok')}</div>`],
   [10, 'Oct. 2030', 'Télétravail 3 jours ?<br><b>Demande tracée, accordée.</b>', `<div class="uicard"><div>${ic('chat').replace('<svg', '<svg style="width:40px;height:40px;color:#0d9488"')}</div><div><b>Échange RH · Léa Martin</b><small>réponse sous 48 h</small></div>${pill('Accordé', 'ok')}</div>`],
-  [11, 'Juin 2031', 'Léa part lancer<br><b>son propre studio.</b>', `<div class="confetti">${Array.from({ length: 18 }, (_, k) => `<i style="left:${40 + k * 36}px;top:0;background:${RUB[k % 12][2]}"></i>`).join('')}</div><div class="row" style="border:0;margin-top:60px">${ic('check', 2.6).replace('<svg', '<svg style="width:28px;height:28px;color:#0891b2"')}Pot de départ · documents de sortie${pill('Prêts', 'ok')}</div>`],
+  [11, 'Juin 2031', 'Léa part lancer<br><b>son propre studio.</b>', `<div class="confetti" style="position:absolute;left:0;right:0;top:-400px">${Array.from({ length: 18 }, (_, k) => `<i style="left:${40 + k * 36}px;top:0;background:${RUB[k % 12][2]}"></i>`).join('')}</div><div class="row" style="border:0;margin-top:60px">${ic('check', 2.6).replace('<svg', '<svg style="width:28px;height:28px;color:#0891b2"')}Pot de départ · documents de sortie${pill('Prêts', 'ok')}</div>`],
 ];
 const _c = 0; $('#cards').innerHTML = MOM.map(([i, d, t, b], k) => `<div class="mc" id="m${k}"><div class="mh"><span class="ri" style="background:${RUB[i][2]}">${ic(RUB[i][1])}</span><span class="rn" style="color:${RUB[i][2]}">${RUB[i][0]}</span><span class="yr">${d}</span></div><h2>${t}</h2><div class="mb">${b}</div></div>`).join('')
   + `<div class="mc" id="mB"><div class="mh"><span class="ri" style="background:#7c3aed">${ic('search')}</span><span class="rn" style="color:#7c3aed">Recrutement</span><span class="yr">Mars 2033</span></div><h2>Un poste de directrice design s’ouvre…<br><b>Léa revient.</b></h2>
@@ -219,46 +220,51 @@ tl.fromTo('#ring', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 3.9);
 tl.fromTo('#hand', { opacity: 0, rotation: 0 }, { opacity: 1, duration: 0.25 }, 4.3);
 
 // ---- 4.5 → 24.6 : the hand sweeps the wheel, one moment per rubric ----
-const DUR = [1.45, 1.95, 1.8, 1.25, 1.5, 1.8, 1.45, 1.25, 1.95, 1.95, 1.3, 2.35];
+// Steps of the hand : a card for the strong moments, a quick tick for the others (readability first)
+const STEPS = [[0, 0, 2.1], [1, 1, 2.2], [2, 2, 2.2], [3, -1, 0.3], [4, 4, 2.1], [5, 5, 2.0], [6, 6, 2.0], [7, -1, 0.3], [8, 8, 2.1], [9, 9, 2.2], [10, -1, 0.3], [11, 11, 2.3]];
 const YEAR = [2024, 2024, 2024, 2025, 2025, 2026, 2026, 2027, 2028, 2029, 2030, 2031];
-const START = []; { let s = 4.55; DUR.forEach((d) => { START.push(s); s += d; }); }
+const START = []; { let s = 4.45; STEPS.forEach(([, , d]) => { START.push(s); s += d; }); }
 const prog = { a: 0 }; const setProg = () => { $('#prog').setAttribute('stroke-dashoffset', C * (1 - prog.a / 360)); };
-MOM.forEach(([i], k) => {
-  const s = START[k], d = DUR[k], m = `#m${k}`;
-  tl.to('#hand', { rotation: i * 30, duration: 0.35, ease: 'power2.inOut' }, s);
-  tl.to(prog, { a: i * 30 + 0.01, duration: 0.35, ease: 'power2.inOut', onUpdate: setProg, onComplete: setProg }, s);
-  tl.to(`#n${i}`, { opacity: 1, scale: 1.25, boxShadow: `0 0 0 8px ${RUB[i][2]}44, 0 14px 36px ${RUB[i][2]}aa`, duration: 0.25 }, s + 0.25)
-    .to(`#n${i}`, { scale: 1, boxShadow: '0 0 0 5px #ffffffaa, 0 12px 26px rgba(21,25,53,.2)', duration: 0.3 }, s + d - 0.3)
-    .to(`#n${i} .ck`, { scale: 1, duration: 0.3, ease: 'back.out(3)' }, s + d - 0.3);
-  setText(s + 0.25, '#yr', YEAR[k]);
-  tl.fromTo(m, { opacity: 0, x: 140, rotationY: -25, transformPerspective: 1600 }, { opacity: 1, x: 0, rotationY: 0, duration: 0.4, ease: 'power3.out' }, s + 0.1);
-  tl.fromTo(`${m} h2`, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.35 }, s + 0.2);
-  tl.fromTo(`${m} .mb`, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.35 }, s + 0.32);
-  tl.to(m, { opacity: 0, x: -60, duration: 0.2, ease: 'power2.in' }, s + d - 0.18);
+STEPS.forEach(([i, k, d], n) => {
+  const s = START[n], quick = k < 0, mv = quick ? 0.22 : 0.3;
+  tl.to('#hand', { rotation: i * 30, duration: mv, ease: 'power2.inOut' }, s);
+  tl.to(prog, { a: i * 30 + 0.01, duration: mv, ease: 'power2.inOut', onUpdate: setProg, onComplete: setProg }, s);
+  setText(s + 0.15, '#yr', YEAR[i]);
+  if (quick) {
+    tl.to(`#n${i}`, { opacity: 1, duration: 0.15 }, s + 0.1).to(`#n${i} .ck`, { scale: 1, duration: 0.25, ease: 'back.out(3)' }, s + 0.15);
+    return;
+  }
+  const m = `#m${k}`;
+  tl.to(`#n${i}`, { opacity: 1, scale: 1.25, boxShadow: `0 0 0 8px ${RUB[i][2]}44, 0 14px 36px ${RUB[i][2]}aa`, duration: 0.22 }, s + 0.18)
+    .to(`#n${i}`, { scale: 1, boxShadow: '0 0 0 5px #ffffffaa, 0 12px 26px rgba(21,25,53,.2)', duration: 0.25 }, s + d - 0.25)
+    .to(`#n${i} .ck`, { scale: 1, duration: 0.3, ease: 'back.out(3)' }, s + d - 0.25);
+  tl.fromTo(m, { opacity: 0, x: 120, rotationY: -22, transformPerspective: 1600 }, { opacity: 1, x: 0, rotationY: 0, duration: 0.28, ease: 'power3.out' }, s + 0.04);
+  tl.fromTo(`${m} h2`, { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.25 }, s + 0.08);
+  tl.fromTo(`${m} .mb`, { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.25 }, s + 0.16);
+  tl.to(m, { opacity: 0, x: -50, duration: 0.14, ease: 'power2.in' }, s + d - 0.14);
 });
+const ST = (k) => START[STEPS.findIndex((x) => x[1] === k)];
 // per-moment touches
-tl.to('#m1 .m-a', { opacity: 0, duration: 0.12 }, START[1] + 1.0); show(START[1] + 1.05, '#m1 .m-b', { scale: 0.6 }, 0.3, { ease: 'back.out(2.5)' });
-$$('#m2 .m-r').forEach((r, k) => show(START[2] + 0.45 + k * 0.25, r, { x: -20 }, 0.3));
-tl.to('#lea .lanyard', { opacity: 1, duration: 0.3 }, START[2] + 0.6);
-show(START[3] + 0.7, '#m3 .m-b', { scale: 0.6 }, 0.3, { ease: 'back.out(2.5)' });
-$$('#m4 .m-d').forEach((c, k) => tl.to(c, { backgroundColor: '#ea580c', color: '#fff', duration: 0.12 }, START[4] + 0.5 + k * 0.06));
-tl.fromTo('#m5 .big', { scale: 0.5 }, { scale: 1, duration: 0.45, ease: 'back.out(2.5)' }, START[5] + 0.4);
-$$('#m6 .stars svg').forEach((s, k) => { const t = START[6] + 0.45 + k * 0.1; tl.to(s, { color: '#eab308', duration: 0.12 }, t).fromTo(s, { scale: 1 }, { scale: 1.25, duration: 0.12, yoyo: true, repeat: 1 }, t); });
-tl.to('#lea .glasses', { opacity: 1, duration: 0.3 }, START[7] + 0.5);
-$$('#m9 .m-r').forEach((r, k) => show(START[9] + 0.5 + k * 0.35, r, { x: -20 }, 0.3));
-$$('#m11 .confetti i').forEach((c, k) => tl.fromTo(c, { opacity: 1, y: -10, rotation: 0 }, { y: 80 + (k % 4) * 20, rotation: (k % 2 ? 1 : -1) * 220, opacity: 0, duration: 1.4, ease: 'power1.in' }, START[11] + 0.4 + (k % 6) * 0.04));
-// a blink of the hand going round (years passing) between moments
+tl.to('#m1 .m-a', { opacity: 0, duration: 0.12 }, ST(1) + 0.75); show(ST(1) + 0.8, '#m1 .m-b', { scale: 0.6 }, 0.3, { ease: 'back.out(2.5)' });
+$$('#m2 .m-r').forEach((r, k) => show(ST(2) + 0.3 + k * 0.18, r, { x: -20 }, 0.25));
+tl.to('#lea .lanyard', { opacity: 1, duration: 0.3 }, ST(2) + 0.5);
+$$('#m4 .m-d').forEach((c, k) => tl.to(c, { backgroundColor: '#ea580c', color: '#fff', duration: 0.1 }, ST(4) + 0.35 + k * 0.05));
+tl.fromTo('#m5 .big', { scale: 0.5 }, { scale: 1, duration: 0.4, ease: 'back.out(2.5)' }, ST(5) + 0.25);
+$$('#m6 .stars svg').forEach((sv, k) => { const t = ST(6) + 0.3 + k * 0.09; tl.to(sv, { color: '#eab308', duration: 0.1 }, t).fromTo(sv, { scale: 1 }, { scale: 1.25, duration: 0.1, yoyo: true, repeat: 1 }, t); });
+tl.to('#lea .glasses', { opacity: 1, duration: 0.3 }, ST(6) + 1.2);
+$$('#m9 .m-r').forEach((r, k) => show(ST(9) + 0.3 + k * 0.25, r, { x: -20 }, 0.25));
+$$('#m11 .confetti i').forEach((c, k) => tl.fromTo(c, { opacity: 1, y: -10, rotation: 0 }, { y: 40 + (k % 4) * 15, rotation: (k % 2 ? 1 : -1) * 220, opacity: 0, duration: 1.4, ease: 'power1.in' }, ST(11) + 0.3 + (k % 6) * 0.04));
 tl.to('#lea', { scale: 0.42, duration: 0.01 }, START[0]);
 
 // ---- 24.6 → 26.9 : the loop closes — Léa comes back ----
-const B = START[11] + DUR[11];
+const B = START[11] + STEPS[11][2];
 tl.to('#hand', { rotation: 360 + 30, duration: 0.55, ease: 'power2.inOut' }, B);
 tl.to(prog, { a: 360, duration: 0.45, ease: 'power2.inOut', onUpdate: setProg, onComplete: setProg }, B);
 setText(B + 0.3, '#yr', 2033);
 tl.to('#n1', { scale: 1.3, boxShadow: '0 0 0 10px #7c3aed44, 0 14px 40px #7c3aedaa', duration: 0.3 }, B + 0.4);
 tl.fromTo('#mB', { opacity: 0, x: 140, rotationY: -25, transformPerspective: 1600 }, { opacity: 1, x: 0, rotationY: 0, duration: 0.45 }, B + 0.15);
 tl.fromTo('#mB h2', { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.35 }, B + 0.25).fromTo('#mB .mb', { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.35 }, B + 0.4);
-const E = B + 2.35;
+const E = B + 2.4;
 
 // ---- E → 30 : the promise and the call to action ----
 tl.set('#end', { opacity: 1 }, E).fromTo('#end', { opacity: 0 }, { opacity: 1, duration: 0.3 }, E);
@@ -272,7 +278,7 @@ tl.to('#end .btn', { scale: 1.05, duration: 0.3, yoyo: true, repeat: 3, ease: 's
 tl.set('#teamo', { x: 1075, y: 395, scale: 0, opacity: 1 }, E + 0.8).to('#teamo', { scale: 0.55, duration: 0.45, ease: 'back.out(2)' }, E + 0.8)
   .to('#teamo', { rotation: 12, duration: 0.16, yoyo: true, repeat: 5, ease: 'sine.inOut' }, E + 1.3);
 tl.to({}, { duration: 0.01 }, 30);
-window.TIMES = { START, DUR, B, E };
+window.TIMES = { START, STEPS, B, E };
 window.tl = tl;
 window.ready = document.fonts.ready.then(() => true);
 </script>

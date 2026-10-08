@@ -66,8 +66,8 @@ def pop():
     t = t_(0.08); f = 900 - 500 * t / 0.08; return np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t * 50)
 
 # ---------- timeline (same values as pub-lea-30s.html) ----------
-DURS = [1.45, 1.95, 1.8, 1.25, 1.5, 1.8, 1.45, 1.25, 1.95, 1.95, 1.3, 2.35]
-START = list(np.cumsum([4.55] + DURS[:-1])); B = START[-1] + DURS[-1]; E = B + 2.35
+DURS = [2.1, 2.2, 2.2, 0.3, 2.1, 2.0, 2.0, 0.3, 2.1, 2.2, 0.3, 2.3]   # 0.3 = rubric ticked without a card
+START = list(np.cumsum([4.45] + DURS[:-1])); B = START[-1] + DURS[-1]; E = B + 2.4
 
 # ---------- 0 → 4.55 : hook, Léa appears ----------
 place(ping(hz(84)), 0.15, 0.35, rev=0.3); place(ping(hz(88)), 0.27, 0.25, rev=0.3)
@@ -96,12 +96,12 @@ while T0 + b * BEAT < B - 0.01:
 mix[:, 0] *= duck; mix[:, 1] *= duck
 scale = [72, 74, 76, 79, 81, 84, 86, 88, 91, 93, 96, 98]
 for k, s in enumerate(START):
-    place(whoosh(0.35, 800, 5000), s - 0.12, 0.22)                      # the hand moves on
-    place(ding(hz(scale[k])), s + 0.25, 0.22, rev=0.45)                 # a new step, a higher note
-key = {1: (1.05, 91), 5: (0.4, 93), 8: (0.3, 96), 9: (0.5, 88), 11: (0.4, 98)}
+    place(whoosh(0.3, 800, 5000), s - 0.1, 0.22 if DURS[k] > 1 else 0.12)   # the hand moves on
+    place(ding(hz(scale[k])), s + 0.18, 0.22 if DURS[k] > 1 else 0.13, rev=0.45)   # a new step, a higher note
+key = {1: (0.8, 91), 5: (0.25, 93), 8: (0.3, 96), 9: (0.3, 88), 11: (0.3, 98)}
 for k, (dt, n) in key.items():
     place(ding(hz(n)), START[k] + dt, 0.3, rev=0.5); place(ding(hz(n + 7)), START[k] + dt + 0.08, 0.18, rev=0.5)
-for k in range(10): place(pop(), START[11] + 0.4 + k * 0.05, 0.12, pan=np.sin(k * 2))   # confetti
+for k in range(10): place(pop(), START[11] + 0.3 + k * 0.05, 0.12, pan=np.sin(k * 2))   # confetti
 
 # ---------- B → E : the loop closes, Léa comes back ----------
 place(whoosh(0.6, 6000, 400, up=False), B - 0.05, 0.5)

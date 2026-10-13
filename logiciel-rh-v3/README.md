@@ -42,6 +42,12 @@
   plus), puis coche « J'ai vérifié ces règles ». Ces règles alimentent la période d'essai, les préavis, la paie
   (maintien de salaire) et la jauge « Espace prêt ». Sans convention, l'essai n'est pas renouvelable.
 
+- **Rédaction partagée de l'offre** : une fois le besoin validé, le manager demandeur (ou le manager rattaché) et les RH
+  rédigent ensemble le projet d'offre (bouton « Rédiger l'offre » et onglet « Projet d'offre » du besoin, auteur et date
+  de la dernière modification, liste des contributeurs). Le manager enregistre son projet puis l'envoie aux RH ; seuls les
+  RH valident et publient. Le circuit compte une étape « Rédaction de l'offre » avant « Validation et publication », avec
+  relance si le manager tarde. Exemple dans la démo : « Illustrateur·rice » (Thomas Petit, Design).
+
 ### Les obligations, seuil par seuil
 - **Dès le 1er salarié** : DPAE, registre, suivi médical (déjà en place) ; DUERP avec alerte de mise à jour annuelle à
   partir de 11 ; liste des 10 affichages obligatoires ; complémentaire santé (contrôle des 50 %) ; entretien de parcours

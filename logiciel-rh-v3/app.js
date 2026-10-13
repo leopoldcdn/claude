@@ -917,7 +917,7 @@
   // ---------------------------------------------------------------- Recrutement
   const CAND_STAGES = ['Reçue', 'Présélection', 'Entretien', 'Proposition', 'Embauché', 'Refusé'];
   const JOB_PILL = { Brouillon: ['neutral', 'Brouillon'], 'En validation': ['warn', 'En validation'], 'À modifier': ['warn', 'À modifier'], Validée: ['accent', 'Validé · à publier'], Refusée: ['bad', 'Refusé'], Ouverte: ['ok', 'Offre publiée'], Pourvue: ['info', 'Pourvue'], Clôturée: ['neutral', 'Clôturée'] };
-  const jobPill = (j) => `<span class="pill ${JOB_PILL[j.status][0]}">${JOB_PILL[j.status][1]}</span>`;
+  const jobPill = (j) => (j.status === 'Validée' ? `<span class="pill accent">${j.ad && j.ad.ready ? 'Offre à valider' : 'Offre en rédaction'}</span>` : `<span class="pill ${JOB_PILL[j.status][0]}">${JOB_PILL[j.status][1]}</span>`);
   const stars = (n, id) => `<span class="stars ${id ? 'lg' : ''}" ${id ? 'role="group" aria-label="Note du candidat"' : `aria-label="Note ${n} sur 5"`}>${[1, 2, 3, 4, 5].map((k) => id
     ? `<button type="button" data-act="cand-score" data-id="${id}" data-v="${k}" class="${k <= n ? '' : 'off'}" aria-label="${k} sur 5" aria-pressed="${k === n}">${STAR}</button>` : `<span class="${k <= n ? '' : 'off'}">${STAR}</span>`).join('')}</span>`;
   // ---------------------------------------------------------------- Mon profil
@@ -1677,7 +1677,7 @@
         <p class="hint" style="margin:8px 0 0">Ces montants sont des estimations : ils sont transmis à votre prestataire de paie (${esc(PROVIDER)}), qui les calcule sur les bulletins.${Object.keys(fin).length ? '' : ' Chiffre d’affaires et résultat à renseigner dans Paramètres > Entreprise pour le partage de la valeur.'}</p></div>`)}`;
   }
   Object.assign(MOD_ACT, {
-    'obl-go'(d) { if (d.t === 'param') { Object.assign(ui, { modal: null, view: 'parametres', stage: null, setSec: 'convention' }); window.scrollTo(0, 0); render(); return; } ui.oblTab = d.t; ui.modal = null; if (ui.view !== 'obligations') { ui.view = 'obligations'; ui.stage = null; } window.scrollTo(0, 0); render(); },
+    'obl-go'(d) { if (d.t === 'besoins') { Object.assign(ui, { modal: null, view: 'besoins', stage: null }); window.scrollTo(0, 0); render(); return; } if (d.t === 'param') { Object.assign(ui, { modal: null, view: 'parametres', stage: null, setSec: 'convention' }); window.scrollTo(0, 0); render(); return; } ui.oblTab = d.t; ui.modal = null; if (ui.view !== 'obligations') { ui.view = 'obligations'; ui.stage = null; } window.scrollTo(0, 0); render(); },
     'obl-view'(d) { ui.modal = null; if (d.s) ui.setSec = d.s; if (d.v === 'parametres' || d.v === 'modeles' || d.v === 'reporting' || d.v === 'obligations') { ACT.go({ v: d.v }); return; } const i = visibleStages().find((x) => stageView(x) === d.v); if (i !== undefined) ACT.stage({ i }); else ACT.go({ v: 'accueil' }); },
     'obl-sim'() { const n = Number((document.getElementById('obl-sim-n') || {}).value), since = (document.getElementById('obl-sim-s') || {}).value || '5ans'; if (!(n >= 1)) { toast('Indique un effectif à simuler.', 'info'); return; } db.compliance.sim = { n, since }; toast(`Simulation : ${n} salariés`); save(); render(); },
     'obl-sim-off'() { db.compliance.sim = null; toast('Simulation arrêtée'); save(); render(); },
@@ -1759,6 +1759,7 @@
       ['Obligations selon l’effectif', 'Pictogramme dans le bandeau (RH) : chaque obligation avec son seuil, sa règle de franchissement (immédiat, 12 mois consécutifs, 5 ans), son état et l’écran où la traiter.', 'apercu'],
       ['Alertes', 'Seuil qui approche, obligation qui entre en vigueur (notification aux RH et à la Direction), échéances : elles arrivent dans « À traiter ».', 'apercu'],
       ['Simulation', 'Pour la démo : simuler un effectif (60, 300, 1 200…) et voir le logiciel s’adapter.', 'apercu']]],
+    ['Recrutement', [['Rédaction partagée de l’offre', 'Le manager qui a émis le besoin et les RH rédigent ensemble l’offre ; le manager l’envoie aux RH, qui seuls la valident et la publient.', 'besoins']]],
     ['Paramètres', [['Toutes les conventions collectives', 'Recherche parmi 673 conventions par nom ou numéro IDCC (Paramètres > Convention). Hors Syntec, les minima du Code du travail s’appliquent jusqu’à la saisie des règles de la convention (essai, préavis, maintien de salaire).', 'param']]],
     ['Nouveaux écrans', [['Dialogue social', 'Élections du CSE pas à pas (délais légaux, carence), élus, réunions, heures de délégation ; à 50 : consultations, budgets, BDESE, délégué syndical et négociations ; à 300 : commissions.', 'social'],
       ['Index égalité', 'Calcul indicatif à 4 ou 5 indicateurs selon l’effectif, publication avant le 1er mars.', 'index'],
@@ -2790,18 +2791,21 @@
   });
 
   // ================================================================ Besoins de recrutement (étape « Besoin RH » de la roue)
-  // Circuit : Demande → Validation RH → Validation direction (création de poste ou poste hors budget) → Publication de l'offre.
+  // Circuit : Demande → Validation RH → Validation direction (création de poste ou poste hors budget) → Rédaction de l'offre (manager demandeur et RH) → Validation et publication (RH seuls).
   const NEED_OPEN = ['Ouverte', 'Pourvue', 'Clôturée'];
   const isNeed = (j) => !NEED_OPEN.includes(j.status);
   const needsDirection = (j) => j.reason === 'Création de poste' || !j.budgeted;
   const needSteps = (j) => [['demande', 'Demande', j.requestedBy], ['rh', 'Validation RH', 'e1']]
-    .concat(needsDirection(j) ? [['direction', 'Validation direction', DIR_ID()]] : []).concat([['publication', 'Publication de l’offre', 'e1']]);
+    .concat(needsDirection(j) ? [['direction', 'Validation direction', DIR_ID()]] : []).concat([['redaction', 'Rédaction de l’offre', j.requestedBy], ['publication', 'Validation et publication', 'e1']]);
   // Le manager modifie son besoin tant qu'il est en brouillon ou renvoyé « À modifier » ; une fois envoyé, seuls les RH le modifient (jusqu'à la publication).
   const draftLike = (j) => ['Brouillon', 'À modifier'].includes(j.status);
+  // Rédaction de l'offre partagée : le manager demandeur (ou le manager rattaché) et les RH écrivent le projet ; seuls les RH le valident et le publient.
+  const adReady = (j) => !!(j.ad && j.ad.ready);
+  const canWriteAd = (j) => j.status === 'Validée' && (ui.profile === 'rh' || (ui.profile === 'manager' && (j.requestedBy === me().id || jobManager(j) === me().id)));
   const canEditNeed = (j) => (ui.profile === 'rh' ? ['Brouillon', 'À modifier', 'En validation', 'Validée'].includes(j.status) : ui.profile === 'manager' && draftLike(j) && (jobManager(j) === me().id || j.requestedBy === me().id));
   function needsToDo() {
     if (ui.profile === 'rh') return db.jobs.filter((j) => ['En validation', 'Validée'].includes(j.status));
-    if (ui.profile === 'manager') return scopeNeeds().filter(draftLike);
+    if (ui.profile === 'manager') return scopeNeeds().filter((j) => draftLike(j) || (j.status === 'Validée' && !adReady(j) && canWriteAd(j)));
     return [];
   }
   const pubDate = (j) => j.publishedAt || ((j.approvals || []).find((a) => a.step === 'publication') || {}).date || null;
@@ -2823,7 +2827,7 @@
   // Journal : qui a fait quoi et quand, sur un besoin ou un candidat.
   const logTo = (o, text) => { o.log = o.log || []; o.log.push({ date: TODAY, by: me().id, text }); };
   const ALT_LABELS = { mobilite: 'Mobilité interne', taches: 'Répartition des tâches dans l’équipe', interim: 'Intérim, freelance ou sous-traitance', auto: 'Automatisation ou nouvel outil' };
-  const DECISION_LABEL = { Soumise: 'Demande envoyée', Validée: 'Validée', 'À modifier': 'Modification demandée', Refusée: 'Refusée', Publiée: 'Offre publiée' };
+  const DECISION_LABEL = { Soumise: 'Demande envoyée', Rédigée: 'Projet d’offre envoyé aux RH', Validée: 'Validée', 'À modifier': 'Modification demandée', Refusée: 'Refusée', Publiée: 'Offre publiée' };
   const flowText = (reason, budgeted) => {
     const dir = reason === 'Création de poste' || !budgeted;
     return `<p class="hint" style="margin:0">Circuit de validation : <b>RH</b>${dir ? ` → <b>Direction</b> (${reason === 'Création de poste' ? 'création de poste' : 'poste hors budget'})` : ''} → publication de l’offre.</p>`;
@@ -2894,7 +2898,7 @@
     const who = step === 'direction' ? 'La direction' : 'Les RH';
     if (decision === 'Validée') {
       if (step === 'rh' && needsDirection(j)) { j.pending = 'direction'; notify(j.requestedBy, `Votre besoin « ${j.title} » est validé par les RH et transmis à la direction.`); }
-      else { j.pending = null; j.status = 'Validée'; notify(j.requestedBy, `Votre besoin « ${j.title} » est validé : les RH vont publier l’offre.`); }
+      else { j.pending = null; j.status = 'Validée'; notify(j.requestedBy, `Votre besoin « ${j.title} » est validé : rédigez l’offre avec les RH, qui la valideront et la publieront.`); }
     } else if (decision === 'À modifier') { j.pending = null; j.status = 'À modifier'; notify(j.requestedBy, `${who} demandent une modification de votre besoin « ${j.title} » : ${comment}`); }
     else { j.pending = null; j.status = 'Refusée'; j.refusedAt = step; notify(j.requestedBy, `${who} ont refusé votre besoin « ${j.title} » : ${comment}`); }
   }
@@ -2905,7 +2909,8 @@
     if (k === 'demande') return ['Brouillon', 'À modifier'].includes(j.status) ? 'current' : 'done';
     if (j.status === 'Refusée') return j.refusedAt === k ? 'refused' : order(k) < order(j.refusedAt) ? 'done' : 'todo';
     if (j.status === 'À modifier') return last && last.decision === 'À modifier' && j.approvals[j.approvals.length - 1] === last ? 'returned' : 'todo';
-    if (k === 'publication') return NEED_OPEN.includes(j.status) ? 'done' : j.status === 'Validée' ? 'current' : 'todo';
+    if (k === 'redaction') return NEED_OPEN.includes(j.status) || (j.status === 'Validée' && adReady(j)) ? 'done' : j.status === 'Validée' ? 'current' : 'todo';
+    if (k === 'publication') return NEED_OPEN.includes(j.status) ? 'done' : j.status === 'Validée' && adReady(j) ? 'current' : 'todo';
     if (['Validée', ...NEED_OPEN].includes(j.status)) return 'done';
     if (j.status === 'En validation') return j.pending === k ? 'current' : order(k) < order(j.pending) ? 'done' : 'todo';
     return 'todo';
@@ -2929,7 +2934,8 @@
     if (j.status === 'Brouillon') { who = j.requestedBy; label = 'Envoi du brouillon'; }
     else if (j.status === 'À modifier') { who = j.requestedBy; label = 'Correction par le demandeur'; }
     else if (j.status === 'En validation') { who = j.pending === 'direction' ? DIR_ID() : 'e1'; label = j.pending === 'direction' ? 'Validation direction' : 'Validation RH'; }
-    else if (j.status === 'Validée') { who = 'e1'; label = 'Publication de l’offre'; }
+    else if (j.status === 'Validée' && !adReady(j)) { who = j.requestedBy; label = 'Rédaction de l’offre (avec les RH)'; }
+    else if (j.status === 'Validée') { who = 'e1'; label = 'Validation et publication de l’offre'; }
     const days = who ? workDays(addDays(since, 1), TODAY) : 0;
     return { who, label, since, days, late: !!who && j.status !== 'Brouillon' && days > NEED_SLA };
   }
@@ -2965,7 +2971,7 @@
   // Frise courte du circuit (vue manager).
   function miniFlow(j) {
     const steps = needSteps(j);
-    return `<ol class="mflow">${steps.map(([k, label]) => { const st = needStepState(j, k, steps); const short = { demande: 'Demande', rh: 'RH', direction: 'Direction', publication: 'Publication' }[k] || label; return `<li class="s-${st}"><i>${st === 'done' ? ic('check') : st === 'refused' ? ic('x') : ''}</i><span>${short}</span></li>`; }).join('')}</ol>`;
+    return `<ol class="mflow">${steps.map(([k, label]) => { const st = needStepState(j, k, steps); const short = { demande: 'Demande', rh: 'RH', direction: 'Direction', redaction: 'Offre', publication: 'Publication' }[k] || label; return `<li class="s-${st}"><i>${st === 'done' ? ic('check') : st === 'refused' ? ic('x') : ''}</i><span>${short}</span></li>`; }).join('')}</ol>`;
   }
   function viewNeeds() {
     if (ui.profile === 'manager') {
@@ -2995,19 +3001,25 @@
     const edit = canEditNeed(j) ? `<button type="button" class="btn ghost sm" data-act="need-edit" data-id="${j.id}">${ic('edit')}Modifier</button>` : '';
     if (canEditNeed(j) && draftLike(j)) main = `<button type="button" class="btn primary" data-act="need-submit" data-id="${j.id}">${ic('arrow')}${rh ? 'Valider le besoin' : 'Envoyer en validation'}</button>`;
     else if (rh && j.status === 'En validation') { main = `<button type="button" class="btn primary" data-act="need-decide" data-id="${j.id}" data-d="Validée">${ic('check')}Valider${j.pending === 'direction' ? ' pour la direction' : ''}</button>`; more = `<button type="button" class="btn ghost sm" data-act="need-decide" data-id="${j.id}" data-d="À modifier">Demander une modification</button><button type="button" class="btn ghost sm bad-t" data-act="need-decide" data-id="${j.id}" data-d="Refusée">Refuser</button>`; }
-    else if (rh && j.status === 'Validée') main = `<button type="button" class="btn primary" data-act="need-publish" data-id="${j.id}">${ic('file')}Rédiger et publier l’offre</button>`;
+    else if (canWriteAd(j)) main = `<button type="button" class="btn primary" data-act="need-publish" data-id="${j.id}">${ic('file')}${rh ? (adReady(j) ? 'Relire, valider et publier l’offre' : 'Rédiger l’offre') : adReady(j) ? 'Modifier le projet d’offre' : 'Rédiger l’offre'}</button>`;
     else if (NEED_OPEN.includes(j.status)) main = `<button type="button" class="btn primary" data-act="open-job" data-id="${j.id}">Voir l’offre et les candidats${ic('arrow')}</button>`;
     const refusal = j.status === 'Refusée' ? j.approvals.filter((a) => a.decision === 'Refusée').slice(-1)[0] : null;
     const banner = w.who ? `<div class="next-step ${mine ? 'mine' : ''} ${w.late ? 'late' : ''}"><div><small>PROCHAINE ÉTAPE</small><b>${esc(w.label)}</b><span>${mine ? 'À vous' : `En attente de ${esc(fullName(emp(w.who)))}`} · ${sinceTxt(w.days)}${w.late ? ' · relance envoyée' : ''}</span>
         ${j.pending === 'direction' && rh ? '<span class="hint">La direction n’a pas de profil dans cette démo : vous saisissez la décision de Claire Durand.</span>' : ''}</div><div class="toolbar">${main}${more}${edit}</div></div>`
       : `<div class="next-step done"><div><small>${j.status === 'Refusée' ? 'BESOIN REFUSÉ' : 'OFFRE PUBLIÉE'}</small><b>${j.status === 'Refusée' ? esc(refusal && refusal.comment || 'Refusé') : `${jobRef(j)} · ${JOB_PILL[j.status][1]}`}</b><span>${j.status === 'Refusée' ? `par ${esc(fullName(emp(refusal ? refusal.by : 'e1')))} le ${fmtDate(refusal ? refusal.date : j.createdAt)}` : 'Le besoin reste consultable ici ; l’offre se suit dans Recrutement.'}</span></div><div class="toolbar">${main}</div></div>`;
-    const lock = !rh && !draftLike(j) && !NEED_OPEN.includes(j.status) && j.status !== 'Refusée' ? `<p class="hint lock">${ic('check')}Envoyé aux RH : seuls les RH peuvent désormais modifier ce besoin.</p>` : '';
+    const lock = !rh && !draftLike(j) && !NEED_OPEN.includes(j.status) && j.status !== 'Refusée' ? `<p class="hint lock">${ic('check')}${j.status === 'Validée' ? (canWriteAd(j) ? 'Besoin validé : rédigez l’offre avec les RH (onglet « Projet d’offre ») ; seuls les RH la valident et la publient.' : 'Besoin validé : l’offre est en cours de rédaction.') : 'Envoyé aux RH : seuls les RH peuvent désormais modifier ce besoin.'}</p>` : '';
     const unread = unreadOf(j), mgr = emp(jobManager(j)), repl = j.replaces && emp(j.replaces), talents = internalTalents(j.title, j.dept);
-    const tabs = [['besoin', 'Le besoin'], ['cadrage', 'Fiche de cadrage'], ['validation', 'Validation'], ['echanges', 'Échanges', unread]];
+    const tabs = [['besoin', 'Le besoin'], ['cadrage', 'Fiche de cadrage'], ...(j.status === 'Validée' || j.ad ? [['offre', 'Projet d’offre']] : []), ['validation', 'Validation'], ['echanges', 'Échanges', unread]];
     let body;
     if (tab === 'cadrage') body = `<h4 class="sub">Compétences indispensables</h4>${sc.must.length ? `<ol class="crit-list">${sc.must.map((m) => `<li>${esc(m)}</li>`).join('')}</ol>` : '<p class="muted">À définir.</p>'}
       <h4 class="sub" style="margin-top:16px">Atouts appréciés</h4>${sc.nice.length ? `<div class="tags">${sc.nice.map((m) => `<span class="pill neutral">${esc(m)}</span>`).join('')}</div>` : '<p class="muted">—</p>'}
       <h4 class="sub" style="margin-top:16px">Entretiens prévus</h4><p>${sc.rounds ? plural(sc.rounds, 'entretien', 'entretiens') : '—'}</p><p class="hint">Ces compétences servent à évaluer chaque candidat après ses entretiens.</p>`;
+    else if (tab === 'offre') { const a = j.ad;
+      body = a ? `<div class="toolbar" style="margin-bottom:10px">${adReady(j) ? '<span class="pill ok">Envoyé aux RH</span>' : '<span class="pill warn">En rédaction</span>'}<small class="muted">Dernière modification par ${esc(fullName(emp(a.by)))} le ${fmtDate(a.at)}</small></div>
+        <h4 class="sub">${esc(a.title)}</h4><p class="need-desc" style="white-space:pre-line">${esc(a.description)}</p>
+        <p class="hint">Contributions : ${[...new Set((a.edits || []).map((x) => x.by))].map((x) => esc(fullName(emp(x)))).join(', ') || '—'}. Le manager demandeur et les RH rédigent ; seuls les RH valident et publient.</p>`
+        : `<p class="muted">Le projet d’offre n’est pas encore commencé. Le manager demandeur et les RH peuvent le rédiger ; seuls les RH le valident et le publient.</p>`;
+      if (canWriteAd(j)) body += `<button type="button" class="btn ${a ? 'ghost' : 'primary'} sm" data-act="need-publish" data-id="${j.id}">${ic('edit')}${a ? 'Modifier le projet' : 'Commencer la rédaction'}</button>`; }
     else if (tab === 'validation') body = `${needFlowHTML(j)}${(j.log || []).length ? `<h4 class="sub" style="margin-top:18px">Journal</h4>${historyRows(j.log)}` : ''}`;
     else if (tab === 'echanges') body = `<p class="hint" style="margin:0 0 8px">Échanges internes entre RH et manager ; le candidat ne les voit jamais.</p>${(j.comments || []).map((c) => `<div class="cmt ${c.by === me().id ? 'mine' : ''}">${avatar(emp(c.by), 'sm')}<div><b>${esc(fullName(emp(c.by)))}</b><small>${fmtDate(c.date)}</small><p>${esc(c.text)}</p></div></div>`).join('') || '<p class="muted" style="margin:0 0 8px">Aucun échange pour le moment.</p>'}
       <form data-form="need-comment" data-id="${j.id}" class="cmt-form"><label class="sr" for="nc-${j.id}">Votre commentaire</label><textarea id="nc-${j.id}" name="text" class="input" maxlength="400" placeholder="Une question, une précision…"></textarea><button class="btn primary sm">Envoyer</button></form>`;
@@ -3055,17 +3067,32 @@
       if (d === 'À modifier' && !comment) return formError('Un commentaire est obligatoire pour expliquer la modification attendue.');
       if (d === 'Refusée' && (!v.reason || (v.reason === 'Autre motif' && !comment))) return formError('Choisissez le motif du refus (et précisez-le en commentaire s’il s’agit d’un autre motif).');
       decideNeed(j, d, comment, j.pending === 'direction' ? DIR_ID() : me().id, d === 'Refusée' ? v.reason : '');
-      ui.modal = null; toast(d === 'Validée' ? (j.status === 'Validée' ? 'Besoin validé : l’offre peut être publiée' : 'Besoin validé et transmis à la direction') : d === 'À modifier' ? 'Besoin renvoyé au demandeur' : 'Besoin refusé'); commit();
+      ui.modal = null; toast(d === 'Validée' ? (j.status === 'Validée' ? 'Besoin validé : l’offre peut être rédigée avec le manager' : 'Besoin validé et transmis à la direction') : d === 'À modifier' ? 'Besoin renvoyé au demandeur' : 'Besoin refusé'); commit();
     },
     'need-publish'(v) {
-      const j = db.jobs.find((x) => x.id === ui.modal.id);
+      const j = db.jobs.find((x) => x.id === ui.modal.id), rh = ui.profile === 'rh', go = v.go || 'save'; // Entrée dans un champ : enregistre seulement
+      if (!canWriteAd(j)) return formError('Seuls le manager demandeur et les RH peuvent rédiger cette offre.');
       if (!v.title.trim()) return formError('Indiquez l’intitulé de l’offre.');
-      const flagged = lintAd(v.title, v.description).issues.flatMap((i) => i.words);
-      j.title = v.title.trim(); j.description = v.description.trim(); j.status = 'Ouverte'; j.publishedAt = TODAY;
-      j.approvals.push({ step: 'publication', by: me().id, decision: 'Publiée', date: TODAY, comment: '' });
-      if (flagged.length) logTo(j, `Publiée malgré ${plural(flagged.length, 'terme signalé', 'termes signalés')} : « ${flagged.join(' », « ')} »`);
-      notify(j.requestedBy, `L’offre « ${j.title} » est publiée : les candidatures peuvent arriver.`);
-      Object.assign(ui, { modal: null, recJob: j.id }); toast(`Offre publiée sous la référence ${jobRef(j)} · à suivre dans Recrutement`); commit();
+      if (go === 'publish' && !rh) return formError('Seuls les RH peuvent valider et publier l’offre.');
+      const first = !j.ad, a = j.ad = Object.assign({ edits: [] }, j.ad, { title: v.title.trim(), description: v.description.trim(), by: me().id, at: TODAY });
+      a.edits.push({ by: me().id, at: TODAY });
+      if (go === 'publish') {
+        const flagged = lintAd(a.title, a.description).issues.flatMap((x) => x.words);
+        a.ready = true; j.title = a.title; j.description = a.description; j.status = 'Ouverte'; j.publishedAt = TODAY;
+        j.approvals.push({ step: 'publication', by: me().id, decision: 'Publiée', date: TODAY, comment: '' });
+        if (flagged.length) logTo(j, `Publiée malgré ${plural(flagged.length, 'terme signalé', 'termes signalés')} : « ${flagged.join(' », « ')} »`);
+        notify(j.requestedBy, `L’offre « ${j.title} » est validée et publiée par les RH : les candidatures peuvent arriver.`);
+        Object.assign(ui, { modal: null, recJob: j.id }); toast(`Offre publiée sous la référence ${jobRef(j)} · à suivre dans Recrutement`); commit(); return;
+      }
+      if (go === 'send') {
+        a.ready = true; j.approvals.push({ step: 'redaction', by: me().id, decision: 'Rédigée', date: TODAY, comment: '' }); logTo(j, 'Projet d’offre envoyé aux RH pour validation');
+        notify('e1', `${fullName(me())} a terminé le projet d’offre « ${a.title} » : à relire, valider et publier.`);
+        ui.modal = null; toast('Projet d’offre envoyé aux RH pour validation'); commit(); return;
+      }
+      logTo(j, first ? 'Rédaction de l’offre commencée' : 'Projet d’offre modifié');
+      if (rh && j.requestedBy !== me().id) notify(j.requestedBy, `Les RH ont modifié le projet d’offre « ${a.title} ».`);
+      else if (!rh && adReady(j)) notify('e1', `${fullName(me())} a modifié le projet d’offre « ${a.title} », déjà envoyé pour validation.`);
+      ui.modal = null; toast('Projet d’offre enregistré'); commit();
     },
   });
   Object.assign(MOD_FORMS, {
@@ -3183,12 +3210,18 @@
       ${f('nd-c', m.d === 'À modifier' ? 'Commentaire pour le demandeur *' : 'Commentaire (facultatif)', '<textarea id="nd-c" name="comment" class="input" maxlength="300"></textarea>', true)}`, L[1]);
   };
   MODALS['need-publish'] = (m, shell, formShell, opt, f) => {
-    const j = db.jobs.find((x) => x.id === m.id), sc = j.scorecard || { must: [], nice: [] };
-    const desc = `${j.description}${sc.must.length && !j.description.includes('Compétences recherchées') ? `\n\nCompétences recherchées : ${sc.must.join(', ')}.` : ''}${sc.nice.length && !j.description.includes('Atouts') ? `\nAtouts appréciés : ${sc.nice.join(', ')}.` : ''}`;
-    return formShell('Rédiger et publier l’offre', 'need-publish', `<p class="hint" style="margin:0 0 12px">Offre datée du ${fmtDate(TODAY)}, rédigée en français · ${esc(j.dept)} · ${esc(j.contract)} · ${esc(j.location)} · ${esc(j.budget)}</p>
-      ${f('ad-title', 'Intitulé de l’offre', `<input id="ad-title" name="title" class="input" value="${esc(j.title)}" data-live="ad">`, true)}
+    const j = db.jobs.find((x) => x.id === m.id), sc = j.scorecard || { must: [], nice: [] }, rh = ui.profile === 'rh', a = j.ad;
+    const desc = a ? a.description : `${j.description}${sc.must.length && !j.description.includes('Compétences recherchées') ? `\n\nCompétences recherchées : ${sc.must.join(', ')}.` : ''}${sc.nice.length && !j.description.includes('Atouts') ? `\nAtouts appréciés : ${sc.nice.join(', ')}.` : ''}`, title = a ? a.title : j.title;
+    const who = a ? `Dernière modification par ${esc(fullName(emp(a.by)))} le ${fmtDate(a.at)}${adReady(j) ? ' · envoyé aux RH pour validation' : ''}.` : 'Projet préparé à partir du besoin et de la fiche de cadrage.';
+    const btns = rh ? '<button class="btn ghost" name="go" value="save">Enregistrer le projet</button><button class="btn primary" name="go" value="publish">Valider et publier l’offre</button>'
+      : `<button class="btn ghost" name="go" value="save">Enregistrer le projet</button><button class="btn primary" name="go" value="send">${adReady(j) ? 'Renvoyer aux RH' : 'Envoyer aux RH pour validation'}</button>`;
+    return shell(rh ? 'Rédiger, valider et publier l’offre' : 'Rédiger l’offre', `<form data-form="need-publish" novalidate><div class="modal-b">
+      <p class="hint" style="margin:0 0 6px">Offre datée du ${fmtDate(TODAY)}, rédigée en français · ${esc(j.dept)} · ${esc(j.contract)} · ${esc(j.location)} · ${esc(j.budget)}</p>
+      <p class="hint" style="margin:0 0 12px">${who} Rédaction partagée entre ${esc(fullName(emp(j.requestedBy)))} (demandeur) et les RH ; ${rh ? 'vous seuls pouvez la valider et la publier.' : 'seuls les RH peuvent la valider et la publier.'}</p>
+      ${f('ad-title', 'Intitulé de l’offre', `<input id="ad-title" name="title" class="input" value="${esc(title)}" data-live="ad">`, true)}
       <div style="margin-top:12px">${f('ad-desc', 'Texte de l’annonce', `<textarea id="ad-desc" name="description" class="input" style="min-height:150px" data-live="ad">${esc(desc)}</textarea>`, true)}</div>
-      <div id="ad-lint" style="margin-top:10px">${adLintHTML(j.title, desc, true)}</div>`, 'Publier l’offre', true);
+      <div id="ad-lint" style="margin-top:10px">${adLintHTML(title, desc, true)}</div><p class="err" id="m-err" aria-live="polite"></p></div>
+      <div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button>${btns}</div></form>`, '', true);
   };
 
   // ================================================================ Recrutement : entretiens structurés, échanges, proposition, RGPD, indicateurs
@@ -5480,7 +5513,7 @@ PROFILS. En haut à droite : RH (Olivia Bennett), Manager (Thomas Petit par déf
 NAVIGATION. L'accueil est une roue : survoler ou toucher le cercle central affiche les rubriques ; cliquer une rubrique l'ouvre. Ailleurs, un bandeau de pictogrammes en haut reprend les rubriques ; la maison ramène à la roue. Les pastilles orange comptent ce qui attend le profil. Le bouton « À traiter » (en haut) liste tout ce qui attend, rubrique par rubrique et personne par personne. Le bandeau de gauche donne aussi accès au Reporting RH et aux Modèles de documents (RH). « Nouveautés de la V2 » est en bas de page.
 
 RUBRIQUES ET ACTIONS
-- Besoin RH : un manager crée une demande de recrutement en 4 étapes (le besoin, la fiche de cadrage, la validation, l'envoi) ; brouillon enregistré automatiquement. Les RH valident, demandent une modification ou refusent, puis publient l'offre. Référence BES-… puis OFF-… une fois publiée.
+- Besoin RH : un manager crée une demande de recrutement en 4 étapes (le besoin, la fiche de cadrage, la validation, l'envoi) ; brouillon enregistré automatiquement. Les RH valident, demandent une modification ou refusent. L'offre est ensuite rédigée à deux : le manager demandeur et les RH peuvent écrire et enregistrer le projet (onglet « Projet d'offre » du besoin), le manager l'envoie aux RH, et seuls les RH la valident et la publient. Référence BES-… puis OFF-… une fois publiée.
 - Recrutement : onglets À traiter, Offres, Vivier. Une offre contient ses candidats en colonnes (Reçue, Présélection, Entretien, Proposition, Embauché, Refusé) ; glisser une carte pour changer d'étape. Fiche candidat : bandeau « Prochaine étape », onglets Évaluation, Entretiens, Échanges (messages types), Profil, Historique ; flèches ← → pour passer au candidat suivant. Rédaction d'annonce : les termes potentiellement discriminants sont signalés en orange mais ne bloquent pas la publication. Un candidat embauché devient automatiquement une recrue dans Arrivées.
 - Arrivées (RH, managers) : un dossier unique par recrue, liste à gauche, onglets Pré-embauche, Embauche, Intégration. Bouton « Nouvelle arrivée » (RH) pour une entrée hors offre : cooptation, candidature spontanée, réembauche, ancien stagiaire, transfert ; contrôles de date de fin (CDD 18 mois, stage 6 mois) et de gratification. Pré-embauche : pièces déposées par la recrue (Valider / Refuser avec motif / Reçu sur papier), contrat (Générer le contrat → relire → Envoyer pour signature ; la recrue signe à la main dans son espace ; un contrat signé est figé, « Voir le contrat signé »), préparation (poste, ordinateur, comptes, badge, parrain). Embauche : DPAE, registre du personnel, informations obligatoires (décret 2023), affectation, mutuelle, visite d'information et de prévention. Stagiaire : convention de stage tripartite à la place de la DPAE et du contrat, pas de période d'essai. Intégration : programme (modèle commun configurable dans l'onglet « Programme d'intégration »), points à 30 jours, rapport d'étonnement, décision sur la période d'essai (Confirmer / Renouveler / Rompre), puis « Clôturer l'intégration » qui fait passer la personne en poste. Pré-embauche et embauche avancent en parallèle ; la recrue passe en intégration quand les deux sont terminées et le contrat signé.
 - Vie administrative : Annuaire (recherche, filtres service et statut ; clic sur une ligne = fiche), Échéances (titres de séjour, fins de CDD, périodes d'essai, visites), Demandes de modification (validées par les RH avec justificatif), Organigramme. Fiche d'un collaborateur : onglets Informations, Absences, Rémunération, Documents, Journal (qui a fait quoi). Boutons « Modifier », « Changement de situation » (poste, service, manager, salaire, temps de travail en une fois, avec date d'effet ; avenant généré seulement si le contrat change) et « Démarrer un départ ». Organigramme : arbre, recherche, filtres, zoom, plein écran ; les RH changent un rattachement en glissant une carte sur un manager (aperçu en vert, confirmation au lâcher).

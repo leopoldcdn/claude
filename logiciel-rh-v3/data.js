@@ -209,6 +209,11 @@ window.TEAMORA_SEED = function () {
     J('j9', { title: 'Business Developer', dept: 'Sales', status: 'Refusée', refusedAt: 'direction', createdAt: '2026-09-05', requestedBy: 'e8', salaryMin: 38000, salaryMax: 42000, startWanted: '2026-11-02', reason: 'Création de poste', budgeted: false,
       description: 'Prospecter les PME de la région lyonnaise.', scorecard: SC(['Prospection téléphonique', 'Connaissance des PME'], [], 2),
       approvals: [A('demande', 'e8', 'Soumise', '2026-09-05'), A('rh', 'e1', 'Validée', '2026-09-08'), A('direction', 'e5', 'Refusée', '2026-09-12', 'Hors budget 2026 : à représenter lors du plan 2027.')] }),
+    J('j10', { title: 'Illustrateur·rice', dept: 'Design', status: 'Validée', createdAt: '2026-10-05', requestedBy: 'e2', salaryMin: 38000, salaryMax: 42000, startWanted: '2027-01-11', reason: 'Surcroît d’activité',
+      description: 'Illustrations pour l’application et les supports clients, en lien avec l’équipe produit.',
+      scorecard: SC(['Illustration vectorielle', 'Déclinaison d’une charte graphique'], ['Animation'], 2),
+      approvals: [A('demande', 'e2', 'Soumise', '2026-10-05'), A('rh', 'e1', 'Validée', '2026-10-08')],
+      ad: { title: 'Illustrateur·rice (CDI)', description: 'Au sein de l’équipe Design (6 personnes), tu crées les illustrations de l’application et des supports clients.\n\nCompétences recherchées : illustration vectorielle, déclinaison d’une charte graphique.', by: 'e2', at: '2026-10-09', ready: false, edits: [{ by: 'e2', at: '2026-10-09' }] } }),
   ];
   // Référence BES-AAAA-NNN (besoin) / OFF-AAAA-NNN (offre publiée) : numéro attribué à l'émission du besoin.
   jobs.slice().sort((a, b) => a.createdAt.localeCompare(b.createdAt)).forEach((j, k) => { j.num = k + 1; });

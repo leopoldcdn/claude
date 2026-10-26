@@ -470,7 +470,10 @@
   }
   function mobHome() {
     const m = me(), { items } = mobSplit(), todo = items.filter((x) => x.n);
+    const has = (v) => items.find((x) => x.v === v), pay = has('bulletins') && payMonths().filter((k) => db.payroll[k] && db.payroll[k].closed && inPayroll(m, k)).slice(-1)[0];
+    const quick = [has('absences') && ['absence', 'clock', 'Poser une absence'], pay && ['bulletin', 'file', `Bulletin de ${monthLabel(pay).split(' ')[0].toLowerCase()}`], has('relations') && ['rh', 'chat', 'Écrire aux RH']].filter(Boolean);
     return `<section class="mob-hello"><h2>Bonjour ${esc(m.firstName)}</h2><p>${esc(m.title)} · ${esc(m.dept)}</p></section>
+      ${quick.length ? `<section class="mob-quick" aria-label="Actions rapides">${quick.map(([k, icon, l]) => `<button type="button" data-act="mob-quick" data-k="${k}">${ic(icon)}<span>${l}</span></button>`).join('')}</section>` : ''}
       ${todo.length ? `<section class="card mob-todo"><div class="card-h"><h3>À faire</h3></div>${todo.map((x) => `<button type="button" class="mob-row" data-act="stage" data-i="${x.i}"><span class="mob-ic" style="--c:${STAGE_COLORS[x.i]}">${ic(x.icon)}</span><span class="t"><b>${esc(x.name)}</b><small>${plural(x.n, 'action en attente', 'actions en attente')}</small></span>${ic('right')}</button>`).join('')}</section>` : ''}
       <section><h4 class="sub">Mon espace</h4><div class="mob-grid">${items.map((x) => `<button type="button" class="mob-tile" data-act="stage" data-i="${x.i}" style="--c:${STAGE_COLORS[x.i]}"><span class="mob-ic">${ic(x.icon)}</span><b>${esc(x.name)}</b>${x.n ? `<i class="badge todo num">${x.n}</i>` : ''}</button>`).join('')}</div></section>`;
   }
@@ -998,7 +1001,7 @@
         <div><span>Date d’entrée</span>${fmtDate(e.startDate)} · ${seniority(e.startDate)}</div><div><span>Salaire annuel brut</span><span class="num">${eur0(e.salary)}</span></div>
         <div><span>Adresse postale</span>${esc(e.address) || '—'}</div><div><span>Coordonnées bancaires</span><span class="num">${esc(e.iban)}</span></div><div><span>Situation familiale</span>${esc(e.family || '—')}</div></div></div></div>
       <form class="card" data-form="profile" novalidate><div class="card-h"><h3>Mes informations personnelles</h3><span class="muted" style="font-size:13px">Les RH sont prévenus de chaque modification</span></div><div class="card-b"><div class="form-grid">
-        <div class="field"><label for="p-phone">Téléphone</label><input id="p-phone" name="phone" class="input" value="${esc(e.phone)}" autocomplete="tel"></div>
+        <div class="field"><label for="p-phone">Téléphone</label><input id="p-phone" name="phone" type="tel" inputmode="tel" class="input" value="${esc(e.phone)}" autocomplete="tel"></div>
         <div class="field"><label for="p-loc">Lieu de travail</label><select id="p-loc" name="location" class="select">${SITES().concat(['Télétravail majoritaire']).map((l) => `<option ${l === e.location ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
         <div class="field full"><label for="p-emerg">Contact d’urgence</label><input id="p-emerg" name="emergency" class="input" value="${esc(e.emergency)}" placeholder="Nom · téléphone"></div></div>
         <div class="toolbar" style="margin-top:16px"><span class="err" id="p-err"></span><button class="btn primary" style="margin-left:auto">Enregistrer</button></div></div></form>
@@ -1915,7 +1918,7 @@
     const mgrs = db.employees.filter((x) => isEmployed(x) && x.stage >= 4).sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr')).map((x) => [x.id, `${fullName(x)} · ${x.title}`]);
     return formShell('Nouvelle arrivée', 'arr-new', `<p class="hint" style="margin:0 0 12px">Pour une entrée qui ne passe pas par une offre. La recrue rejoint le parcours d’arrivée : pré-embauche (pièces), embauche (contrat, DPAE) puis intégration.</p><div class="form-grid">
       ${f('an-first', 'Prénom', '<input id="an-first" name="firstName" class="input" maxlength="40" required>')}${f('an-last', 'Nom', '<input id="an-last" name="lastName" class="input" maxlength="40" required>')}
-      ${f('an-mail', 'E-mail personnel (invitation à l’espace)', '<input id="an-mail" name="personalEmail" type="email" class="input" maxlength="80" placeholder="prenom.nom@exemple.fr">')}${f('an-phone', 'Téléphone', '<input id="an-phone" name="phone" class="input" maxlength="20">')}
+      ${f('an-mail', 'E-mail personnel (invitation à l’espace)', '<input id="an-mail" name="personalEmail" type="email" class="input" maxlength="80" placeholder="prenom.nom@exemple.fr">')}${f('an-phone', 'Téléphone', '<input id="an-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" class="input" maxlength="20">')}
       ${f('an-src', 'Origine de l’entrée', `<select id="an-src" name="source" class="select">${opt(ARR_SOURCES, ARR_SOURCES[0])}</select>`, true)}
       ${f('an-title', 'Poste', '<input id="an-title" name="title" class="input" maxlength="60" required>')}${f('an-dept', 'Service', `<select id="an-dept" name="dept" class="select">${opt(DEPTS, DEPTS[0])}</select>`)}
       ${f('an-mgr', 'Manager (ou tuteur pour un stage)', `<select id="an-mgr" name="managerId" class="select"><option value="">À désigner</option>${opt(mgrs, '')}</select>`)}${f('an-cat', 'Catégorie', `<select id="an-cat" name="category" class="select">${opt(['Employé', 'Agent de maîtrise', 'Cadre'], 'Employé')}</select>`)}
@@ -3929,7 +3932,7 @@
     const e = me(), d = dossier(e), days = dayDiff(TODAY, e.startDate), mgr = e.managerId && emp(e.managerId), buddy = d.buddy && emp(d.buddy);
     const docs = reqDocs(e).map(([k, l]) => { const st = docState(d, k), f = d.files[k];
       const state = st === 'ok' ? '<span class="pill ok">Validé</span>' : st === 'check' ? '<span class="pill info">En cours de vérification</span>' : st === 'refused' ? '<span class="pill bad">À redéposer</span>' : '<span class="pill warn">À déposer</span>';
-      const up = st === 'missing' || st === 'refused' ? `<label class="btn ${st === 'refused' ? 'primary' : 'ghost'} sm upload">${ic('plus')}${st === 'refused' ? 'Déposer à nouveau' : 'Déposer'}<input type="file" accept=".pdf,image/*" data-change="arr-upload" data-k="${k}" aria-label="Déposer : ${esc(l)}"></label>` : '';
+      const up = st === 'missing' || st === 'refused' ? `<label class="btn ${st === 'refused' ? 'primary' : 'ghost'} sm upload">${ic('plus')}${st === 'refused' ? 'Déposer à nouveau' : mobSal() ? 'Photo ou fichier' : 'Déposer'}<input type="file" accept=".pdf,image/*" data-change="arr-upload" data-k="${k}" aria-label="Déposer : ${esc(l)}"></label>` : '';
       return `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${f ? `${esc(f.name)} · déposé le ${fmtShort(f.date)}${f.refused ? ` · refusé : ${esc(f.refused)}` : ''}` : d.docs[k] ? `Reçu le ${fmtShort(d.docs[k])}` : 'PDF ou photo lisible'}</small></div>${state}${up}</div>`; }).join('');
     const first = planList().filter(([, , day]) => day <= 2);
     const c = d.contract;
@@ -4196,7 +4199,7 @@
       const wk = ui.tsWeek || mondayOf(TODAY), t = tsOf(e).find((x) => x.week === wk) || { hours: [0, 0, 0, 0, 0, 0], status: 'Brouillon' }, w = weekStats(t), locked = ['Soumise', 'Validée'].includes(t.status);
       const weeks = [0, 1, 2, 3].map((k) => addDays(mondayOf(TODAY), -7 * k));
       html += `<form class="card" data-form="ts" novalidate><div class="card-h"><h3>Mes heures</h3><div class="toolbar"><label class="sr" for="ts-week">Semaine</label><select id="ts-week" class="select" data-change="ts-week">${weeks.map((x) => `<option value="${x}" ${x === wk ? 'selected' : ''}>Semaine du ${fmtShort(x)}</option>`).join('')}</select><span class="pill ${{ Validée: 'ok', Soumise: 'warn', Refusée: 'bad', Brouillon: 'neutral' }[t.status]}">${t.status}</span></div></div>
-        <div class="card-b"><div class="ts-grid">${DAYS_FR.map((d, k) => `<div class="field"><label for="ts-${k}">${d.slice(0, 3)}. ${parse(addDays(wk, k)).getDate()}</label><input id="ts-${k}" name="h${k}" type="number" min="0" max="24" step="0.25" class="input num" value="${t.hours[k] || ''}" placeholder="0" ${locked ? 'disabled' : ''} data-live="ts"></div>`).join('')}</div>
+        <div class="card-b"><div class="ts-grid">${DAYS_FR.map((d, k) => `<div class="field"><label for="ts-${k}">${d.slice(0, 3)}. ${parse(addDays(wk, k)).getDate()}</label><input id="ts-${k}" name="h${k}" type="number" inputmode="decimal" min="0" max="24" step="0.25" class="input num" value="${t.hours[k] || ''}" placeholder="0" ${locked ? 'disabled' : ''} data-live="ts"></div>`).join('')}</div>
         <div id="ts-sum" style="margin-top:12px">${tsSummary(w)}</div>
         ${locked ? '' : `<div class="toolbar" style="margin-top:12px"><span class="hint">Durée légale 35 h · max. 10 h par jour et 48 h par semaine · repos de 11 h entre deux journées.</span><button class="btn primary" style="margin-left:auto">Soumettre à ${esc(fullName(approverOf(e)))}</button></div>`}</div></form>`;
     }
@@ -5328,6 +5331,15 @@
     },
     notif() { ui.notif = !ui.notif; render(); },
     'mob-more'() { ui.mobMore = !ui.mobMore; ui.notif = false; render(); },
+    // Actions rapides de l'accueil mobile : un geste pour les trois usages les plus fréquents.
+    'mob-quick'(d) {
+      const it = (v) => mobItems().find((x) => x.v === v), m = me();
+      if (d.k === 'bulletin') { const k = payMonths().filter((x) => db.payroll[x] && db.payroll[x].closed && inPayroll(m, x)).slice(-1)[0]; if (k) { ui.modal = { type: 'payslip', id: m.id, m: k }; render(); } return; }
+      const x = it(d.k === 'absence' ? 'absences' : 'relations'); if (!x) return;
+      Object.assign(ui, { view: x.v, stage: x.i, notif: false, drawer: null, mobMore: false }); render();
+      const f = document.querySelector(d.k === 'absence' ? 'form[data-form="leave"]' : 'form[data-form="case-ask"]');
+      if (f) { f.scrollIntoView({ block: 'start' }); window.scrollBy(0, -70); }
+    },
     'notif-read'() { db.notifications.forEach((n) => { if (n.to === me().id) n.read = true; }); commit(); },
     hub() { if (ui.wheelOpen && Date.now() - openedAt < 500) return; // a tap fires mouseenter (opens) then click
       if (ui.wheelOpen) closeWheel(); else openWheel(); },

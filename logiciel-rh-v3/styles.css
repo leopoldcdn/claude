@@ -1168,3 +1168,59 @@ body:has(.help-panel) .toasts { right: 440px; }
   .mob-persona .btn .av, .gate-box .btn .av { width: 26px; height: 26px; font-size: 10.5px; }
   .gate-box .btn { padding-top: 6px; padding-bottom: 6px; }
 }
+
+/* ---------------------------------------------------------------- V3 · Optimisation de l'interface mobile
+   Zones tactiles de 44 px au moins (Apple 44 pt, Material 48 dp, WCAG 2.5.5), champs en 16 px (pas de zoom automatique sur iOS),
+   textes secondaires lisibles et contrastés (4,5:1 au moins), retour visuel au toucher, actions fréquentes dans la zone du pouce. */
+@media (max-width: 760px) {
+  .app.mob { --faint: #666b8d; -webkit-tap-highlight-color: transparent; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .app.mob { --faint: #9aa0c2; } }
+  :root[data-theme="dark"] .app.mob { --faint: #9aa0c2; }
+  .app.mob button, .app.mob a, .app.mob label, .app.mob input, .app.mob select, .app.mob textarea { touch-action: manipulation; }
+  /* Zones tactiles */
+  .app.mob .btn, body:has(.app.mob) .modal .btn { min-height: 44px; padding-top: 10px; padding-bottom: 10px; }
+  .app.mob .btn.sm { min-height: 44px; font-size: 14px; }
+  .app.mob .icon-btn, body:has(.app.mob) .modal .icon-btn { width: 44px; height: 44px; }
+  .mob-top .brand { width: 44px; height: 44px; display: grid; place-items: center; margin: -6px 0 -6px -6px; }
+  .mob-me { width: 44px; height: 44px; display: grid; place-items: center; }
+  .app.mob .tabs button { min-height: 44px; }
+  .mob-nav button { min-height: 54px; justify-content: center; }
+  .app.mob .agree { min-height: 44px; } .app.mob .agree input, body:has(.app.mob) .modal .agree input { width: 22px; height: 22px; flex: none; }
+  .app.mob label.upload { min-height: 44px; display: inline-flex; align-items: center; }
+  .app.mob .ts-grid .input { height: 48px; }
+  .app.mob .foot .btn { min-height: 40px; }
+  /* Champs : 16 px pour éviter le zoom de Safari, hauteur confortable */
+  .app.mob .input, .app.mob .select, .app.mob textarea, .app.mob select,
+  body:has(.app.mob) .modal .input, body:has(.app.mob) .modal .select, body:has(.app.mob) .modal textarea { font-size: 16px; min-height: 46px; }
+  .app.mob textarea, body:has(.app.mob) .modal textarea { min-height: 110px; }
+  .mob-sheet .emp-pick input { font-size: 16px; min-height: 46px; }
+  /* Lisibilité */
+  .app.mob small, .app.mob .hint, .app.mob .field-hint, .app.mob .muted { font-size: 13.5px; line-height: 1.5; }
+  .app.mob .mob-nav span { font-size: 11.5px; }
+  .app.mob .demo-note { font-size: 12.5px; }
+  .app.mob .field label, .app.mob .lbl { font-size: 14px; }
+  /* Retour visuel au toucher (il n'y a pas de survol sur téléphone) */
+  .app.mob button:active, .app.mob .btn:active, .app.mob label.upload:active { transform: scale(.97); }
+  .mob-tile:active, .mob-row:active { background: var(--accent-soft); }
+  @media (prefers-reduced-motion: reduce) { .app.mob button:active, .app.mob .btn:active { transform: none; } }
+  /* Actions rapides de l'accueil */
+  .mob-quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .mob-quick button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 84px; padding: 10px 6px; border: 0; border-radius: 16px; background: var(--accent); color: #fff; font: inherit; font-weight: 700; font-size: 13px; line-height: 1.25; text-align: center; }
+  .mob-quick button + button { background: var(--surface); color: var(--fg); border: 1px solid var(--line); }
+  .mob-quick button svg { width: 22px; height: 22px; } .mob-quick button + button svg { color: var(--accent); }
+  /* Absences : la demande d'absence passe avant la saisie des heures */
+  .app.mob #view > * { order: 3; } .app.mob #view > .balances { order: 1; } .app.mob #view > form[data-form="leave"] { order: 2; } .app.mob #view > :has(.ts-grid) { order: 4; }
+  .app.mob form[data-form="leave"], .app.mob form[data-form="case-ask"] { scroll-margin-top: 72px; }
+  /* Boutons d'envoi des formulaires : pleine largeur, faciles à atteindre */
+  .app.mob form .btn.primary { width: 100%; justify-content: center; }
+  .app.mob form .toolbar .btn.primary { margin-left: 0; }
+}
+@media (max-width: 760px) {
+  .app.mob .info-grid > div > span:first-child { font-size: 13.5px; }
+  .app.mob .foot .btn { min-height: 44px; }
+  .app.mob .stepper, .app.mob .stepper * { font-size: 13px; }
+}
+@media (max-width: 760px) {
+  .app.mob .bal { padding: 12px 14px; } .app.mob .bal .v { font-size: 24px; line-height: 1.2; } .app.mob .bal .v small { font-size: 13px; }
+  .app.mob .bal .l { font-size: 13px; } .app.mob .bal .hint { font-size: 12.5px; margin-top: 2px; }
+}

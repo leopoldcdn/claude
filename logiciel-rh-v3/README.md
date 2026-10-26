@@ -51,6 +51,12 @@
   de départ. Sur ordinateur seulement : mobilité interne, aménagement de poste, détail de la rémunération et transparence
   salariale, auto-évaluation et feedback, catalogue de formations, Teamo. Les profils RH et manager voient un écran qui
   les oriente vers l'ordinateur ou leur espace personnel.
+  Optimisation (règles d'ergonomie mobile) : zones tactiles de 44 px au moins (Apple 44 pt, Material 48 dp, WCAG 2.5.5),
+  champs en 16 px pour éviter le zoom automatique de Safari, textes secondaires de 13,5 px contrastés à 4,5:1 au moins,
+  navigation visible en bas d'écran (zone du pouce), trois actions rapides sur l'accueil (poser une absence, dernier
+  bulletin, écrire aux RH), demande d'absence placée avant la saisie des heures, boutons d'envoi en pleine largeur, clavier
+  téléphonique pour le numéro de téléphone et numérique pour les heures, dépôt de pièces « Photo ou fichier », retour
+  visuel au toucher.
 
 - **Rédaction partagée de l'offre** : une fois le besoin validé, le manager demandeur (ou le manager rattaché) et les RH
   rédigent ensemble le projet d'offre (bouton « Rédiger l'offre » et onglet « Projet d'offre » du besoin, auteur et date

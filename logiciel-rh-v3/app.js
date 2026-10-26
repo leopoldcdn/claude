@@ -441,9 +441,14 @@
   // Sur téléphone : barre du haut compacte, onglets en bas, accueil en cartes. La gestion RH et manager reste sur ordinateur.
   const MOB_Q = window.matchMedia ? window.matchMedia('(max-width: 760px)') : { matches: false };
   const isMob = () => !!MOB_Q.matches;
+  // Tri validé : sur téléphone, le salarié garde les actions rapides ; la mobilité, l'aménagement de poste, le détail de la paie,
+  // l'auto-évaluation, le catalogue de formations, la signature du contrat et Teamo restent sur ordinateur.
+  const mobSal = () => isMob() && ui.profile === 'salarie';
+  const MOB_OFF = ['mobilite'];
+  const desktopHint = (what) => `<p class="hint mob-desk">${ic('lock')}${what} sur ordinateur.</p>`;
   const MOB_LABEL = { arrivee: 'Arrivée', contrat: 'Contrat', profil: 'Profil', absences: 'Absences', bulletins: 'Paie', entretiens: 'Entretiens', formation: 'Formations', mobilite: 'Mobilité', sante: 'Santé', relations: 'Échanges', etape: 'Mon étape' };
   const MOB_TABS = ['absences', 'bulletins', 'relations'];
-  function mobItems() { return visibleStages().map((i) => ({ i, v: stageView(i), name: stageDef(i).short, label: MOB_LABEL[stageView(i)] || stageDef(i).short, icon: stageDef(i).icon, n: stageTodo(i) })).filter((x) => x.v); }
+  function mobItems() { return visibleStages().map((i) => ({ i, v: stageView(i), name: stageDef(i).short, label: MOB_LABEL[stageView(i)] || stageDef(i).short, icon: stageDef(i).icon, n: stageTodo(i) })).filter((x) => x.v && !MOB_OFF.includes(x.v)); }
   function mobSplit() { const items = mobItems(), pref = MOB_TABS.map((v) => items.find((x) => x.v === v)).filter(Boolean), main = (pref.length ? pref : items).slice(0, 3);
     return { items, main, rest: items.filter((x) => !main.includes(x)) }; }
   function mobTop() {
@@ -953,12 +958,12 @@
       <p class="bs-legal">Dans votre intérêt et pour vous aider à faire valoir vos droits, conservez ce bulletin de paie sans limitation de durée. Rubrique dédiée au bulletin de paie sur le portail www.service-public.fr.${d.mutuelle === 'Dispense' ? ' Dispense d’adhésion à la complémentaire santé.' : ''}${pr.closed ? '' : ' Aperçu : bulletin pas encore diffusé.'} Bulletin de démonstration, taux indicatifs.</p></div>`;
   }
   function viewPayslips() {
-    const e = me();
+    const e = me(), mob = mobSal();
     const months = payMonths().filter((m) => db.payroll[m] && db.payroll[m].closed && inPayroll(e, m)).reverse();
     return `<div class="card"><div class="card-h"><h3>Mes bulletins de paie</h3><span class="muted">${plural(months.length, 'bulletin', 'bulletins')}</span></div><div class="req-list">${months.length ? months.map((m) => { const p = calcPay(e, m);
       return `<div class="req"><div class="what"><b>${monthLabel(m)}</b><small class="num">Brut ${eur(p.gross)} · net social ${eur(p.netSocial)} · net payé ${eur(p.net)}</small></div><button type="button" class="btn ghost sm" data-act="payslip" data-id="${e.id}" data-m="${m}">${ic('file')}Voir le bulletin</button></div>`; }).join('') : '<div class="empty">Aucun bulletin pour le moment.</div>'}</div>
-      <div class="card-b" style="border-top:1px solid var(--line)"><label class="agree"><input type="checkbox" data-change="paper-slip" ${e.paperSlip ? 'checked' : ''}> Je préfère recevoir mes bulletins en version papier</label><p class="hint" style="margin:6px 0 0">Les bulletins sont remis sous forme électronique ; tu peux t’y opposer à tout moment (article L3243-2 du Code du travail). Ils restent consultables ici.</p></div></div>
-      <p class="hint">Le bulletin du mois apparaît ici dès que les RH le diffusent (essaie depuis le profil RH, menu Paie).</p>`;
+      ${mob ? '' : `<div class="card-b" style="border-top:1px solid var(--line)"><label class="agree"><input type="checkbox" data-change="paper-slip" ${e.paperSlip ? 'checked' : ''}> Je préfère recevoir mes bulletins en version papier</label><p class="hint" style="margin:6px 0 0">Les bulletins sont remis sous forme électronique ; tu peux t’y opposer à tout moment (article L3243-2 du Code du travail). Ils restent consultables ici.</p></div>`}</div>
+      <p class="hint">Le bulletin du mois apparaît ici dès que les RH le diffusent${mob ? '' : ' (essaie depuis le profil RH, menu Paie)'}.</p>`;
   }
   function payCsv(m) {
     const head = ['Matricule', 'Nom', 'Prénom', 'Contrat', 'Salaire mensuel', 'Jours CP', 'Jours RTT', 'Jours maladie', 'Jours sans solde', 'Jours télétravail', 'Heures sup 25 %', 'Heures sup 50 %', 'Prime', 'Prime partage valeur', 'Transport', 'Titres-restaurant', 'Notes de frais', 'Acompte', 'Entrée', 'Sortie', 'Motif de sortie', 'Indemnité CP', 'Indemnité de rupture', 'Indemnité de fin de contrat'];
@@ -977,7 +982,14 @@
   function viewMyAdmin() {
     const orgOk = ui.profile !== 'salarie' || !!ui.selfOf || db.settings.droits.orgSalarie, t = ui.profTab === 'organigramme' && orgOk ? 'organigramme' : 'profil';
     if (!orgOk) return viewProfile();
-    return `<div class="tabs" role="tablist">${[['profil', 'Mon profil'], ['organigramme', 'Organigramme']].map(([k, l]) => `<button type="button" role="tab" aria-selected="${t === k}" data-act="prof-tab" data-t="${k}">${l}</button>`).join('')}</div>${t === 'profil' ? viewProfile() : orgChart()}`;
+    const mob = mobSal();
+    return `<div class="tabs" role="tablist">${[['profil', 'Mon profil'], ['organigramme', mob ? 'Annuaire' : 'Organigramme']].map(([k, l]) => `<button type="button" role="tab" aria-selected="${t === k}" data-act="prof-tab" data-t="${k}">${l}</button>`).join('')}</div>${t === 'profil' ? viewProfile() : mob ? mobDirectory() : orgChart()}`;
+  }
+  // Annuaire (téléphone) : qui est qui, par service, avec l'e-mail professionnel ; l'organigramme complet reste sur ordinateur.
+  function mobDirectory() {
+    const people = db.employees.filter(isEmployed), by = {};
+    people.forEach((e) => { (by[e.dept] = by[e.dept] || []).push(e); });
+    return Object.keys(by).sort((a, b) => a.localeCompare(b, 'fr')).map((d) => card(esc(d), `<span class="muted num" style="font-size:13px">${by[d].length}</span>`, `<div class="mob-dir">${by[d].sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr')).map((e) => `<div class="mob-person">${avatar(e)}<div class="t"><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small><small class="mail">${esc(e.email)}</small></div></div>`).join('')}</div>`)).join('');
   }
   function viewProfile() {
     const e = me(), mgr = emp(e.managerId);
@@ -1811,6 +1823,7 @@
       ['Obligations selon l’effectif', 'Pictogramme dans le bandeau (RH) : chaque obligation avec son seuil, sa règle de franchissement (immédiat, 12 mois consécutifs, 5 ans), son état et l’écran où la traiter.', 'apercu'],
       ['Alertes', 'Seuil qui approche, obligation qui entre en vigueur (notification aux RH et à la Direction), échéances : elles arrivent dans « À traiter ».', 'apercu'],
       ['Simulation', 'Pour la démo : simuler un effectif (60, 300, 1 200…) et voir le logiciel s’adapter.', 'apercu']]],
+    ['Sur téléphone', [['Espace salarié mobile', 'Sur téléphone, le salarié retrouve l’essentiel : absences et heures, bulletins, profil, documents et annuaire, échanges RH et alerte, baromètre, visites médicales, accidents ; la nouvelle recrue dépose ses pièces en photo. Entretiens, formations et contrat s’y consultent ; le reste et la gestion RH ou manager restent sur ordinateur.', '']]],
     ['Recrutement', [['Rédaction partagée de l’offre', 'Le manager qui a émis le besoin et les RH rédigent ensemble l’offre ; le manager l’envoie aux RH, qui seuls la valident et la publient.', 'besoins']]],
     ['Paramètres', [['Toutes les conventions collectives', 'Recherche parmi 673 conventions par nom ou numéro IDCC (Paramètres > Convention). Hors Syntec, les minima du Code du travail s’appliquent jusqu’à la saisie des règles de la convention (essai, préavis, maintien de salaire).', 'param']]],
     ['Nouveaux écrans', [['Dialogue social', 'Élections du CSE pas à pas (délais légaux, carence), élus, réunions, heures de délégation ; à 50 : consultations, budgets, BDESE, délégué syndical et négociations ; à 300 : commissions.', 'social'],
@@ -1820,7 +1833,7 @@
       ['Lanceurs d’alerte', 'Canal confidentiel (anonyme possible) dans l’espace salarié, délais de 7 jours et 3 mois.', 'alerte'],
       ['Affichages, accords et référents', 'Affichages obligatoires, règlement intérieur, participation, partage de la valeur, pénibilité, référents, contributions liées à l’effectif.', 'conformite']]]];
   MODALS['v3-news'] = (m, shell) => shell('Nouveautés de la V3', `<div class="modal-b"><p class="hint" style="margin:0 0 14px">La V3 adapte Teamora à la taille de l’entreprise : les obligations apparaissent quand l’effectif franchit un seuil, et des alertes préviennent avant. La V2 reste disponible telle quelle.</p>
-    ${V3_NEWS.map(([g, list]) => `<h4 class="sub">${g}</h4><ul class="news">${list.map(([t, d, v]) => `<li><div><b>${t}</b><small>${d}</small></div>${ui.profile === 'rh' && !ui.selfOf ? `<button type="button" class="btn ghost sm" data-act="obl-go" data-t="${v}">Voir${ic('arrow')}</button>` : ''}</li>`).join('')}</ul>`).join('')}</div>`,
+    ${V3_NEWS.map(([g, list]) => `<h4 class="sub">${g}</h4><ul class="news">${list.map(([t, d, v]) => `<li><div><b>${t}</b><small>${d}</small></div>${v && ui.profile === 'rh' && !ui.selfOf ? `<button type="button" class="btn ghost sm" data-act="obl-go" data-t="${v}">Voir${ic('arrow')}</button>` : ''}</li>`).join('')}</ul>`).join('')}</div>`,
     '<div class="modal-f"><button type="button" class="btn ghost" data-act="v2-news">Nouveautés de la V2</button><button type="button" class="btn primary" data-act="modal-close">C’est parti</button></div>', true);
   MODALS['v2-news'] = (m, shell) => shell('Nouveautés de la V2', `<div class="modal-b"><p class="hint" style="margin:0 0 14px">Cette version applique les recommandations de l’audit RH. La V1 reste disponible à son adresse d’origine.</p>
     ${V2_NEWS.map(([g, list]) => `<h4 class="sub">${g}</h4><ul class="news">${list.map(([t, d, v]) => `<li><div><b>${t}</b><small>${d}</small></div>${v ? `<button type="button" class="btn ghost sm" data-act="news-go" data-v="${v}">Voir</button>` : ''}</li>`).join('')}</ul>`).join('')}</div>`,
@@ -2198,18 +2211,19 @@
     if (p === 'salarie') {
       const mine = db.reviews.filter((r) => r.empId === m.id).sort((a, b) => (b.date || '9').localeCompare(a.date || '9'));
       const todo = mine.filter((r) => ['Planifié', 'À signer'].includes(r.status)).length;
-      const tabs = [['mon', 'Mes entretiens', todo], ['objectifs', 'Mes objectifs'], ['feedback', 'Feedback']]; pickTab('revTab', tabs);
+      const mob = mobSal(), tabs = [['mon', 'Mes entretiens', todo], ['objectifs', 'Mes objectifs'], ...(mob ? [] : [['feedback', 'Feedback']])]; pickTab('revTab', tabs);
       let body;
       if (ui.revTab === 'mon') {
         const [st, cls] = proState(m);
         body = `${mine.length ? mine.map((r) => `<div class="card"><div class="card-h"><h3>${r.kind} ${r.year}</h3>${reviewPill(r)}</div><div class="card-b">${stepper(r)}
           <div class="toolbar" style="margin-top:14px"><span class="muted">${r.date ? `Prévu le ${fmtDate(r.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} avec ${esc(fullName(emp(m.managerId)))}` : 'Date à fixer par votre manager'}</span>
-          <button type="button" class="btn ${['Planifié', 'À signer'].includes(r.status) ? 'primary' : 'ghost'}" style="margin-left:auto" data-act="review" data-id="${r.id}">${r.status === 'Planifié' ? 'Faire mon auto-évaluation' : r.status === 'À signer' ? 'Relire et signer' : 'Ouvrir'}</button></div></div></div>`).join('') : '<div class="card empty">Aucun entretien programmé.</div>'}
-          <div class="card card-b"><b>Entretien professionnel</b><p class="muted" style="margin:4px 0 0">Tous les 2 ans, pour parler de vos perspectives d’évolution et de formation. Dernier : ${m.lastPro ? fmtDate(m.lastPro) : 'aucun'} · prochain avant le ${fmtDate(proDue(m))} <span class="pill ${cls}">${st}</span></p></div>`;
+          ${mob ? '' : `<button type="button" class="btn ${['Planifié', 'À signer'].includes(r.status) ? 'primary' : 'ghost'}" style="margin-left:auto" data-act="review" data-id="${r.id}">${r.status === 'Planifié' ? 'Faire mon auto-évaluation' : r.status === 'À signer' ? 'Relire et signer' : 'Ouvrir'}</button>`}</div>
+          ${mob && ['Planifié', 'À signer'].includes(r.status) ? desktopHint(r.status === 'Planifié' ? 'L’auto-évaluation se fait' : 'La relecture et la signature se font') : ''}</div></div>`).join('') : '<div class="card empty">Aucun entretien programmé.</div>'}
+          <div class="card card-b"><b>Entretien de parcours professionnel</b><p class="muted" style="margin:4px 0 0">Tous les 4 ans (loi du 24 octobre 2025), pour parler de vos perspectives d’évolution et de formation. Dernier : ${m.lastPro ? fmtDate(m.lastPro) : 'aucun'} · prochain avant le ${fmtDate(proDue(m))} <span class="pill ${cls}">${st}</span></p></div>`;
       } else if (ui.revTab === 'objectifs') {
         const list = db.objectives.filter((o) => o.empId === m.id);
         const avg = list.length ? Math.round(list.reduce((s, o) => s + o.progress, 0) / list.length) : 0;
-        body = card('Mes objectifs 2026', `<span class="pill ok num">Avancement moyen ${avg} %</span>`, `<div class="card-b">${objectivesList(list, true)}<p class="hint" style="margin:12px 0 0">Faites glisser le curseur pour mettre à jour l’avancement : votre manager le voit aussitôt.</p></div>`);
+        body = card('Mes objectifs 2026', `<span class="pill ok num">Avancement moyen ${avg} %</span>`, `<div class="card-b">${objectivesList(list, !mob)}<p class="hint" style="margin:12px 0 0">${mob ? 'La mise à jour de l’avancement se fait sur ordinateur.' : 'Faites glisser le curseur pour mettre à jour l’avancement : votre manager le voit aussitôt.'}</p></div>`);
       } else body = feedbackTab();
       return tabsBar('revTab', tabs) + body;
     }
@@ -2397,15 +2411,16 @@
         <p class="muted" style="font-size:13px">${next.length ? `Prochaines sessions : ${next.map((s) => fmtShort(s)).join(', ')}` : 'Pas de session programmée'}</p>
         <button type="button" class="btn ghost" data-act="enroll" data-id="${t.id}" ${next.length ? '' : 'disabled'}>Demander cette formation</button></div>`; }).join('')}</div>`;
   }
-  function myTrainings(e) {
+  function myTrainings(e, readOnly) {
     const mine = db.enrollments.filter((x) => x.empId === e.id).sort((a, b) => b.session.localeCompare(a.session));
-    return card('Mes formations', '', `<div class="req-list">${mine.length ? mine.map((x) => enrRow(x, x.status === 'Terminée'
+    return card('Mes formations', '', `<div class="req-list">${mine.length ? mine.map((x) => enrRow(x, readOnly ? '' : x.status === 'Terminée'
       ? `<label class="sr" for="tr-${x.id}">Mon évaluation</label><select id="tr-${x.id}" class="select" data-change="train-rate" data-id="${x.id}"><option value="">Évaluer la formation</option>${[5, 4, 3, 2, 1].map((k) => `<option value="${k}" ${x.rating === k ? 'selected' : ''}>${'★'.repeat(k)} ${k}/5</option>`).join('')}</select>`
       : x.status === 'Demandée' ? `<button type="button" class="btn ghost sm" data-act="train-cancel" data-id="${x.id}">Annuler</button>` : '')).join('') : '<div class="empty">Aucune formation pour le moment. Parcourez le catalogue.</div>'}</div>`);
   }
   function viewTraining() {
     const p = ui.profile, m = me();
     let tabs;
+    if (p === 'salarie' && mobSal()) return `${myTrainings(m, true)}${desktopHint('Le catalogue et les demandes de formation sont')}`;
     if (p === 'salarie') tabs = [['catalogue', 'Catalogue'], ['mes', 'Mes formations']];
     else if (p === 'manager') { const ids = scopeSet(); tabs = [['valider', 'À valider', db.enrollments.filter((x) => x.status === 'Demandée' && ids.has(x.empId)).length], ['equipe', 'Formations de l’équipe'], ['impact', 'Efficacité', db.enrollments.filter((x) => coldDue(x) && ids.has(x.empId)).length], ['catalogue', 'Catalogue'], ['mes', 'Mes formations']]; }
     else tabs = [['plan', 'Plan de formation'], ['valider', 'À valider', db.enrollments.filter((x) => ['Demandée', 'Validée manager'].includes(x.status)).length], ['impact', 'Efficacité et financement', db.enrollments.filter(coldDue).length], ['catalogue', 'Catalogue']];
@@ -2640,7 +2655,7 @@
     const p = ui.profile, m = me();
     let tabs;
     const answered = db.survey.some((s) => s.empId === m.id && s.month === monthKey(TODAY));
-    if (p === 'salarie') tabs = [['qvt', 'Baromètre du mois', answered ? 0 : 1], ['visites', 'Mes visites médicales'], ['accidents', 'Accidents et incidents'], ['amenagements', 'Aménagement de poste']];
+    if (p === 'salarie') tabs = [['qvt', 'Baromètre du mois', answered ? 0 : 1], ['visites', 'Mes visites médicales'], ['accidents', 'Accidents et incidents'], ...(mobSal() ? [] : [['amenagements', 'Aménagement de poste']])];
     else if (p === 'manager') tabs = [['qvt', 'Baromètre de l’équipe'], ['accidents', 'Accidents et incidents'], ['amenagements', 'Aménagements de poste']];
     else tabs = [['visites', 'Visites médicales', visitsDue(db.employees).filter((x) => x.deadline < TODAY).length], ['accidents', 'Accidents et incidents', db.incidents.filter((x) => x.status === 'Déclaré').length], ['risques', 'Document unique (DUERP)'], ['qvt', 'Baromètre QVT'], ['amenagements', 'Aménagements de poste', db.adjustments.filter((x) => x.status === 'Demandé').length], ['retours', 'Retours d’absence', longAbsences().filter((a) => a.need && !db.visits.some((x) => x.empId === a.e.id && x.kind === 'Visite de reprise' && x.date >= a.start)).length]];
     pickTab('healthTab', tabs);
@@ -3921,7 +3936,7 @@
     return `<div class="panel stage-page"><div class="card card-b">${stageHead(2)}<p style="margin:14px 0 0">Bienvenue ${esc(e.firstName)} ! ${days > 0 ? `Vous nous rejoignez dans <b class="num">${plural(days, 'jour', 'jours')}</b>, le ${fmtDate(e.startDate, { weekday: 'long', day: 'numeric', month: 'long' })}` : `Vous nous avez rejoints le ${fmtDate(e.startDate)}`}, au poste de ${esc(e.title)} (${esc(e.contract)}).</p>
       ${locked(e) ? '<p class="hint" style="margin:6px 0 0">Les autres rubriques de votre espace s’ouvriront le jour de votre arrivée.</p>' : ''}</div>
       <div class="card"><div class="card-h"><h3>Où en est mon arrivée</h3></div><div class="card-b">${stepsList(arrivalSteps(e, 2), STAGES[2].steps, false)}</div></div>
-      ${c.status === 'Envoyé' ? `<div class="card card-b callout"><b>${ic('edit')}Votre contrat de travail est prêt à signer</b><button type="button" class="btn primary sm" data-act="go" data-v="contrat">Signer mon contrat${ic('arrow')}</button></div>` : ''}
+      ${c.status === 'Envoyé' ? `<div class="card card-b callout"><b>${ic('edit')}Votre contrat de travail est prêt à signer</b><button type="button" class="btn primary sm" data-act="go" data-v="contrat">${mobSal() ? 'Lire mon contrat' : 'Signer mon contrat'}${ic('arrow')}</button></div>` : ''}
       ${card('Mes documents', `<span class="muted num" style="font-size:13px">${plural(reqDocs(e).filter(([k]) => d.docs[k]).length, 'pièce validée', 'pièces validées')} sur ${reqDocs(e).length}</span>`, `<div class="card-b"><p class="hint" style="margin:0 0 6px">Pièces demandées pour un contrat ${esc(e.contract)}. Les RH les vérifient et vous préviennent si l’une doit être redéposée.</p>${docs}</div>`)}
       ${card('Mon premier jour', '', `<div class="card-b"><div class="info-grid"><div><span>Date et lieu</span>${fmtDate(e.startDate, { weekday: 'long', day: 'numeric', month: 'long' })} · ${esc(e.location)}</div><div><span>Manager</span>${mgr ? esc(fullName(mgr)) : '—'}</div><div><span>Parrain ou marraine</span>${buddy ? esc(fullName(buddy)) : d.buddy === 'none' ? 'Pas de parrain prévu : ton manager t’accompagne' : 'Bientôt désigné'}</div><div><span>Contact RH</span>${esc(fullName(emp(db.settings.company.signataire) || emp('e1')))} · rh@${esc(COMPANY.domaine)}</div></div>
         <h4 class="sub" style="margin-top:16px">Au programme</h4>${first.map(([, l, day]) => `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${day ? `J+${day}` : 'Premier jour'}</small></div></div>`).join('') || '<p class="muted" style="margin:0">Le programme sera bientôt disponible.</p>'}</div>`)}</div>`;
@@ -3931,10 +3946,10 @@
     const pending = e.stage === 2 && c.status === 'Envoyé' && c.docId && db.documents.find((x) => x.id === c.docId);
     let main;
     if (pending) main = `<div class="card"><div class="card-h"><h3>Contrat à signer</h3><span class="pill warn">Envoyé le ${fmtShort(c.sentAt)}</span></div><div class="card-b"><article class="letter">${docBody(pending)}</article>
-      <div class="sign-box"><h4 class="sub">Votre signature</h4><p class="hint" style="margin:0 0 8px">Signez à la souris ou au doigt dans le cadre : votre signature sera apposée sur le contrat.</p>
+      ${mobSal() ? `<div class="callout-info mob-sign">${ic('lock')}<span>La signature du contrat se fait sur ordinateur, pour le relire sur grand écran. Ouvre Teamora sur ton ordinateur : ton contrat t’y attend.</span></div>` : `<div class="sign-box"><h4 class="sub">Votre signature</h4><p class="hint" style="margin:0 0 8px">Signez à la souris ou au doigt dans le cadre : votre signature sera apposée sur le contrat.</p>
         <canvas id="sig-pad" class="sig-pad" width="560" height="170" aria-label="Zone de signature"></canvas>
         <div class="toolbar" style="margin-top:10px"><button type="button" class="btn ghost sm" data-act="sig-clear">Effacer</button><label class="agree"><input type="checkbox" id="sig-ok"> J’ai lu le contrat et j’en accepte les termes (« lu et approuvé »)</label>
-        <button type="button" class="btn primary" data-act="sig-sign" data-id="${pending.id}" style="margin-left:auto">${ic('edit')}Signer le contrat</button></div><p class="err" id="sig-err" aria-live="polite"></p></div></div></div>`;
+        <button type="button" class="btn primary" data-act="sig-sign" data-id="${pending.id}" style="margin-left:auto">${ic('edit')}Signer le contrat</button></div><p class="err" id="sig-err" aria-live="polite"></p></div>`}</div></div>`;
     else if (e.stage === 2 && c.status !== 'Signé') main = `<div class="card card-b"><p style="margin:0">Votre contrat est en cours de préparation par les RH. Vous serez prévenu·e dès qu’il sera prêt à signer.</p></div>`;
     else main = '';
     return `<div class="panel stage-page"><div class="card card-b">${stageHead(3)}</div>${main}
@@ -4292,6 +4307,7 @@
     const ratio = closed.length / 12, ben = BENEFITS.filter(([l]) => l !== 'Prévoyance' || e.category === 'Cadre').map(([l, , v]) => [l, v * ratio]);
     const total = t.base + t.bonus + t.ot + t.ppv + ben.reduce((s, [, v]) => s + v, 0);
     const req = (db.payInfoReqs || []).filter((r) => r.empId === e.id).slice(-1)[0], row = req && payGap(db.employees).find((r) => r.cat === e.category);
+    if (mobSal()) return `${viewPayslips()}${desktopHint('Le détail de ta rémunération, la transparence salariale et le choix du bulletin papier sont')}`;
     return `${viewPayslips()}
       <div class="two">${card('Ma rémunération globale', `<span class="muted" style="font-size:13px">${plural(closed.length, 'mois', 'mois')} de paie</span>`, `<div class="card-b"><div class="crit">
         ${[['Salaire de base brut', t.base], ['Primes', t.bonus], ['Heures supplémentaires', t.ot], ['Prime de partage de la valeur', t.ppv]].filter(([, v]) => v).map(([l, v]) => `<div class="crit-row"><span>${l}</span><b class="num">${eur0(v)}</b></div>`).join('')}
@@ -5220,7 +5236,7 @@
     const scrollY = window.scrollY;
     const mob = isMob(); if (!mob || ui.profile !== 'salarie') ui.mobMore = false;
     document.getElementById('app').innerHTML = mob && (ui.view === 'setup' || ui.profile !== 'salarie') ? mobGate()
-      : mob ? `<div class="app mob">${mobTop()}<main class="view" id="view">${ui.view === 'accueil' ? mobHome() : VIEWS[ui.view]()}</main>${footer()}${mobNav()}</div>`
+      : mob ? `<div class="app mob">${mobTop()}<main class="view" id="view">${ui.view === 'accueil' || MOB_OFF.includes(ui.view) ? mobHome() : VIEWS[ui.view]()}</main>${footer()}${mobNav()}</div>`
       : ui.view === 'setup' ? `<div class="app setup">${viewSetup()}${footer()}</div>` : `<div class="app">${topbar()}${stageRail()}<main class="view" id="view">${VIEWS[ui.view]()}</main>${footer()}</div>`;
     let ov = '';
     if (ui.drawer) {

@@ -42,6 +42,16 @@
   plus), puis coche « J'ai vérifié ces règles ». Ces règles alimentent la période d'essai, les préavis, la paie
   (maintien de salaire) et la jauge « Espace prêt ». Sans convention, l'essai n'est pas renouvelable.
 
+- **Espace salarié sur téléphone** (écran de 760 px de large ou moins) : barre du haut compacte, onglets Accueil,
+  Absences, Paie, Échanges et Plus, accueil en cartes à la place de la roue, fenêtres en plein écran. Fonctions gardées :
+  soldes, demandes d'absence et de télétravail, saisie des heures ; bulletins ; coordonnées, demande de modification avec
+  justificatif, documents, annuaire ; échanges RH et signalement lanceur d'alerte ; baromètre, visites médicales,
+  déclaration d'accident ; pour une nouvelle recrue, dépôt des pièces en photo et programme du premier jour. En
+  consultation seule : entretiens et objectifs, formations prévues, contrat à signer (signature sur ordinateur), étapes
+  de départ. Sur ordinateur seulement : mobilité interne, aménagement de poste, détail de la rémunération et transparence
+  salariale, auto-évaluation et feedback, catalogue de formations, Teamo. Les profils RH et manager voient un écran qui
+  les oriente vers l'ordinateur ou leur espace personnel.
+
 - **Rédaction partagée de l'offre** : une fois le besoin validé, le manager demandeur (ou le manager rattaché) et les RH
   rédigent ensemble le projet d'offre (bouton « Rédiger l'offre » et onglet « Projet d'offre » du besoin, auteur et date
   de la dernière modification, liste des contributeurs). Le manager enregistre son projet puis l'envoie aux RH ; seuls les

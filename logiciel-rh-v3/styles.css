@@ -1148,3 +1148,18 @@ body:has(.help-panel) .toasts { right: 440px; }
   body:has(.app.mob) .help-panel { left: 8px; right: 8px; width: auto; bottom: calc(136px + env(safe-area-inset-bottom, 0px)); height: min(560px, calc(100vh - 200px)); }
   body:has(.app.gate) .help-fab, body:has(.app.gate) .help-panel { display: none; }
 }
+@media (max-width: 760px) {
+  body:has(.app.mob) .help-fab, body:has(.app.mob) .help-panel { display: none; }
+  .mob-desk { display: flex; gap: 8px; align-items: flex-start; margin: 0; } .mob-desk svg { width: 15px; height: 15px; flex: none; margin-top: 2px; }
+  .card .mob-desk { margin-top: 10px; }
+  .mob-sign { display: flex; gap: 10px; align-items: flex-start; } .mob-sign svg { width: 18px; height: 18px; flex: none; margin-top: 2px; }
+  .mob-dir { display: flex; flex-direction: column; }
+  .mob-person { display: flex; gap: 12px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--line); } .mob-person:first-child { border-top: 0; }
+  .mob-person .t { min-width: 0; } .mob-person b { display: block; } .mob-person small { display: block; color: var(--muted); font-size: 12.5px; }
+  .mob-person .mail { color: var(--faint); overflow-wrap: anywhere; user-select: text; }
+}
+@media (max-width: 760px) {
+  .app.mob .todo { flex-wrap: wrap; row-gap: 8px; } .app.mob .todo .t { flex: 1 1 100%; min-width: 0; }
+  .app.mob .todo .doc-ic + .t { flex-basis: calc(100% - 52px); }
+  .mob-sheet .emp-pick { display: block; width: 100%; } .mob-sheet .emp-pick input { width: 100%; }
+}

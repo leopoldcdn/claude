@@ -1163,3 +1163,8 @@ body:has(.help-panel) .toasts { right: 440px; }
   .app.mob .todo .doc-ic + .t { flex-basis: calc(100% - 52px); }
   .mob-sheet .emp-pick { display: block; width: 100%; } .mob-sheet .emp-pick input { width: 100%; }
 }
+@media (max-width: 760px) {
+  .mob-persona .btn { padding: 4px 12px 4px 4px; gap: 8px; border-radius: 99px; min-height: 36px; }
+  .mob-persona .btn .av, .gate-box .btn .av { width: 26px; height: 26px; font-size: 10.5px; }
+  .gate-box .btn { padding-top: 6px; padding-bottom: 6px; }
+}

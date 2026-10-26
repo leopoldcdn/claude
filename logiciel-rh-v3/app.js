@@ -437,6 +437,58 @@
       : `<button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Réinitialiser la démo</button><button type="button" class="btn ghost sm" data-act="tenant-new">${ic('plus')}Tester l’installation (nouvelle entreprise)</button>`}<button type="button" class="btn ghost sm" data-act="v3-news">${ic('star')}Nouveautés de la V3</button>
     <p class="demo-note">Aperçu de démonstration : toutes les données sont fictives et enregistrées uniquement dans ce navigateur.</p></footer>`;
 
+  // ---------------------------------------------------------------- V3 · Vue mobile de l'espace salarié
+  // Sur téléphone : barre du haut compacte, onglets en bas, accueil en cartes. La gestion RH et manager reste sur ordinateur.
+  const MOB_Q = window.matchMedia ? window.matchMedia('(max-width: 760px)') : { matches: false };
+  const isMob = () => !!MOB_Q.matches;
+  const MOB_LABEL = { arrivee: 'Arrivée', contrat: 'Contrat', profil: 'Profil', absences: 'Absences', bulletins: 'Paie', entretiens: 'Entretiens', formation: 'Formations', mobilite: 'Mobilité', sante: 'Santé', relations: 'Échanges', etape: 'Mon étape' };
+  const MOB_TABS = ['absences', 'bulletins', 'relations'];
+  function mobItems() { return visibleStages().map((i) => ({ i, v: stageView(i), name: stageDef(i).short, label: MOB_LABEL[stageView(i)] || stageDef(i).short, icon: stageDef(i).icon, n: stageTodo(i) })).filter((x) => x.v); }
+  function mobSplit() { const items = mobItems(), pref = MOB_TABS.map((v) => items.find((x) => x.v === v)).filter(Boolean), main = (pref.length ? pref : items).slice(0, 3);
+    return { items, main, rest: items.filter((x) => !main.includes(x)) }; }
+  function mobTop() {
+    const title = ui.view === 'accueil' ? 'Accueil' : ui.view === 'etape' ? esc(STAGES[ui.stage].title) : VIEW_LABELS.salarie[ui.view] || '';
+    const mine = db.notifications.filter((n) => n.to === me().id), unread = mine.filter((n) => !n.read).length;
+    return `<header class="mob-top"><button type="button" class="brand" data-act="go" data-v="accueil" aria-label="Teamora · retour à l’accueil"><span class="brand-mark">${LOGO}</span></button>
+      <div class="mob-title"><small>${esc(COMPANY.nom)}</small><h1>${title}</h1></div>
+      <button type="button" class="icon-btn" data-act="notif" aria-label="Notifications (${unread} non lues)" aria-expanded="${ui.notif}">${ic('bell')}${unread ? `<span class="dot num">${unread}</span>` : ''}</button>
+      <button type="button" class="mob-me" data-act="mob-more" aria-label="Menu et compte">${avatar(me())}</button>
+      ${ui.notif ? `<div class="card notif-pop" data-act="noop"><div class="card-h"><h3>Notifications</h3>${unread ? '<button type="button" class="btn ghost sm" data-act="notif-read">Tout marquer comme lu</button>' : ''}</div>
+        ${mine.length ? mine.slice(0, 8).map((n) => `<div class="notif ${n.read ? '' : 'unread'}"><div>${esc(n.text)}<small>${fmtDate(n.date)}</small></div></div>`).join('') : '<div class="empty">Aucune notification.</div>'}</div>` : ''}</header>`;
+  }
+  function mobNav() {
+    const { main, rest } = mobSplit(), more = rest.reduce((a, x) => a + x.n, 0);
+    const b = (on, attrs, icon, label, n) => `<button type="button" ${attrs} ${on ? 'aria-current="page"' : ''}>${ic(icon)}<span>${label}</span>${n ? `<i class="badge todo num">${n}</i>` : ''}</button>`;
+    return `<nav class="mob-nav" aria-label="Navigation principale">${b(ui.view === 'accueil' && !ui.mobMore, 'data-act="go" data-v="accueil"', 'home', 'Accueil')}
+      ${main.map((x) => b(ui.view !== 'accueil' && ui.stage === x.i && !ui.mobMore, `data-act="stage" data-i="${x.i}"`, x.icon, x.label, x.n)).join('')}
+      ${rest.length ? b(!!ui.mobMore || rest.some((x) => ui.stage === x.i && ui.view !== 'accueil'), 'data-act="mob-more" aria-haspopup="dialog"', 'chart', 'Plus', more) : ''}</nav>`;
+  }
+  function mobHome() {
+    const m = me(), { items } = mobSplit(), todo = items.filter((x) => x.n);
+    return `<section class="mob-hello"><h2>Bonjour ${esc(m.firstName)}</h2><p>${esc(m.title)} · ${esc(m.dept)}</p></section>
+      ${todo.length ? `<section class="card mob-todo"><div class="card-h"><h3>À faire</h3></div>${todo.map((x) => `<button type="button" class="mob-row" data-act="stage" data-i="${x.i}"><span class="mob-ic" style="--c:${STAGE_COLORS[x.i]}">${ic(x.icon)}</span><span class="t"><b>${esc(x.name)}</b><small>${plural(x.n, 'action en attente', 'actions en attente')}</small></span>${ic('right')}</button>`).join('')}</section>` : ''}
+      <section><h4 class="sub">Mon espace</h4><div class="mob-grid">${items.map((x) => `<button type="button" class="mob-tile" data-act="stage" data-i="${x.i}" style="--c:${STAGE_COLORS[x.i]}"><span class="mob-ic">${ic(x.icon)}</span><b>${esc(x.name)}</b>${x.n ? `<i class="badge todo num">${x.n}</i>` : ''}</button>`).join('')}</div></section>`;
+  }
+  // « Plus » : les autres rubriques, et le changement de profil de la démo.
+  function mobMoreSheet() {
+    const { rest } = mobSplit();
+    return `<div class="scrim on" data-act="mob-more"></div><div class="mob-sheet" role="dialog" aria-modal="true" aria-label="Plus de rubriques"><div class="mob-grab"></div>
+      ${rest.length ? `<h4 class="sub">Autres rubriques</h4>${rest.map((x) => `<button type="button" class="mob-row" data-act="stage" data-i="${x.i}"><span class="mob-ic" style="--c:${STAGE_COLORS[x.i]}">${ic(x.icon)}</span><span class="t"><b>${esc(x.name)}</b></span>${x.n ? `<i class="badge todo num">${x.n}</i>` : ''}${ic('right')}</button>`).join('')}` : ''}
+      <h4 class="sub">Démo : voir l’application en tant que</h4>
+      ${TENANT === 'new' ? '' : `<div class="mob-persona">${Object.entries(PROFILES).filter(([k]) => profileOk(k)).map(([k, pr]) => { const e = profileEmp(k); return `<button type="button" class="btn ${persona() === k ? 'primary' : 'ghost'} sm" data-act="persona" data-p="${k}">${avatar(e)}${esc(e.firstName)} · ${pr.label}</button>`; }).join('')}</div>`}
+      ${!ui.selfOf ? `<div class="field" style="margin-top:10px">${asEmpSelect().replace('class="sr"', 'class="lbl"')}</div>` : `<button type="button" class="btn ghost sm" data-act="space" data-s="gestion" style="margin-top:10px">${ic('left')}Revenir à la gestion (ordinateur)</button>`}
+      <p class="hint" style="margin:12px 0 0">Sur téléphone, Teamora affiche l’espace salarié. La gestion RH et manager s’utilise sur ordinateur.</p></div>`;
+  }
+  // RH et managers sur téléphone : la gestion demande un écran d'ordinateur ; leur espace personnel reste accessible.
+  function mobGate() {
+    const setup = ui.view === 'setup';
+    return `<div class="app mob gate"><div class="gate-box"><span class="brand-mark">${LOGO}</span><h1>Teamora sur téléphone</h1>
+      <p>${setup ? 'L’installation de Teamora se fait sur ordinateur (écran de 1 024 px de large au moins).' : `La gestion ${ui.profile === 'rh' ? 'RH' : 'de l’équipe'} s’utilise sur ordinateur. Sur téléphone, tu retrouves l’espace salarié : absences, bulletins, entretiens, échanges avec les RH…`}</p>
+      ${setup ? '' : `<button type="button" class="btn primary" data-act="space" data-s="perso">${avatar(me())}Ouvrir mon espace personnel</button>
+      ${TENANT === 'new' ? '' : `<button type="button" class="btn ghost" data-act="persona" data-p="salarie">Voir l’espace d’un salarié (démo)</button>`}`}</div></div>`;
+  }
+  if (MOB_Q.addEventListener) MOB_Q.addEventListener('change', () => { ui.mobMore = false; render(); });
+
   // ---------------------------------------------------------------- Home (wheel)
   const W = { cx: 430, cy: 380, R: 250, LR: 310 };
   let wheelN = 16; // number of stages shown in the wheel for the current profile
@@ -5166,7 +5218,10 @@
     route();
     if (ui.orgPreview && !orgDrag && !(ui.modal && ui.modal.type === 'org-move')) ui.orgPreview = null;
     const scrollY = window.scrollY;
-    document.getElementById('app').innerHTML = ui.view === 'setup' ? `<div class="app setup">${viewSetup()}${footer()}</div>` : `<div class="app">${topbar()}${stageRail()}<main class="view" id="view">${VIEWS[ui.view]()}</main>${footer()}</div>`;
+    const mob = isMob(); if (!mob || ui.profile !== 'salarie') ui.mobMore = false;
+    document.getElementById('app').innerHTML = mob && (ui.view === 'setup' || ui.profile !== 'salarie') ? mobGate()
+      : mob ? `<div class="app mob">${mobTop()}<main class="view" id="view">${ui.view === 'accueil' ? mobHome() : VIEWS[ui.view]()}</main>${footer()}${mobNav()}</div>`
+      : ui.view === 'setup' ? `<div class="app setup">${viewSetup()}${footer()}</div>` : `<div class="app">${topbar()}${stageRail()}<main class="view" id="view">${VIEWS[ui.view]()}</main>${footer()}</div>`;
     let ov = '';
     if (ui.drawer) {
       const dt = ui.drawer.type, cs = dt === 'case' && db.cases.find((c) => c.id === ui.drawer.id);
@@ -5176,11 +5231,12 @@
       else ui.drawer = null;
     }
     ov += modalHTML();
+    if (ui.mobMore) ov += mobMoreSheet();
     document.getElementById('overlay').innerHTML = ov;
     if (drawerAnim) { drawerAnim = false; requestAnimationFrame(() => requestAnimationFrame(() => document.querySelectorAll('.scrim, .drawer').forEach((el) => el.classList.add('on')))); }
     window.scrollTo(0, scrollY);
     const cur = document.querySelector('.rail [aria-current]'); if (cur) cur.parentElement.scrollLeft = cur.offsetLeft - 80;
-    if (ui.view === 'accueil') bindWheel();
+    if (ui.view === 'accueil' && !mob) bindWheel();
     if (ui.view === 'recrutement') bindBoard();
     bindSignature(); bindTplEditor(); bindDocEditor(); bindOrg();
     saveUI();
@@ -5241,7 +5297,7 @@
   // ---------------------------------------------------------------- Actions
   const ACT = {
     noop() {},
-    go(d) { ui.view = d.v; ui.stage = null; ui.notif = false; ui.drawer = null; window.scrollTo(0, 0); render(); },
+    go(d) { ui.view = d.v; ui.stage = null; ui.notif = false; ui.drawer = null; ui.mobMore = false; window.scrollTo(0, 0); render(); },
     persona(d) {
       if (persona() === d.p && !ui.selfOf) return;
       ui = Object.assign({ profile: d.p, view: 'accueil', stage: null, asEmp: ui.asEmp, asMgr: ui.asMgr }, freshUI());
@@ -5255,6 +5311,7 @@
       window.scrollTo(0, 0); render(); toast(perso ? `Ton espace personnel : ${fullName(me())}` : base === 'rh' ? 'Gestion des salariés' : 'Gestion de ton équipe');
     },
     notif() { ui.notif = !ui.notif; render(); },
+    'mob-more'() { ui.mobMore = !ui.mobMore; ui.notif = false; render(); },
     'notif-read'() { db.notifications.forEach((n) => { if (n.to === me().id) n.read = true; }); commit(); },
     hub() { if (ui.wheelOpen && Date.now() - openedAt < 500) return; // a tap fires mouseenter (opens) then click
       if (ui.wheelOpen) closeWheel(); else openWheel(); },
@@ -5262,7 +5319,7 @@
     stage(d) {
       const i = Number(d.i), v = stageView(i); if (!v) return;
       if (v === 'recrutement') Object.assign(ui, { recTab: 'todo', recJob: null });
-      Object.assign(ui, { view: v, stage: i, selPerson: null, notif: false, drawer: null });
+      Object.assign(ui, { view: v, stage: i, selPerson: null, notif: false, drawer: null, mobMore: false });
       window.scrollTo(0, 0); render();
     },
     person(d) { ui.selPerson = ui.selPerson === d.id ? null : d.id; document.getElementById('panel').innerHTML = stagePanel(ui.stage); },

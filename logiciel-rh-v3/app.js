@@ -434,7 +434,7 @@
   }
   function todoBtn() { const n = todoItems().reduce((s, x) => s + x.n, 0) + complianceTodo().length;
     return `<button type="button" class="btn ${n ? 'primary' : 'ghost'} sm todo-btn" data-act="todo-open" aria-label="À traiter : ${n}">${ic('check')}<span class="todo-l">À traiter</span>${n ? `<span class="todo-n num">${n}</span>` : ''}</button>`; }
-  const footer = () => (DEMO ? `<footer class="foot"><p class="demo-note">Démo de Teamora : toutes les données sont fictives et restent dans ton navigateur. N’y saisis aucune donnée réelle.</p></footer>` : footerWork());
+  const footer = () => (DEMO ? `<footer class="foot"><p class="demo-note">Démo de Teamora : toutes les données sont fictives et restent dans ton navigateur. N’y saisis aucune donnée réelle. Teamo, le futur assistant IA, n’est pas disponible dans cette démo.</p></footer>` : footerWork());
   const footerWork = () => `<footer class="foot">${TENANT === 'new' ? `<button type="button" class="btn ghost sm" data-act="tenant-nova">${ic('left')}Revenir à la démo Nova Studio</button><button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Recommencer l’installation</button>`
       : `<button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Réinitialiser la démo</button><button type="button" class="btn ghost sm" data-act="tenant-new">${ic('plus')}Tester l’installation (nouvelle entreprise)</button>`}<button type="button" class="btn ghost sm" data-act="v3-news">${ic('star')}Nouveautés de la V3</button>
     <p class="demo-note">Aperçu de démonstration : toutes les données sont fictives et enregistrées uniquement dans ce navigateur.</p></footer>`;
@@ -1106,6 +1106,7 @@
       { sel: '.mob-nav', title: 'La navigation', text: 'Touche un onglet pour ouvrir Absences, Paie ou Échanges RH. L’accueil est toujours à gauche.' },
       { sel: '.mob-nav [data-act="mob-more"]', title: 'Plus', text: 'Les autres rubriques (profil, santé, entretiens, formations) et le changement de profil de la démo : RH, manager ou salarié.' },
       { sel: '.mob-avis', title: 'Ton avis compte', text: 'Après ton essai, dis-nous ce qui t’aide, ce qui manque ou ce qui bloque : deux minutes, sans ton nom.' },
+      { title: 'Bientôt : Teamo, ton assistant IA', text: 'Dans la version complète, je répondrai à tes questions en langage courant (« combien de congés me reste-t-il ? », « comment déclarer un arrêt ? ») et je t’emmènerai vers le bon écran. Je ne suis pas encore disponible dans cette démo.' },
       { title: 'À toi de jouer', text: 'La gestion RH et manager se découvre sur ordinateur. Tu peux revoir cette visite depuis le menu « Plus ».' }];
     return [
       { title: 'Bonjour, je suis Teamo', text: 'Je te fais visiter Teamora en deux minutes. Tu es dans la peau d’Olivia, responsable RH de Nova Studio, une entreprise fictive.', go: tourGo({ profile: 'rh', view: 'accueil', stage: null }) },
@@ -1118,6 +1119,7 @@
       { sel: '#view .tabs', title: 'Les onglets', text: 'Chaque module est organisé en onglets : clique sur un onglet pour passer des demandes à valider au planning ou aux compteurs.' },
       { sel: '.rail [data-v="obligations"]', title: 'Les obligations selon l’effectif', text: 'Le cœur de Teamora : l’effectif est calculé automatiquement et les obligations légales apparaissent à chaque seuil (11, 20, 50, 250 salariés), avec des alertes avant.' },
       { sel: '.avis-fab', title: 'Ton avis compte', text: 'Après ton essai, dis-nous ce qui t’aide, ce qui manque ou ce qui bloque : deux minutes, sans ton nom.' },
+      { title: 'Bientôt : Teamo, ton assistant IA', text: 'Dans la version complète, je répondrai à tes questions en langage courant : comment poser une absence, quel préavis appliquer, ce qui change en passant 50 salariés. Je t’emmènerai vers le bon écran, je t’aiderai à rédiger une offre ou un message et je te rappellerai les échéances, sans jamais recevoir les données personnelles de tes salariés. Je ne suis pas encore disponible dans cette démo.' },
       { sel: '.tour-fab', title: 'À toi de jouer', text: 'Explore librement : toutes les données sont fictives. Tu peux relancer cette visite à tout moment avec ce bouton.', go: tourGo({ view: 'accueil', stage: null }) }];
   }
   function tourStart() { tour = { i: 0, steps: tourSteps() }; tourShow(); }

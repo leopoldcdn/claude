@@ -58,6 +58,13 @@
   téléphonique pour le numéro de téléphone et numérique pour les heures, dépôt de pièces « Photo ou fichier », retour
   visuel au toucher.
 
+- **Donner mon avis** (tests avec des PME) : bouton en bas à gauche sur ordinateur, carte sur l'accueil et entrée du menu
+  « Plus » sur téléphone. Le testeur indique l'écran (prérempli), son avis en un mot, l'utilité de 1 à 5, un commentaire,
+  et s'il le veut son entreprise et sa taille ; aucun nom n'est enregistré. Les avis sont stockés dans la base de la page
+  (`avis/<id du testeur>/r/<avis>`), lisibles par le seul propriétaire, qui les voit avec « Voir les avis reçus ». Quand
+  l'enregistrement est impossible (visiteur extérieur à l'organisation, page ouverte hors de claude.ai), l'avis peut être
+  publié en commentaire sur la page ou copié pour être envoyé.
+
 - **Rédaction partagée de l'offre** : une fois le besoin validé, le manager demandeur (ou le manager rattaché) et les RH
   rédigent ensemble le projet d'offre (bouton « Rédiger l'offre » et onglet « Projet d'offre » du besoin, auteur et date
   de la dernière modification, liste des contributeurs). Le manager enregistre son projet puis l'envoie aux RH ; seuls les

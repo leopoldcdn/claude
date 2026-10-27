@@ -1224,3 +1224,24 @@ body:has(.help-panel) .toasts { right: 440px; }
   .app.mob .bal { padding: 12px 14px; } .app.mob .bal .v { font-size: 24px; line-height: 1.2; } .app.mob .bal .v small { font-size: 13px; }
   .app.mob .bal .l { font-size: 13px; } .app.mob .bal .hint { font-size: 12.5px; margin-top: 2px; }
 }
+
+/* ---------------------------------------------------------------- V3 · « Donner mon avis » */
+.avis-fab { position: fixed; left: 24px; bottom: 24px; z-index: 45; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border: 0; border-radius: 99px; background: var(--surface); color: var(--fg); font: inherit; font-weight: 700; font-size: 14px; box-shadow: var(--shadow-lg), 0 0 0 1px var(--line); cursor: pointer; }
+.avis-fab svg { width: 18px; height: 18px; color: var(--accent); } .avis-fab:hover { box-shadow: var(--shadow-lg), 0 0 0 2px var(--accent); }
+.avis-set { border: 0; padding: 0; margin: 14px 0 0; } .avis-set legend { margin-bottom: 8px; }
+.avis-chips { display: flex; flex-wrap: wrap; gap: 8px; } .avis-chip input, .avis-note input { position: absolute; opacity: 0; pointer-events: none; }
+.avis-chip span { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border: 1px solid var(--line); border-radius: 99px; font-size: 14px; font-weight: 600; cursor: pointer; background: var(--surface); }
+.avis-chip input:checked + span, .avis-note input:checked + span { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.avis-chip input:focus-visible + span, .avis-note input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.avis-notes { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; max-width: 320px; }
+.avis-note span { display: grid; place-items: center; height: 44px; border: 1px solid var(--line); border-radius: 12px; font-weight: 800; cursor: pointer; background: var(--surface); }
+.avis-set + .field, .avis-set + .avis-set { margin-top: 14px; } form[data-form="avis"] .field.full { margin-top: 0; } form[data-form="avis"] .avis-set + .field.full { margin-top: 14px; }
+form[data-form="avis"] .form-grid { margin-top: 14px; } form[data-form="avis"] textarea { min-height: 110px; }
+.avis-done { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding-top: 28px; padding-bottom: 28px; } .avis-done > svg { width: 40px; height: 40px; color: var(--ok); } .avis-done p { margin: 0; }
+.avis-row { padding: 12px 0; border-top: 1px solid var(--line); } .avis-row:first-of-type { border-top: 0; } .avis-row p { margin: 6px 0; white-space: pre-line; } .avis-row b { display: block; margin-top: 6px; }
+.mob-avis { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; text-align: left; font: inherit; color: var(--fg); cursor: pointer; }
+.mob-avis > svg:first-child { width: 22px; height: 22px; color: var(--accent); flex: none; } .mob-avis > svg:last-child { width: 18px; height: 18px; color: var(--faint); margin-left: auto; flex: none; }
+.mob-avis small { display: block; color: var(--muted); }
+@media (max-width: 760px) { .avis-chip span { min-height: 44px; } .avis-notes { max-width: none; } }
+body:has(.help-panel) .avis-fab { display: none; }
+.mob-avis > span { flex: 1; min-width: 0; text-align: left; }

@@ -475,6 +475,7 @@
     return `<section class="mob-hello"><h2>Bonjour ${esc(m.firstName)}</h2><p>${esc(m.title)} · ${esc(m.dept)}</p></section>
       ${quick.length ? `<section class="mob-quick" aria-label="Actions rapides">${quick.map(([k, icon, l]) => `<button type="button" data-act="mob-quick" data-k="${k}">${ic(icon)}<span>${l}</span></button>`).join('')}</section>` : ''}
       ${todo.length ? `<section class="card mob-todo"><div class="card-h"><h3>À faire</h3></div>${todo.map((x) => `<button type="button" class="mob-row" data-act="stage" data-i="${x.i}"><span class="mob-ic" style="--c:${STAGE_COLORS[x.i]}">${ic(x.icon)}</span><span class="t"><b>${esc(x.name)}</b><small>${plural(x.n, 'action en attente', 'actions en attente')}</small></span>${ic('right')}</button>`).join('')}</section>` : ''}
+      <button type="button" class="card mob-avis" data-act="avis-open">${ic('chat')}<span><b>Donner mon avis sur Teamora</b><small>2 minutes, sans ton nom</small></span>${ic('right')}</button>
       <section><h4 class="sub">Mon espace</h4><div class="mob-grid">${items.map((x) => `<button type="button" class="mob-tile" data-act="stage" data-i="${x.i}" style="--c:${STAGE_COLORS[x.i]}"><span class="mob-ic">${ic(x.icon)}</span><b>${esc(x.name)}</b>${x.n ? `<i class="badge todo num">${x.n}</i>` : ''}</button>`).join('')}</div></section>`;
   }
   // « Plus » : les autres rubriques, et le changement de profil de la démo.
@@ -482,6 +483,7 @@
     const { rest } = mobSplit();
     return `<div class="scrim on" data-act="mob-more"></div><div class="mob-sheet" role="dialog" aria-modal="true" aria-label="Plus de rubriques"><div class="mob-grab"></div>
       ${rest.length ? `<h4 class="sub">Autres rubriques</h4>${rest.map((x) => `<button type="button" class="mob-row" data-act="stage" data-i="${x.i}"><span class="mob-ic" style="--c:${STAGE_COLORS[x.i]}">${ic(x.icon)}</span><span class="t"><b>${esc(x.name)}</b></span>${x.n ? `<i class="badge todo num">${x.n}</i>` : ''}${ic('right')}</button>`).join('')}` : ''}
+      <button type="button" class="mob-row" data-act="avis-open"><span class="mob-ic">${ic('chat')}</span><span class="t"><b>Donner mon avis</b><small>Ce qui t’aide, ce qui manque, ce qui bloque</small></span>${ic('right')}</button>
       <h4 class="sub">Démo : voir l’application en tant que</h4>
       ${TENANT === 'new' ? '' : `<div class="mob-persona">${Object.entries(PROFILES).filter(([k]) => profileOk(k)).map(([k, pr]) => { const e = profileEmp(k); return `<button type="button" class="btn ${persona() === k ? 'primary' : 'ghost'} sm" data-act="persona" data-p="${k}">${avatar(e)}${esc(e.firstName)} · ${pr.label}</button>`; }).join('')}</div>`}
       ${!ui.selfOf ? `<div class="field" style="margin-top:10px">${asEmpSelect().replace('class="sr"', 'class="lbl"')}</div>` : `<button type="button" class="btn ghost sm" data-act="space" data-s="gestion" style="margin-top:10px">${ic('left')}Revenir à la gestion (ordinateur)</button>`}
@@ -1011,6 +1013,85 @@
 
   // ================================================================ Modules : développement, suivi, documents
   const MOD_ACT = {}, MOD_CHG = {}, MOD_FORMS = {}, MODALS = {}, DRAWERS = {}, MOD_LIVE = {}, MOD_INP = {};
+  // ---------------------------------------------------------------- V3 · « Donner mon avis » (tests avec des PME)
+  // Chaque avis est enregistré dans la base de la page (avis/<id du testeur>/r/<avis>), lisible par le seul propriétaire.
+  // Sans accès à la base (testeur extérieur, page ouverte hors de claude.ai), l'avis se publie en commentaire ou se copie.
+  const AVIS = { db: null, user: null, comments: null, owner: false, ready: false };
+  const AVIS_TYPES = [['aide', 'Ça m’aide'], ['manque', 'Il manque quelque chose'], ['confus', 'Ce n’est pas clair'], ['bug', 'Quelque chose ne marche pas']];
+  const AVIS_SIZES = ['1 à 10 salariés', '11 à 49 salariés', '50 à 249 salariés', '250 salariés et plus'];
+  (function initAvis() {
+    const C = window.claude; if (!C || typeof C.use !== 'function') { AVIS.ready = true; return; }
+    const safe = (n) => Promise.resolve().then(() => C.use(n)).catch(() => null);
+    Promise.all([safe('db'), safe('user'), safe('comments')]).then(async ([d, u, c]) => {
+      Object.assign(AVIS, { db: d, user: u, comments: c, ready: true });
+      AVIS.owner = u ? await u.isOwner().catch(() => false) : false;
+      if (ui.modal && ui.modal.type === 'avis') render();
+    });
+  })();
+  const avisScreen = () => `${PROFILES[persona()].label}${ui.selfOf ? ' (espace personnel)' : ''} · ${ui.view === 'etape' && STAGES[ui.stage] ? STAGES[ui.stage].title : (VIEW_LABELS[ui.profile] || {})[ui.view] || (ui.view === 'setup' ? 'Installation' : ui.view)}`;
+  const avisText = (r) => `Avis sur Teamora (V3) · ${r.appareil}\nÉcran : ${r.ecran}\nAvis : ${(AVIS_TYPES.find(([k]) => k === r.type) || ['', r.type])[1]}${r.note ? ` · utilité ${r.note}/5` : ''}${r.entreprise || r.taille ? `\nEntreprise : ${[r.entreprise, r.taille].filter(Boolean).join(' · ')}` : ''}\n\n${r.message}`;
+  async function avisLoad() {
+    try {
+      const people = await AVIS.db.collection('avis').get(), rows = [];
+      for (const d of people.docs) { const r = await AVIS.db.doc(`avis/${d.id}`).collection('r').get(); r.docs.forEach((x) => { if (x.exists) rows.push(x.data()); }); }
+      rows.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+      if (ui.modal && ui.modal.type === 'avis' && ui.modal.list) { ui.modal.rows = rows; render(); }
+    } catch (e) { if (ui.modal && ui.modal.list) { ui.modal.rows = []; ui.modal.err = 'Lecture des avis impossible pour le moment.'; render(); } }
+  }
+  MODALS.avis = (m, shell) => {
+    const close = '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>';
+    if (m.done) return shell('Merci pour ton avis', `<div class="modal-b avis-done">${ic('check')}<p>Ton avis est bien enregistré. Il sera lu pour améliorer Teamora.</p><button type="button" class="btn ghost" data-act="avis-open">Donner un autre avis</button></div>`, close);
+    if (m.fallback) return shell('Envoyer ton avis', `<div class="modal-b"><p style="margin:0 0 10px">${m.why || 'Ton avis n’a pas pu être enregistré automatiquement depuis ce navigateur.'} ${AVIS.comments ? 'Tu peux le publier en commentaire sur la page, ou le copier pour l’envoyer à la personne qui t’a transmis le lien.' : 'Copie-le pour l’envoyer par e-mail ou message à la personne qui t’a transmis le lien.'}</p>
+      <label class="lbl" for="avis-copy">Ton avis</label><textarea id="avis-copy" class="input" readonly style="min-height:160px">${esc(m.fallback)}</textarea>
+      <div class="toolbar" style="margin-top:12px"><button type="button" class="btn primary" data-act="avis-copy">${ic('file')}Copier mon avis</button>${AVIS.comments ? `<button type="button" class="btn ghost" data-act="avis-comment">${ic('chat')}Publier en commentaire</button>` : ''}</div></div>`, close);
+    if (m.list) return shell('Avis reçus', `<div class="modal-b">${!m.rows ? '<p class="muted">Chargement des avis…</p>' : m.err ? `<p class="err">${esc(m.err)}</p>` : m.rows.length ? `<p class="hint" style="margin:0 0 10px">${plural(m.rows.length, 'avis', 'avis')} · visibles par toi seul.</p>${m.rows.map((r) => `<div class="avis-row"><div class="toolbar"><span class="pill ${r.type === 'bug' ? 'bad' : r.type === 'aide' ? 'ok' : 'warn'}">${esc((AVIS_TYPES.find(([k]) => k === r.type) || ['', r.type])[1])}</span>${r.note ? `<span class="pill neutral num">${esc(r.note)}/5</span>` : ''}<small class="muted">${esc(fmtDate(String(r.date).slice(0, 10)))} · ${esc(r.appareil || '')}</small></div>
+        <b>${esc(r.ecran || '')}</b><p>${esc(r.message || '')}</p>${r.entreprise || r.taille ? `<small class="muted">${esc([r.entreprise, r.taille].filter(Boolean).join(' · '))}</small>` : ''}</div>`).join('')}` : '<p class="muted">Aucun avis pour le moment.</p>'}</div>`, close, true);
+    const types = AVIS_TYPES.map(([k, l]) => `<label class="avis-chip"><input type="radio" name="type" value="${k}" ${k === 'aide' ? 'checked' : ''}><span>${l}</span></label>`).join('');
+    const notes = [1, 2, 3, 4, 5].map((n) => `<label class="avis-note"><input type="radio" name="note" value="${n}"><span class="num">${n}</span></label>`).join('');
+    return shell('Donner mon avis', `<form data-form="avis" novalidate><div class="modal-b">
+      <p class="hint" style="margin:0 0 12px">Ton avis aide à décider ce que Teamora doit faire avant d’aller plus loin. Il ne contient pas ton nom.${AVIS.owner ? ' <button type="button" class="linkish" data-act="avis-list">Voir les avis reçus</button>' : ''}</p>
+      <div class="field full"><label for="avis-ecran">Écran concerné</label><input id="avis-ecran" name="ecran" class="input" maxlength="120" value="${esc(m.ecran || avisScreen())}"></div>
+      <fieldset class="avis-set"><legend class="lbl">Ton avis en un mot</legend><div class="avis-chips">${types}</div></fieldset>
+      <fieldset class="avis-set"><legend class="lbl">Utilité pour ton entreprise <small class="muted">(1 = inutile, 5 = indispensable)</small></legend><div class="avis-notes">${notes}</div></fieldset>
+      <div class="field full"><label for="avis-msg">Ce que tu en penses *</label><textarea id="avis-msg" name="message" class="input" maxlength="2000" placeholder="Ce qui t’a plu, ce qui t’a bloqué, ce que tu attendais…"></textarea></div>
+      <div class="form-grid"><div class="field"><label for="avis-ent">Entreprise <small class="muted">(facultatif)</small></label><input id="avis-ent" name="entreprise" class="input" maxlength="80" autocomplete="organization"></div>
+        <div class="field"><label for="avis-taille">Taille <small class="muted">(facultatif)</small></label><select id="avis-taille" name="taille" class="select"><option value="">—</option>${AVIS_SIZES.map((x) => `<option>${x}</option>`).join('')}</select></div></div>
+      <p class="hint" style="margin:12px 0 0">N’indique aucune donnée personnelle réelle (nom de salarié, salaire…) : c’est une démo.</p><p class="err" id="m-err" aria-live="polite"></p></div>
+      <div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button class="btn primary" id="avis-send">Envoyer mon avis</button></div></form>`, '', true);
+  };
+  Object.assign(MOD_ACT, {
+    'avis-open'() { ui.mobMore = false; ui.notif = false; ui.modal = { type: 'avis', ecran: avisScreen() }; render(); },
+    'avis-list'() { if (!AVIS.db || !AVIS.owner) return; ui.modal = { type: 'avis', list: true, rows: null }; render(); avisLoad(); },
+    'avis-copy'() {
+      const t = document.getElementById('avis-copy'); if (!t) return;
+      const pick = () => { t.focus(); t.select(); toast('Texte sélectionné : copie-le avec le menu de ton appareil', 'info'); };
+      try { navigator.clipboard.writeText(t.value).then(() => toast('Avis copié'), pick); } catch (e) { pick(); }
+    },
+    'avis-comment'() {
+      const t = document.getElementById('avis-copy'), view = document.getElementById('view') || document.body;
+      try { if (t) navigator.clipboard.writeText(t.value).catch(() => {}); } catch (e) { /* ignore */ }
+      ui.modal = null; render();
+      AVIS.comments.openComposer({ element: document.getElementById('view') || view }).then((r) => { toast(r && r.opened ? 'Colle ton avis dans le commentaire (il est copié)' : 'Ouvre le mode commentaire de la page pour publier ton avis', 'info'); })
+        .catch(() => toast('Les commentaires ne sont pas disponibles ici : copie ton avis pour l’envoyer', 'info'));
+    },
+  });
+  Object.assign(MOD_FORMS, {
+    avis(v) {
+      const message = (v.message || '').trim(); if (message.length < 3) return formError('Écris en quelques mots ce que tu en penses.');
+      const r = { date: new Date().toISOString(), ecran: (v.ecran || '').trim() || avisScreen(), type: v.type || 'aide', note: Number(v.note) || null, message, entreprise: (v.entreprise || '').trim(), taille: v.taille || '', profil: persona(), appareil: isMob() ? 'téléphone' : 'ordinateur', version: 'V3' };
+      const fallback = (why) => { ui.modal = { type: 'avis', fallback: avisText(r), why }; render(); };
+      if (!AVIS.db || !AVIS.user) return fallback(AVIS.ready ? '' : 'La connexion à l’enregistrement des avis n’est pas encore prête.');
+      const btn = document.getElementById('avis-send'); if (btn) { btn.disabled = true; btn.textContent = 'Envoi…'; }
+      AVIS.user.id().then(async (uid) => {
+        if (!uid) throw new Error('no id');
+        const me_ = AVIS.db.doc(`avis/${uid}`);
+        await me_.collection('r').add(r); await me_.set({ last: r.date });
+        ui.modal = { type: 'avis', done: true }; render();
+      }).catch(() => fallback(''));
+    },
+  });
+  const avisFab = () => (isMob() ? '' : `<button type="button" class="avis-fab" data-act="avis-open">${ic('chat')}Donner mon avis</button>`);
+
   // ================================================================ V2 · Paramètres de l'entreprise et assistant de démarrage
   // Tout ce qui était propre à Nova Studio (identité, convention, sites, services, règles de temps et de paie…) vit dans db.settings.
   // V3 : toutes les conventions collectives (liste IDCC de conventions.js). Syntec garde ses règles intégrées ;
@@ -5240,7 +5321,7 @@
     const mob = isMob(); if (!mob || ui.profile !== 'salarie') ui.mobMore = false;
     document.getElementById('app').innerHTML = mob && (ui.view === 'setup' || ui.profile !== 'salarie') ? mobGate()
       : mob ? `<div class="app mob">${mobTop()}<main class="view" id="view">${ui.view === 'accueil' || MOB_OFF.includes(ui.view) ? mobHome() : VIEWS[ui.view]()}</main>${footer()}${mobNav()}</div>`
-      : ui.view === 'setup' ? `<div class="app setup">${viewSetup()}${footer()}</div>` : `<div class="app">${topbar()}${stageRail()}<main class="view" id="view">${VIEWS[ui.view]()}</main>${footer()}</div>`;
+      : ui.view === 'setup' ? `<div class="app setup">${viewSetup()}${footer()}${avisFab()}</div>` : `<div class="app">${topbar()}${stageRail()}<main class="view" id="view">${VIEWS[ui.view]()}</main>${footer()}${avisFab()}</div>`;
     let ov = '';
     if (ui.drawer) {
       const dt = ui.drawer.type, cs = dt === 'case' && db.cases.find((c) => c.id === ui.drawer.id);

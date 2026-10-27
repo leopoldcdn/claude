@@ -1263,3 +1263,5 @@ body:has(.help-panel) .avis-fab { display: none; }
 @media (max-width: 760px) { .tour-tip { padding: 14px 16px; } .tour-tip p { font-size: 15px; } .tour-f .btn { min-height: 44px; } }
 .tour-skip { border: 0; background: none; padding: 10px 4px; min-height: 44px; color: var(--muted); font: inherit; font-weight: 700; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .tour-f { flex-wrap: nowrap; } .tour-f .btn { min-height: 44px; white-space: nowrap; }
+/* Socle · modale de confirmation des actions irréversibles */
+.confirm-text p { margin: 0 0 8px; line-height: 1.5; } .confirm-text p:last-child { margin-bottom: 0; }

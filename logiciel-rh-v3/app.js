@@ -88,15 +88,66 @@
   const TODAY = iso(new Date());
   const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
   const fmtDate = (s, o = { day: 'numeric', month: 'short', year: 'numeric' }) => (s ? new Intl.DateTimeFormat('fr-FR', o).format(parse(s)) : '—');
-  const fmtShort = (s) => fmtDate(s, { day: 'numeric', month: 'short' });
+  // Date courte (« 3 nov. ») ; l'année s'ajoute quand la date n'est pas dans l'année en cours (« 3 nov. 2027 »).
+  const fmtShort = (s) => fmtDate(s, s && s.slice(0, 4) !== TODAY.slice(0, 4) ? { day: 'numeric', month: 'short', year: 'numeric' } : { day: 'numeric', month: 'short' });
+  // Date toujours avec l'année : courriers, registres, durées de conservation. o : options Intl en plus, ex. fmtDateY(s, { weekday: 'long', month: 'long' }) → « mercredi 1 janvier 2027 ».
+  const fmtDateY = (s, o = {}) => fmtDate(s, Object.assign({ day: 'numeric', month: 'short' }, o, { year: 'numeric' }));
   const monthKey = (s) => s.slice(0, 7);
   const monthLabel = (m) => { const t = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(parse(m + '-01')); return t[0].toUpperCase() + t.slice(1); };
   const monthEnd = (m) => { const d = parse(m + '-01'); return iso(new Date(d.getFullYear(), d.getMonth() + 1, 0)); };
   const shiftMonth = (m, n) => { const d = parse(m + '-01'); d.setMonth(d.getMonth() + n); return iso(d).slice(0, 7); };
-  const HOLIDAYS = new Set(['2026-01-01', '2026-04-06', '2026-05-01', '2026-05-08', '2026-05-14', '2026-05-25', '2026-07-14', '2026-08-15', '2026-11-01', '2026-11-11', '2026-12-25',
-    '2027-01-01', '2027-03-29', '2027-05-01', '2027-05-06', '2027-05-08', '2027-05-17', '2027-07-14', '2027-08-15', '2027-11-01', '2027-11-11', '2027-12-25']);
-  const isWork = (s) => { const d = parse(s).getDay(); return d !== 0 && d !== 6 && !HOLIDAYS.has(s); };
-  function workDays(a, b) { if (!a || !b || b < a) return 0; let n = 0; for (let s = a; s <= b; s = addDays(s, 1)) if (isWork(s)) n++; return n; }
+  // ---------------------------------------------------------------- Socle · jours fériés, ouvrés et ouvrables
+  // Une seule source pour tous les délais : ne pas recompter les week-ends ou les fériés ailleurs.
+  // Fériés légaux en métropole (art. L3133-1) : 1er janvier, lundi de Pâques, 1er mai, 8 mai, Ascension, lundi de Pentecôte
+  // (journée de solidarité, comptée fériée comme avant), 14 juillet, 15 août, 1er novembre, 11 novembre, 25 décembre.
+  // Non gérés : Vendredi saint et 26 décembre d'Alsace-Moselle, fériés propres aux outre-mer.
+  // Dimanche de Pâques de l'année y (calendrier grégorien, algorithme de Meeus), au format AAAA-MM-JJ.
+  function easterSunday(y) {
+    const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451), n = h + l - 7 * m + 114;
+    return `${y}-${pad(Math.floor(n / 31))}-${pad((n % 31) + 1)}`;
+  }
+  const HOLIDAY_CACHE = {};
+  // Jours fériés de l'année y : Set de dates AAAA-MM-JJ, calculé une fois puis gardé en cache.
+  function holidaysOf(y) {
+    if (HOLIDAY_CACHE[y]) return HOLIDAY_CACHE[y];
+    const p = easterSunday(y);
+    return (HOLIDAY_CACHE[y] = new Set(['01-01', '05-01', '05-08', '07-14', '08-15', '11-01', '11-11', '12-25'].map((x) => `${y}-${x}`).concat([addDays(p, 1), addDays(p, 39), addDays(p, 50)])));
+  }
+  // isHoliday(s) : la date s (AAAA-MM-JJ) est un jour férié légal.
+  const isHoliday = (s) => !!s && holidaysOf(Number(s.slice(0, 4))).has(s);
+  // isOuvre(s) : jour ouvré, du lundi au vendredi hors jours fériés.
+  const isOuvre = (s) => { const d = parse(s).getDay(); return d !== 0 && d !== 6 && !isHoliday(s); };
+  // isOuvrable(s) : jour ouvrable, du lundi au samedi hors jours fériés.
+  const isOuvrable = (s) => parse(s).getDay() !== 0 && !isHoliday(s);
+  // Avance (n > 0) ou recule (n < 0) de |n| jours qui vérifient test ; le jour de départ ne compte pas.
+  const stepDays = (s, n, test) => { let d = s; const k = n < 0 ? -1 : 1; for (let left = Math.abs(n); left > 0;) { d = addDays(d, k); if (test(d)) left--; } return d; };
+  // addOuvres(s, n) : s + n jours ouvrés (n < 0 pour reculer).
+  const addOuvres = (s, n) => stepDays(s, n, isOuvre);
+  // addOuvrables(s, n) : s + n jours ouvrables (n < 0 pour reculer), ex. 2 jours ouvrables après la convocation, 15 jours ouvrables d'instruction.
+  const addOuvrables = (s, n) => stepDays(s, n, isOuvrable);
+  // addCalendarDaysReport(s, n) : s + n jours calendaires ; une échéance qui tombe un samedi, un dimanche ou un jour férié
+  // est reportée au premier jour ouvrable suivant qui n'est ni un samedi ni un férié (art. R1231-1, art. 642 du Code de procédure civile).
+  const addCalendarDaysReport = (s, n) => { let d = addDays(s, n); while (!isOuvre(d)) d = addDays(d, 1); return d; };
+  // countOuvres(a, b) / countOuvrables(a, b) : nombre de jours ouvrés / ouvrables de a à b, bornes comprises (0 si b < a).
+  const countDays = (a, b, test) => { if (!a || !b || b < a) return 0; let n = 0; for (let s = a; s <= b; s = addDays(s, 1)) if (test(s)) n++; return n; };
+  const countOuvres = (a, b) => countDays(a, b, isOuvre);
+  const countOuvrables = (a, b) => countDays(a, b, isOuvrable);
+  // Anciens noms, même sens : isWork = jour ouvré, workDays = jours ouvrés de a à b.
+  const isWork = isOuvre;
+  const workDays = countOuvres;
+  // Garde-fou de saisie d'une date : renvoie un message d'erreur, ou '' si la date convient.
+  // notPastOf : date de référence (souvent TODAY) avant laquelle la date est refusée ; notBefore / notAfter : bornes incluses,
+  // une date ou { date, label } (ex. { date: o.sentAt, label: 'l’envoi de la proposition' }) ; label : nom du champ ; required : false si facultative.
+  function dateGuard(s, { notPastOf, notBefore, notAfter, label = 'La date', required = true } = {}) {
+    if (!s) return required ? `${label} : à renseigner.` : '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number(s.slice(0, 4)) < 1900 || iso(parse(s)) !== s) return `${label} : date non valide.`;
+    const bound = (x) => (x && typeof x === 'object' ? x : { date: x }), say = (b) => (b.label ? `${b.label} (${fmtDateY(b.date)})` : `le ${fmtDateY(b.date)}`);
+    if (notPastOf && s < notPastOf) return `${label} : le ${fmtDateY(s)} est déjà passé. Date attendue à partir du ${fmtDateY(notPastOf)}.`;
+    const b = bound(notBefore); if (b.date && s < b.date) return `${label} : le ${fmtDateY(s)} précède ${say(b)}.`;
+    const a = bound(notAfter); if (a.date && s > a.date) return `${label} : le ${fmtDateY(s)} est après ${say(a)}.`;
+    return '';
+  }
   const eur = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n);
   const eur0 = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
   const uid = (p) => p + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
@@ -251,6 +302,43 @@
   const PSS = 4005, SMIC_M = 1801.80, HOURS_M = 151.67;
   let TR_VALUE = 10, TR_EMPLOYER = 6, TT_DAY = 2.70, TT_ALLOW_MAX = 59.40, MUT_S = 30, MUT_P = 45, PAY_CUTOFF = 20;
   const STAGE_FREE = 659.76;
+  // ---------------------------------------------------------------- Socle · contrôle des salaires à la saisie
+  // Minima conventionnels Syntec (IDCC 1486) INDICATIFS, en € bruts mensuels pour un temps plein, par catégorie : À VÉRIFIER.
+  // La grille réelle dépend de la classification (position, coefficient) et de l'avenant salaires en vigueur ; à remplacer par la grille officielle.
+  const SYNTEC_MIN_M = { Employé: 1850, 'Agent de maîtrise': 2250, Cadre: 2750 };
+  // Salaire minimum de l'apprenti en 1re année, en % du SMIC selon l'âge (art. D6222-26, montants à vérifier ; conventions et années suivantes non gérées).
+  const APPR_PCT = (age) => (age < 18 ? 0.27 : age < 21 ? 0.43 : age < 26 ? 0.53 : 1);
+  // salaryCheck({ annual, contract, category, hoursWeek, age, kind, range, forfait }) → { level: 'ok' | 'warn' | 'error', msg }.
+  // annual : salaire annuel brut (€) ; contract : 'CDI' | 'CDD' | 'Alternance' | 'Stage' ; category : 'Employé' | 'Agent de maîtrise' | 'Cadre' ;
+  // hoursWeek : durée hebdomadaire (35 h par défaut, prorata du SMIC et du minimum) ; age : âge de l'apprenti ; kind : 'salaire' | 'besoin' | 'proposition' (libellé du message) ;
+  // range : { min, max } fourchette validée du besoin (facultatif) ; forfait : cadre au forfait jours (minimum Syntec × 120 %, à vérifier).
+  // Erreur sous le SMIC au prorata ; apprentis et stagiaires : pas d'erreur SMIC, un rappel de leurs règles ; avertissements sous le minimum Syntec ou hors fourchette.
+  function salaryCheck({ annual, contract, category, hoursWeek, age, kind = 'salaire', range, forfait } = {}) {
+    const what = { salaire: 'Salaire', besoin: 'Fourchette', proposition: 'Proposition' }[kind] || 'Salaire', a = Number(annual) || 0;
+    const quot = hoursWeek > 0 ? Math.min(Number(hoursWeek), 35) / 35 : 1, part = quot < 1 ? ` au prorata de ${String(hoursWeek).replace('.', ',')} h par semaine` : '';
+    const warns = [];
+    if (range && range.max && a > range.max) warns.push(`${what} au-dessus de la fourchette validée (${eur0(range.min || 0)} – ${eur0(range.max)}) : accord de la Direction à obtenir.`);
+    else if (range && range.min && a < range.min) warns.push(`${what} en dessous de la fourchette validée (${eur0(range.min)} – ${eur0(range.max || range.min)}).`);
+    if (contract === 'Stage') {
+      // Rappel seulement : la gratification n'est due qu'au-delà de 2 mois, durée que le formulaire contrôle lui-même.
+      const low = a / 12 < STAGE_FREE - 0.005, msg = `Stage : pas de SMIC ; gratification d’au moins ${eur(STAGE_FREE)} par mois obligatoire au-delà de 2 mois${low ? ` (ici ${eur(a / 12)} par mois)` : ''}.`;
+      return warns.length ? { level: 'warn', msg: `${warns.join(' ')} ${msg}` } : { level: 'ok', msg };
+    }
+    if (contract === 'Alternance') {
+      const min = age > 0 ? APPR_PCT(age) * SMIC_M * 12 * quot : 0;
+      if (min && a < min - 0.5) warns.unshift(`Apprenti de ${age} ans : ${eur0(a)} par an, sous le minimum de 1re année (${Math.round(APPR_PCT(age) * 100)} % du SMIC, soit ${eur0(min)}). À vérifier selon l’année du contrat et la convention.`);
+      return warns.length ? { level: 'warn', msg: warns.join(' ') } : { level: 'ok', msg: 'Apprenti : minimum en pourcentage du SMIC selon l’âge et l’année du contrat (27 % à 100 %), plus favorable si la convention le prévoit.' };
+    }
+    if (!(a > 0)) return { level: 'error', msg: `${what} : indiquez un montant annuel brut supérieur à 0 €.` };
+    const smic = SMIC_M * 12 * quot;
+    if (a < smic - 0.5) return { level: 'error', msg: `${what} inférieur au SMIC : ${eur0(a)} par an pour un minimum de ${eur0(smic)} (${eur(SMIC_M)} par mois${part}).` };
+    const conv = CONV(), minM = SYNTEC_MIN_M[category];
+    if (conv.kind === 'syntec' && minM) {
+      const min = minM * 12 * quot * (forfait ? 1.2 : 1);
+      if (a < min - 0.5) warns.unshift(`${what} sous le minimum conventionnel Syntec indicatif pour un ${category === 'Cadre' ? 'cadre' : category === 'Employé' ? 'employé' : 'agent de maîtrise'}${forfait ? ' au forfait jours' : ''} (${eur0(min)} par an${part}) : à vérifier sur la grille de sa classification.`);
+    }
+    return warns.length ? { level: 'warn', msg: warns.join(' ') } : { level: 'ok', msg: '' };
+  }
   const TRANSPORT = { Paris: 88.80, Lyon: 74.70 };
   const COMPANY_PAY = { naf: '7410Z · Activités spécialisées de design', urssaf: 'Urssaf Île-de-France', idcc: 'Syntec (IDCC 1486)', paidOn: (m) => { let d = monthEnd(m); while (!isWork(d)) d = addDays(d, -1); return d; } };
   // Taux de prélèvement à la source transmis par l'administration fiscale (démonstration).
@@ -1016,6 +1104,57 @@
 
   // ================================================================ Modules : développement, suivi, documents
   const MOD_ACT = {}, MOD_CHG = {}, MOD_FORMS = {}, MODALS = {}, DRAWERS = {}, MOD_LIVE = {}, MOD_INP = {};
+  // ---------------------------------------------------------------- Socle · confirmation des actions irréversibles
+  // confirmAct(o, run) ouvre une modale (ui.modal.type = 'confirm') qui rappelle les conséquences, exige au besoin des champs,
+  // puis appelle run(valeurs) — qui fait l'action et son commit() — et trace la décision (journal du collaborateur, historique du candidat).
+  // o : { title (HTML, données passées par esc()), text (HTML), confirm (libellé du bouton), danger (bouton rouge), fields,
+  //       act (nom de l'action, pour le libellé du journal), trace (libellé de la trace), empId (id ou fonction appelée après run), candId }.
+  // fields : [{ name, label, type: 'date' | 'check' | 'text' | 'textarea' | 'select', required, value, options, hint, guard }]
+  //   date : guard = options de dateGuard (ex. { notAfter: { date: TODAY, label: 'aujourd’hui' } }) ; check : case « J'atteste… » ; select : options = liste ou [valeur, libellé].
+  // Exemple : confirmAct({ title: 'Retirer ?', danger: true, act: 'offer-withdraw', candId: c.id, fields: [{ name: 'motif', label: 'Motif', type: 'text', required: true }] }, (v) => { …; commit(); });
+  const CONFIRM_RUN = {};
+  function confirmAct(o, run) {
+    const cid = uid('cf'); CONFIRM_RUN[cid] = { run: run || o.run, empId: o.empId, candId: o.candId };
+    ui.modal = { type: 'confirm', cid, title: o.title || 'Confirmer', text: o.text || '', confirm: o.confirm || 'Confirmer', danger: !!o.danger, act: o.act || '', trace: o.trace || '',
+      fields: (o.fields || []).map((x) => Object.assign({ type: 'text' }, x)) };
+    render();
+  }
+  const plainText = (h) => String(h || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+  const optLabel = (x, val) => { const o = (x.options || []).find((y) => (Array.isArray(y) ? y[0] : y) === val); return Array.isArray(o) ? o[1] : val; };
+  MODALS.confirm = (m, shell, formShell, opt, f) => {
+    const field = (x, k) => {
+      const id = `cf-${k}`, lbl = `${x.label}${x.required ? ' *' : ''}`, hint = x.hint ? `<small class="hint" style="display:block;margin-top:4px">${x.hint}</small>` : '';
+      if (x.type === 'check') return `<label class="full agree"><input type="checkbox" name="${esc(x.name)}" ${x.value ? 'checked' : ''}> <span>${lbl}</span></label>${hint}`;
+      const input = x.type === 'textarea' ? `<textarea id="${id}" name="${esc(x.name)}" class="input" maxlength="600">${esc(x.value || '')}</textarea>`
+        : x.type === 'select' ? `<select id="${id}" name="${esc(x.name)}" class="select">${opt(x.options || [], x.value)}</select>`
+          : `<input id="${id}" name="${esc(x.name)}" type="${x.type === 'date' ? 'date' : 'text'}" class="input" maxlength="200" value="${esc(x.value || '')}">`;
+      return f(id, lbl, input + hint, !['date', 'select'].includes(x.type));
+    };
+    return shell(m.title, `<form data-form="confirm" novalidate><div class="modal-b">${m.text ? `<div class="confirm-text">${m.text}</div>` : ''}${m.fields.length ? `<div class="form-grid" style="margin-top:12px">${m.fields.map(field).join('')}</div>` : ''}<p class="err" id="m-err" aria-live="polite"></p></div>
+      <div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button class="btn ${m.danger ? 'bad' : 'primary'}" data-confirm="ok">${m.confirm}</button></div></form>`);
+  };
+  Object.assign(MOD_FORMS, {
+    confirm(v) {
+      const m = ui.modal, reg = m && CONFIRM_RUN[m.cid]; if (!reg) { ui.modal = null; render(); return; }
+      const vals = {}, said = [];
+      for (const x of m.fields) {
+        const name = plainText(x.label), raw = v[x.name];
+        if (x.type === 'check') { vals[x.name] = raw === 'on'; if (x.required && !vals[x.name]) return formError(`Cochez « ${name} » pour confirmer.`); if (vals[x.name]) said.push(name); continue; }
+        const val = String(raw ?? '').trim(); vals[x.name] = val;
+        if (x.type === 'date') { const err = dateGuard(val, Object.assign({ label: name, required: !!x.required }, x.guard || {})); if (err) return formError(err); }
+        else if (x.required && !val) return formError(`${name} : à renseigner.`);
+        if (val) said.push(`${name} : ${x.type === 'date' ? fmtDateY(val) : x.type === 'select' ? optLabel(x, val) : val}`);
+      }
+      delete CONFIRM_RUN[m.cid]; ui.modal = null;
+      reg.run(vals);
+      // Trace de la décision confirmée : qui, quand, et ce qui a été attesté ou saisi.
+      const label = m.trace || JOURNAL[m.act] || plainText(m.title), detail = said.join(' · ');
+      const empId = typeof reg.empId === 'function' ? reg.empId() : reg.empId, c = reg.candId && db.candidates.find((x) => x.id === reg.candId);
+      if (empId && emp(empId)) journalAdd(empId, label, m.act || 'confirm', detail);
+      if (c) logTo(c, `${label}${detail ? ` · ${detail}` : ''}`);
+      save(); render();
+    },
+  });
   // ---------------------------------------------------------------- V3 · « Donner mon avis » (tests avec des PME)
   // Chaque avis est enregistré dans la base de la page (avis/<id du testeur>/r/<avis>), lisible par le seul propriétaire.
   // Sans accès à la base (testeur extérieur, page ouverte hors de claude.ai), l'avis se publie en commentaire ou se copie.
@@ -2089,6 +2228,10 @@
       if (v.contract === 'Stage' && v.endDate > addDays(addMonths(v.startDate, 6), -1)) return formError('Un stage ne peut pas dépasser 6 mois par année d’enseignement.');
       if (!(salary >= 0) || (v.contract !== 'Stage' && !(salary > 0))) return formError('Indique un salaire annuel brut supérieur à 0 €.');
       if (v.contract === 'Stage' && v.endDate > addDays(addMonths(v.startDate, 2), -1) && salary / 12 < STAGE_FREE) return formError(`Stage de plus de 2 mois : gratification obligatoire d’au moins ${eur(STAGE_FREE)} par mois, soit ${eur0(STAGE_FREE * 12)} par an.`);
+      // Socle : SMIC bloquant, minimum conventionnel indicatif à confirmer par un second clic (montant mémorisé).
+      const sc = salaryCheck({ annual: salary, contract: v.contract, category: v.category, kind: 'salaire' });
+      if (sc.level === 'error') return formError(sc.msg);
+      if (sc.level === 'warn' && ui.modal.salOk !== salary) { ui.modal.salOk = salary; return formError(`${sc.msg} Pour garder ce montant, clique à nouveau sur « Créer l’arrivée ».`); }
       if (v.startDate < TODAY) toast('Date d’arrivée passée : pense à faire la DPAE au plus vite (elle doit précéder l’embauche).', 'info');
       const id = uid('e'), first = v.firstName.trim(), last = v.lastName.trim();
       const twin = db.employees.find((x) => x.stage < 15 && nameKey(x) === nameKey({ firstName: first, lastName: last }));
@@ -2322,8 +2465,7 @@
   const scopeSet = () => new Set(scopeEmployees().map((e) => e.id));
   const addYears = (s, n) => { const d = parse(s); d.setFullYear(d.getFullYear() + n); return iso(d); };
   const addMonths = (s, n) => { const d = parse(s); d.setMonth(d.getMonth() + n); return iso(d); };
-  // Jours ouvrables : tous les jours sauf le dimanche et les jours fériés.
-  function addOuvrables(s, n) { let d = s; while (n > 0) { d = addDays(d, 1); if (parse(d).getDay() !== 0 && !HOLIDAYS.has(d)) n--; } return d; }
+  // Jours ouvrables (addOuvrables, isOuvrable…) : voir le socle des jours fériés en haut du fichier.
   const RATING = ['', 'Insuffisant', 'À améliorer', 'Conforme aux attentes', 'Dépasse les attentes', 'Exceptionnel'];
   const ratingSelect = (id, name, v) => `<select id="${id}" name="${name}" class="select">${[5, 4, 3, 2, 1].map((k) => `<option value="${k}" ${k === (v || 3) ? 'selected' : ''}>${k} · ${RATING[k]}</option>`).join('')}</select>`;
   const hbar = (v, max = 5, color = 'var(--accent)') => `<span class="hbar"><i style="width:${Math.max(0, Math.min(100, (v / max) * 100))}%;background:${color}"></i></span>`;
@@ -3757,10 +3899,26 @@
     'cand-msg'(d) { ui.modal = { type: 'cand-msg', id: d.id }; render(); },
     'offer-new'(d) { ui.modal = { type: 'offer', id: d.id }; render(); },
     'offer-doc'(d) { ui.modal = { type: 'offer-doc', id: d.id }; render(); },
-    'offer-accept'(d) { hireFromOffer(findCand(d.id)); commit(); },
+    // Socle : l'acceptation forme le contrat, d'où une confirmation avec la date et le canal réels, attestés.
+    'offer-accept'(d) {
+      const c = findCand(d.id), o = c.offer;
+      confirmAct({ title: `Embaucher ${esc(c.name)} ?`, act: 'offer-accept', trace: 'Proposition acceptée : embauche', candId: c.id, empId: () => findCand(d.id).empId, confirm: 'Confirmer l’embauche',
+        text: `<p>L’acceptation de la proposition forme le contrat de travail. ${esc(c.name)} passe en pré-embauche et en embauche (arrivée le ${fmtDateY(o.startDate)}) et l’offre devient « Pourvue ». Ce choix ne pourra pas être annulé ici.</p>`,
+        fields: [{ name: 'date', type: 'date', label: 'Date de l’acceptation', value: TODAY, required: true, guard: { notAfter: { date: TODAY, label: 'aujourd’hui' }, notBefore: o.sentAt ? { date: o.sentAt, label: 'l’envoi de la proposition' } : null } },
+          { name: 'channel', type: 'select', label: 'Acceptation reçue par', options: ['E-mail', 'Lettre signée', 'Signature électronique', 'Oral, confirmé par écrit'], value: 'E-mail' },
+          { name: 'attest', type: 'check', required: true, label: 'J’atteste avoir reçu l’acceptation du candidat et la conserver au dossier' }] },
+      (v) => { const x = findCand(d.id); hireFromOffer(x); Object.assign(x.offer, { answeredAt: v.date, channel: v.channel }); commit(); });
+    },
     'offer-decline'(d) { ui.modal = { type: 'offer-decline', id: d.id }; render(); },
     'offer-extend'(d) { const c = findCand(d.id); Object.assign(c.offer, { deadline: addDays(TODAY, 7), status: 'Envoyée' }); sendMsg(c, 'relance', ...tplMsg('msg-prolongation', candCtx(c, candJob(c)))); toast('Proposition prolongée de 7 jours'); commit(); },
-    'offer-withdraw'(d) { const c = findCand(d.id); c.offer.status = 'Retirée'; c.stage = 'Entretien'; sendMsg(c, 'retrait', ...tplMsg('msg-retrait', candCtx(c, candJob(c)))); toast('Proposition retirée'); commit(); },
+    // Socle : retrait confirmé avec son motif ; avant l'échéance, rappel du risque (art. 1116 du Code civil).
+    'offer-withdraw'(d) {
+      const c = findCand(d.id), o = c.offer, early = o.deadline && o.deadline >= TODAY && offerStatus(o) === 'Envoyée';
+      confirmAct({ title: `Retirer la proposition faite à ${esc(c.name)} ?`, act: 'offer-withdraw', trace: 'Proposition retirée', candId: c.id, danger: true, confirm: 'Retirer la proposition',
+        text: `<p>Le message de retrait est envoyé au candidat, qui revient à l’étape « Entretien ».</p>${early ? `<p class="lint bad" style="margin:8px 0 0">La proposition court jusqu’au ${fmtDateY(o.deadline)} : la retirer avant cette date peut engager la responsabilité de l’entreprise (art. 1116 du Code civil).</p>` : ''}`,
+        fields: [{ name: 'motif', type: 'textarea', label: 'Motif du retrait', required: true }] },
+      () => { const x = findCand(d.id); x.offer.status = 'Retirée'; x.stage = 'Entretien'; sendMsg(x, 'retrait', ...tplMsg('msg-retrait', candCtx(x, candJob(x)))); toast('Proposition retirée'); commit(); });
+    },
   });
   Object.assign(MOD_CHG, {
     rDept(v) { ui.rDept = v; render(); }, rStatus(v) { ui.rStatus = v; render(); }, rFrom(v) { ui.rFrom = v; render(); },
@@ -3892,8 +4050,9 @@
   // État d'une pièce : validée par les RH, déposée (à vérifier), refusée (à redéposer) ou manquante.
   const docState = (d, k) => (d.docs[k] ? 'ok' : d.files[k] && d.files[k].refused ? 'refused' : d.files[k] ? 'check' : 'missing');
   // Jours ouvrables : du lundi au samedi.
-  function subWorkDays(s, n) { let d = s; while (n > 0) { d = addDays(d, -1); if (parse(d).getDay() !== 0) n -= 1; } return d; }
-  function addWorkDays(s, n) { let d = s; while (n > 0) { d = addDays(d, 1); if (parse(d).getDay() !== 0) n -= 1; } return d; }
+  // Jours ouvrables (lundi au samedi), désormais hors jours fériés : voir le socle en haut du fichier.
+  function subWorkDays(s, n) { return addOuvrables(s, -n); }
+  function addWorkDays(s, n) { return addOuvrables(s, n); }
   function trialInfo(e) {
     const d = dossier(e), alt = e.contract === 'Alternance';
     const cr = CONV().rules, months = e.contract === 'CDI' ? ({ Cadre: cr.essaiC, 'Agent de maîtrise': cr.essaiAM }[e.category] || cr.essaiE) : e.contract === 'CDD' ? 1 : 0;
@@ -4124,7 +4283,7 @@
   function registerHTML() {
     const list = db.employees.filter((e) => e.registeredAt).sort((a, b) => a.registeredAt.localeCompare(b.registeredAt) || a.startDate.localeCompare(b.startDate));
     return `<div class="table-wrap"><table class="register"><thead><tr><th>N°</th><th>Nom et prénoms</th><th>Nationalité</th><th>Naissance</th><th>Sexe</th><th>Emploi</th><th>Qualification</th><th>Contrat</th><th>Entrée</th><th>Sortie</th></tr></thead><tbody>
-      ${list.map((e, k) => `<tr><td class="num">${k + 1}</td><td><b>${esc(e.lastName.toUpperCase())}</b> ${esc(e.firstName)}</td><td>${esc(e.nationality || '—')}</td><td class="num">${fmtShort(e.birthDate)}</td><td>${esc(e.sex || '—')}</td><td>${esc(e.title)}</td><td>${esc(e.category || '—')}</td><td>${esc(e.contract)}</td><td class="num">${fmtShort(e.startDate)}</td><td class="num">${e.stage >= 15 && e.exit ? fmtShort(e.exit.lastDay) : '—'}</td></tr>`).join('')}</tbody></table></div>`;
+      ${list.map((e, k) => `<tr><td class="num">${k + 1}</td><td><b>${esc(e.lastName.toUpperCase())}</b> ${esc(e.firstName)}</td><td>${esc(e.nationality || '—')}</td><td class="num">${e.birthDate ? fmtDateY(e.birthDate) : '—'}</td><td>${esc(e.sex || '—')}</td><td>${esc(e.title)}</td><td>${esc(e.category || '—')}</td><td>${esc(e.contract)}</td><td class="num">${fmtDateY(e.startDate)}</td><td class="num">${e.stage >= 15 && e.exit ? fmtDateY(e.exit.lastDay) : '—'}</td></tr>`).join('')}</tbody></table></div>`;
   }
   const arrE = (d) => emp(d.id);
   Object.assign(MOD_ACT, {
@@ -4723,7 +4882,7 @@
     if (i === 15) {
       const out = x.lastDay || TODAY;
       html += sec('Archivage', row('Dossier du salarié', 'Accès restreint aux RH après archivage', d.archivedAt ? ok(d.archivedAt, 'Archivé') : b('dep-set', 'Archiver le dossier', 'data-k="archivedAt"', 'primary')));
-      html += sec('Durées de conservation', [['Contrat, avenants, dossier du personnel', 5], ['Copie des bulletins de paie', 5], ['Registre unique du personnel (mentions)', 5], ['Déclarations d’accident du travail', 10]].map(([l, y]) => row(l, `${y} ans après le départ`, `<span class="pill neutral">Jusqu’au ${fmtShort(addYears(out, y))}</span>`)).join('')
+      html += sec('Durées de conservation', [['Contrat, avenants, dossier du personnel', 5], ['Copie des bulletins de paie', 5], ['Registre unique du personnel (mentions)', 5], ['Déclarations d’accident du travail', 10]].map(([l, y]) => row(l, `${y} ans après le départ`, `<span class="pill neutral">Jusqu’au ${fmtDateY(addYears(out, y))}</span>`)).join('')
         + row('Application des durées', 'Les pièces sont supprimées automatiquement à l’échéance', d.retentionOk ? ok(d.retentionOk, 'Programmé') : b('dep-set', 'Programmer', 'data-k="retentionOk"')));
       html += sec('Demandes après le départ', d.requests.length ? d.requests.map((r) => row(esc(r.label), `Reçue le ${fmtDate(r.date)}`, r.status === 'Traitée' ? ok(r.doneAt, 'Envoyée') : b('dep-request', 'Générer et envoyer', `data-r="${r.id}"`, 'primary'))).join('') : '<p class="muted" style="margin:0">Aucune demande.</p>');
       const xi = d.exitInterview;
@@ -5001,7 +5160,7 @@
       motif_refus: x.reason ? x.reason.charAt(0).toLowerCase() + x.reason.slice(1) : '',
       vivier: x.pool ? `Nous conservons votre dossier dans notre vivier pour vous proposer de futures opportunités. Il sera supprimé automatiquement le ${longDate(addYears(TODAY, RETENTION_YEARS))}, sauf nouvel échange. Vous pouvez vous y opposer en répondant simplement à ce message.`
         : `Nous ne vous recontacterons pas pour d’autres offres. Votre dossier sera supprimé automatiquement au plus tard le ${longDate(addYears(TODAY, RETENTION_YEARS))}.`,
-      entretien_type: iv ? iv.kind.toLowerCase() : '', entretien_date: iv ? fmtDate(iv.date.slice(0, 10), { weekday: 'long', day: 'numeric', month: 'long' }) : '', entretien_heure: iv ? iv.date.slice(11, 16) : '', entretien_avec: iv ? fullName(emp(iv.with)) : '',
+      entretien_type: iv ? iv.kind.toLowerCase() : '', entretien_date: iv ? fmtDateY(iv.date.slice(0, 10), { weekday: 'long', month: 'long' }) : '', entretien_heure: iv ? iv.date.slice(11, 16) : '', entretien_avec: iv ? fullName(emp(iv.with)) : '',
       proposition_contrat: o ? o.contract : '', proposition_salaire: o ? eur0(o.salary) : '', proposition_date_entree: o ? longDate(o.startDate) : '', proposition_limite: o ? longDate(o.deadline) : '', proposition_manager: o ? fullName(emp(o.managerId)) : '' });
   }
   // Remplace les champs : valeur connue → texte ; valeur manquante ou champ à saisir → zone jaune à compléter.
@@ -5509,7 +5668,19 @@
       save();
       if (ui.view === 'etape' && !ui.drawer) { document.getElementById('panel').innerHTML = stagePanel(ui.stage); } else render();
     },
-    advance(d) { advance(d.id); },
+    // Socle : chaque étape du départ est confirmée ; le passage à « Sorti » est attesté et rappelle ce qui reste ouvert.
+    advance(d) {
+      const e = emp(d.id); if (!e || e.stage >= 15) return;
+      if (e.stage < 13 || !STAGES[e.stage + 1]) { advance(d.id); return; }
+      const nx = STAGES[e.stage + 1], out = e.stage + 1 === 15, x = e.exit || {}, steps = stageSteps(e.stage), done = journeyOf(e.id, e.stage), left = steps.filter((_, k) => !done[k]);
+      confirmAct({ title: out ? `Enregistrer la sortie de ${esc(fullName(e))} ?` : `Passer à l’étape « ${esc(nx.short)} » pour ${esc(fullName(e))} ?`, act: 'advance', trace: `Étape du départ franchie : ${nx.short}`, empId: e.id, danger: out,
+        confirm: out ? 'Confirmer la sortie' : `Passer à « ${esc(nx.short)} »`,
+        text: `<p>${out ? 'Le collaborateur passe « Sorti » : son dossier rejoint l’après-départ.' : 'Les documents de sortie (certificat de travail, reçu pour solde de tout compte, attestation France Travail) sont préparés en brouillon.'}</p>`
+          + (x.lastDay && x.lastDay > TODAY ? `<p class="lint bad" style="margin:8px 0 0">Le dernier jour (${fmtDateY(x.lastDay)}) n’est pas encore passé.</p>` : '')
+          + (left.length ? `<p class="lint bad" style="margin:8px 0 0">${plural(left.length, 'point reste', 'points restent')} à faire : ${left.map(esc).join(' · ')}.</p>` : ''),
+        fields: out ? [{ name: 'attest', type: 'check', required: true, label: 'J’atteste que le contrat a pris fin et que les documents de sortie sont remis ou tenus à disposition' }] : [] },
+      () => advance(d.id));
+    },
     'open-emp'(d) { ui.drawer = { type: 'emp', id: d.id, tab: 'infos' }; drawerAnim = true; render(); },
     'open-cand'(d) { if (ui.view !== 'recrutement') Object.assign(ui, { view: 'recrutement', stage: null, recTab: 'todo', recJob: null }); ui.drawer = { type: 'cand', id: d.id, tab: 'evaluation' }; drawerAnim = true; render(); },
     'close-drawer'() { ui.drawer = null; render(); },
@@ -5668,13 +5839,17 @@
     const modal = ui.modal, before = JSON.stringify(db), empId = journalEmp(d, modal);
     run();
     if (!empId || JSON.stringify(db) === before) return;
+    journalAdd(empId, label, name); save();
+  }
+  // Ajoute une ligne au journal du collaborateur (detail : précisions facultatives, ex. ce qui a été attesté à la confirmation).
+  function journalAdd(empId, label, act, detail) {
     db.journal = db.journal || []; const now = new Date();
-    db.journal.unshift({ at: `${TODAY} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, by: me().id, as: ui.profile, empId, label, act: name });
-    if (db.journal.length > 1000) db.journal.length = 1000; save();
+    db.journal.unshift(Object.assign({ at: `${TODAY} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, by: me().id, as: ui.profile, empId, label, act }, detail ? { detail } : {}));
+    if (db.journal.length > 1000) db.journal.length = 1000;
   }
   function journalTab(e) {
     const list = (db.journal || []).filter((x) => x.empId === e.id);
-    return `<div class="card"><div class="req-list">${list.length ? list.map((x) => `<div class="req"><span class="doc-ic">${ic('clock')}</span><div class="what"><b>${esc(x.label)}</b><small>${esc(x.at)} · par ${esc(fullName(emp(x.by)))} (${{ rh: 'RH', manager: 'manager', salarie: 'salarié' }[x.as] || x.as})</small></div></div>`).join('')
+    return `<div class="card"><div class="req-list">${list.length ? list.map((x) => `<div class="req"><span class="doc-ic">${ic('clock')}</span><div class="what"><b>${esc(x.label)}</b><small>${esc(x.at)} · par ${esc(fullName(emp(x.by)))} (${{ rh: 'RH', manager: 'manager', salarie: 'salarié' }[x.as] || x.as})</small>${x.detail ? `<small>${esc(x.detail)}</small>` : ''}</div></div>`).join('')
       : '<div class="empty">Aucune action enregistrée depuis la mise en service du journal.</div>'}</div></div><p class="hint">Journal en lecture seule, conservé avec le dossier du personnel. L’historique de carrière reste dans l’onglet Informations.</p>`;
   }
   // ---------------------------------------------------------------- Events
@@ -5959,5 +6134,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
   new MutationObserver(() => enhanceEmpSelects()).observe(document.body, { childList: true, subtree: true });
   if (DEMO && isMob() && ui.profile !== 'salarie') Object.assign(ui, { profile: 'salarie', selfOf: null, view: 'accueil', stage: null });
   render(); helpInit();
+  // Tests automatisés seulement : fonctions pures du socle exposées si la page de test pose window.TEAMORA_TEST avant le chargement.
+  if (window.TEAMORA_TEST === true) window.__teamoraTest = { isHoliday, isOuvre, isOuvrable, addOuvres, addOuvrables, addCalendarDaysReport, countOuvres, countOuvrables, addWorkDays, subWorkDays, workDays, salaryCheck, dateGuard, fmtShort, fmtDateY, TODAY };
   if (DEMO) { let seen = false; try { seen = !!localStorage.getItem(TOUR_KEY); } catch (e) { /* ignore */ } if (!seen) setTimeout(tourStart, 500); }
 })();

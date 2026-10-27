@@ -1137,12 +1137,13 @@
         <p>${esc(st.text)}</p><div class="tour-f"><button type="button" class="tour-skip" data-tour="skip">${tour.i === n - 1 ? 'Fermer' : 'Passer'}</button><span class="grow"></span>
         ${tour.i ? '<button type="button" class="btn ghost sm" data-tour="prev">Précédent</button>' : ''}<button type="button" class="btn primary sm" data-tour="next">${tour.i === n - 1 ? 'Terminer' : 'Suivant'}</button></div></div>`;
     const tip = box.querySelector('.tour-tip'), tw = Math.min(380, W - 32); tip.style.width = `${tw}px`;
-    const th = tip.offsetHeight; let top, left;
-    if (!r) { top = (H - th) / 2; left = (W - tw) / 2; }
+    // Le bas de l'écran reste libre : la plateforme peut y afficher son propre bandeau (« Connectez-vous… »).
+    const th = tip.offsetHeight, safe = H - (isMob() ? 96 : 120); let top, left;
+    if (!r) { top = Math.max(12, (safe - th) / 2); left = (W - tw) / 2; }
     else { const below = r.bottom + 14, above = r.top - th - 14;
-      top = below + th <= H - 12 ? below : above >= 12 ? above : Math.max(12, H - th - 12);
-      left = Math.min(Math.max(16, r.left + r.width / 2 - tw / 2), W - tw - 16);
-      if (isMob() && r.top > H / 2 && above < 12) top = 12; }
+      top = below + th <= safe ? below : above >= 12 ? above : Math.max(12, Math.min(r.top + 24, safe - th));
+      top = Math.max(12, Math.min(top, safe - th));
+      left = Math.min(Math.max(16, r.left + r.width / 2 - tw / 2), W - tw - 16); }
     tip.style.top = `${Math.round(top)}px`; tip.style.left = `${Math.round(left)}px`;
     const nx = box.querySelector('[data-tour="next"]'); if (nx && !box.contains(document.activeElement)) nx.focus({ preventScroll: true });
   }

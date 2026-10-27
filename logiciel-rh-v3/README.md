@@ -6,6 +6,18 @@
 > dans le navigateur (`teamora-demo-v3`, `teamora-ui-v3`, `teamora-v3-tenant`…). La fenêtre « Nouveautés de la V3 »
 > s'ouvre au premier lancement, puis depuis le bas de page.
 
+## Deux versions publiées
+
+- **Version travail** (`index.html`, https://claude.ai/artifact/3eKTwRWJUSKJE93Pw8U8ss) : toutes les options (réinitialiser,
+  tester l'installation d'une nouvelle entreprise, nouveautés, Teamo assistant IA). À ne pas partager.
+- **Version démo** (`demo.html`, https://claude.ai/artifact/4pHLrU8bBB6Uz6SMuLx7eq) : le lien à partager aux PME testeuses.
+  Même code avec `window.TEAMORA_MODE = "demo"` : bas de page réduit à la mention « données fictives », pas d'assistant IA ;
+  Teamo y sert de guide : une **visite guidée** se lance à la première ouverture (11 étapes sur ordinateur : roue, points de
+  vue, gestion ou espace personnel, à traiter, notifications, barre des rubriques, onglets, obligations selon l'effectif,
+  avis ; 7 étapes sur téléphone), avec Précédent, Suivant, Passer et Échap, puis se relance avec le bouton « Visite guidée »
+  (ou « Revoir la visite guidée » dans le menu Plus sur téléphone). Sur téléphone, la démo s'ouvre dans l'espace salarié.
+  La fenêtre des nouveautés ne s'ouvre plus d'elle-même, dans aucune des deux versions.
+
 ## Ce qui change par rapport à la V2
 
 ### Le socle

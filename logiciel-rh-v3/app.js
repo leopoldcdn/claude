@@ -73,10 +73,11 @@
   const freshUI = () => ({ tplSel: null, tplDraft: null, wheelOpen: false, selPerson: null, q: '', fDept: '', fStatus: '', sort: 'name', sortDir: 1,
     absTab: 'valider', histStatus: '', planMonth: null, payMonth: null, recJob: null, drawer: null, modal: null, notif: false,
     nSort: 'since', nDir: -1, recTab: 'todo', offerTab: 'cands', colOpen: {}, oSort: 'status', oDir: 1, nq: '', nDept: '', nStatus: 'auto', nFrom: '', rq: '', rDept: '', rStatus: '', rFrom: '', adminTab: 'annuaire', payTab: 'paie', payStep: null, procTab: 'cours', procSel: null, procPhase: null, orgQ: '', orgDept: '', orgSite: '', profTab: 'profil', tsWeek: null, revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
+  // Deux versions : « travail » (index.html, toutes les options) et « démo » (demo.html, lien partagé aux PME testeuses).
+  const DEMO = window.TEAMORA_MODE === 'demo';
   let ui = Object.assign({ profile: 'rh', view: 'accueil', stage: null }, loadUI(), freshUI());
   if (!PROFILES[ui.profile]) ui.profile = 'rh';
   ui.orgZoom = Number(ui.orgZoom) || 1; ui.orgFold = ui.orgFold || {};
-  const V2_FIRST = (() => { try { return !localStorage.getItem('teamora-v3-news'); } catch (e) { return false; } })();
   if (ui.profile !== 'salarie' || !['rh', 'manager'].includes(ui.selfOf)) ui.selfOf = null;
 
   // ---------------------------------------------------------------- Helpers
@@ -433,7 +434,8 @@
   }
   function todoBtn() { const n = todoItems().reduce((s, x) => s + x.n, 0) + complianceTodo().length;
     return `<button type="button" class="btn ${n ? 'primary' : 'ghost'} sm todo-btn" data-act="todo-open" aria-label="À traiter : ${n}">${ic('check')}<span class="todo-l">À traiter</span>${n ? `<span class="todo-n num">${n}</span>` : ''}</button>`; }
-  const footer = () => `<footer class="foot">${TENANT === 'new' ? `<button type="button" class="btn ghost sm" data-act="tenant-nova">${ic('left')}Revenir à la démo Nova Studio</button><button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Recommencer l’installation</button>`
+  const footer = () => (DEMO ? `<footer class="foot"><p class="demo-note">Démo de Teamora : toutes les données sont fictives et restent dans ton navigateur. N’y saisis aucune donnée réelle.</p></footer>` : footerWork());
+  const footerWork = () => `<footer class="foot">${TENANT === 'new' ? `<button type="button" class="btn ghost sm" data-act="tenant-nova">${ic('left')}Revenir à la démo Nova Studio</button><button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Recommencer l’installation</button>`
       : `<button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Réinitialiser la démo</button><button type="button" class="btn ghost sm" data-act="tenant-new">${ic('plus')}Tester l’installation (nouvelle entreprise)</button>`}<button type="button" class="btn ghost sm" data-act="v3-news">${ic('star')}Nouveautés de la V3</button>
     <p class="demo-note">Aperçu de démonstration : toutes les données sont fictives et enregistrées uniquement dans ce navigateur.</p></footer>`;
 
@@ -483,6 +485,7 @@
     const { rest } = mobSplit();
     return `<div class="scrim on" data-act="mob-more"></div><div class="mob-sheet" role="dialog" aria-modal="true" aria-label="Plus de rubriques"><div class="mob-grab"></div>
       ${rest.length ? `<h4 class="sub">Autres rubriques</h4>${rest.map((x) => `<button type="button" class="mob-row" data-act="stage" data-i="${x.i}"><span class="mob-ic" style="--c:${STAGE_COLORS[x.i]}">${ic(x.icon)}</span><span class="t"><b>${esc(x.name)}</b></span>${x.n ? `<i class="badge todo num">${x.n}</i>` : ''}${ic('right')}</button>`).join('')}` : ''}
+      ${DEMO ? `<button type="button" class="mob-row" data-act="tour-start"><span class="mob-ic">${ic('star')}</span><span class="t"><b>Revoir la visite guidée</b><small>Teamo te montre l’essentiel</small></span>${ic('right')}</button>` : ''}
       <button type="button" class="mob-row" data-act="avis-open"><span class="mob-ic">${ic('chat')}</span><span class="t"><b>Donner mon avis</b><small>Ce qui t’aide, ce qui manque, ce qui bloque</small></span>${ic('right')}</button>
       <h4 class="sub">Démo : voir l’application en tant que</h4>
       ${TENANT === 'new' ? '' : `<div class="mob-persona">${Object.entries(PROFILES).filter(([k]) => profileOk(k)).map(([k, pr]) => { const e = profileEmp(k); return `<button type="button" class="btn ${persona() === k ? 'primary' : 'ghost'} sm" data-act="persona" data-p="${k}">${avatar(e)}${esc(e.firstName)} · ${pr.label}</button>`; }).join('')}</div>`}
@@ -1090,7 +1093,71 @@
       }).catch(() => fallback(''));
     },
   });
-  const avisFab = () => (isMob() ? '' : `<button type="button" class="avis-fab" data-act="avis-open">${ic('chat')}Donner mon avis</button>`);
+  // ---------------------------------------------------------------- V3 démo · Visite guidée par Teamo
+  // Teamo balaie un par un les points phares ; chaque étape met en lumière un élément de l'écran (ou s'affiche au centre).
+  const TOUR_KEY = 'teamora-demo-tour';
+  let tour = null;
+  const tourGo = (o) => () => { Object.assign(ui, { drawer: null, modal: null, notif: false, mobMore: false, selfOf: null }, o); };
+  function tourSteps() {
+    if (isMob()) return [
+      { title: 'Bonjour, je suis Teamo', text: 'Je te fais visiter Teamora sur téléphone en une minute : c’est l’espace du salarié, celui que chacun utilise au quotidien.', go: tourGo({ profile: 'salarie', view: 'accueil', stage: null }) },
+      { sel: '.mob-quick', title: 'Les actions rapides', text: 'Les trois gestes les plus fréquents, à portée de pouce : poser une absence, ouvrir son dernier bulletin, écrire aux RH.' },
+      { sel: '.mob-todo', title: 'À faire', text: 'Ce qui attend une action de ta part : une auto-évaluation, un baromètre, une pièce à déposer…' },
+      { sel: '.mob-nav', title: 'La navigation', text: 'Touche un onglet pour ouvrir Absences, Paie ou Échanges RH. L’accueil est toujours à gauche.' },
+      { sel: '.mob-nav [data-act="mob-more"]', title: 'Plus', text: 'Les autres rubriques (profil, santé, entretiens, formations) et le changement de profil de la démo : RH, manager ou salarié.' },
+      { sel: '.mob-avis', title: 'Ton avis compte', text: 'Après ton essai, dis-nous ce qui t’aide, ce qui manque ou ce qui bloque : deux minutes, sans ton nom.' },
+      { title: 'À toi de jouer', text: 'La gestion RH et manager se découvre sur ordinateur. Tu peux revoir cette visite depuis le menu « Plus ».' }];
+    return [
+      { title: 'Bonjour, je suis Teamo', text: 'Je te fais visiter Teamora en deux minutes. Tu es dans la peau d’Olivia, responsable RH de Nova Studio, une entreprise fictive.', go: tourGo({ profile: 'rh', view: 'accueil', stage: null }) },
+      { sel: '.home', title: 'La roue du collaborateur', text: 'Chaque secteur est une étape de la vie du collaborateur, du besoin de recrutement au départ. Clique sur une étape pour ouvrir son module ; les pastilles indiquent ce qui attend une action.' },
+      { sel: '.persona', title: 'Change de point de vue', text: 'Teamora s’adapte à chaque rôle. Passe de la RH au manager ou au salarié pour voir ce que chacun voit et fait.' },
+      { sel: '.space-sw', title: 'Gestion ou espace personnel', text: 'La RH et les managers ont aussi leur propre espace salarié : leurs absences, leurs bulletins, leurs entretiens.' },
+      { sel: '.todo-btn', title: 'À traiter', text: 'Toutes les actions qui t’attendent, rassemblées en un seul endroit : validations, relances, échéances légales.' },
+      { sel: '[data-act="notif"]', title: 'Les notifications', text: 'Les nouvelles du jour : une demande d’absence, un document déposé, une obligation qui approche.' },
+      { sel: '.rail', title: 'Passer d’un module à l’autre', text: 'Dans un module, cette barre permet de changer de rubrique ; la maison ramène à la roue. Ici, nous sommes dans les absences.', go: tourGo({ profile: 'rh', view: 'absences', stage: 6 }) },
+      { sel: '#view .tabs', title: 'Les onglets', text: 'Chaque module est organisé en onglets : clique sur un onglet pour passer des demandes à valider au planning ou aux compteurs.' },
+      { sel: '.rail [data-v="obligations"]', title: 'Les obligations selon l’effectif', text: 'Le cœur de Teamora : l’effectif est calculé automatiquement et les obligations légales apparaissent à chaque seuil (11, 20, 50, 250 salariés), avec des alertes avant.' },
+      { sel: '.avis-fab', title: 'Ton avis compte', text: 'Après ton essai, dis-nous ce qui t’aide, ce qui manque ou ce qui bloque : deux minutes, sans ton nom.' },
+      { sel: '.tour-fab', title: 'À toi de jouer', text: 'Explore librement : toutes les données sont fictives. Tu peux relancer cette visite à tout moment avec ce bouton.', go: tourGo({ view: 'accueil', stage: null }) }];
+  }
+  function tourStart() { tour = { i: 0, steps: tourSteps() }; tourShow(); }
+  function tourEnd() { tour = null; try { localStorage.setItem(TOUR_KEY, '1'); } catch (e) { /* ignore */ } const el = document.getElementById('tour'); if (el) el.remove(); }
+  function tourShow() {
+    const st = tour.steps[tour.i]; if (st.go) st.go();
+    window.scrollTo(0, 0); render(); requestAnimationFrame(tourPlace);
+  }
+  function tourPlace() {
+    if (!tour) return;
+    let box = document.getElementById('tour'); if (!box) { box = document.createElement('div'); box.id = 'tour'; document.body.appendChild(box); }
+    const st = tour.steps[tour.i], n = tour.steps.length, el = st.sel && [...document.querySelectorAll(st.sel)].find((x) => x.getBoundingClientRect().width > 0);
+    if (el) el.scrollIntoView({ block: 'nearest' });
+    const r = el ? el.getBoundingClientRect() : null, pad = 6, W = window.innerWidth, H = window.innerHeight;
+    box.innerHTML = `<div class="tour-block"></div>${r ? `<div class="tour-hole" style="left:${r.left - pad}px;top:${r.top - pad}px;width:${r.width + pad * 2}px;height:${r.height + pad * 2}px"></div>` : '<div class="tour-dim"></div>'}
+      <div class="tour-tip" role="dialog" aria-modal="true" aria-labelledby="tour-t" tabindex="-1"><div class="tour-h">${teamoSVG('tour-av')}<div><small>Visite guidée · ${tour.i + 1} / ${n}</small><b id="tour-t">${esc(st.title)}</b></div></div>
+        <p>${esc(st.text)}</p><div class="tour-f"><button type="button" class="tour-skip" data-tour="skip">${tour.i === n - 1 ? 'Fermer' : 'Passer'}</button><span class="grow"></span>
+        ${tour.i ? '<button type="button" class="btn ghost sm" data-tour="prev">Précédent</button>' : ''}<button type="button" class="btn primary sm" data-tour="next">${tour.i === n - 1 ? 'Terminer' : 'Suivant'}</button></div></div>`;
+    const tip = box.querySelector('.tour-tip'), tw = Math.min(380, W - 32); tip.style.width = `${tw}px`;
+    const th = tip.offsetHeight; let top, left;
+    if (!r) { top = (H - th) / 2; left = (W - tw) / 2; }
+    else { const below = r.bottom + 14, above = r.top - th - 14;
+      top = below + th <= H - 12 ? below : above >= 12 ? above : Math.max(12, H - th - 12);
+      left = Math.min(Math.max(16, r.left + r.width / 2 - tw / 2), W - tw - 16);
+      if (isMob() && r.top > H / 2 && above < 12) top = 12; }
+    tip.style.top = `${Math.round(top)}px`; tip.style.left = `${Math.round(left)}px`;
+    const nx = box.querySelector('[data-tour="next"]'); if (nx && !box.contains(document.activeElement)) nx.focus({ preventScroll: true });
+  }
+  document.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-tour]'); if (!b || !tour) return;
+    const a = b.dataset.tour;
+    if (a === 'skip') tourEnd();
+    else if (a === 'next') { if (tour.i >= tour.steps.length - 1) tourEnd(); else { tour.i += 1; tourShow(); } }
+    else if (a === 'prev' && tour.i > 0) { tour.i -= 1; tourShow(); }
+  });
+  document.addEventListener('keydown', (ev) => { if (tour && ev.key === 'Escape') { ev.stopPropagation(); tourEnd(); } }, true);
+  window.addEventListener('resize', () => { if (tour) tourPlace(); });
+  Object.assign(MOD_ACT, { 'tour-start'() { ui.mobMore = false; tourStart(); } });
+
+  const avisFab = () => (isMob() ? '' : `<button type="button" class="avis-fab" data-act="avis-open">${ic('chat')}Donner mon avis</button>${DEMO ? `<button type="button" class="tour-fab" data-act="tour-start">${teamoSVG('fab-av')}<span>Visite guidée</span></button>` : ''}`);
 
   // ================================================================ V2 · Paramètres de l'entreprise et assistant de démarrage
   // Tout ce qui était propre à Nova Studio (identité, convention, sites, services, règles de temps et de paie…) vit dans db.settings.
@@ -5338,7 +5405,7 @@
     const cur = document.querySelector('.rail [aria-current]'); if (cur) cur.parentElement.scrollLeft = cur.offsetLeft - 80;
     if (ui.view === 'accueil' && !mob) bindWheel();
     if (ui.view === 'recrutement') bindBoard();
-    bindSignature(); bindTplEditor(); bindDocEditor(); bindOrg();
+    bindSignature(); bindTplEditor(); bindDocEditor(); bindOrg(); if (tour) requestAnimationFrame(tourPlace);
     saveUI();
   }
   const commit = () => { syncArrivals(); arrivalReminders(); needReminders(); complianceSync(); save(); render(); };
@@ -5802,6 +5869,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
     } finally { s.busy = false; s.ctl = null; helpRender(); const ta = document.getElementById('help-q'); if (ta && s.open) ta.focus(); }
   }
   function helpInit() {
+    if (DEMO) return; // en démo, Teamo guide la visite (tour) au lieu de répondre aux questions
     let box = document.getElementById('help'); if (!box) { box = document.createElement('div'); box.id = 'help'; document.body.appendChild(box); }
     box.addEventListener('click', (ev) => {
       const t = ev.target.closest('[data-help], .help-go'); if (!t) return;
@@ -5830,7 +5898,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
   }
   normalizeSettings(); applySettings(); normalizeCompliance();
   normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); applyDueSalaries(); applyDueManagers(); applyDueChanges(); purgeCandidates(); syncArrivals(); arrivalReminders(); needReminders(); save();
-  if (V2_FIRST) { ui.modal = { type: 'v3-news' }; try { localStorage.setItem('teamora-v3-news', '1'); } catch (e) { /* ignore */ } }
+  // Les nouveautés ne s'ouvrent plus d'elles-mêmes (un testeur arrive directement dans l'application) : bouton « Nouveautés de la V3 » en bas de page.
 
   // ================================================================ V2 · Recherche de salarié
   // Toute liste déroulante dont les valeurs sont des salariés devient un champ de recherche avec suggestions.
@@ -5886,5 +5954,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
     });
   }
   new MutationObserver(() => enhanceEmpSelects()).observe(document.body, { childList: true, subtree: true });
+  if (DEMO && isMob() && ui.profile !== 'salarie') Object.assign(ui, { profile: 'salarie', selfOf: null, view: 'accueil', stage: null });
   render(); helpInit();
+  if (DEMO) { let seen = false; try { seen = !!localStorage.getItem(TOUR_KEY); } catch (e) { /* ignore */ } if (!seen) setTimeout(tourStart, 500); }
 })();

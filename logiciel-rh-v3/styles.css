@@ -1245,3 +1245,21 @@ form[data-form="avis"] .form-grid { margin-top: 14px; } form[data-form="avis"] t
 @media (max-width: 760px) { .avis-chip span { min-height: 44px; } .avis-notes { max-width: none; } }
 body:has(.help-panel) .avis-fab { display: none; }
 .mob-avis > span { flex: 1; min-width: 0; text-align: left; }
+
+/* ---------------------------------------------------------------- V3 démo · Visite guidée */
+#tour { position: fixed; inset: 0; z-index: 70; }
+.tour-block { position: fixed; inset: 0; }
+.tour-dim { position: fixed; inset: 0; background: rgb(12 14 30 / .55); }
+.tour-hole { position: fixed; border-radius: 14px; box-shadow: 0 0 0 9999px rgb(12 14 30 / .55), 0 0 0 3px var(--accent); pointer-events: none; transition: all .25s ease; }
+.tour-tip { position: fixed; background: var(--surface); color: var(--fg); border-radius: 18px; box-shadow: var(--shadow-lg); padding: 16px 18px; max-width: calc(100vw - 32px); }
+.tour-tip:focus { outline: none; }
+.tour-h { display: flex; gap: 12px; align-items: center; } .tour-h small { display: block; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.tour-h b { font-size: 16px; } .tour-av { width: 44px; height: 44px; flex: none; }
+.tour-tip p { margin: 10px 0 14px; line-height: 1.55; font-size: 14.5px; }
+.tour-f { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } .tour-f .grow { flex: 1; }
+.tour-fab { position: fixed; right: 24px; bottom: 24px; z-index: 45; display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 18px 0 6px; border: 0; border-radius: 99px; background: var(--surface); color: var(--fg); font: inherit; font-weight: 800; font-size: 14.5px; box-shadow: var(--shadow-lg), 0 0 0 1px var(--line); cursor: pointer; }
+.tour-fab svg { width: 40px; height: 40px; }
+@media (prefers-reduced-motion: reduce) { .tour-hole { transition: none; } }
+@media (max-width: 760px) { .tour-tip { padding: 14px 16px; } .tour-tip p { font-size: 15px; } .tour-f .btn { min-height: 44px; } }
+.tour-skip { border: 0; background: none; padding: 10px 4px; min-height: 44px; color: var(--muted); font: inherit; font-weight: 700; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.tour-f { flex-wrap: nowrap; } .tour-f .btn { min-height: 44px; white-space: nowrap; }

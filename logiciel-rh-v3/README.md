@@ -17,7 +17,10 @@
   avis, puis « Bientôt : Teamo, ton assistant IA », qui présente ce que fera l'assistant et précise qu'il n'est pas
   disponible dans la démo ; 8 étapes sur téléphone), avec Précédent, Suivant, Passer et Échap, puis se relance avec le bouton « Visite guidée »
   (ou « Revoir la visite guidée » dans le menu Plus sur téléphone). Sur téléphone, la démo s'ouvre dans l'espace salarié.
-  La fenêtre des nouveautés ne s'ouvre plus d'elle-même, dans aucune des deux versions.
+  La démo n'utilise pas de base de données (pas de bandeau de connexion pour les visiteurs) : « Donner mon avis » y propose
+  de publier l'avis en commentaire sur la page ou de le copier pour l'envoyer.
+  La fenêtre des nouveautés ne s'ouvre plus d'elle-même, dans aucune des deux versions. Les anciennes pages V1 et V2 ont été
+  supprimées de claude.ai ; leur code reste dans `logiciel-rh/` et `logiciel-rh-v2/`.
 
 ## Ce qui change par rapport à la V2
 

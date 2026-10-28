@@ -184,7 +184,8 @@ window.TEAMORA_SEED = function () {
       description: 'Piloter nos campagnes d’acquisition et nos contenus sur les réseaux sociaux.',
       scorecard: SC(['Réseaux sociaux', 'Rédaction web', 'Analyse des performances'], ['Montage vidéo'], 2),
       approvals: [A('demande', 'e7', 'Soumise', '2026-09-14'), A('rh', 'e1', 'Validée', '2026-09-15'), A('direction', 'e5', 'Validée', '2026-09-17'), A('publication', 'e1', 'Publiée', '2026-09-20')] }),
-    J('j4', { title: 'Designer produit (UI)', dept: 'Design', contract: 'CDD', status: 'En validation', pending: 'rh', createdAt: '2026-10-02', requestedBy: 'e2', salaryMin: 40000, salaryMax: 44000, startWanted: '2026-11-16', reason: 'Surcroît d’activité', budgeted: false, priority: 'Urgente',
+    J('j4', { title: 'Designer produit (UI)', dept: 'Design', contract: 'CDD', status: 'En validation', pending: 'rh', createdAt: '2026-10-02', requestedBy: 'e2', salaryMin: 40000, salaryMax: 44000, startWanted: '2026-11-16', reason: 'Surcroît d’activité', budgeted: false, priority: 'Urgente', category: 'Cadre',
+      cddCase: 'Accroissement temporaire de l’activité', cddReason: 'Refonte de l’application mobile prévue en janvier 2027', cddTerm: 'precis', cddMonths: 9,
       description: 'Renfort de 9 mois pour la refonte de l’application mobile : maquettes UI, bibliothèque de composants, suivi avec les développeurs.',
       alternatives: { mobilite: true, taches: true, interim: true, auto: false, note: 'L’équipe est déjà à pleine charge ; l’intérim ne propose pas de profil UI.' },
       scorecard: SC(['Design d’interface mobile', 'Figma et composants', 'Collaboration avec les développeurs'], ['Motion design'], 2),
@@ -213,7 +214,7 @@ window.TEAMORA_SEED = function () {
       description: 'Illustrations pour l’application et les supports clients, en lien avec l’équipe produit.',
       scorecard: SC(['Illustration vectorielle', 'Déclinaison d’une charte graphique'], ['Animation'], 2),
       approvals: [A('demande', 'e2', 'Soumise', '2026-10-05'), A('rh', 'e1', 'Validée', '2026-10-08')],
-      ad: { title: 'Illustrateur·rice (CDI)', description: 'Au sein de l’équipe Design (6 personnes), tu crées les illustrations de l’application et des supports clients.\n\nCompétences recherchées : illustration vectorielle, déclinaison d’une charte graphique.', by: 'e2', at: '2026-10-09', ready: false, edits: [{ by: 'e2', at: '2026-10-09' }] } }),
+      ad: { title: 'Illustrateur·rice (CDI)', description: 'Au sein de l’équipe Design (6 personnes), vous créez les illustrations de l’application et des supports clients.\n\nCompétences recherchées : illustration vectorielle, déclinaison d’une charte graphique.', by: 'e2', at: '2026-10-09', ready: false, edits: [{ by: 'e2', at: '2026-10-09' }] } }),
   ];
   // Référence BES-AAAA-NNN (besoin) / OFF-AAAA-NNN (offre publiée) : numéro attribué à l'émission du besoin.
   jobs.slice().sort((a, b) => a.createdAt.localeCompare(b.createdAt)).forEach((j, k) => { j.num = k + 1; });

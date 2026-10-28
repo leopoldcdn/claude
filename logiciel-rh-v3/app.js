@@ -60,7 +60,8 @@
     try { const d = JSON.parse(localStorage.getItem(STORE)); if (d && d.version === 8) return d; } catch (e) { /* ignore */ }
     return TENANT === 'new' ? blankSeed() : window.TEAMORA_SEED();
   }
-  function save() { try { localStorage.setItem(STORE, JSON.stringify(db)); } catch (e) { /* storage unavailable */ } }
+  // Une sauvegarde qui échoue (stockage plein ou indisponible) est signalée une fois.
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(db)); } catch (e) { if (!save.warned) { save.warned = true; setTimeout(() => toast('Sauvegarde impossible : le stockage du navigateur est plein ou indisponible. Les dernières modifications seront perdues au rechargement.', 'info'), 0); } } }
   function loadUI() { try { return JSON.parse(localStorage.getItem(UI_STORE)) || {}; } catch (e) { return {}; } }
   function saveUI() { try { localStorage.setItem(UI_STORE, JSON.stringify({ profile: ui.profile, view: ui.view, stage: ui.stage, setSec: ui.setSec || null, wizStep: ui.wizStep || null, asEmp: ui.asEmp, asMgr: ui.asMgr || null, selfOf: ui.selfOf || null, orgZoom: ui.orgZoom, orgFold: ui.orgFold })); } catch (e) { /* ignore */ } }
 
@@ -223,7 +224,7 @@
   }
   // Un manager ne voit que ses propres besoins ; en recrutement, il voit aussi les offres où il est évaluateur invité.
   const jobManager = (j) => j.managerId || j.requestedBy;
-  const scopeNeeds = () => (ui.profile === 'rh' ? db.jobs : ui.profile === 'manager' ? db.jobs.filter((j) => jobManager(j) === me().id || j.requestedBy === me().id) : []);
+  const scopeNeeds = () => (ui.profile === 'rh' ? db.jobs : ui.profile === 'manager' ? db.jobs.filter((j) => jobManager(j) === me().id || j.requestedBy === me().id || (me().id === DIR_ID() && j.pending === 'direction')) : []);
   const scopeJobs = () => (ui.profile === 'rh' ? db.jobs : ui.profile === 'manager' ? db.jobs.filter((j) => jobManager(j) === me().id || j.requestedBy === me().id || (j.reviewers || []).includes(me().id)) : []);
   const jobRef = (j) => `${NEED_OPEN.includes(j.status) ? 'OFF' : 'BES'}-${j.createdAt.slice(0, 4)}-${String(j.num || 0).padStart(3, '0')}`;
   const activeCand = (c) => !['Embauché', 'Refusé'].includes(c.stage);
@@ -270,7 +271,8 @@
       if (e.stage > 5 && e.stage < 13) e.stage = 5;
       if (!e.category) e.category = e.contract === 'Alternance' || e.contract === 'Stage' ? 'Employé' : e.salary >= 45000 ? 'Cadre' : 'Employé';
       if (e.zone === undefined) e.zone = 'France'; if (e.nationality === undefined) e.nationality = '';
-      if (e.sex === undefined) e.sex = null; if (!e.family) e.family = 'Célibataire'; if (e.iban === undefined) e.iban = '—';
+      // Situation familiale : valeur par défaut seulement pour les anciennes données ; une recrue garde un champ vide jusqu'à sa saisie.
+      if (e.sex === undefined) e.sex = null; if (e.family === undefined) e.family = 'Célibataire'; if (e.iban === undefined) e.iban = '—';
       if (e.registeredAt === undefined) e.registeredAt = e.stage >= 3 ? e.startDate : null;
     });
   }
@@ -2212,36 +2214,49 @@
       ${f('an-src', 'Origine de l’entrée', `<select id="an-src" name="source" class="select">${opt(ARR_SOURCES, ARR_SOURCES[0])}</select>`, true)}
       ${f('an-title', 'Poste', '<input id="an-title" name="title" class="input" maxlength="60" required>')}${f('an-dept', 'Service', `<select id="an-dept" name="dept" class="select">${opt(DEPTS, DEPTS[0])}</select>`)}
       ${f('an-mgr', 'Manager (ou tuteur pour un stage)', `<select id="an-mgr" name="managerId" class="select"><option value="">À désigner</option>${opt(mgrs, '')}</select>`)}${f('an-cat', 'Catégorie', `<select id="an-cat" name="category" class="select">${opt(['Employé', 'Agent de maîtrise', 'Cadre'], 'Employé')}</select>`)}
-      ${f('an-contract', 'Contrat', `<select id="an-contract" name="contract" class="select">${opt(['CDI', 'CDD', 'Alternance', 'Stage'], 'CDI')}</select>`)}${f('an-site', 'Lieu de travail', `<select id="an-site" name="location" class="select">${opt(SITES().concat(['Télétravail majoritaire']), SITES()[0])}</select>`)}
+      ${f('an-contract', 'Contrat', `<select id="an-contract" name="contract" class="select" data-live="arrnew">${opt(['CDI', 'CDD', 'Alternance', 'Stage'], 'CDI')}</select>`)}${f('an-site', 'Lieu de travail', `<select id="an-site" name="location" class="select">${opt(SITES().concat(['Télétravail majoritaire']), SITES()[0])}</select>`)}
       ${f('an-start', 'Date d’arrivée', `<input id="an-start" name="startDate" type="date" class="input" value="${nextMonday(TODAY, 3)}" required>`)}${f('an-end', 'Date de fin (CDD, alternance, stage)', '<input id="an-end" name="endDate" type="date" class="input">')}
+      <div class="full" id="an-cdd" hidden><p class="hint" style="margin:0 0 8px">CDD : cas de recours, motif précis et personne remplacée sont obligatoires par écrit (art. L1242-12) ; ils seront repris dans le contrat.</p><div class="form-grid">
+        ${f('an-cddcase', 'Cas de recours *', `<select id="an-cddcase" name="cddCase" class="select" data-live="arrnew"><option value="">Choisir…</option>${opt(CDD_CASES.map((x) => x.k), '')}</select>`, true)}
+        ${f('an-cddreason', 'Motif précis *', '<input id="an-cddreason" name="cddReason" class="input" maxlength="160">', true)}
+        <div class="field" id="an-cddrepl" hidden><label for="an-cddreplaces">Personne remplacée *</label><select id="an-cddreplaces" name="cddReplaces" class="select"><option value="">Choisir…</option>${opt(db.employees.filter((x) => x.stage < 15).map((x) => [x.id, fullName(x)]), '')}</select></div></div></div>
       ${f('an-sal', 'Salaire annuel brut (€) · gratification annuelle pour un stage', '<input id="an-sal" name="salary" type="number" min="0" step="100" class="input num" required>', true)}</div>`, 'Créer l’arrivée', true);
   };
   Object.assign(MOD_FORMS, {
     'arr-new'(v) {
       const salary = Number(v.salary), fixed = v.contract !== 'CDI';
-      if (!v.firstName.trim() || !v.lastName.trim() || !v.title.trim()) return formError('Renseigne le prénom, le nom et le poste.');
+      if (!v.firstName.trim() || !v.lastName.trim() || !v.title.trim()) return formError('Renseignez le prénom, le nom et le poste.');
       if (v.personalEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.personalEmail.trim())) return formError('L’e-mail personnel n’est pas valide.');
-      if (!v.startDate) return formError('Indique la date d’arrivée.');
+      if (!v.startDate) return formError('Indiquez la date d’arrivée.');
       if (fixed && !v.endDate) return formError(`Un contrat ${v.contract === 'Stage' ? 'de stage' : v.contract === 'CDD' ? 'à durée déterminée' : 'd’alternance'} a une date de fin.`);
       if (fixed && v.endDate <= v.startDate) return formError('La date de fin doit suivre la date d’arrivée.');
       if (v.contract === 'CDD' && v.endDate > addDays(addMonths(v.startDate, 18), -1)) return formError('Un CDD ne peut pas dépasser 18 mois, renouvellements compris (cas général).');
       if (v.contract === 'Stage' && v.endDate > addDays(addMonths(v.startDate, 6), -1)) return formError('Un stage ne peut pas dépasser 6 mois par année d’enseignement.');
-      if (!(salary >= 0) || (v.contract !== 'Stage' && !(salary > 0))) return formError('Indique un salaire annuel brut supérieur à 0 €.');
+      // CDD : cas de recours, motif et personne remplacée (le terme est la date de fin contrôlée ci-dessus).
+      const cs = v.contract === 'CDD' && cddCase(v.cddCase);
+      if (v.contract === 'CDD') {
+        if (!cs) return formError('CDD : choisissez le cas de recours (art. L1242-2).');
+        if ((v.cddReason || '').trim().length < 10) return formError('CDD : précisez le motif du recours ; il figurera dans le contrat.');
+        if (cs.repl && !v.cddReplaces) return formError('CDD de remplacement : indiquez la personne remplacée.');
+      }
+      if (v.contract === 'CDD' && v.endDate > addDays(addMonths(v.startDate, cs.max), -1)) return formError(`Ce cas de recours limite le CDD à ${cs.max} mois, renouvellements compris.`);
+      if (!(salary >= 0) || (v.contract !== 'Stage' && !(salary > 0))) return formError('Indiquez un salaire annuel brut supérieur à 0 €.');
       if (v.contract === 'Stage' && v.endDate > addDays(addMonths(v.startDate, 2), -1) && salary / 12 < STAGE_FREE) return formError(`Stage de plus de 2 mois : gratification obligatoire d’au moins ${eur(STAGE_FREE)} par mois, soit ${eur0(STAGE_FREE * 12)} par an.`);
       // Socle : SMIC bloquant, minimum conventionnel indicatif à confirmer par un second clic (montant mémorisé).
       const sc = salaryCheck({ annual: salary, contract: v.contract, category: v.category, kind: 'salaire' });
       if (sc.level === 'error') return formError(sc.msg);
-      if (sc.level === 'warn' && ui.modal.salOk !== salary) { ui.modal.salOk = salary; return formError(`${sc.msg} Pour garder ce montant, clique à nouveau sur « Créer l’arrivée ».`); }
-      if (v.startDate < TODAY) toast('Date d’arrivée passée : pense à faire la DPAE au plus vite (elle doit précéder l’embauche).', 'info');
+      if (sc.level === 'warn' && ui.modal.salOk !== salary) { ui.modal.salOk = salary; return formError(`${sc.msg} Pour garder ce montant, cliquez à nouveau sur « Créer l’arrivée ».`); }
+      if (v.startDate < TODAY) toast('Date d’arrivée passée : faites la DPAE au plus vite (elle doit précéder l’embauche).', 'info');
       const id = uid('e'), first = v.firstName.trim(), last = v.lastName.trim();
       const twin = db.employees.find((x) => x.stage < 15 && nameKey(x) === nameKey({ firstName: first, lastName: last }));
-      if (twin && !ui.modal.twinOk) { ui.modal.twinOk = true; return formError(`${fullName(twin)} a déjà un dossier (${twin.title} · ${twin.dept}). Pour lui confier un service de plus, désigne-le responsable dans Paramètres > Services. S’il s’agit d’un homonyme, clique à nouveau sur « Créer l’arrivée ».`); }
+      if (twin && !ui.modal.twinOk) { ui.modal.twinOk = true; return formError(`${fullName(twin)} a déjà un dossier (${twin.title} · ${twin.dept}). Pour lui confier un service de plus, désignez-le responsable dans Paramètres > Services. S’il s’agit d’un homonyme, cliquez à nouveau sur « Créer l’arrivée ».`); }
       const email = `${first}.${last}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z.]/g, '') + `@${COMPANY.domaine}`, taken = (x) => db.employees.some((y) => y.email === x);
       let mail = email; for (let n = 2; taken(mail); n++) mail = email.replace('@', n + '@');
-      db.employees.push({ id, firstName: first, lastName: last, title: v.title.trim(), dept: v.dept, managerId: v.managerId || null, stage: 2, startDate: v.startDate, endDate: fixed ? v.endDate : null, contract: v.contract, category: v.category, salary,
-        email: mail, personalEmail: (v.personalEmail || '').trim().toLowerCase(), phone: (v.phone || '').trim(), location: v.location, birthDate: '', address: '', emergency: '', cp: 0, rtt: 0, exit: null, source: v.source, registeredAt: null });
+      db.employees.push(Object.assign({ id, firstName: first, lastName: last, title: v.title.trim(), dept: v.dept, managerId: v.managerId || null, stage: 2, startDate: v.startDate, endDate: fixed ? v.endDate : null, contract: v.contract, category: v.category, salary,
+        email: mail, personalEmail: (v.personalEmail || '').trim().toLowerCase(), phone: (v.phone || '').trim(), location: v.location, birthDate: '', address: '', emergency: '', family: '', cp: 0, rtt: 0, exit: null, source: v.source, registeredAt: null },
+      cs ? { cddCase: v.cddCase, cddReason: v.cddReason.trim(), cddReplaces: cs.repl ? v.cddReplaces : null, cddTerm: 'precis' } : {}));
       normalizeEmployees();
-      if (v.managerId) notify(v.managerId, `${first} ${last} rejoint ton équipe le ${fmtDate(v.startDate)} (${v.title.trim()}).`);
+      if (v.managerId) notify(v.managerId, `${first} ${last} rejoint votre équipe le ${fmtDate(v.startDate)} (${v.title.trim()}).`);
       notify(id, `Bienvenue chez ${COMPANY.nom} ! Dépose tes documents dans « Mon arrivée » : ton contrat suivra.`);
       ui.modal = null; ui.procTab = 'cours'; ui.procSel = id; ui.procPhase = null;
       toast(`${first} ${last} : arrivée créée${v.personalEmail ? ' · invitation envoyée' : ''}`); commit();
@@ -3168,9 +3183,11 @@
   const canEditNeed = (j) => (ui.profile === 'rh' ? ['Brouillon', 'À modifier', 'En validation', 'Validée'].includes(j.status) : ui.profile === 'manager' && draftLike(j) && (jobManager(j) === me().id || j.requestedBy === me().id));
   function needsToDo() {
     if (ui.profile === 'rh') return db.jobs.filter((j) => ['En validation', 'Validée'].includes(j.status));
-    if (ui.profile === 'manager') return scopeNeeds().filter((j) => draftLike(j) || (j.status === 'Validée' && !adReady(j) && canWriteAd(j)));
+    if (ui.profile === 'manager') return scopeNeeds().filter((j) => (draftLike(j) && (jobManager(j) === me().id || j.requestedBy === me().id)) || (j.status === 'Validée' && !adReady(j) && canWriteAd(j)) || dirSelf(j));
     return [];
   }
+  // La Direction (profil Manager vu en Claire Durand) valide elle-même les besoins qui lui reviennent.
+  const dirSelf = (j) => ui.profile === 'manager' && me().id === DIR_ID() && j.status === 'En validation' && j.pending === 'direction';
   const pubDate = (j) => j.publishedAt || ((j.approvals || []).find((a) => a.step === 'publication') || {}).date || null;
   // Recherche commune aux besoins et aux offres : référence (BES ou OFF), intitulé, demandeur ; service ; date d'émission ou de publication.
   function jobSearch(j, q, dept, from) {
@@ -3199,26 +3216,45 @@
   // Annonce : mentions interdites par le Code du travail (art. L.1132-1 et L.5321-2).
   const AD_RULES = [
     ['Âge', 'Critère d’âge interdit : décrivez plutôt l’expérience attendue (ex. « 5 ans d’expérience »).',
-      ['jeunes?(?!\\s+(?:entreprise|start-?up|société|équipe|pousse))', 'junior', 'senior', 'âgée?s? de', 'moins de \\d+ ans(?!\\s*d[’\']exp)', 'plus de \\d+ ans(?!\\s*d[’\']exp)', '\\d+\\s*(?:-|à)\\s*\\d+\\s*ans']],
+      ['jeunes?(?!\\s+(?:entreprise|start-?up|société|équipe|pousse))', 'junior', 'senior', 'âgée?s? de', 'moins de \\d+ ans(?!\\s*d[’\']exp)', 'plus de \\d+ ans(?!\\s*d[’\']exp)', '\\d+\\s*(?:-|à)\\s*\\d+\\s*ans', 'dynamiques?', 'young']],
     ['Sexe', 'Mot genré : utilisez une forme neutre ou inclusive (ex. « assistant·e »), ou ajoutez « H/F ».',
-      ['un homme', 'une femme', 'hommes? uniquement', 'femmes? uniquement', 'assistante', 'hôtesse', 'vendeuse', 'serveuse', 'développeuse']],
+      ['un homme', 'une femme', 'hommes? uniquement', 'femmes? uniquement']],
+    // Métiers au masculin comme au féminin : même alerte, sauf si l'intitulé porte « H/F » ou une forme inclusive.
+    ['Métier genré', 'Métier au masculin ou au féminin seulement : ajoutez « H/F » à l’intitulé ou utilisez une forme inclusive (ex. « directeur·rice »).',
+      ['assistante?', 'hôtesse', 'hôte', 'vendeuse', 'vendeur', 'serveuse', 'serveur', 'développeuse', 'développeur', 'directrice', 'directeur', 'technicienne', 'technicien', 'ingénieure?', 'commerciale'].map((w) => `${w}s?(?![·.(/-]\\p{L}|\\s*\\(e\\)|\\s*h\\s*/\\s*f)`)],
+    ['Lieu de résidence', 'Le lieu de résidence est un critère de discrimination (art. L1132-1) : indiquez plutôt le lieu de travail.',
+      ['habitez', 'habitant(?:e|s)?\\s+(?:à|de|en|dans)', 'résidant(?:e|s)?', 'domicilié(?:e|s)?', 'intra-?muros']],
     ['Origine', 'Mention liée à l’origine ou à la nationalité interdite : précisez plutôt le niveau de langue (ex. « français courant »).',
       ['langue maternelle', '(?<!react\\s)(?<!applications?\\s)(?<!apps?\\s)(?<!code\\s)natifs?', '(?<!react\\s)(?<!applications?\\s)(?<!apps?\\s)(?<!code\\s)natives?', 'sans accent', 'de nationalité', 'nationalité française', 'européen(?:ne)?s?']],
     ['Santé et apparence', 'Critère lié à la santé ou à l’apparence interdit : décrivez les exigences réelles du poste.',
-      ['bonne santé', 'bonne condition physique', 'physique agréable', 'bonne présentation', 'apparence']],
-    ['Situation de famille', 'Critère lié à la situation de famille interdit.', ['célibataire', 'sans enfants?', 'mariée?', 'situation de famille', 'enceinte']],
+      ['bonne santé', 'bonne condition physique', 'physique agréable', 'bonne présentation', 'apparence', 'photos?', 'photographies?']],
+    ['Situation de famille', 'Critère lié à la situation de famille interdit (« disponible » peut sous-entendre l’absence de contraintes familiales : précisez plutôt les horaires réels).', ['célibataire', 'sans enfants?', 'mariée?', 'situation de famille', 'enceinte', 'disponibles?(?!\\s+(?:dès|à partir|immédiatement|rapidement|le\\s+\\d))']],
   ].map(([cat, why, alts]) => ({ cat, why, re: new RegExp(`(?<!\\p{L})(?:${alts.join('|')})(?!\\p{L})`, 'giu') }));
-  function lintAd(title, desc) {
-    const text = `${title || ''}\n${desc || ''}`;
-    const issues = AD_RULES.map((r) => ({ cat: r.cat, why: r.why, words: [...new Set((text.match(r.re) || []).map((w) => w.toLowerCase()))] })).filter((r) => r.words.length);
-    return { issues, inclusive: /[hf]\s*\/\s*[hf]|·|\(e\)/i.test(title || '') };
+  // Termes ajoutés pour les notes et les évaluations (situation de famille, santé, opinions…), en plus de ceux de l'annonce.
+  const NOTE_RULES = [['Vie privée', 'Information sans lien avec les compétences (art. L1132-1 et L1221-6) : ne la notez pas, ne la demandez pas.',
+    ['enfants?', 'bas âge', 'projet familial', 'grossesse', 'maternité', 'paternité', 'mari', 'épouse', 'conjoint(?:e)?', 'religion', 'religieu(?:x|se)', 'syndiqué(?:e)?', 'syndicat', 'handicap(?:é|ée)?', 'maladie', 'origine', 'accent', 'âge', 'vieux', 'vieille']]]
+    .map(([cat, why, alts]) => ({ cat, why, re: new RegExp(`(?<!\\p{L})(?:${alts.join('|')})(?!\\p{L})`, 'giu') }));
+  const inclusiveTitle = (title) => /[hf]\s*\/\s*[hf]|·|\(e\)/i.test(title || '');
+  // Annonce rédigée en anglais (L5331-4 : offre rédigée en français, à vérifier) : mots-outils anglais plus nombreux que les français.
+  const looksEnglish = (text) => { const w = String(text || '').toLowerCase().match(/\p{L}+/gu) || [], en = w.filter((x) => ['the', 'and', 'we', 'our', 'you', 'with', 'are', 'looking', 'for', 'to', 'of', 'your', 'team', 'is'].includes(x)).length, fr = w.filter((x) => ['le', 'la', 'les', 'et', 'nous', 'vous', 'des', 'une', 'un', 'pour', 'avec', 'de', 'du', 'au'].includes(x)).length; return en >= 3 && en > fr; };
+  function lintAd(title, desc, rules = AD_RULES) {
+    const text = `${title || ''}\n${desc || ''}`, inclusive = inclusiveTitle(title);
+    const issues = rules.filter((r) => !(r.cat === 'Métier genré' && inclusive)).map((r) => ({ cat: r.cat, why: r.why, words: [...new Set((text.match(r.re) || []).map((w) => w.toLowerCase()))] })).filter((r) => r.words.length);
+    // À VÉRIFIER (juriste) : numérotation exacte des articles L5331-1 à L5331-4 (offre en français, sans limite d'âge).
+    if (rules === AD_RULES && looksEnglish(text)) issues.push({ cat: 'Langue', why: 'Offre rédigée en anglais : elle doit être rédigée en français (art. L5331-4, à vérifier), une version étrangère pouvant l’accompagner.', words: ['texte en anglais'] });
+    return { issues, inclusive };
   }
+  // Analyse d'un texte libre (notes, commentaires d'évaluation) : critères de l'annonce et vie privée.
+  const lintFree = (text) => lintAd('', text, AD_RULES.filter((r) => r.cat !== 'Métier genré').concat(NOTE_RULES)).issues;
+  const freeLintHTML = (text) => { const l = lintFree(text); return l.length ? `<div class="lint warn"><b>${ic('x')}À reformuler</b>${l.map((i) => `<p><b>${esc(i.cat)}</b> · « ${i.words.map(esc).join(' », « ')} » — ${esc(i.why)}</p>`).join('')}<p class="muted">Le candidat peut demander à consulter ses notes et évaluations (art. 15 du RGPD).</p></div>` : ''; };
+  // publishing : texte d'une annonce (alerte si la rémunération n'y figure pas).
   function adLintHTML(title, desc, publishing) {
-    const l = lintAd(title, desc);
+    const l = lintAd(title, desc), pay = publishing && !/€|euros?|rémunération|salaire/i.test(desc || '');
     // Alerte, jamais blocage : l'analyse est automatique et peut se tromper (ex. « React Native »).
     const n = l.issues.reduce((x, i) => x + i.words.length, 0);
-    const head = l.issues.length ? `<b>${ic('x')}${plural(n, 'terme à vérifier', 'termes à vérifier')}</b><p class="muted">Ces mots peuvent être discriminants selon le contexte. L’analyse est automatique et peut se tromper : relis-les, puis corrige-les ou publie tel quel.</p>` : `<b>${ic('check')}Aucune mention discriminatoire détectée</b>`;
-    return `<div class="lint ${l.issues.length ? 'warn' : 'ok'}">${head}${l.issues.map((i) => `<p><b>${esc(i.cat)}</b> · « ${i.words.map(esc).join(' », « ')} » — ${esc(i.why)}</p>`).join('')}
+    const head = l.issues.length ? `<b>${ic('x')}${plural(n, 'terme à vérifier', 'termes à vérifier')}</b><p class="muted">Ces mots peuvent être discriminants selon le contexte. L’analyse est automatique et peut se tromper : relisez-les, puis corrigez-les ou publiez tel quel.</p>` : `<b>${ic('check')}Aucune mention discriminatoire détectée</b>`;
+    return `<div class="lint ${l.issues.length || pay ? 'warn' : 'ok'}">${head}${l.issues.map((i) => `<p><b>${esc(i.cat)}</b> · « ${i.words.map(esc).join(' », « ')} » — ${esc(i.why)}</p>`).join('')}
+      ${pay ? '<p><b>Rémunération</b> · la fourchette de salaire n’apparaît pas dans l’annonce — le candidat doit connaître la rémunération initiale ou sa fourchette avant l’entretien (directive (UE) 2023/970, art. 5 ; transposition française à vérifier).</p>' : ''}
       ${l.inclusive ? '' : '<p class="muted">Conseil : ajoutez « H/F » ou une forme inclusive à l’intitulé (ex. « Chef·fe de projet »).</p>'}</div>`;
   }
 
@@ -3238,6 +3274,8 @@
   }
 
   function needError(j) {
+    // Mêmes contrôles que le formulaire en étapes (dont CDD, date passée, SMIC) avant l'envoi.
+    const bad = firstBadStep(j); if (bad >= 0) return needStepError(bad, j);
     if (!j.title) return 'Indiquez l’intitulé du poste.';
     if (!(j.salaryMin > 0) || !(j.salaryMax > 0)) return 'Indiquez la fourchette de salaire annuel brut.';
     if (j.salaryMax < j.salaryMin) return 'Le salaire maximum doit être supérieur ou égal au minimum.';
@@ -3248,15 +3286,25 @@
     if ((j.description || '').length < 20) return 'Décrivez les missions et le profil recherché.';
     return '';
   }
+  // Écart entre deux versions d'un besoin (journal) : « fourchette 45 000 – 52 000 € → 50 000 – 58 000 € ».
+  function needDiff(a, b) {
+    if (!a || !b) return '';
+    const show = { title: ['intitulé', (x) => x.title], contract: ['contrat', (x) => cddText(x)], startWanted: ['arrivée souhaitée', (x) => fmtDateY(x.startWanted)], category: ['statut', (x) => statutText(x)],
+      salaryMin: ['fourchette', (x) => `${eur0(x.salaryMin || 0)} – ${eur0(x.salaryMax || 0)}`], reason: ['motif', (x) => x.reason], description: ['missions', (x) => `${(x.description || '').length} caractères`] };
+    return Object.values(show).map(([l, fn]) => { const x = fn(a), y = fn(b); return x !== y ? `${l} ${x} → ${y}` : ''; }).filter(Boolean).join(' ; ');
+  }
   function submitNeed(j) {
-    j.status = 'En validation'; j.pending = 'rh'; j.refusedAt = null;
+    j.status = 'En validation'; j.pending = 'rh'; j.refusedAt = null; j.sentSnap = needData(j);
     j.approvals.push({ step: 'demande', by: me().id, decision: 'Soumise', date: TODAY, comment: '' });
     if (ui.profile === 'rh') decideNeed(j, 'Validée', 'Besoin émis par les RH.', me().id);
     else notify('e1', `${fullName(me())} a envoyé un besoin de recrutement à valider : ${j.title} (${j.dept}).`);
   }
   function decideNeed(j, decision, comment, by, reason) {
     const step = j.pending;
-    j.approvals.push({ step, by, decision, date: TODAY, comment: reason ? `${reason}${comment ? ` · ${comment}` : ''}` : comment });
+    // Traçabilité : décision de la Direction saisie par les RH → auteur réel conservé (enteredBy) et Direction prévenue.
+    const entered = by !== me().id ? me().id : null;
+    j.approvals.push(Object.assign({ step, by, decision, date: TODAY, comment: reason ? `${reason}${comment ? ` · ${comment}` : ''}` : comment }, entered ? { enteredBy: entered } : {}));
+    if (entered) { logTo(j, `Décision de ${fullName(emp(by))} (${decision.toLowerCase()}) saisie par ${fullName(me())}`); notify(by, `${fullName(me())} a enregistré en votre nom la décision « ${decision} » sur le besoin « ${j.title} » (${jobRef(j)}) : merci de vérifier qu’elle est conforme.`); }
     comment = reason ? `${reason}${comment ? ` (${comment})` : ''}` : comment;
     const who = step === 'direction' ? 'La direction' : 'Les RH';
     if (decision === 'Validée') {
@@ -3284,7 +3332,7 @@
     return `<ol class="flow">${steps.map(([k, label, by]) => {
       const st = needStepState(j, k, steps), last = j.approvals.filter((a) => a.step === k).slice(-1)[0], who = emp(last && st !== 'todo' && st !== 'current' ? last.by : by);
       const why = k === 'direction' ? ` · ${j.reason === 'Création de poste' ? 'création de poste' : 'poste hors budget'}` : '';
-      const detail = last && ['done', 'refused', 'returned'].includes(st) ? `${DECISION_LABEL[last.decision]} par ${esc(fullName(who))} le ${fmtDate(last.date)}` : `${esc(fullName(who))}${st === 'current' ? ' · à traiter' : ''}`;
+      const detail = last && ['done', 'refused', 'returned'].includes(st) ? `${DECISION_LABEL[last.decision]} par ${esc(fullName(who))} le ${fmtDate(last.date)}${last.enteredBy && last.enteredBy !== last.by ? ` (saisi par ${esc(fullName(emp(last.enteredBy)))})` : ''}` : `${esc(fullName(who))}${st === 'current' ? ' · à traiter' : ''}`;
       return `<li class="s-${st}"><span class="flow-dot">${st === 'done' ? ic('check') : st === 'refused' ? ic('x') : ''}</span><div><div class="flow-t"><b>${label}</b><span class="pill ${STEP_PILL[st][0]}">${STEP_PILL[st][1]}</span></div>
         <small>${detail}${why}</small>${last && last.comment && st !== 'todo' ? `<q>${esc(last.comment)}</q>` : ''}</div></li>`; }).join('')}</ol>`;
   }
@@ -3363,12 +3411,12 @@
     let main = '', more = '';
     const edit = canEditNeed(j) ? `<button type="button" class="btn ghost sm" data-act="need-edit" data-id="${j.id}">${ic('edit')}Modifier</button>` : '';
     if (canEditNeed(j) && draftLike(j)) main = `<button type="button" class="btn primary" data-act="need-submit" data-id="${j.id}">${ic('arrow')}${rh ? 'Valider le besoin' : 'Envoyer en validation'}</button>`;
-    else if (rh && j.status === 'En validation') { main = `<button type="button" class="btn primary" data-act="need-decide" data-id="${j.id}" data-d="Validée">${ic('check')}Valider${j.pending === 'direction' ? ' pour la direction' : ''}</button>`; more = `<button type="button" class="btn ghost sm" data-act="need-decide" data-id="${j.id}" data-d="À modifier">Demander une modification</button><button type="button" class="btn ghost sm bad-t" data-act="need-decide" data-id="${j.id}" data-d="Refusée">Refuser</button>`; }
+    else if ((rh || dirSelf(j)) && j.status === 'En validation') { main = `<button type="button" class="btn primary" data-act="need-decide" data-id="${j.id}" data-d="Validée">${ic('check')}Valider${j.pending === 'direction' ? ' pour la direction' : ''}</button>`; more = `<button type="button" class="btn ghost sm" data-act="need-decide" data-id="${j.id}" data-d="À modifier">Demander une modification</button><button type="button" class="btn ghost sm bad-t" data-act="need-decide" data-id="${j.id}" data-d="Refusée">Refuser</button>`; }
     else if (canWriteAd(j)) main = `<button type="button" class="btn primary" data-act="need-publish" data-id="${j.id}">${ic('file')}${rh ? (adReady(j) ? 'Relire, valider et publier l’offre' : 'Rédiger l’offre') : adReady(j) ? 'Modifier le projet d’offre' : 'Rédiger l’offre'}</button>`;
     else if (NEED_OPEN.includes(j.status)) main = `<button type="button" class="btn primary" data-act="open-job" data-id="${j.id}">Voir l’offre et les candidats${ic('arrow')}</button>`;
     const refusal = j.status === 'Refusée' ? j.approvals.filter((a) => a.decision === 'Refusée').slice(-1)[0] : null;
     const banner = w.who ? `<div class="next-step ${mine ? 'mine' : ''} ${w.late ? 'late' : ''}"><div><small>PROCHAINE ÉTAPE</small><b>${esc(w.label)}</b><span>${mine ? 'À vous' : `En attente de ${esc(fullName(emp(w.who)))}`} · ${sinceTxt(w.days)}${w.late ? ' · relance envoyée' : ''}</span>
-        ${j.pending === 'direction' && rh ? '<span class="hint">La direction n’a pas de profil dans cette démo : vous saisissez la décision de Claire Durand.</span>' : ''}</div><div class="toolbar">${main}${more}${edit}</div></div>`
+        ${j.pending === 'direction' && rh ? `<span class="hint">Vous saisissez la décision de ${esc(fullName(emp(DIR_ID())))} : elle sera tracée « saisie par ${esc(fullName(me()))} ». La Direction peut aussi valider elle-même (profil Manager vu en ${esc(fullName(emp(DIR_ID())))}).</span>` : ''}</div><div class="toolbar">${main}${more}${edit}</div></div>`
       : `<div class="next-step done"><div><small>${j.status === 'Refusée' ? 'BESOIN REFUSÉ' : 'OFFRE PUBLIÉE'}</small><b>${j.status === 'Refusée' ? esc(refusal && refusal.comment || 'Refusé') : `${jobRef(j)} · ${JOB_PILL[j.status][1]}`}</b><span>${j.status === 'Refusée' ? `par ${esc(fullName(emp(refusal ? refusal.by : 'e1')))} le ${fmtDate(refusal ? refusal.date : j.createdAt)}` : 'Le besoin reste consultable ici ; l’offre se suit dans Recrutement.'}</span></div><div class="toolbar">${main}</div></div>`;
     const lock = !rh && !draftLike(j) && !NEED_OPEN.includes(j.status) && j.status !== 'Refusée' ? `<p class="hint lock">${ic('check')}${j.status === 'Validée' ? (canWriteAd(j) ? 'Besoin validé : rédigez l’offre avec les RH (onglet « Projet d’offre ») ; seuls les RH la valident et la publient.' : 'Besoin validé : l’offre est en cours de rédaction.') : 'Envoyé aux RH : seuls les RH peuvent désormais modifier ce besoin.'}</p>` : '';
     const unread = unreadOf(j), mgr = emp(jobManager(j)), repl = j.replaces && emp(j.replaces), talents = internalTalents(j.title, j.dept);
@@ -3388,7 +3436,8 @@
       <form data-form="need-comment" data-id="${j.id}" class="cmt-form"><label class="sr" for="nc-${j.id}">Votre commentaire</label><textarea id="nc-${j.id}" name="text" class="input" maxlength="400" placeholder="Une question, une précision…"></textarea><button class="btn primary sm">Envoyer</button></form>`;
     else body = `<p class="need-desc">${esc(j.description) || '<span class="muted">Description à rédiger.</span>'}</p>
       <div class="info-grid"><div><span>Motif</span>${esc(j.reason)}${repl ? ` de ${esc(fullName(repl))}` : ''}</div><div><span>Salaire annuel brut</span><span class="num">${esc(j.budget)}</span></div><div><span>Prévu au budget des effectifs</span>${j.budgeted ? 'Oui' : '<b style="color:var(--warn)">Non</b>'}</div>
-        <div><span>Arrivée souhaitée</span>${fmtDate(j.startWanted)}</div><div><span>Demandeur</span>${esc(fullName(emp(j.requestedBy)))} · le ${fmtDate(j.createdAt)}</div><div><span>Manager rattaché</span>${mgr ? esc(fullName(mgr)) : '—'}</div></div>
+        <div><span>Arrivée souhaitée</span>${fmtDate(j.startWanted)}</div><div><span>Demandeur</span>${esc(fullName(emp(j.requestedBy)))} · le ${fmtDate(j.createdAt)}</div><div><span>Manager rattaché</span>${mgr ? esc(fullName(mgr)) : '—'}</div>
+        <div><span>Statut et durée du travail</span>${esc(statutText(j))}</div>${j.contract === 'CDD' ? `<div style="grid-column:1/-1"><span>Contrat à durée déterminée</span>${j.cddCase ? esc(cddText(j)) : '<b style="color:var(--warn)">Cas de recours, motif et durée à préciser</b>'}</div>` : ''}</div>
       <h4 class="sub" style="margin-top:18px">Alternatives étudiées avant de recruter</h4><div class="steps">${Object.entries(ALT_LABELS).map(([k, l]) => `<div class="step ${j.alternatives[k] ? 'done' : ''}"><span class="ckbox" aria-checked="${!!j.alternatives[k]}">${ic('check')}</span><span>${l}</span></div>`).join('')}</div>${j.alternatives.note ? `<q>${esc(j.alternatives.note)}</q>` : ''}
       ${talents.length ? `<div class="callout-info">${talentsHTML(j.title, j.dept)}</div>` : ''}`;
     return `<div class="drawer-h"><div style="min-width:0"><div class="toolbar"><span class="ref num">${jobRef(j)}</span>${jobPill(j)}<span class="pill ${j.priority === 'Urgente' ? 'bad' : j.priority === 'Anticipée' ? 'info' : 'neutral'}">Priorité ${j.priority.toLowerCase()}</span></div>
@@ -3397,7 +3446,8 @@
   };
   Object.assign(MOD_ACT, {
     'need-new'() { ui.modal = { type: 'need', step: 0, isNew: true }; render(); },
-    'need-edit'(d) { ui.modal = { type: 'need', id: d.id, step: 0 }; render(); },
+    // Un brouillon se rouvre à l'étape où on s'était arrêté.
+    'need-edit'(d) { const j = db.jobs.find((x) => x.id === d.id); ui.modal = { type: 'need', id: d.id, step: j && draftLike(j) ? Math.min(4, j.draftStep || 0) : 0 }; render(); },
     'need-open'(d) { ui.drawer = { type: 'need', id: d.id, tab: 'besoin' }; drawerAnim = true; render(); },
     'need-go'(d) { if (d.id) { ui.drawer = { type: 'need', id: d.id, tab: ui.drawer.tab === 'echanges' ? 'besoin' : ui.drawer.tab }; render(); } },
     'need-dtab'(d) { ui.drawer.tab = d.t; if (d.t === 'echanges') { const j = db.jobs.find((x) => x.id === ui.drawer.id); j.seen = Object.assign({}, j.seen, { [me().id]: (j.comments || []).length }); save(); } render(); },
@@ -3417,18 +3467,25 @@
   });
   Object.assign(MOD_LIVE, {
     need(form) {
+      if (!ui.modal || ui.modal.type !== 'need') return; // formulaire déjà fermé (changement reçu au moment de la fermeture)
       const fd = new FormData(form), d = ui.modal.data, g = (k) => (fd.has(k) ? fd.get(k) : d[k]), set = (id, h) => { const el = document.getElementById(id); if (el) el.innerHTML = h; };
       const reason = g('reason'), budgeted = fd.has('budgeted') ? fd.get('budgeted') !== 'non' : d.budgeted;
       set('j-flow', flowText(reason, budgeted)); set('j-internal', talentsHTML(g('title'), g('dept'))); set('j-lint', adLintHTML(g('title'), g('description'), false));
       const r = document.getElementById('j-repl'); if (r) r.hidden = reason !== 'Remplacement';
+      const hide = (id, h) => { const el = document.getElementById(id); if (el) el.hidden = h; }, cs = cddCase(g('cddCase')) || {}, cat = g('category'), forfait = cat === 'Cadre' && (fd.has('category') ? fd.has('forfait') : d.forfait);
+      hide('j-cdd', g('contract') !== 'CDD'); hide('j-cddrepl', !cs.repl); hide('j-cddterm', !cs.imprecis); hide('j-forfait-f', cat !== 'Cadre'); hide('j-hours-f', !!forfait);
+      if (document.getElementById('j-sal')) set('j-sal', needSalHTML(Object.assign({}, d, { salaryMin: toNum(g('salaryMin')), salaryMax: toNum(g('salaryMax')) })));
     },
     ad(form) { const fd = new FormData(form); document.getElementById('ad-lint').innerHTML = adLintHTML(fd.get('title'), fd.get('description'), true); },
+    // « Nouvelle arrivée » : bloc CDD affiché pour un CDD, personne remplacée pour un remplacement.
+    arrnew(form) { const fd = new FormData(form), cs = cddCase(fd.get('cddCase')) || {}, a = document.getElementById('an-cdd'), r = document.getElementById('an-cddrepl'); if (a) a.hidden = fd.get('contract') !== 'CDD'; if (r) r.hidden = !cs.repl; },
   });
   Object.assign(MOD_FORMS, {
     'need-decide'(v) {
       const j = db.jobs.find((x) => x.id === ui.modal.id), d = ui.modal.d, comment = v.comment.trim();
       if (d === 'À modifier' && !comment) return formError('Un commentaire est obligatoire pour expliquer la modification attendue.');
       if (d === 'Refusée' && (!v.reason || (v.reason === 'Autre motif' && !comment))) return formError('Choisissez le motif du refus (et précisez-le en commentaire s’il s’agit d’un autre motif).');
+      if (ui.profile !== 'rh' && !dirSelf(j)) return formError('Seuls les RH et la Direction peuvent décider de ce besoin.');
       decideNeed(j, d, comment, j.pending === 'direction' ? DIR_ID() : me().id, d === 'Refusée' ? v.reason : '');
       ui.modal = null; toast(d === 'Validée' ? (j.status === 'Validée' ? 'Besoin validé : l’offre peut être rédigée avec le manager' : 'Besoin validé et transmis à la direction') : d === 'À modifier' ? 'Besoin renvoyé au demandeur' : 'Besoin refusé'); commit();
     },
@@ -3440,12 +3497,22 @@
       const first = !j.ad, a = j.ad = Object.assign({ edits: [] }, j.ad, { title: v.title.trim(), description: v.description.trim(), by: me().id, at: TODAY });
       a.edits.push({ by: me().id, at: TODAY });
       if (go === 'publish') {
-        const flagged = lintAd(a.title, a.description).issues.flatMap((x) => x.words);
-        a.ready = true; j.title = a.title; j.description = a.description; j.status = 'Ouverte'; j.publishedAt = TODAY;
-        j.approvals.push({ step: 'publication', by: me().id, decision: 'Publiée', date: TODAY, comment: '' });
-        if (flagged.length) logTo(j, `Publiée malgré ${plural(flagged.length, 'terme signalé', 'termes signalés')} : « ${flagged.join(' », « ')} »`);
-        notify(j.requestedBy, `L’offre « ${j.title} » est validée et publiée par les RH : les candidatures peuvent arriver.`);
-        Object.assign(ui, { modal: null, recJob: j.id }); toast(`Offre publiée sous la référence ${jobRef(j)} · à suivre dans Recrutement`); commit(); return;
+        const flagged = lintAd(a.title, a.description).issues.flatMap((x) => x.words), noPay = !/€|euros?|rémunération|salaire/i.test(a.description);
+        const publish = () => {
+          a.ready = true; j.title = a.title; j.description = a.description; j.status = 'Ouverte'; j.publishedAt = TODAY;
+          j.approvals.push({ step: 'publication', by: me().id, decision: 'Publiée', date: TODAY, comment: '' });
+          if (flagged.length) logTo(j, `Publiée malgré ${plural(flagged.length, 'terme signalé', 'termes signalés')} : « ${flagged.join(' », « ')} »`);
+          if (noPay) logTo(j, 'Publiée sans la rémunération dans l’annonce');
+          notify(j.requestedBy, `L’offre « ${j.title} » est validée et publiée par les RH : les candidatures peuvent arriver.`);
+          Object.assign(ui, { recJob: j.id }); toast(`Offre publiée sous la référence ${jobRef(j)} · à suivre dans Recrutement`); commit();
+        };
+        if (!flagged.length && !noPay) { ui.modal = null; publish(); return; }
+        // Publication malgré des alertes : confirmation explicite, tracée dans le journal du besoin.
+        save();
+        confirmAct({ title: `Publier malgré ${plural(flagged.length + (noPay ? 1 : 0), 'alerte', 'alertes')} ?`, act: 'need-publish', confirm: 'Publier tel quel',
+          text: `${flagged.length ? `<p>Termes signalés : « ${flagged.map(esc).join(' », « ')} ».</p>` : ''}${noPay ? '<p>La rémunération ou sa fourchette n’apparaît pas dans l’annonce.</p>' : ''}<p>L’analyse est automatique et peut se tromper ; si vous publiez, votre choix est inscrit au journal du besoin.</p>`,
+          fields: [{ name: 'attest', type: 'check', required: true, label: 'J’ai relu ces points et je confirme la publication' }] }, publish);
+        return;
       }
       if (go === 'send') {
         a.ready = true; j.approvals.push({ step: 'redaction', by: me().id, decision: 'Rédigée', date: TODAY, comment: '' }); logTo(j, 'Projet d’offre envoyé aux RH pour validation');
@@ -3470,16 +3537,64 @@
   // ---- Formulaire en étapes : le poste, la justification et le budget, la fiche de cadrage, les missions, puis un récapitulatif.
   const NEED_STEPS = ['Le poste', 'Justification et budget', 'Fiche de cadrage', 'Missions et annonce', 'Récapitulatif'];
   const toNum = (x) => Number(String(x || '').replace(/\s/g, '')) || 0;
+  // ---- CDD : cas de recours (art. L1242-2 et L1242-3), motif précis, terme ou durée minimale (L1242-7, L1242-12), personne remplacée.
+  // repl : remplacement d'une personne nommément désignée ; imprecis : terme imprécis (durée minimale) admis ; max : durée maximale en mois, renouvellements compris (L1242-8, cas général).
+  const CDD_CASES = [
+    { k: 'Remplacement d’un salarié absent', repl: true, imprecis: true, max: 18 },
+    { k: 'Remplacement d’un salarié passé provisoirement à temps partiel', repl: true, imprecis: true, max: 18 },
+    { k: 'Attente de l’entrée en service d’un salarié recruté en CDI', repl: false, imprecis: true, max: 9 },
+    { k: 'Accroissement temporaire de l’activité', repl: false, imprecis: false, max: 18 },
+    { k: 'Emploi à caractère saisonnier', repl: false, imprecis: true, max: 18 },
+    // À VÉRIFIER (juriste) : CDD d'usage seulement dans les secteurs listés (D1242-1) ou par accord étendu ; CDD à objet défini : accord collectif, ingénieurs et cadres, 18 à 36 mois.
+    { k: 'CDD d’usage (secteur autorisé)', repl: false, imprecis: true, max: 18 },
+    { k: 'CDD à objet défini (ingénieurs et cadres, accord collectif)', repl: false, imprecis: false, max: 36, min: 18 },
+  ];
+  const cddCase = (k) => CDD_CASES.find((x) => x.k === k);
+  function cddError(d) {
+    const cs = cddCase(d.cddCase);
+    if (!cs) return 'CDD : choisissez le cas de recours (art. L1242-2 du Code du travail).';
+    if ((d.cddReason || '').trim().length < 10) return 'CDD : précisez le motif (ex. « refonte de l’application mobile, livraison prévue en juin »), il figurera dans le contrat.';
+    if (cs.repl && !d.cddReplaces) return 'CDD de remplacement : indiquez la personne remplacée.';
+    if (!(d.cddMonths > 0)) return d.cddTerm === 'imprecis' ? 'CDD sans terme précis : indiquez la durée minimale (en mois).' : 'CDD : indiquez la durée du contrat (en mois).';
+    if (d.cddTerm !== 'imprecis' && d.cddMonths > cs.max) return `CDD : ${plural(cs.max, 'mois', 'mois')} au plus pour ce cas de recours, renouvellements compris (cas général).`;
+    if (cs.min && d.cddMonths < cs.min) return `CDD à objet défini : ${cs.min} mois au moins.`;
+    return '';
+  }
+  // Texte du contrat : « CDD · cas · motif · terme ». start/end : dates de la proposition (sinon durée du besoin).
+  function cddText(x, end) {
+    if (!x || x.contract !== 'CDD') return x ? x.contract : '';
+    const r = x.cddReplaces && emp(x.cddReplaces);
+    const term = x.cddTerm === 'imprecis' ? `sans terme précis, durée minimale de ${plural(Number(x.cddMinMonths || x.cddMonths) || 0, 'mois', 'mois')}${r ? `, jusqu’au retour de ${fullName(r)}` : ''}` : end ? `jusqu’au ${longDate(end)} inclus` : `${plural(Number(x.cddMonths) || 0, 'mois', 'mois')}`;
+    return `CDD · ${x.cddCase || 'cas de recours à préciser'}${r && x.cddTerm !== 'imprecis' ? ` (${fullName(r)})` : ''} · motif : ${x.cddReason || 'à préciser'} · ${term}`;
+  }
+  // Catégorie et durée du travail (besoins plus anciens : catégorie déduite du salaire, 35 heures).
+  const jobCat = (j) => j.category || (j.contract === 'Stage' || j.contract === 'Alternance' ? 'Employé' : (j.salaryMin || 0) >= 45000 ? 'Cadre' : 'Employé');
+  const statutText = (j) => `${jobCat(j)}${j.classification ? ` · ${j.classification}` : ''} · ${j.forfait ? `forfait annuel de ${FORFAIT_DAYS} jours (convention individuelle de forfait à signer)` : `${String(j.hoursWeek || 35).replace('.', ',')} heures par semaine`}`;
+  const needSalary = (d) => salaryCheck({ annual: d.salaryMin, contract: d.contract, category: jobCat(d), hoursWeek: d.forfait ? 35 : d.hoursWeek || 35, forfait: !!d.forfait, kind: 'besoin' });
+  function needSalHTML(d) {
+    if (!(d.salaryMin > 0)) return `<p class="hint" style="margin:0">Le minimum de la fourchette est comparé au SMIC et au minimum conventionnel (${esc(jobCat(d).toLowerCase())}, ${d.forfait ? 'forfait jours' : `${String(d.hoursWeek || 35).replace('.', ',')} h par semaine`}).</p>`;
+    const sc = needSalary(d);
+    return sc.msg ? `<p class="lint ${sc.level === 'error' ? 'bad' : 'warn'}" style="margin:0">${esc(sc.msg)}</p>` : '<p class="hint" style="margin:0">Fourchette au-dessus du SMIC et du minimum conventionnel indicatif.</p>';
+  }
+  // Premier jour ouvré à partir d'une date (date d'arrivée ou d'entrée proposée par défaut).
+  const ouvreFrom = (s) => (isOuvre(s) ? s : addOuvres(s, 1));
   function needDefaults() {
     const rh = ui.profile === 'rh', dept = rh ? 'Design' : me().dept;
-    return { title: '', dept, managerId: rh ? DEPT_HEAD[dept] : me().id, contract: 'CDI', location: 'Paris', priority: 'Normale', startWanted: addDays(TODAY, 60), reason: 'Création de poste', replaces: null,
+    return { title: '', dept, managerId: rh ? DEPT_HEAD[dept] : me().id, contract: 'CDI', location: 'Paris', priority: 'Normale', startWanted: ouvreFrom(addDays(TODAY, 60)), reason: 'Création de poste', replaces: null,
+      category: 'Employé', classification: '', hoursWeek: 35, forfait: false, cddCase: '', cddReason: '', cddReplaces: null, cddTerm: 'precis', cddMonths: '',
       salaryMin: '', salaryMax: '', budgeted: true, description: '', alternatives: { mobilite: false, taches: false, interim: false, auto: false, note: '' }, scorecard: { must: [], nice: [], rounds: 2 } };
   }
-  const NEED_KEYS = ['title', 'dept', 'managerId', 'contract', 'location', 'priority', 'startWanted', 'reason', 'replaces', 'salaryMin', 'salaryMax', 'budgeted', 'description', 'alternatives', 'scorecard'];
-  const needData = (j) => JSON.parse(JSON.stringify(Object.fromEntries(NEED_KEYS.map((k) => [k, j[k]]))));
+  const NEED_KEYS = ['title', 'dept', 'managerId', 'contract', 'location', 'priority', 'startWanted', 'reason', 'replaces', 'category', 'classification', 'hoursWeek', 'forfait', 'cddCase', 'cddReason', 'cddReplaces', 'cddTerm', 'cddMonths', 'salaryMin', 'salaryMax', 'budgeted', 'description', 'alternatives', 'scorecard'];
+  const needData = (j) => JSON.parse(JSON.stringify(Object.fromEntries(NEED_KEYS.map((k) => [k, j[k] === undefined ? needDefaults()[k] : j[k]]))));
   function mergeNeedStep(step, v, d) {
     const rh = ui.profile === 'rh';
-    if (step === 0) Object.assign(d, { title: (v.title || '').trim(), dept: rh ? v.dept : me().dept, managerId: rh ? v.managerId || DEPT_HEAD[v.dept] : me().id, contract: v.contract, location: v.location, priority: v.priority, startWanted: v.startWanted });
+    if (step === 0) {
+      Object.assign(d, { title: (v.title || '').trim(), dept: rh ? v.dept : me().dept, managerId: rh ? v.managerId || DEPT_HEAD[v.dept] : me().id, contract: v.contract, location: v.location, priority: v.priority, startWanted: v.startWanted,
+        category: v.category || 'Employé', classification: (v.classification || '').trim(), forfait: v.category === 'Cadre' && !!v.forfait, hoursWeek: toNum(v.hoursWeek) || 35 });
+      const cdd = v.contract === 'CDD', cs = cddCase(v.cddCase);
+      Object.assign(d, { cddCase: cdd ? v.cddCase || '' : '', cddReason: cdd ? (v.cddReason || '').trim() : '', cddReplaces: cdd && cs && cs.repl ? v.cddReplaces || null : null,
+        cddTerm: cdd && cs && cs.imprecis && v.cddTerm === 'imprecis' ? 'imprecis' : 'precis', cddMonths: cdd ? toNum(v.cddMonths) : '' });
+    }
     if (step === 1) Object.assign(d, { reason: v.reason, replaces: v.reason === 'Remplacement' ? v.replaces || null : null, salaryMin: toNum(v.salaryMin), salaryMax: toNum(v.salaryMax), budgeted: v.budgeted !== 'non',
       alternatives: { mobilite: !!v.alt_mobilite, taches: !!v.alt_taches, interim: !!v.alt_interim, auto: !!v.alt_auto, note: (v.altNote || '').trim() } });
     if (step === 2) d.scorecard = { must: [v.must1, v.must2, v.must3, v.must4].map((x) => (x || '').trim()).filter(Boolean), nice: (v.nice || '').split('\n').map((x) => x.trim()).filter(Boolean), rounds: Number(v.rounds) };
@@ -3487,10 +3602,16 @@
     d.budget = d.salaryMin ? `${eur0(d.salaryMin).replace(/\s?€/, '')} – ${eur0(d.salaryMax)}` : 'À définir';
   }
   function needStepError(step, d) {
-    if (step === 0) { if (!d.title) return 'Indiquez l’intitulé du poste.'; if (!d.startWanted) return 'Indiquez la date d’arrivée souhaitée.'; }
+    if (step === 0) {
+      if (!d.title) return 'Indiquez l’intitulé du poste.'; if (!d.startWanted) return 'Indiquez la date d’arrivée souhaitée.';
+      const dg = dateGuard(d.startWanted, { notPastOf: TODAY, label: 'Arrivée souhaitée' }); if (dg) return dg;
+      if (!d.forfait && !((d.hoursWeek ?? 35) > 0 && (d.hoursWeek ?? 35) <= 48)) return 'Indiquez la durée hebdomadaire du travail (48 heures au plus).';
+      if (d.contract === 'CDD') { const e = cddError(d); if (e) return e; }
+    }
     if (step === 1) {
       if (!(d.salaryMin > 0) || !(d.salaryMax > 0)) return 'Indiquez la fourchette de salaire annuel brut.';
       if (d.salaryMax < d.salaryMin) return 'Le salaire maximum doit être supérieur ou égal au minimum.';
+      const sc = needSalary(d); if (sc.level === 'error') return sc.msg;
       if (d.reason === 'Remplacement' && !d.replaces) return 'Indiquez la personne remplacée.';
       if (d.reason === 'Création de poste' && !Object.keys(ALT_LABELS).some((k) => d.alternatives[k])) return 'Pour une création de poste, indiquez les alternatives étudiées avant de recruter.';
     }
@@ -3504,7 +3625,7 @@
     const existing = m.id && db.jobs.find((x) => x.id === m.id);
     if ((existing && !draftLike(existing)) || !m.data.title) return false;
     const j = existing || { id: uid('j'), num: Math.max(0, ...db.jobs.map((x) => x.num || 0)) + 1, status: 'Brouillon', createdAt: TODAY, requestedBy: me().id, pending: null, refusedAt: null, approvals: [], comments: [], log: [], reviewers: [] };
-    Object.assign(j, JSON.parse(JSON.stringify(m.data)));
+    Object.assign(j, JSON.parse(JSON.stringify(m.data))); j.draftStep = m.step || 0;
     if (!existing) { db.jobs.push(j); logTo(j, 'Brouillon créé'); m.id = j.id; }
     save(); m.savedAt = new Date().toTimeString().slice(0, 5); return true;
   }
@@ -3520,8 +3641,9 @@
       const err = needError(m.data); if (err) { const bad = firstBadStep(m.data); m.step = bad >= 0 ? bad : 4; m.err = err; render(); return; }
       const existing = m.id && db.jobs.find((x) => x.id === m.id), saveOnly = existing && !draftLike(existing);
       const j = existing || { id: uid('j'), num: Math.max(0, ...db.jobs.map((x) => x.num || 0)) + 1, status: 'Brouillon', createdAt: TODAY, requestedBy: me().id, pending: null, refusedAt: null, approvals: [], comments: [], log: [], reviewers: [] };
+      const diff = needDiff(j.sentSnap || (saveOnly ? needData(j) : null), m.data);
       Object.assign(j, m.data); if (!existing) db.jobs.push(j);
-      logTo(j, saveOnly ? 'Besoin modifié par les RH' : 'Besoin complété');
+      logTo(j, `${saveOnly ? 'Besoin modifié par les RH' : j.sentSnap ? 'Besoin corrigé et renvoyé' : 'Besoin complété'}${diff ? ` : ${diff}` : ''}`);
       if (saveOnly) { if (jobManager(j) !== me().id) notify(jobManager(j), `Les RH ont modifié votre besoin « ${j.title} ».`); } else submitNeed(j);
       Object.assign(ui, { modal: null, view: 'besoins', stage: ui.stage, drawer: { type: 'need', id: j.id, tab: 'besoin' } });
       toast(saveOnly ? 'Modifications enregistrées' : rh ? 'Besoin validé par les RH' : 'Besoin envoyé aux RH pour validation'); commit();
@@ -3537,11 +3659,21 @@
     let body = '';
     if (step === 0) body = `<div class="form-grid">${f('j-title', 'Intitulé du poste *', `<input id="j-title" name="title" class="input" value="${esc(j.title)}" placeholder="Ex. Product Designer H/F" ${L}>`, true)}
       ${f('j-dept', 'Service', rh ? `<select id="j-dept" name="dept" class="select" ${L}>${opt(DEPTS, j.dept)}</select>` : `<input id="j-dept" name="dept" class="input" value="${esc(j.dept)}" readonly>`)}${rh ? f('j-mgr', 'Manager rattaché', `<select id="j-mgr" name="managerId" class="select">${opt(mgrs, j.managerId || DEPT_HEAD[j.dept])}</select>`) : ''}
-      ${f('j-contract', 'Contrat', `<select id="j-contract" name="contract" class="select">${opt(['CDI', 'CDD', 'Alternance', 'Stage'], j.contract)}</select>`)}${f('j-loc', 'Lieu', `<select id="j-loc" name="location" class="select">${opt([...SITES(), ...SITES().map((x) => `${x} · hybride`), 'Télétravail'], j.location)}</select>`)}
-      ${f('j-prio', 'Priorité', `<select id="j-prio" name="priority" class="select">${opt(['Urgente', 'Normale', 'Anticipée'], j.priority)}</select>`)}${f('j-start', 'Arrivée souhaitée *', `<input id="j-start" name="startWanted" type="date" class="input" value="${esc(j.startWanted)}">`)}</div>`;
+      ${f('j-contract', 'Contrat', `<select id="j-contract" name="contract" class="select" ${L}>${opt(['CDI', 'CDD', 'Alternance', 'Stage'], j.contract)}</select>`)}${f('j-loc', 'Lieu', `<select id="j-loc" name="location" class="select">${opt([...SITES(), ...SITES().map((x) => `${x} · hybride`), 'Télétravail'], j.location)}</select>`)}
+      ${f('j-prio', 'Priorité', `<select id="j-prio" name="priority" class="select">${opt(['Urgente', 'Normale', 'Anticipée'], j.priority)}</select>`)}${f('j-start', 'Arrivée souhaitée *', `<input id="j-start" name="startWanted" type="date" class="input" min="${TODAY}" value="${esc(j.startWanted)}">`)}
+      ${f('j-cat', 'Catégorie *', `<select id="j-cat" name="category" class="select" ${L}>${opt(['Employé', 'Agent de maîtrise', 'Cadre'], jobCat(j))}</select>`)}${f('j-class', 'Classification (convention collective)', `<input id="j-class" name="classification" class="input" maxlength="80" value="${esc(j.classification || '')}" placeholder="Ex. position 2.1, coefficient 115">`)}
+      <div class="field" id="j-hours-f" ${j.forfait ? 'hidden' : ''}><label for="j-hours">Durée du travail (heures par semaine) *</label><input id="j-hours" name="hoursWeek" type="number" min="1" max="48" step="0.5" class="input num" value="${esc(j.hoursWeek || 35)}"></div>
+      <label class="field" id="j-forfait-f" style="display:flex;gap:8px;align-items:center;font-size:14px" ${jobCat(j) === 'Cadre' ? '' : 'hidden'}><input type="checkbox" name="forfait" ${j.forfait ? 'checked' : ''} ${L}> Cadre au forfait annuel en jours (${FORFAIT_DAYS} jours)</label>
+      <div class="full" id="j-cdd" ${j.contract === 'CDD' ? '' : 'hidden'}><h3 class="sec" style="margin-top:4px">Contrat à durée déterminée</h3><p class="hint" style="margin:0 0 8px">Un CDD indique par écrit son cas de recours, un motif précis et son terme ; à défaut, il peut être requalifié en CDI (art. L1242-12 et L1245-1). Ces éléments seront repris dans l’offre, la proposition et la fiche de la recrue.</p><div class="form-grid">
+        ${f('j-cddcase', 'Cas de recours *', `<select id="j-cddcase" name="cddCase" class="select" ${L}><option value="">Choisir…</option>${opt(CDD_CASES.map((x) => x.k), j.cddCase)}</select>`, true)}
+        ${f('j-cddreason', 'Motif précis *', `<input id="j-cddreason" name="cddReason" class="input" maxlength="160" value="${esc(j.cddReason || '')}" placeholder="Ex. refonte de l’application mobile, livraison prévue en juin">`, true)}
+        <div class="field" id="j-cddrepl" ${(cddCase(j.cddCase) || {}).repl ? '' : 'hidden'}><label for="j-cddreplaces">Personne remplacée *</label><select id="j-cddreplaces" name="cddReplaces" class="select"><option value="">Choisir…</option>${opt(people, j.cddReplaces)}</select></div>
+        <fieldset class="field radios" id="j-cddterm" ${(cddCase(j.cddCase) || {}).imprecis ? '' : 'hidden'}><legend>Terme</legend><label><input type="radio" name="cddTerm" value="precis" ${j.cddTerm !== 'imprecis' ? 'checked' : ''}> Date de fin précise</label><label><input type="radio" name="cddTerm" value="imprecis" ${j.cddTerm === 'imprecis' ? 'checked' : ''}> Sans terme précis (durée minimale)</label></fieldset>
+        ${f('j-cddmonths', 'Durée, ou durée minimale sans terme précis (mois) *', `<input id="j-cddmonths" name="cddMonths" type="number" min="1" max="36" step="1" class="input num" value="${esc(j.cddMonths || '')}">`)}</div></div></div>`;
     if (step === 1) body = `<div class="form-grid">${f('j-reason', 'Motif', `<select id="j-reason" name="reason" class="select" ${L}>${opt(['Création de poste', 'Remplacement', 'Surcroît d’activité'], j.reason)}</select>`)}
       <div class="field" id="j-repl" ${j.reason === 'Remplacement' ? '' : 'hidden'}><label for="j-replaces">Personne remplacée *</label><select id="j-replaces" name="replaces" class="select"><option value="">Choisir…</option>${opt(people, j.replaces)}</select></div>
-      ${f('j-min', 'Salaire annuel brut minimum (€) *', `<input id="j-min" name="salaryMin" type="number" min="0" step="500" class="input num" value="${esc(j.salaryMin)}">`)}${f('j-max', 'Salaire annuel brut maximum (€) *', `<input id="j-max" name="salaryMax" type="number" min="0" step="500" class="input num" value="${esc(j.salaryMax)}">`)}
+      ${f('j-min', 'Salaire annuel brut minimum (€) *', `<input id="j-min" name="salaryMin" type="number" min="0" step="500" class="input num" value="${esc(j.salaryMin)}" ${L}>`)}${f('j-max', 'Salaire annuel brut maximum (€) *', `<input id="j-max" name="salaryMax" type="number" min="0" step="500" class="input num" value="${esc(j.salaryMax)}" ${L}>`)}
+      <div class="full" id="j-sal">${needSalHTML(j)}</div>
       <fieldset class="field full radios"><legend>Poste prévu au budget des effectifs ${TODAY.slice(0, 4)} ?</legend><label><input type="radio" name="budgeted" value="oui" ${j.budgeted ? 'checked' : ''} ${L}> Oui</label><label><input type="radio" name="budgeted" value="non" ${j.budgeted ? '' : 'checked'} ${L}> Non</label></fieldset>
       <div class="full" id="j-flow">${flowText(j.reason, j.budgeted)}</div></div>
       <h3 class="sec">Alternatives étudiées avant de recruter</h3><div class="checks">${Object.entries(ALT_LABELS).map(([k, l]) => `<label><input type="checkbox" name="alt_${k}" ${j.alternatives[k] ? 'checked' : ''}> ${l}</label>`).join('')}</div>
@@ -3553,8 +3685,8 @@
     if (step === 4) {
       const row = (l, v) => `<div><span>${l}</span>${v || '<span class="muted">—</span>'}</div>`;
       const sec = (k, t, inner) => `<div class="recap"><div class="recap-h"><h4 class="sub">${t}</h4><button class="btn ghost sm" name="nav" value="goto-${k}">${ic('edit')}Modifier</button></div>${inner}</div>`;
-      body = `${sec(0, 'Le poste', `<div class="info-grid">${row('Intitulé', esc(j.title))}${row('Service', esc(j.dept))}${row('Contrat et lieu', `${esc(j.contract)} · ${esc(j.location)}`)}${row('Arrivée souhaitée', fmtDate(j.startWanted))}${row('Priorité', esc(j.priority))}${row('Manager', esc(fullName(emp(j.managerId))))}</div>`)}
-        ${sec(1, 'Justification et budget', `<div class="info-grid">${row('Motif', `${esc(j.reason)}${j.replaces ? ` de ${esc(fullName(emp(j.replaces)))}` : ''}`)}${row('Salaire annuel brut', esc(j.budget))}${row('Prévu au budget', j.budgeted ? 'Oui' : 'Non')}${row('Alternatives étudiées', Object.keys(ALT_LABELS).filter((k) => j.alternatives[k]).map((k) => ALT_LABELS[k]).join(', '))}</div><div style="margin-top:10px">${flowText(j.reason, j.budgeted)}</div>`)}
+      body = `${sec(0, 'Le poste', `<div class="info-grid">${row('Intitulé', esc(j.title))}${row('Service', esc(j.dept))}${row('Contrat et lieu', `${esc(j.contract)} · ${esc(j.location)}`)}${row('Arrivée souhaitée', fmtDate(j.startWanted))}${row('Priorité', esc(j.priority))}${row('Manager', esc(fullName(emp(j.managerId))))}${row('Statut et durée du travail', esc(statutText(j)))}${j.contract === 'CDD' ? row('CDD', esc(cddText(j))) : ''}</div>`)}
+        ${sec(1, 'Justification et budget', `<div class="info-grid">${row('Motif', `${esc(j.reason)}${j.replaces ? ` de ${esc(fullName(emp(j.replaces)))}` : ''}`)}${row('Salaire annuel brut', esc(j.budget))}${row('Prévu au budget', j.budgeted ? 'Oui' : 'Non')}${row('Alternatives étudiées', Object.keys(ALT_LABELS).filter((k) => j.alternatives[k]).map((k) => ALT_LABELS[k]).join(', '))}</div><div style="margin-top:10px">${needSalHTML(j)}</div><div style="margin-top:10px">${flowText(j.reason, j.budgeted)}</div>`)}
         ${sec(2, 'Fiche de cadrage', `<p style="margin:0">${sc.must.map(esc).join(' · ') || '<span class="muted">—</span>'}</p><p class="hint" style="margin:6px 0 0">${plural(sc.rounds, 'entretien prévu', 'entretiens prévus')}${sc.nice.length ? ` · atouts : ${sc.nice.map(esc).join(', ')}` : ''}</p>`)}
         ${sec(3, 'Missions et annonce', `<p style="margin:0">${esc(j.description) || '<span class="muted">—</span>'}</p><div style="margin-top:10px">${adLintHTML(j.title, j.description, false)}</div>`)}`;
     }
@@ -3568,18 +3700,20 @@
     const L = { Validée: ['Valider le besoin', 'Valider'], 'À modifier': ['Demander une modification', 'Renvoyer au demandeur'], Refusée: ['Refuser le besoin', 'Refuser'] }[m.d];
     const next = m.d === 'Validée' ? (!dir && needsDirection(j) ? `Le besoin sera ensuite transmis à la direction (${j.reason === 'Création de poste' ? 'création de poste' : 'poste hors budget'}).` : 'Le besoin sera validé : il restera à rédiger et publier l’offre.')
       : m.d === 'À modifier' ? `${esc(fullName(emp(j.requestedBy)))} pourra corriger sa demande et la renvoyer.` : 'Le demandeur sera prévenu du refus et de son motif.';
-    return formShell(`${L[0]} · ${esc(j.title)}`, 'need-decide', `${dir ? '<p class="hint" style="margin:0 0 10px">La direction n’a pas de profil dans cette démo : les RH enregistrent la décision de Claire Durand.</p>' : ''}<p style="margin:0 0 12px">${next}</p>
+    return formShell(`${L[0]} · ${esc(j.title)}`, 'need-decide', `${dir && me().id !== DIR_ID() ? `<p class="hint" style="margin:0 0 10px">Vous enregistrez la décision de ${esc(fullName(emp(DIR_ID())))} : le circuit indiquera « saisi par ${esc(fullName(me()))} » et ${esc(fullName(emp(DIR_ID())))} en sera prévenue.</p>` : ''}<p style="margin:0 0 12px">${next}</p>
       ${m.d === 'Refusée' ? `<div style="margin-bottom:12px">${f('nd-r', 'Motif du refus *', `<select id="nd-r" name="reason" class="select"><option value="">Choisir…</option>${opt(NEED_REFUSALS)}</select>`, true)}</div>` : ''}
       ${f('nd-c', m.d === 'À modifier' ? 'Commentaire pour le demandeur *' : 'Commentaire (facultatif)', '<textarea id="nd-c" name="comment" class="input" maxlength="300"></textarea>', true)}`, L[1]);
   };
   MODALS['need-publish'] = (m, shell, formShell, opt, f) => {
     const j = db.jobs.find((x) => x.id === m.id), sc = j.scorecard || { must: [], nice: [] }, rh = ui.profile === 'rh', a = j.ad;
-    const desc = a ? a.description : `${j.description}${sc.must.length && !j.description.includes('Compétences recherchées') ? `\n\nCompétences recherchées : ${sc.must.join(', ')}.` : ''}${sc.nice.length && !j.description.includes('Atouts') ? `\nAtouts appréciés : ${sc.nice.join(', ')}.` : ''}`, title = a ? a.title : j.title;
+    // Projet préparé à partir du besoin : missions, compétences, puis contrat, statut et rémunération (directive (UE) 2023/970, art. 5).
+    const desc = a ? a.description : `${j.description}${sc.must.length && !j.description.includes('Compétences recherchées') ? `\n\nCompétences recherchées : ${sc.must.join(', ')}.` : ''}${sc.nice.length && !j.description.includes('Atouts') ? `\nAtouts appréciés : ${sc.nice.join(', ')}.` : ''}`
+      + `\n\nContrat : ${j.contract === 'CDD' ? `CDD de ${plural(Number(j.cddMonths) || 0, 'mois', 'mois')}${j.cddTerm === 'imprecis' ? ' au moins' : ''} (${(j.cddCase || 'cas de recours à préciser').toLowerCase()})` : j.contract} · ${statutText(j).replace(/ \(convention individuelle.*\)$/, '')} · ${j.location}.\nRémunération : ${j.salaryMin ? `${eur0(j.salaryMin)} – ${eur0(j.salaryMax)} bruts par an` : j.budget}.`, title = a ? a.title : j.title;
     const who = a ? `Dernière modification par ${esc(fullName(emp(a.by)))} le ${fmtDate(a.at)}${adReady(j) ? ' · envoyé aux RH pour validation' : ''}.` : 'Projet préparé à partir du besoin et de la fiche de cadrage.';
     const btns = rh ? '<button class="btn ghost" name="go" value="save">Enregistrer le projet</button><button class="btn primary" name="go" value="publish">Valider et publier l’offre</button>'
       : `<button class="btn ghost" name="go" value="save">Enregistrer le projet</button><button class="btn primary" name="go" value="send">${adReady(j) ? 'Renvoyer aux RH' : 'Envoyer aux RH pour validation'}</button>`;
     return shell(rh ? 'Rédiger, valider et publier l’offre' : 'Rédiger l’offre', `<form data-form="need-publish" novalidate><div class="modal-b">
-      <p class="hint" style="margin:0 0 6px">Offre datée du ${fmtDate(TODAY)}, rédigée en français · ${esc(j.dept)} · ${esc(j.contract)} · ${esc(j.location)} · ${esc(j.budget)}</p>
+      <p class="hint" style="margin:0 0 6px">Offre datée du ${fmtDateY(TODAY)}, à rédiger en français · ${esc(j.dept)} · ${esc(cddText(j))} · ${esc(j.location)} · ${esc(j.budget)}</p>
       <p class="hint" style="margin:0 0 12px">${who} Rédaction partagée entre ${esc(fullName(emp(j.requestedBy)))} (demandeur) et les RH ; ${rh ? 'vous seuls pouvez la valider et la publier.' : 'seuls les RH peuvent la valider et la publier.'}</p>
       ${f('ad-title', 'Intitulé de l’offre', `<input id="ad-title" name="title" class="input" value="${esc(title)}" data-live="ad">`, true)}
       <div style="margin-top:12px">${f('ad-desc', 'Texte de l’annonce', `<textarea id="ad-desc" name="description" class="input" style="min-height:150px" data-live="ad">${esc(desc)}</textarea>`, true)}</div>
@@ -3611,7 +3745,7 @@
   const canEval = (iv) => ui.profile === 'rh' || iv.with === me().id;
   function pendingEvals() {
     const now = nowStamp();
-    return scopeCandidates().filter(activeCand).flatMap((c) => (c.interviews || []).filter((iv) => !iv.eval && iv.date <= now && canEval(iv)).map((iv) => ({ c, iv })));
+    return scopeCandidates().filter(activeCand).flatMap((c) => ivOn(c).filter((iv) => !iv.eval && iv.date <= now && canEval(iv)).map((iv) => ({ c, iv })));
   }
   function evalSummary(c, job) {
     const sc = job.scorecard || { must: [], rounds: 0 }, evals = (c.interviews || []).filter((iv) => iv.eval);
@@ -3629,6 +3763,11 @@
   // Modèles de messages aux candidats (l'envoi est simulé et tracé dans la fiche).
   let RGPD_NOTE = 'Vos données sont utilisées uniquement pour nos recrutements. Elles sont supprimées automatiquement 2 ans après notre dernier échange. Vous pouvez à tout moment demander leur suppression ou vous opposer à leur conservation en écrivant à rh@novastudio.fr.';
   const firstName = (c) => c.name.split(' ')[0];
+  // Information complète du candidat (art. 13 et 14 du RGPD) : responsable, finalité, base légale, destinataires, durée, droits, CNIL, source.
+  function rgpdNote(c) {
+    const src = c && c.source && !/^Site carrière/.test(c.source) ? ` Votre candidature nous est parvenue par : ${c.source.replace(/^Vivier · /, '').toLowerCase()}.` : '';
+    return `Vos données personnelles : ${COMPANY.entreprise}${COMPANY.entreprise_adresse ? ` (${COMPANY.entreprise_adresse})` : ''}, responsable du traitement, utilise les informations de votre candidature (CV, lettre, échanges, évaluations) uniquement pour gérer ses recrutements, sur la base des mesures précontractuelles prises à votre demande (art. 6.1.b du RGPD).${src} Seules les personnes chargées du recrutement (RH, manager et évaluateurs du poste) y ont accès. Elles sont conservées ${plural(RETENTION_YEARS, 'an', 'ans')} au plus après notre dernier échange, puis supprimées automatiquement. Vous pouvez y accéder, les faire rectifier ou effacer, vous opposer à leur conservation ou en limiter l’usage en écrivant à rh@${COMPANY.domaine} ; vous pouvez aussi adresser une réclamation à la CNIL (www.cnil.fr).`;
+  }
   let SIGN = '\n\nL’équipe RH de Nova Studio';
   // Les textes viennent des modèles rédigés par les RH (écran « Modèles de documents »).
   const MSG_TPL = {
@@ -3644,17 +3783,22 @@
 
   function hireFromOffer(c) {
     const job = db.jobs.find((j) => j.id === c.jobId), o = c.offer, [first, ...rest] = c.name.split(' '), internal = c.empId && emp(c.empId), id = internal ? c.empId : uid('e');
-    if (internal) { Object.assign(internal, { title: o.title, dept: job.dept, managerId: o.managerId, salary: o.salary }); db.history.push({ id: uid('h'), empId: id, date: o.startDate, label: 'Mobilité interne', detail: `${o.title} · ${job.dept}` }); }
-    else db.employees.push({ id, firstName: first, lastName: rest.join(' ') || first, title: o.title, dept: job.dept, managerId: o.managerId, stage: 2, startDate: o.startDate, contract: o.contract, salary: o.salary,
-      email: c.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, '').replace(/ +/g, '.') + `@${COMPANY.domaine}`, phone: c.phone, location: job.location.split(' ')[0], birthDate: '', address: '', emergency: '', cp: 0, rtt: 0, exit: null });
+    // Fiche de la recrue : intitulé sans « H/F », e-mail personnel du candidat, statut, durée du travail et, pour un CDD, cas de recours, motif, terme et personne remplacée.
+    const title = noHF(o.title), cddInfo = o.contract === 'CDD' ? { endDate: o.endDate || null, cddCase: o.cddCase, cddReason: o.cddReason, cddReplaces: o.cddReplaces || null, cddTerm: o.cddTerm, cddMinMonths: o.cddMinMonths || null } : { endDate: null };
+    const work = { category: o.category || jobCat(job), classification: o.classification || job.classification || '', hoursWeek: o.forfait ? null : o.hoursWeek || job.hoursWeek || 35, forfait: !!(o.forfait ?? job.forfait), essai: o.essai || '' };
+    if (internal) { Object.assign(internal, { title, dept: job.dept, managerId: o.managerId, salary: o.salary }); db.history.push({ id: uid('h'), empId: id, date: o.startDate, label: 'Mobilité interne', detail: `${title} · ${job.dept}` }); }
+    else db.employees.push(Object.assign({ id, firstName: first, lastName: rest.join(' ') || first, title, dept: job.dept, managerId: o.managerId, stage: 2, startDate: o.startDate, contract: o.contract, salary: o.salary,
+      email: c.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, '').replace(/ +/g, '.') + `@${COMPANY.domaine}`, personalEmail: /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c.email || '') ? c.email.toLowerCase() : '',
+      phone: c.phone === '—' ? '' : c.phone, location: job.location.split(' ')[0], birthDate: '', address: '', emergency: '', family: '', cp: 0, rtt: 0, exit: null, source: c.source }, work, cddInfo));
     normalizeEmployees(); Object.assign(o, { status: 'Acceptée', answeredAt: TODAY });
     Object.assign(c, { stage: 'Embauché', empId: id, hiredAt: TODAY });
     job.status = 'Pourvue';
     notify(o.managerId, `${c.name} a accepté la proposition : arrivée le ${fmtDate(o.startDate)} (${o.title}).`);
-    if (!internal) notify(id, `Bienvenue chez ${COMPANY.nom} ! Déposez vos documents dans « Mon arrivée » : votre contrat suivra.`);
-    logCand(c, 'Proposition acceptée : embauche');
+    // Espace salarié : tutoiement.
+    if (!internal) notify(id, `Bienvenue chez ${COMPANY.nom} ! Dépose tes documents dans « Mon arrivée » : ton contrat suivra.`);
+    logCand(c, `Proposition acceptée : embauche${!internal && emp(id).personalEmail ? ` · invitation à l’espace envoyée à ${emp(id).personalEmail} (envoi simulé)` : ''}`);
     const others = db.candidates.filter((x) => x.jobId === job.id && activeCand(x)).length;
-    toast(`${c.name} passe en pré-embauche et en embauche${others ? ` · pensez à répondre aux ${plural(others, 'autre candidat', 'autres candidats')}` : ''}`);
+    toast(`${c.name} passe en pré-embauche et en embauche${others ? ` · pensez à répondre ${others > 1 ? `aux ${others} autres candidats` : 'à l’autre candidat'}` : ''}`);
   }
 
   // Indicateurs d'une offre (affichés dans le Reporting RH).
@@ -3690,8 +3834,8 @@
   const colList = (c) => db.candidates.filter((x) => x.jobId === c.jobId && x.stage === c.stage && (candMatch(x) || x.id === c.id));
   // Carte candidat : nom, expérience, note, puis une seule ligne d'état (la plus importante).
   function candState(c) {
-    const next = (c.interviews || []).filter((iv) => iv.date.slice(0, 10) >= TODAY).sort((a, b) => a.date.localeCompare(b.date))[0];
-    const w = waitingDays(c), os = offerStatus(c.offer), late = (c.interviews || []).some((iv) => !iv.eval && iv.date <= nowStamp());
+    const next = ivOn(c).filter((iv) => iv.date.slice(0, 10) >= TODAY).sort((a, b) => a.date.localeCompare(b.date))[0];
+    const w = waitingDays(c), os = offerStatus(c.offer), late = ivOn(c).some((iv) => !iv.eval && iv.date <= nowStamp());
     if (c.stage === 'Proposition') return os ? [OFFER_PILL[os], `Proposition ${os.toLowerCase()}`] : ['accent', 'Proposition à préparer'];
     if (late) return ['warn', 'Évaluation à remplir'];
     if (w > ANSWER_DAYS) return ['bad', `Sans nouvelles · ${w} j`];
@@ -3751,7 +3895,9 @@
     const tabs = `<div class="tabs" role="tablist"><button type="button" role="tab" aria-selected="${tab === 'cands'}" data-act="offer-tab" data-t="cands">Candidats<span class="count num">${cands.filter(activeCand).length}</span></button><button type="button" role="tab" aria-selected="${tab === 'offre'}" data-act="offer-tab" data-t="offre">L’offre</button></div>`;
     let body;
     if (tab === 'offre') body = `<div class="two">${card('L’offre', '', `<div class="card-b"><p class="need-desc">${esc(job.description)}</p><div class="info-grid"><div><span>Contrat et lieu</span>${esc(job.contract)} · ${esc(job.location)}</div><div><span>Salaire annuel brut</span><span class="num">${esc(job.budget)}</span></div>
-        <div><span>Motif</span>${esc(job.reason)}</div><div><span>Publiée le</span>${fmtDate(pubDate(job) || job.createdAt)}</div></div><div class="toolbar" style="margin-top:14px"><button type="button" class="btn ghost sm" data-act="open-need" data-id="${job.id}">Voir le besoin d’origine${ic('arrow')}</button></div></div>`)}
+        <div><span>Motif</span>${esc(job.reason)}</div><div><span>Publiée le</span>${fmtDate(pubDate(job) || job.createdAt)}</div><div><span>Statut et durée du travail</span>${esc(statutText(job))}</div>${job.contract === 'CDD' ? `<div style="grid-column:1/-1"><span>Contrat à durée déterminée</span>${esc(cddText(job))}</div>` : ''}</div>
+        <div class="toolbar" style="margin-top:14px"><button type="button" class="btn ghost sm" data-act="open-need" data-id="${job.id}">Voir le besoin d’origine${ic('arrow')}</button>${rh && job.status === 'Ouverte' ? `<button type="button" class="btn ghost sm" data-act="ad-copy" data-id="${job.id}">${ic('file')}Copier le texte de l’annonce</button><button type="button" class="btn ghost sm" data-act="ad-txt" data-id="${job.id}">Télécharger (.txt)</button>` : ''}</div>
+        ${rh && job.status === 'Ouverte' ? '<p class="hint" style="margin:10px 0 0">Diffusion : la page carrière, France Travail et les jobboards ne sont pas reliés à ce prototype. Copiez le texte (avec la référence) pour le publier, puis ajoutez les candidatures reçues avec « Ajouter un candidat ».</p>' : ''}</div>`)}
       <div>${card('Fiche de cadrage', '', `<div class="card-b"><h4 class="sub">Compétences indispensables</h4>${sc.must.length ? `<ol class="crit-list">${sc.must.map((m) => `<li>${esc(m)}</li>`).join('')}</ol>` : '<p class="muted">—</p>'}<h4 class="sub" style="margin-top:14px">Atouts appréciés</h4>${sc.nice.length ? `<div class="tags">${sc.nice.map((m) => `<span class="pill neutral">${esc(m)}</span>`).join('')}</div>` : '<p class="muted">—</p>'}<p class="hint" style="margin:12px 0 0">${plural(sc.rounds || 0, 'entretien prévu', 'entretiens prévus')}</p></div>`)}
         <div style="margin-top:14px">${card('Équipe de recrutement', '', `<div class="card-b">${team}${invite ? `<div style="margin-top:12px">${invite.replace('id="rev-add"', 'id="rev-add2"').replace('for="rev-add"', 'for="rev-add2"')}</div>` : ''}</div>`)}</div></div></div>`;
     else {
@@ -3802,67 +3948,79 @@
     <p>Je serais heureux·se d’échanger avec vous lors d’un entretien.</p><p>Veuillez agréer, Madame, Monsieur, mes salutations distinguées.</p><p><b>${esc(c.name)}</b></p></div>`;
   function candFileView(c, job, f) {
     if (!f) return '<div class="paper empty">Aucun document de ce type.</div>';
-    if (f.data && /^data:image\//.test(f.data)) return `<img class="file-img" src="${f.data}" alt="${esc(f.name)}">`;
-    if (f.data) return `<embed class="file-pdf" src="${f.data}" type="application/pdf">`;
+    // Nom du fichier affiché au-dessus de l'aperçu (le visualiseur PDF montre sinon le contenu encodé), avec téléchargement.
+    const head = f.data ? `<div class="toolbar" style="justify-content:space-between;margin-bottom:8px"><b class="file-name">${ic('file')}${esc(f.name)}</b><a class="btn ghost sm" href="${f.data}" download="${esc(f.name)}">Télécharger</a></div>` : '';
+    if (f.data && /^data:image\//.test(f.data)) return `${head}<img class="file-img" src="${f.data}" alt="${esc(f.name)}">`;
+    if (f.data) return `${head}<embed class="file-pdf" src="${f.data}" type="application/pdf" title="${esc(f.name)}">`;
     if (f.kind === 'cv' && !f.uploaded) return cvDoc(c, job);
     if (f.kind === 'lm' && !f.uploaded) return lmDoc(c, job);
     return `<div class="paper file-ph">${ic('file')}<b>${esc(f.name)}</b><span>${esc(f.label || FILE_KINDS[f.kind])} joint à la candidature. Aperçu non disponible dans la démonstration.</span></div>`;
   }
   function candDrawer(c) {
     const job = db.jobs.find((j) => j.id === c.jobId), rh = ui.profile === 'rh', os = offerStatus(c.offer), { sc, evals, avg, recos } = evalSummary(c, job), act = activeCand(c);
-    const interviewers = db.employees.filter((e) => ((e.dept === job.dept || e.dept === 'RH') && isEmployed(e)) || (job.reviewers || []).includes(e.id)), now = nowStamp(), w = waitingDays(c);
+    // Interviewers : RH, managers (responsables de service ou d'équipe) et évaluateurs invités ; ni stagiaires ni alternants.
+    const isMgr = (e) => Object.values(DEPT_HEAD).includes(e.id) || db.employees.some((x) => x.managerId === e.id && x.stage < 15);
+    const interviewers = db.employees.filter((e) => isEmployed(e) && !['Stage', 'Alternance'].includes(e.contract) && (e.dept === 'RH' || ((e.dept === job.dept || e.id === jobManager(job)) && isMgr(e)) || (job.reviewers || []).includes(e.id))), now = nowStamp(), w = waitingDays(c);
     const offerActive = c.offer && ['Envoyée', 'Expirée'].includes(os);
     const files = c.files || [], cur = files.find((f, k) => `${f.kind}-${k}` === ui.drawer.doc) || files[0], curKey = cur ? `${cur.kind}-${files.indexOf(cur)}` : '';
     const list = colList(c), idx = list.indexOf(c), prev = list[idx - 1], next = list[idx + 1];
     const nav = `<div class="cand-nav"><button type="button" class="icon-btn" data-act="cand-go" data-id="${prev ? prev.id : ''}" ${prev ? '' : 'disabled'} aria-label="Candidat précédent" title="Candidat précédent (←)">${ic('left')}</button><span class="num">${idx + 1} / ${list.length}<small>${esc(c.stage)}</small></span><button type="button" class="icon-btn" data-act="cand-go" data-id="${next ? next.id : ''}" ${next ? '' : 'disabled'} aria-label="Candidat suivant" title="Candidat suivant (→)">${ic('right')}</button></div>`;
     // Prochaine étape : une action principale selon la situation ; la proposition et le refus sont faits par les RH.
-    const myEval = (c.interviews || []).filter((iv) => !iv.eval && iv.date <= now && canEval(iv)).sort((a, b) => a.date.localeCompare(b.date))[0];
-    const upcoming = (c.interviews || []).filter((iv) => iv.date > now).sort((a, b) => a.date.localeCompare(b.date))[0];
+    const myEval = ivOn(c).filter((iv) => !iv.eval && iv.date <= now && canEval(iv)).sort((a, b) => a.date.localeCompare(b.date))[0];
+    const upcoming = ivOn(c).filter((iv) => iv.date > now).sort((a, b) => a.date.localeCompare(b.date))[0];
     const b = (actName, label, extra = '', cls = 'ghost sm') => `<button type="button" class="btn ${cls}" data-act="${actName}" data-id="${c.id}" ${extra}>${label}</button>`;
     const refuse = act && rh && !offerActive ? b('cand-move', 'Refuser', 'data-s="Refusé"', 'ghost sm bad-t') : '';
     const write = act && rh ? b('cand-msg', 'Écrire') : '';
     let step = '', why = '', main = '', more = '', cls = '';
     if (c.stage === 'Embauché') { cls = 'done'; step = 'Embauché·e'; why = `Proposition acceptée le ${fmtDate(c.hiredAt || TODAY)}`; main = c.empId ? `<button type="button" class="btn primary" data-act="open-dossier" data-id="${c.empId}">Ouvrir le dossier d’arrivée${ic('arrow')}</button>` : ''; }
     else if (c.stage === 'Refusé') { cls = 'closed'; step = c.refusal && c.refusal.declined ? 'Proposition déclinée' : 'Candidature non retenue'; why = c.refusal ? `${c.refusal.reason} · le ${fmtDate(c.refusal.date)}` : ''; }
-    else if (myEval) { cls = 'mine'; step = `Évaluer l’${myEval.kind.toLowerCase()} du ${fmtShort(myEval.date.slice(0, 10))}`; why = 'À vous · notez chaque compétence avec un fait observé'; main = b('iv-eval', 'Évaluer', `data-iv="${myEval.id}"`, 'primary'); more = refuse + write; }
+    else if (myEval) { cls = 'mine'; step = `Évaluer ${ivThe(myEval.kind)} du ${fmtShort(myEval.date.slice(0, 10))}`; why = 'À vous · notez chaque compétence avec un fait observé, ou indiquez qu’il n’a pas eu lieu (onglet Entretiens)'; main = b('iv-eval', 'Évaluer', `data-iv="${myEval.id}"`, 'primary'); more = b('iv-cancel', 'Non tenu ou annulé', `data-iv="${myEval.id}"`) + refuse + write; }
     else if (c.stage === 'Proposition' && rh && offerActive) { cls = 'mine'; step = 'Enregistrer la réponse du candidat'; why = `Proposition ${os.toLowerCase()} · réponse attendue avant le ${fmtDate(c.offer.deadline)}`;
       main = b('offer-accept', `${ic('check')}Acceptée : embaucher`, '', 'primary'); more = b('offer-decline', 'Déclinée') + (os === 'Expirée' ? b('offer-extend', 'Prolonger de 7 jours') : '') + b('offer-withdraw', 'Retirer') + write; }
     else if (c.stage === 'Proposition' && rh) { cls = 'mine'; step = 'Préparer la proposition d’embauche'; why = os ? `Proposition précédente ${os.toLowerCase()}` : 'Candidat choisi'; main = b('offer-new', `${ic('file')}Préparer la proposition`, '', 'primary'); more = refuse + write; }
     else if (c.stage === 'Proposition') { step = 'Proposition d’embauche'; why = 'Candidat choisi : les RH préparent la proposition.'; }
     else if (c.stage === 'Reçue') { cls = 'mine'; step = 'Trier la candidature'; why = `Reçue le ${fmtDate(c.appliedAt)} · lisez le CV et la lettre à gauche`; main = b('cand-next', `Présélectionner${ic('arrow')}`, '', 'primary'); more = refuse + write; }
-    else if (upcoming) { step = `${upcoming.kind} le ${fmtDate(upcoming.date.slice(0, 10), { weekday: 'long', day: 'numeric', month: 'long' })} à ${upcoming.date.slice(11, 16)}`; why = `Avec ${fullName(emp(upcoming.with))} · l’évaluation sera demandée après l’entretien`;
+    else if (upcoming) { step = `${upcoming.kind} le ${fmtDateY(upcoming.date.slice(0, 10), { weekday: 'long', month: 'long' })} à ${upcoming.date.slice(11, 16)}`; why = `Avec ${fullName(emp(upcoming.with))} · l’évaluation sera demandée après l’entretien`;
       main = b('cand-next', `${rh ? 'Préparer la proposition' : 'Choisir ce candidat'}${ic('arrow')}`); more = b('cand-plan', `${ic('calendar')}Autre entretien`) + refuse + write; }
     else if (c.stage === 'Présélection') { cls = 'mine'; step = 'Planifier un entretien'; why = 'Profil présélectionné'; main = b('cand-plan', `${ic('calendar')}Planifier un entretien`, '', 'primary'); more = b('cand-next', 'Passer à « Entretien »') + refuse + write; }
     else { cls = 'mine'; step = rh ? 'Décider de la suite' : 'Donner votre choix'; why = `${plural(evals.length, 'entretien évalué', 'entretiens évalués')} sur ${sc.rounds || 0} prévus`; main = b('cand-next', `${rh ? 'Préparer la proposition' : 'Choisir ce candidat'}${ic('arrow')}`, '', 'primary'); more = b('cand-plan', `${ic('calendar')}Autre entretien`) + refuse + write; }
     if (w > ANSWER_DAYS && act) why += ` · sans nouvelles depuis ${w} jours`;
     const banner = `<div class="next-step ${cls}"><div><small>${cls === 'done' || cls === 'closed' ? 'CANDIDATURE' : 'PROCHAINE ÉTAPE'}</small><b>${esc(step)}</b>${why ? `<span>${esc(why)}</span>` : ''}</div>${main || more ? `<div class="toolbar">${main}${more}</div>` : ''}</div>`;
-    const offerBox = c.offer ? `<div class="offer-box"><div><b>Proposition · ${esc(c.offer.title)} (${esc(c.offer.contract)})</b><small><span class="num">${eur0(c.offer.salary)}</span> bruts annuels · entrée le ${fmtDate(c.offer.startDate)} · réponse avant le ${fmtDate(c.offer.deadline)}</small>
-        ${c.offer.salary > job.salaryMax ? `<small class="warn-t">Au-dessus de la fourchette validée (${esc(job.budget)})</small>` : ''}</div><span class="pill ${OFFER_PILL[os]}">${os}</span>${b('offer-doc', `${ic('file')}Voir`)}</div>` : '';
+    const offerBox = c.offer ? `<div class="offer-box"><div><b>Proposition · ${esc(c.offer.title)} (${esc(c.offer.contract)})</b><small><span class="num">${eur0(c.offer.salary)}</span> bruts annuels · entrée le ${fmtDate(c.offer.startDate)}${c.offer.endDate ? ` · fin le ${fmtDateY(c.offer.endDate)}` : ''} · réponse avant le ${fmtDate(c.offer.deadline)}</small>
+        ${c.offer.salary > job.salaryMax ? `<small class="warn-t">Au-dessus de la fourchette validée (${esc(job.budget)})${c.offer.dirApproval ? ` · accord de ${esc(fullName(emp(c.offer.dirApproval.by)))} du ${fmtDateY(c.offer.dirApproval.date)}, saisi par ${esc(fullName(emp(c.offer.dirApproval.enteredBy)))}` : ''}</small>` : ''}</div><span class="pill ${OFFER_PILL[os]}">${os}</span>${b('offer-doc', `${ic('file')}Voir`)}</div>` : '';
     const tab = ['evaluation', 'entretiens', 'echanges', 'profil', 'historique'].includes(ui.drawer.tab) ? ui.drawer.tab : 'evaluation';
-    const tabs = [['evaluation', 'Évaluation'], ['entretiens', 'Entretiens', (c.interviews || []).length], ['echanges', 'Échanges', (c.messages || []).length], ['profil', 'Profil'], ['historique', 'Historique']];
+    const tabs = [['evaluation', 'Évaluation'], ['entretiens', 'Entretiens', ivOn(c).length], ['echanges', 'Échanges', (c.messages || []).length], ['profil', 'Profil'], ['historique', 'Historique']];
     let body = '';
     if (tab === 'evaluation') body = sc.must.length ? `<div class="toolbar" style="justify-content:space-between;margin-bottom:8px"><span class="muted" style="font-size:13px">${evalGauge(c, job)}</span>${evals.length ? `<div class="tags">${Object.entries(recos).map(([r, n]) => `<span class="pill ${RECO_PILL[r]}">${plural(n, `avis ${r.toLowerCase()}`, `avis ${r.toLowerCase()}s`)}</span>`).join('')}</div>` : ''}</div>
       <div class="crit">${sc.must.map((m, k) => `<div class="crit-row"><span>${esc(m)}</span>${avg[k] ? `<span class="crit-v">${stars(Math.round(avg[k]))}<small class="num">${avg[k].toFixed(1).replace('.', ',')}</small></span>` : '<span class="muted">—</span>'}</div>`).join('')}
       <div class="crit-row total"><span>Note globale</span>${c.score ? stars(c.score) : '<span class="muted">À évaluer</span>'}</div></div>${evals.length ? '' : '<p class="hint" style="margin:10px 0 0">Les notes viennent des évaluations remplies après chaque entretien.</p>'}` : '<p class="muted">Aucune fiche de cadrage pour cette offre.</p>';
     if (tab === 'entretiens') {
+      const editIv = typeof ui.drawer.plan === 'string' && (c.interviews || []).find((x) => x.id === ui.drawer.plan);
       const ivs = (c.interviews || []).slice().sort((a, x) => a.date.localeCompare(x.date)).map((iv) => {
-        const past = iv.date <= now, e = iv.eval;
-        const state = e ? `<span class="pill ${RECO_PILL[e.reco]}">${e.reco}</span>` : past ? (canEval(iv) && act ? `<button type="button" class="btn primary sm" data-act="iv-eval" data-id="${c.id}" data-iv="${iv.id}">Évaluer</button>` : '<span class="pill warn">Évaluation attendue</span>') : '<span class="pill info">Prévu</span>';
-        return `<div class="todo iv"><div class="t"><b>${esc(iv.kind)}</b><small>${fmtDate(iv.date.slice(0, 10), { weekday: 'long', day: 'numeric', month: 'long' })} à ${iv.date.slice(11, 16)} · avec ${esc(fullName(emp(iv.with)))}</small>
+        const past = iv.date <= now, e = iv.eval, mine = act && !e && !iv.status && (rh || iv.with === me().id);
+        // Entretien annulé ou non tenu : il ne bloque plus la suite du recrutement.
+        const ctl = mine ? `<button type="button" class="btn ghost sm" data-act="iv-move" data-id="${c.id}" data-iv="${iv.id}">Reporter</button><button type="button" class="btn ghost sm" data-act="iv-cancel" data-id="${c.id}" data-iv="${iv.id}">${past ? 'Non tenu ou annulé' : 'Annuler'}</button>` : '';
+        const state = iv.status ? `<span class="pill neutral">${esc(iv.status)}</span>` : e ? `<span class="pill ${RECO_PILL[e.reco]}">${e.reco}</span>` : past ? (canEval(iv) && act ? `<button type="button" class="btn primary sm" data-act="iv-eval" data-id="${c.id}" data-iv="${iv.id}">Évaluer</button>` : '<span class="pill warn">Évaluation attendue</span>') : '<span class="pill info">Prévu</span>';
+        return `<div class="todo iv"><div class="t"><b>${esc(iv.kind)}</b><small>${fmtDateY(iv.date.slice(0, 10), { weekday: 'long', month: 'long' })} à ${iv.date.slice(11, 16)} · avec ${esc(fullName(emp(iv.with)))}${iv.place ? ` · ${esc(iv.place)}` : ''}</small>
+          ${iv.status && iv.cancel ? `<small class="muted">${esc(iv.cancel.reason)} · le ${fmtDateY(iv.cancel.date)}</small>` : ''}${ctl ? `<div class="toolbar" style="margin-top:6px">${ctl}</div>` : ''}
           ${e ? `<details><summary>Voir l’évaluation du ${fmtShort(e.date)}</summary>${sc.must.map((m, k) => `<p><b>${esc(m)} · ${e.ratings[k]}/5</b><br>« ${esc(e.evidence[k])} »</p>`).join('')}${e.comment ? `<p class="muted">${esc(e.comment)}</p>` : ''}</details>` : ''}</div>${state}</div>`; }).join('');
       body = `${ivs || '<p class="muted" style="margin:0 0 6px">Aucun entretien planifié.</p>'}
-        ${act ? (ui.drawer.plan ? `<form data-form="interview" data-id="${c.id}" class="plan-form" novalidate><div class="form-grid"><div class="field"><label for="iv-date">Date et heure</label><input id="iv-date" name="date" type="datetime-local" class="input" value="${nextMonday(TODAY)}T10:00"></div>
-          <div class="field"><label for="iv-with">Avec</label><select id="iv-with" name="with" class="select">${interviewers.map((e) => `<option value="${e.id}" ${e.id === me().id ? 'selected' : ''}>${esc(fullName(e))}</option>`).join('')}</select></div>
-          <div class="field"><label for="iv-kind">Type</label><select id="iv-kind" name="kind" class="select">${['Entretien RH', 'Entretien manager', 'Test technique', 'Entretien final'].map((k) => `<option>${k}</option>`).join('')}</select></div>
-          <label class="full" style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="convoc" checked> Envoyer la convocation au candidat</label></div>
-          <div class="toolbar" style="margin-top:10px;justify-content:flex-end"><button type="button" class="btn ghost sm" data-act="cand-plan-x">Annuler</button><button class="btn primary sm">${ic('calendar')}Planifier</button></div></form>`
+        ${act ? (ui.drawer.plan ? `<form data-form="interview" data-id="${c.id}" ${editIv ? `data-iv="${editIv.id}"` : ''} class="plan-form" novalidate>${editIv ? `<p class="hint" style="margin:0 0 8px">Report de ${esc(ivThe(editIv.kind))} prévu le ${fmtDateY(editIv.date.slice(0, 10))} à ${editIv.date.slice(11, 16)}.</p>` : ''}<div class="form-grid"><div class="field"><label for="iv-date">Date et heure *</label><input id="iv-date" name="date" type="datetime-local" class="input" min="${now}" value="${editIv ? editIv.date : `${nextMonday(TODAY)}T10:00`}"></div>
+          <div class="field"><label for="iv-with">Avec</label><select id="iv-with" name="with" class="select">${interviewers.map((e) => `<option value="${e.id}" ${e.id === (editIv ? editIv.with : me().id) ? 'selected' : ''}>${esc(fullName(e))}</option>`).join('')}</select></div>
+          <div class="field"><label for="iv-kind">Type</label><select id="iv-kind" name="kind" class="select">${['Entretien RH', 'Entretien manager', 'Test technique', 'Entretien final'].map((k) => `<option ${editIv && editIv.kind === k ? 'selected' : ''}>${k}</option>`).join('')}</select></div>
+          <div class="field"><label for="iv-place">Lieu ou lien de visio *</label><input id="iv-place" name="place" class="input" maxlength="160" value="${esc(editIv ? editIv.place || '' : `${COMPANY.entreprise_adresse || COMPANY.ville || ''}`)}" placeholder="Adresse, salle, ou lien de visioconférence"></div>
+          <div class="field full"><label for="iv-method">Déroulé et méthodes d’évaluation (obligatoire pour un test)</label><input id="iv-method" name="method" class="input" maxlength="200" value="${esc(editIv ? editIv.method || '' : '')}" placeholder="Ex. exercice pratique de 45 minutes sur un brief, présenté au manager"><small class="hint" style="display:block;margin-top:4px">Le candidat est informé à l’avance des méthodes et techniques d’aide au recrutement utilisées (art. L1221-8).</small></div>
+          <label class="full" style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="convoc" checked> ${editIv ? 'Prévenir le candidat du report' : 'Envoyer la convocation au candidat'}</label></div>
+          <div class="toolbar" style="margin-top:10px;justify-content:flex-end"><button type="button" class="btn ghost sm" data-act="cand-plan-x">Annuler</button><button class="btn primary sm">${ic('calendar')}${editIv ? 'Reporter' : 'Planifier'}</button></div></form>`
           : `<div class="toolbar" style="margin-top:12px">${b('cand-plan', `${ic('calendar')}Planifier un entretien`)}</div>`) : ''}`;
     }
     if (tab === 'echanges') body = `${rh && act ? `<div class="toolbar" style="margin-bottom:8px">${b('cand-msg', 'Écrire au candidat', '', 'primary sm')}</div>` : ''}${(c.messages || []).slice().reverse().map((m) => `<div class="msg"><div><b>${esc(m.subject || MSG_TPL[m.kind]?.[0] || 'Message')}</b><small>${fmtDate(m.date)}</small></div>${m.body ? `<details><summary>Lire</summary><p>${esc(m.body).replace(/\n/g, '<br>')}</p></details>` : ''}</div>`).join('') || '<p class="muted" style="margin:0">Aucun message envoyé.</p>'}
       <p class="hint rgpd">${ic('check').replace('<svg', '<svg style="width:13px;height:13px;vertical-align:-2px"')} Dernier contact le ${fmtDate(lastContact(c))}${c.stage === 'Embauché' ? ' · dossier rattaché à la fiche collaborateur' : ` · suppression automatique le ${fmtDate(purgeDate(c))}${c.stage === 'Refusé' ? (c.pool ? ' · dans le vivier' : ' · hors vivier') : ''}`}</p>`;
     if (tab === 'profil') body = `<div class="info-grid"><div><span>E-mail</span>${esc(c.email)}</div><div><span>Téléphone</span>${esc(c.phone)}</div><div><span>Source</span>${esc(c.source)}</div><div><span>Candidature reçue le</span>${fmtDate(c.appliedAt)}</div><div style="grid-column:1/-1"><span>Expérience</span>${esc(c.experience) || '—'}</div></div>
+      ${rh ? `<div class="rgpd-box" style="margin-top:14px"><h4 class="sub">Droits du candidat (RGPD)</h4><div class="toolbar">${b('cand-export', 'Exporter ses données')}${c.stage !== 'Embauché' ? b('cand-erase', 'Supprimer à sa demande', '', 'ghost sm bad-t') : ''}${c.stage === 'Refusé' && c.pool ? b('cand-unpool', 'Retirer du vivier (opposition)') : ''}</div>
+        <p class="hint" style="margin:6px 0 0">Accès et portabilité (art. 15 et 20) : export de tout son dossier. Effacement (art. 17) : suppression définitive, tracée sans conserver ses données.${c.stage === 'Embauché' ? ' Candidat embauché : son dossier relève désormais de la fiche collaborateur.' : ''}</p></div>` : ''}
       ${act && rh ? `<div class="field" style="margin-top:14px;max-width:260px"><label for="c-stage">Étape (changement direct)</label><select id="c-stage" class="select" data-change="cand-stage" data-id="${c.id}">${CAND_STAGES.filter((x) => x !== 'Embauché').map((x) => `<option ${x === c.stage ? 'selected' : ''}>${x}</option>`).join('')}</select></div>` : ''}
-      <form data-form="cand-note" data-id="${c.id}" style="margin-top:16px"><label class="sub" for="c-notes" style="display:block;margin-bottom:6px">Notes</label><textarea id="c-notes" name="notes" class="input" placeholder="Impressions, points forts, points à creuser…">${esc(c.notes)}</textarea><div class="toolbar" style="margin-top:8px;justify-content:flex-end"><button class="btn ghost sm">Enregistrer la note</button></div></form>`;
+      <form data-form="cand-note" data-id="${c.id}" style="margin-top:16px"><label class="sub" for="c-notes" style="display:block;margin-bottom:6px">Notes</label><textarea id="c-notes" name="notes" class="input" placeholder="Faits observés, points forts, points à creuser…">${esc(c.notesDraft ?? c.notes)}</textarea>${freeLintHTML(c.notesDraft ?? c.notes)}<p class="hint" style="margin:6px 0 0">Le candidat peut demander à lire ces notes (art. 15 du RGPD) : ne notez que ce qui concerne le poste.</p><div class="toolbar" style="margin-top:8px;justify-content:flex-end"><button class="btn ghost sm">Enregistrer la note</button></div></form>`;
     if (tab === 'historique') body = historyRows([{ date: c.appliedAt, by: 'e1', text: `Candidature reçue (${c.source})` }].concat(c.log || []));
     const side = `${banner}${offerBox}<div class="tabs" role="tablist">${tabs.map(([k, l, n]) => `<button type="button" role="tab" aria-selected="${tab === k}" data-act="cand-tab" data-t="${k}">${l}${n ? `<span class="count num">${n}</span>` : ''}</button>`).join('')}</div><div class="need-tab-b">${body}</div>`;
     return `<div class="drawer-h">${avatarName(c.id, c.name, 'lg')}<div style="min-width:0"><h2>${esc(c.name)}</h2><p><span class="ref num">${jobRef(job)}</span> ${esc(job.title)}</p><div class="toolbar" style="margin-top:6px"><span class="pill accent">${esc(c.stage)}</span>${w > ANSWER_DAYS ? `<span class="pill bad">Sans nouvelles depuis ${w} jours</span>` : ''}</div></div>
@@ -3872,6 +4030,10 @@
       <div class="drawer-b cand-side">${side}</div></div>`;
   }
 
+  // Texte de l'annonce prêt à diffuser (référence, entreprise, contrat, rémunération, lieu).
+  const adText = (j) => `${j.title} · ${COMPANY.nom} · réf. ${jobRef(j)}\n${j.contract === 'CDD' ? `CDD de ${plural(Number(j.cddMonths) || 0, 'mois', 'mois')}` : j.contract} · ${j.location}\nPubliée le ${fmtDateY(pubDate(j) || j.createdAt)}\n\n${j.description}\n\nCandidature : rh@${COMPANY.domaine} (réf. ${jobRef(j)})`;
+  const ivOn = (c) => (c.interviews || []).filter((iv) => !iv.status);
+  const ivThe = (k) => (/^[aeiouéèêh]/i.test(k) ? `l’${k.toLowerCase()}` : `le ${k.toLowerCase()}`);
   const findCand = (id) => db.candidates.find((x) => x.id === id);
   const candJob = (c) => db.jobs.find((j) => j.id === c.jobId);
   Object.assign(MOD_ACT, {
@@ -3879,19 +4041,34 @@
     'rec-tab'(d) { ui.recTab = d.t; if (d.t === 'offres') ui.recJob = null; window.scrollTo(0, 0); render(); },
     'offer-back'() { ui.recJob = null; render(); },
     'offer-tab'(d) { ui.offerTab = d.t; render(); },
+    'ad-copy'(d) { const j = db.jobs.find((x) => x.id === d.id), t = adText(j); try { navigator.clipboard.writeText(t).then(() => toast('Texte de l’annonce copié'), () => toast('Copie impossible : utilisez « Télécharger (.txt) ».', 'info')); } catch (e) { toast('Copie impossible : utilisez « Télécharger (.txt) ».', 'info'); } logTo(j, 'Texte de l’annonce copié pour diffusion'); save(); },
+    'ad-txt'(d) { const j = db.jobs.find((x) => x.id === d.id), a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([adText(j)], { type: 'text/plain;charset=utf-8' })); a.download = `${jobRef(j)}.txt`; a.click(); logTo(j, 'Texte de l’annonce téléchargé pour diffusion'); save(); },
     'offer-sort'(d) { if (ui.oSort === d.k) ui.oDir *= -1; else { ui.oSort = d.k; ui.oDir = ['active', 'todo', 'since'].includes(d.k) ? -1 : 1; } render(); },
     'col-toggle'(d) { ui.colOpen = Object.assign({}, ui.colOpen, { [d.s]: !(ui.colOpen || {})[d.s] }); render(); },
     'cand-tab'(d) { ui.drawer.tab = d.t; render(); },
     'cand-plan'() { Object.assign(ui.drawer, { tab: 'entretiens', plan: true }); render(); },
     'cand-plan-x'() { ui.drawer.plan = false; render(); },
+    'iv-move'(d) { Object.assign(ui.drawer, { tab: 'entretiens', plan: d.iv }); render(); },
+    // Entretien annulé (par l'entreprise ou le candidat) ou non tenu : tracé, message au candidat, plus d'évaluation attendue.
+    'iv-cancel'(d) {
+      const c = findCand(d.id), iv = c.interviews.find((x) => x.id === d.iv), past = iv.date <= nowStamp();
+      confirmAct({ title: `${past ? 'Entretien non tenu ou annulé' : 'Annuler l’entretien'} · ${esc(c.name)}`, act: 'iv-cancel', trace: `${iv.kind} du ${fmtDateY(iv.date.slice(0, 10))} annulé`, candId: c.id, confirm: 'Enregistrer',
+        text: `<p>${esc(iv.kind)} du ${fmtDateY(iv.date.slice(0, 10), { weekday: 'long', month: 'long' })} à ${iv.date.slice(11, 16)} avec ${esc(fullName(emp(iv.with)))}. Il ne sera plus demandé d’évaluation pour cet entretien ; vous pourrez en planifier un autre.</p>`,
+        fields: [{ name: 'reason', type: 'select', label: 'Motif', value: past ? 'Non tenu : candidat absent' : 'Annulé par l’entreprise', options: ['Annulé par l’entreprise', 'Annulé à la demande du candidat', 'Non tenu : candidat absent', 'Planifié par erreur'] },
+          { name: 'send', type: 'check', label: 'Prévenir le candidat (message d’annulation)', value: !past }] },
+      (v) => {
+        const x = findCand(d.id), y = x.interviews.find((z) => z.id === d.iv);
+        Object.assign(y, { status: /Non tenu/.test(v.reason) ? 'Non tenu' : 'Annulé', cancel: { reason: v.reason, date: TODAY, by: me().id } });
+        if (v.send) sendMsg(x, 'annulation', ...tplMsg('msg-annulation', candCtx(x, candJob(x), { iv: y })));
+        if (y.with !== me().id) notify(y.with, `${y.kind} avec ${x.name} du ${fmtDateY(y.date.slice(0, 10))} : ${v.reason.toLowerCase()}.`);
+        toast(`${y.kind} : ${y.status.toLowerCase()}${v.send ? ' · candidat prévenu' : ''}`); commit();
+      });
+    },
     'cand-go'(d) { if (d.id) { ui.drawer = { type: 'cand', id: d.id, doc: null, tab: ui.drawer.tab }; render(); } },
     'cand-doc'(d) { ui.drawer.doc = d.k; render(); },
     // Étape suivante depuis la visionneuse : on enchaîne ensuite sur le candidat suivant de la même colonne.
-    'cand-next'(d) {
-      const c = findCand(d.id), from = c.stage, list = colList(c), k = list.indexOf(c), after = list[k + 1] || list[k - 1];
-      moveCandidate(c.id, NEXT_STAGE[from]);
-      if (!ui.modal && c.stage !== from && after && ui.drawer) { ui.drawer = { type: 'cand', id: after.id, doc: null, tab: ui.drawer.tab }; render(); }
-    },
+    // On reste sur le candidat après l'action (retour clair) ; les flèches mènent au suivant de la colonne.
+    'cand-next'(d) { const c = findCand(d.id); moveCandidate(c.id, NEXT_STAGE[c.stage]); },
     'rev-del'(d) { const j = db.jobs.find((x) => x.id === d.id); j.reviewers = (j.reviewers || []).filter((x) => x !== d.e); logTo(j, `Évaluateur retiré : ${fullName(emp(d.e))}`); toast('Évaluateur retiré'); commit(); },
     'go-pay-tab'(d) { Object.assign(ui, { view: 'paie', stage: null, payTab: d.t }); window.scrollTo(0, 0); render(); },
     'go-admin-tab'(d) { Object.assign(ui, { view: 'collaborateurs', stage: null, adminTab: d.t }); window.scrollTo(0, 0); render(); },
@@ -3906,10 +4083,33 @@
         text: `<p>L’acceptation de la proposition forme le contrat de travail. ${esc(c.name)} passe en pré-embauche et en embauche (arrivée le ${fmtDateY(o.startDate)}) et l’offre devient « Pourvue ». Ce choix ne pourra pas être annulé ici.</p>`,
         fields: [{ name: 'date', type: 'date', label: 'Date de l’acceptation', value: TODAY, required: true, guard: { notAfter: { date: TODAY, label: 'aujourd’hui' }, notBefore: o.sentAt ? { date: o.sentAt, label: 'l’envoi de la proposition' } : null } },
           { name: 'channel', type: 'select', label: 'Acceptation reçue par', options: ['E-mail', 'Lettre signée', 'Signature électronique', 'Oral, confirmé par écrit'], value: 'E-mail' },
+          { name: 'proof', type: 'text', required: true, label: 'Preuve conservée', hint: 'Ex. « e-mail du candidat du 28 octobre, classé au dossier ». Le dépôt du fichier se fait dans le dossier d’arrivée.' },
           { name: 'attest', type: 'check', required: true, label: 'J’atteste avoir reçu l’acceptation du candidat et la conserver au dossier' }] },
-      (v) => { const x = findCand(d.id); hireFromOffer(x); Object.assign(x.offer, { answeredAt: v.date, channel: v.channel }); commit(); });
+      (v) => { const x = findCand(d.id); hireFromOffer(x); Object.assign(x.offer, { answeredAt: v.date, channel: v.channel, proof: v.proof }); commit(); });
     },
     'offer-decline'(d) { ui.modal = { type: 'offer-decline', id: d.id }; render(); },
+    // RGPD : export du dossier (accès, portabilité) et suppression à la demande (effacement), tracés.
+    'cand-export'(d) {
+      const c = findCand(d.id), j = candJob(c), data = { exportéLe: TODAY, responsable: COMPANY.entreprise, offre: j ? `${jobRef(j)} · ${j.title}` : '', candidature: Object.assign({}, c, { files: (c.files || []).map((f) => ({ type: f.label || FILE_KINDS[f.kind], nom: f.name })) }) };
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })); a.download = `donnees-candidat-${c.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]+/g, '-')}.json`; a.click();
+      logCand(c, 'Export de ses données (droit d’accès)'); toast('Données exportées (fichier JSON à transmettre au candidat)'); commit();
+    },
+    'cand-erase'(d) {
+      const c = findCand(d.id);
+      confirmAct({ title: `Supprimer le dossier de ${esc(c.name)} ?`, act: 'cand-erase', danger: true, confirm: 'Supprimer définitivement',
+        text: '<p>Le dossier (coordonnées, documents, échanges, évaluations, notes) est effacé de toutes les offres. Seule une trace anonyme de la demande est gardée. Cette action ne peut pas être annulée.</p>',
+        fields: [{ name: 'date', type: 'date', label: 'Date de la demande', value: TODAY, required: true, guard: { notAfter: { date: TODAY, label: 'aujourd’hui' }, notBefore: { date: c.appliedAt, label: 'la candidature' } } },
+          { name: 'channel', type: 'select', label: 'Demande reçue par', options: ['E-mail', 'Courrier', 'Téléphone, confirmé par écrit'], value: 'E-mail' },
+          { name: 'confirm', type: 'check', required: true, label: 'Le candidat a demandé l’effacement de ses données' }] },
+      (v) => {
+        const x = findCand(d.id), j = candJob(x);
+        db.candidates = db.candidates.filter((y) => y.id !== d.id);
+        db.rgpdLog = [{ date: TODAY, requestedAt: v.date, channel: v.channel, by: me().id, what: 'Effacement à la demande du candidat', offer: j ? jobRef(j) : '' }].concat(db.rgpdLog || []);
+        if (ui.drawer && ui.drawer.id === d.id) ui.drawer = null;
+        toast('Dossier supprimé · trace anonyme conservée'); commit();
+      });
+    },
+    'cand-unpool'(d) { const c = findCand(d.id); c.pool = false; logCand(c, 'Retiré du vivier (opposition du candidat)'); toast(`${c.name} n’est plus dans le vivier`); commit(); },
     'offer-extend'(d) { const c = findCand(d.id); Object.assign(c.offer, { deadline: addDays(TODAY, 7), status: 'Envoyée' }); sendMsg(c, 'relance', ...tplMsg('msg-prolongation', candCtx(c, candJob(c)))); toast('Proposition prolongée de 7 jours'); commit(); },
     // Socle : retrait confirmé avec son motif ; avant l'échéance, rappel du risque (art. 1116 du Code civil).
     'offer-withdraw'(d) {
@@ -3927,17 +4127,29 @@
       notify(v, `Vous êtes invité·e à évaluer les candidats de l’offre « ${j.title} » (${jobRef(j)}).`); toast(`${fullName(emp(v))} peut évaluer les candidats`); commit();
     },
     'pool-propose'(v, d) {
-      if (!v) return; const c = findCand(d.id), j = db.jobs.find((x) => x.id === v);
-      Object.assign(c, { jobId: v, stage: 'Présélection', refusal: null, interviews: [], offer: null, pool: false, source: `Vivier · ${c.source.replace(/^Vivier · /, '')}` });
+      // Vivier : la candidature précédente est gardée dans l'historique ; le candidat est inscrit en « Reçue » en attendant sa réponse ; la source ne change pas (canal : vivier).
+      if (!v) return; const c = findCand(d.id), j = db.jobs.find((x) => x.id === v), prev = candJob(c);
+      c.history = (c.history || []).concat([{ jobId: c.jobId, job: prev ? `${jobRef(prev)} · ${prev.title}` : '', appliedAt: c.appliedAt, refusal: c.refusal, interviews: c.interviews, offer: c.offer, score: c.score }]);
+      Object.assign(c, { jobId: v, stage: 'Reçue', refusal: null, interviews: [], offer: null, pool: false, score: 0, channel: 'Vivier', poolInvite: { date: TODAY, jobId: v }, source: c.source.replace(/^Vivier · /, '') });
       sendMsg(c, 'point', ...tplMsg('msg-opportunite', candCtx(c, j)));
-      logCand(c, `Proposé·e depuis le vivier pour « ${j.title} »`); ui.recTab = 'offres'; ui.recJob = v; toast(`${c.name} est proposé·e pour « ${j.title} »`); commit();
+      logCand(c, `Proposé·e depuis le vivier pour « ${j.title} » · réponse du candidat attendue`); ui.recTab = 'offres'; ui.recJob = v; toast(`${c.name} est sollicité·e pour « ${j.title} » : sa candidature est en « Reçue » en attendant sa réponse`); commit();
     },
   });
   Object.assign(MOD_LIVE, {
     msg(form) { const c = findCand(ui.modal.id), [subj, body] = MSG_TPL[new FormData(form).get('tpl')][1](c, candJob(c)); document.getElementById('ms-subj').value = subj; document.getElementById('ms-body').value = body; },
     refus(form) { const fd = new FormData(form), c = findCand(ui.modal.id), r = fd.get('reason') === 'Autre motif' ? fd.get('other') : fd.get('reason'); document.getElementById('rf-body').value = refusBody(c, candJob(c), r, fd.get('pool') === 'on'); document.getElementById('rf-other').hidden = fd.get('reason') !== 'Autre motif'; },
-    offer(form) { const c = findCand(ui.modal.id), j = candJob(c), s = Number(new FormData(form).get('salary')) || 0;
-      document.getElementById('of-warn').innerHTML = s > j.salaryMax ? `<p class="lint bad" style="margin:0">Au-dessus de la fourchette validée dans le besoin (${esc(j.budget)}) : prévoyez l’accord de la direction.</p>` : s && s < j.salaryMin ? `<p class="hint" style="margin:0">En dessous de la fourchette validée (${esc(j.budget)}).</p>` : `<p class="hint" style="margin:0">Dans la fourchette validée (${esc(j.budget)}).</p>`; },
+    // Fin du CDD ou période d'essai retouchée à la main : on ne la recalcule plus.
+    evnote(form) { const el = document.getElementById('ev-lint'); if (el) el.innerHTML = freeLintHTML(new FormData(form).get('comment')); },
+    'offer-man'() { const el = document.activeElement; if (el && el.dataset) el.dataset.auto = '0'; },
+    offer(form) { if (!ui.modal || ui.modal.type !== 'offer') return; const c = findCand(ui.modal.id), j = candJob(c), fd = new FormData(form), s = Number(fd.get('salary')) || 0;
+      document.getElementById('of-warn').innerHTML = offerSalHTML(j, s);
+      const dir = document.getElementById('of-dir'); if (dir) dir.hidden = !(j.salaryMax && s > j.salaryMax);
+      const cs = cddCase(fd.get('cddCase')) || {}, imp = cs.imprecis && fd.get('cddTerm') === 'imprecis', hide = (id, h) => { const el = document.getElementById(id); if (el) el.hidden = h; };
+      hide('of-repl', !cs.repl); hide('of-term', !cs.imprecis); hide('of-end-f', !!imp); hide('of-min-f', !imp);
+      // Fin du CDD recalculée quand la date d'entrée change (durée du besoin).
+      const end = document.getElementById('of-end'), st = fd.get('startDate');
+      if (end && st && end.dataset.auto === '1' && j.cddMonths) end.value = addDays(addMonths(st, Number(j.cddMonths)), -1);
+      const es = document.getElementById('of-essai'); if (es && es.dataset.auto === '1') es.value = offerTrial(j, st, end ? end.value : null); },
   });
   Object.assign(MOD_FORMS, {
     'iv-eval'(v) {
@@ -3946,7 +4158,11 @@
       const miss = must.findIndex((m, k) => !ratings[k] || !evidence[k]);
       if (miss >= 0) return formError(`Notez « ${must[miss]} » et justifiez la note par un fait observé.`);
       if (!v.reco) return formError('Donnez votre recommandation.');
+      // Commentaire ou fait observé sans lien avec le poste (situation de famille, santé…) : alerte, enregistrement au second clic.
+      const flagged = lintFree([...evidence, v.comment || ''].join('\n'));
+      if (flagged.length && !ui.modal.lintOk) { ui.modal.lintOk = true; return formError(`À reformuler : « ${flagged.flatMap((x) => x.words).join(' », « ')} » (${flagged.map((x) => x.cat.toLowerCase()).join(', ')}). Ces critères ne peuvent pas fonder une décision (art. L1132-1) et le candidat peut lire ses évaluations (art. 15 du RGPD). Pour enregistrer tel quel, cliquez à nouveau.`); }
       iv.eval = { date: TODAY, ratings, evidence, reco: v.reco, comment: (v.comment || '').trim(), by: me().id };
+      if (flagged.length) logCand(c, `Évaluation enregistrée malgré une alerte (${flagged.map((x) => x.cat.toLowerCase()).join(', ')})`);
       recomputeScore(c, job); logCand(c, `${iv.kind} évalué : avis ${v.reco.toLowerCase()}`);
       if (ui.profile !== 'rh') notify('e1', `${fullName(me())} a évalué ${c.name} (${iv.kind}) : avis ${v.reco.toLowerCase()}.`);
       ui.modal = null; toast('Évaluation enregistrée'); commit();
@@ -3964,15 +4180,38 @@
       ui.modal = null; toast(`${c.name} : candidature non retenue${v.send === 'on' ? ' · réponse envoyée' : ''}`); commit();
     },
     offer(v) {
-      const c = findCand(ui.modal.id), j = candJob(c), salary = Number(v.salary);
+      const c = findCand(ui.modal.id), j = candJob(c), salary = Number(v.salary), tomorrow = { date: addDays(TODAY, 1), label: 'demain' };
       if (!(salary > 0)) return formError('Indiquez la rémunération annuelle brute.');
-      if (!v.startDate) return formError('Indiquez la date d’entrée.');
-      if (!v.deadline || v.deadline < TODAY) return formError('Indiquez une date limite de réponse à venir.');
-      c.offer = { title: v.title.trim() || j.title, contract: j.contract, salary, startDate: v.startDate, managerId: v.managerId, deadline: v.deadline, status: 'Envoyée', sentAt: TODAY };
-      c.stage = 'Proposition'; logCand(c, `Proposition envoyée : ${eur0(salary)}, entrée le ${fmtDate(v.startDate)}`);
+      // Dates : réponse attendue au plus tôt demain, entrée après la date limite de réponse.
+      let err = dateGuard(v.deadline, { notBefore: tomorrow, label: 'Réponse attendue avant le' }); if (err) return formError(`${err} Laissez au candidat au moins un jour pour répondre.`);
+      err = dateGuard(v.startDate, { notBefore: { date: v.deadline, label: 'la date limite de réponse' }, label: 'Date d’entrée' }); if (err) return formError(err);
+      // CDD : cas de recours, motif, personne remplacée et terme (ou durée minimale), repris du besoin et modifiables.
+      const cdd = j.contract === 'CDD', cs = cdd && cddCase(v.cddCase), x = cdd ? { contract: 'CDD', cddCase: v.cddCase, cddReason: (v.cddReason || '').trim(), cddReplaces: cs && cs.repl ? v.cddReplaces || null : null, cddTerm: cs && cs.imprecis && v.cddTerm === 'imprecis' ? 'imprecis' : 'precis', cddMonths: toNum(v.cddMinMonths) || 1 } : null;
+      if (cdd) {
+        if (!cs) return formError('CDD : choisissez le cas de recours.');
+        if (x.cddReason.length < 10) return formError('CDD : précisez le motif du recours ; il figurera dans la lettre et le contrat.');
+        if (cs.repl && !x.cddReplaces) return formError('CDD de remplacement : indiquez la personne remplacée.');
+        if (x.cddTerm === 'precis') {
+          err = dateGuard(v.endDate, { notBefore: { date: addDays(v.startDate, 1), label: 'le lendemain de la date d’entrée' }, notAfter: { date: addDays(addMonths(v.startDate, cs.max), -1), label: `la durée maximale de ${cs.max} mois` }, label: 'Fin du CDD' }); if (err) return formError(err);
+        } else if (!(toNum(v.cddMinMonths) > 0)) return formError('CDD sans terme précis : indiquez la durée minimale (en mois).');
+      }
+      if (!(v.essai || '').trim()) return formError('Indiquez la période d’essai (durée) ; elle doit être écrite dans la lettre et le contrat (art. L1221-23), ou « aucune ».');
+      // Salaire : SMIC bloquant ; au-dessus de la fourchette, accord de la Direction exigé ; minimum conventionnel ou en dessous de la fourchette : second clic.
+      const sc = salaryCheck({ annual: salary, contract: j.contract, category: jobCat(j), hoursWeek: j.forfait ? 35 : j.hoursWeek || 35, forfait: !!j.forfait, kind: 'proposition', range: { min: j.salaryMin, max: j.salaryMax } });
+      if (sc.level === 'error') return formError(sc.msg);
+      const above = j.salaryMax && salary > j.salaryMax;
+      if (above) {
+        if (v.dirOk !== 'on') return formError(`Au-dessus de la fourchette validée (${j.budget}) : l’accord de ${fullName(emp(DIR_ID()))} est nécessaire avant l’envoi. Cochez l’accord et indiquez sa date, ou revenez dans la fourchette.`);
+        err = dateGuard(v.dirDate, { notAfter: { date: TODAY, label: 'aujourd’hui' }, label: 'Date de l’accord de la Direction' }); if (err) return formError(err);
+      } else if (sc.level === 'warn' && ui.modal.salOk !== salary) { ui.modal.salOk = salary; return formError(`${sc.msg} Pour garder ce montant, cliquez à nouveau sur « Envoyer la proposition ».`); }
+      c.offer = Object.assign({ title: noHF(v.title.trim() || j.title), contract: j.contract, salary, startDate: v.startDate, managerId: v.managerId, deadline: v.deadline, status: 'Envoyée', sentAt: TODAY,
+        category: jobCat(j), classification: j.classification || '', hoursWeek: j.hoursWeek || 35, forfait: !!j.forfait, essai: v.essai.trim() },
+      cdd ? Object.assign(x, { endDate: x.cddTerm === 'precis' ? v.endDate : null, cddMinMonths: x.cddTerm === 'imprecis' ? toNum(v.cddMinMonths) : null }) : {},
+      above ? { dirApproval: { by: DIR_ID(), date: v.dirDate, enteredBy: me().id } } : {});
+      c.stage = 'Proposition'; logCand(c, `Proposition envoyée : ${eur0(salary)}, entrée le ${fmtDateY(v.startDate)}${c.offer.endDate ? `, fin le ${fmtDateY(c.offer.endDate)}` : ''}${above ? ` · hors fourchette, accord de ${fullName(emp(DIR_ID()))} du ${fmtDateY(v.dirDate)} saisi par ${fullName(me())}` : ''}`);
       c.offer.html = fillTpl(tplOf('proposition').body, candCtx(c, j, { offer: c.offer })); c.offer.tplV = tplOf('proposition').v;
       sendMsg(c, 'proposition', ...offerMsg(c, c.offer));
-      if (salary > j.salaryMax) notify(DIR_ID(), `Proposition à ${c.name} au-dessus de la fourchette validée pour « ${j.title} » (${eur0(salary)}).`);
+      if (above) notify(DIR_ID(), `Proposition à ${c.name} au-dessus de la fourchette validée pour « ${j.title} » (${eur0(salary)}) : votre accord du ${fmtDateY(v.dirDate)} a été enregistré par ${fullName(me())}.`);
       if (v.managerId !== me().id) notify(v.managerId, `Proposition d’embauche envoyée à ${c.name} (${j.title}) : réponse attendue avant le ${fmtDate(v.deadline)}.`);
       ui.modal = null; toast('Proposition envoyée au candidat'); commit();
     },
@@ -3990,7 +4229,8 @@
       ${job.scorecard.must.map((mm, k) => `<div class="eval-row"><b>${esc(mm)}</b><div class="form-grid"><div class="field"><label for="ev-r${k}">Note</label><select id="ev-r${k}" name="r${k}" class="select"><option value="">Choisir…</option>${opt(levels, '')}</select></div>
         <div class="field"><label for="ev-e${k}">Ce qui justifie la note</label><input id="ev-e${k}" name="e${k}" class="input" maxlength="200" placeholder="Ex. a présenté une étude menée auprès de 20 utilisateurs"></div></div></div>`).join('')}
       <fieldset class="field radios" style="margin-top:14px"><legend>Recommandation</legend>${['Favorable', 'Réservé', 'Défavorable'].map((r) => `<label><input type="radio" name="reco" value="${r}"> ${r}</label>`).join('')}</fieldset>
-      <div style="margin-top:12px">${f('ev-c', 'Commentaire (facultatif)', '<textarea id="ev-c" name="comment" class="input" style="min-height:70px"></textarea>', true)}</div>`, 'Enregistrer l’évaluation', true);
+      <div style="margin-top:12px">${f('ev-c', 'Commentaire (facultatif)', '<textarea id="ev-c" name="comment" class="input" style="min-height:70px" data-live="evnote"></textarea>', true)}</div><div id="ev-lint" style="margin-top:8px"></div>
+      <p class="hint" style="margin:8px 0 0">Ne notez que des faits liés au poste : le candidat peut demander à lire ses évaluations (art. 15 du RGPD).</p>`, 'Enregistrer l’évaluation', true);
   };
   MODALS['cand-msg'] = (m, shell, formShell, opt, f) => {
     const c = findCand(m.id), t = ['', ...MSG_TPL.point[1](c, candJob(c))];
@@ -4002,25 +4242,62 @@
     const c = findCand(m.id), j = candJob(c);
     return formShell(`Ne pas retenir ${esc(c.name)}`, 'cand-refuse', `<div class="form-grid">${f('rf-reason', 'Motif', `<select id="rf-reason" name="reason" class="select" data-live="refus">${opt(REFUS_REASONS, REFUS_REASONS[0])}</select>`, true)}
       <div class="field full" id="rf-other" hidden><label for="rf-o">Motif précis</label><input id="rf-o" name="other" class="input" maxlength="160" data-live="refus"></div>
-      <label class="full" style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="pool" checked data-live="refus"> Proposer de garder le dossier dans le vivier (le candidat peut s’y opposer)</label>
+      <label class="full" style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="pool" data-live="refus"> Proposer de garder le dossier dans le vivier (le candidat en est informé et peut s’y opposer)</label>
       <label class="full" style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="send" checked> Envoyer la réponse au candidat</label>
-      ${f('rf-body', 'Message au candidat', `<textarea id="rf-body" name="body" class="input" style="min-height:190px">${esc(refusBody(c, j, REFUS_REASONS[0], true))}</textarea>`, true)}</div>`, 'Confirmer', true);
+      ${f('rf-body', 'Message au candidat', `<textarea id="rf-body" name="body" class="input" style="min-height:190px">${esc(refusBody(c, j, REFUS_REASONS[0], false))}</textarea>`, true)}</div>`, 'Confirmer', true);
   };
   MODALS.offer = (m, shell, formShell, opt, f) => {
-    const c = findCand(m.id), j = candJob(c), mid = Math.round(((j.salaryMin || 0) + (j.salaryMax || 0)) / 2 / 500) * 500;
-    const mgrs = db.employees.filter(isEmployed).map((x) => [x.id, fullName(x)]), start = j.startWanted && j.startWanted > TODAY ? j.startWanted : nextMonday(TODAY, 4);
-    return formShell(`Proposition d’embauche · ${esc(c.name)}`, 'offer', `<p class="hint" style="margin:0 0 12px">Une offre qui précise le poste, la rémunération et la date d’entrée engage l’entreprise dès que le candidat l’accepte. Elle peut être retirée tant qu’il n’a pas répondu.</p><div class="form-grid">
-      ${f('of-title', 'Poste', `<input id="of-title" name="title" class="input" value="${esc(j.title)}">`)}${f('of-contract', 'Contrat', `<input id="of-contract" class="input" value="${esc(j.contract)}" readonly>`)}
-      ${f('of-salary', 'Rémunération annuelle brute (€)', `<input id="of-salary" name="salary" type="number" min="0" step="500" class="input num" value="${mid || ''}" data-live="offer">`)}${f('of-start', 'Date d’entrée', `<input id="of-start" name="startDate" type="date" class="input" value="${start}">`)}
-      ${f('of-mgr', 'Manager', `<select id="of-mgr" name="managerId" class="select">${opt(mgrs, DEPT_HEAD[j.dept])}</select>`)}${f('of-deadline', 'Réponse attendue avant le', `<input id="of-deadline" name="deadline" type="date" class="input" value="${addDays(TODAY, 7)}">`)}
-      <div class="full" id="of-warn"><p class="hint" style="margin:0">Fourchette validée : ${esc(j.budget)}.</p></div></div>`, 'Envoyer la proposition', true);
+    const c = findCand(m.id), j = candJob(c), mid = Math.round(((j.salaryMin || 0) + (j.salaryMax || 0)) / 2 / 500) * 500, L = 'data-live="offer"';
+    // Managers seulement (responsables de service ou d'équipe), date d'entrée par défaut sur un jour ouvré.
+    const mgrs = db.employees.filter((x) => isEmployed(x) && (Object.values(DEPT_HEAD).includes(x.id) || db.employees.some((y) => y.managerId === x.id && y.stage < 15))).map((x) => [x.id, `${fullName(x)} · ${x.dept}`]);
+    const deadline = addDays(TODAY, 7), start = ouvreFrom(j.startWanted && j.startWanted > deadline ? j.startWanted : nextMonday(TODAY, 4));
+    const cdd = j.contract === 'CDD', cs = cddCase(j.cddCase) || {}, end = cdd && j.cddMonths && j.cddTerm !== 'imprecis' ? addDays(addMonths(start, Number(j.cddMonths)), -1) : '';
+    const cddBlock = cdd ? `<div class="full"><h3 class="sec" style="margin-top:4px">Contrat à durée déterminée</h3><div class="form-grid">
+        ${f('of-cddcase', 'Cas de recours *', `<select id="of-cddcase" name="cddCase" class="select" ${L}><option value="">Choisir…</option>${opt(CDD_CASES.map((x) => x.k), j.cddCase)}</select>`, true)}
+        ${f('of-cddreason', 'Motif précis *', `<input id="of-cddreason" name="cddReason" class="input" maxlength="160" value="${esc(j.cddReason || '')}">`, true)}
+        <div class="field" id="of-repl" ${cs.repl ? '' : 'hidden'}><label for="of-cddrepl">Personne remplacée *</label><select id="of-cddrepl" name="cddReplaces" class="select"><option value="">Choisir…</option>${opt(db.employees.filter((x) => x.stage < 15).map((x) => [x.id, fullName(x)]), j.cddReplaces)}</select></div>
+        <fieldset class="field radios" id="of-term" ${cs.imprecis ? '' : 'hidden'}><legend>Terme</legend><label><input type="radio" name="cddTerm" value="precis" ${j.cddTerm !== 'imprecis' ? 'checked' : ''} ${L}> Date de fin</label><label><input type="radio" name="cddTerm" value="imprecis" ${j.cddTerm === 'imprecis' ? 'checked' : ''} ${L}> Durée minimale</label></fieldset>
+        <div class="field" id="of-end-f" ${j.cddTerm === 'imprecis' ? 'hidden' : ''}><label for="of-end">Fin du contrat (dernier jour) *</label><input id="of-end" name="endDate" type="date" class="input" value="${end}" data-auto="1" data-live="offer-man"></div>
+        <div class="field" id="of-min-f" ${j.cddTerm === 'imprecis' ? '' : 'hidden'}><label for="of-min">Durée minimale (mois) *</label><input id="of-min" name="cddMinMonths" type="number" min="1" class="input num" value="${esc(j.cddMonths || '')}"></div></div></div>` : '';
+    return formShell(`Proposition d’embauche · ${esc(c.name)}`, 'offer', `<p class="hint" style="margin:0 0 12px">Une offre qui précise le poste, la rémunération et la date d’entrée engage l’entreprise : son acceptation vaut contrat de travail, et elle ne peut pas être retirée avant la date limite de réponse sans engager la responsabilité de l’entreprise (art. 1116 du Code civil).</p><div class="form-grid">
+      ${f('of-title', 'Poste', `<input id="of-title" name="title" class="input" value="${esc(noHF(j.title))}">`)}${f('of-contract', 'Contrat', `<input id="of-contract" class="input" value="${esc(j.contract)}" readonly>`)}
+      ${f('of-statut', 'Statut et durée du travail (du besoin)', `<input id="of-statut" class="input" value="${esc(statutText(j))}" readonly>`, true)}
+      ${f('of-salary', 'Rémunération annuelle brute (€)', `<input id="of-salary" name="salary" type="number" min="0" step="500" class="input num" value="${mid || ''}" ${L}>`)}${f('of-start', 'Date d’entrée', `<input id="of-start" name="startDate" type="date" class="input" min="${addDays(TODAY, 1)}" value="${start}" ${L}>`)}
+      ${f('of-mgr', 'Manager', `<select id="of-mgr" name="managerId" class="select">${opt(mgrs, jobManager(j) || DEPT_HEAD[j.dept])}</select>`)}${f('of-deadline', 'Réponse attendue avant le', `<input id="of-deadline" name="deadline" type="date" class="input" min="${addDays(TODAY, 1)}" value="${deadline}">`)}
+      ${cddBlock}
+      ${f('of-essai', 'Période d’essai *', `<input id="of-essai" name="essai" class="input" maxlength="160" value="${esc(offerTrial(j, start, end))}" data-auto="1" data-live="offer-man">`, true)}
+      <div class="full" id="of-warn">${offerSalHTML(j, mid)}</div>
+      <div class="full" id="of-dir" ${j.salaryMax && mid > j.salaryMax ? '' : 'hidden'}><div class="form-grid"><label class="full agree"><input type="checkbox" name="dirOk"> <span>Accord de ${esc(fullName(emp(DIR_ID())))} (Direction) obtenu pour ce montant hors fourchette</span></label>${f('of-dirdate', 'Date de l’accord', `<input id="of-dirdate" name="dirDate" type="date" class="input" max="${TODAY}" value="${TODAY}">`)}</div></div></div>`, 'Envoyer la proposition', true);
   };
+  // Contrôle en direct de la proposition : SMIC, minimum conventionnel, fourchette validée.
+  function offerSalHTML(j, s) {
+    if (!(s > 0)) return `<p class="hint" style="margin:0">Fourchette validée : ${esc(j.budget)}.</p>`;
+    const sc = salaryCheck({ annual: s, contract: j.contract, category: jobCat(j), hoursWeek: j.forfait ? 35 : j.hoursWeek || 35, forfait: !!j.forfait, kind: 'proposition', range: { min: j.salaryMin, max: j.salaryMax } });
+    if (sc.level === 'error') return `<p class="lint bad" style="margin:0">${esc(sc.msg)}</p>`;
+    if (j.salaryMax && s > j.salaryMax) return `<p class="lint bad" style="margin:0">Au-dessus de la fourchette validée dans le besoin (${esc(j.budget)}) : l’accord de la Direction est exigé avant l’envoi.${sc.msg.replace(/^.*?accord de la Direction à obtenir\.\s*/, ' ') ? ` ${esc(sc.msg.replace(/^.*?accord de la Direction à obtenir\.\s*/, ''))}` : ''}</p>`;
+    return sc.msg ? `<p class="lint warn" style="margin:0">${esc(sc.msg)}</p>` : `<p class="hint" style="margin:0">Dans la fourchette validée (${esc(j.budget)}).</p>`;
+  }
+  // Période d'essai proposée par défaut (durées maximales de la convention ; CDD : 1 jour par semaine, art. L1242-10). Modifiable.
+  function offerTrial(j, start, end) {
+    const cr = CONV().rules, cat = jobCat(j);
+    if (j.contract === 'Stage') return 'aucune (convention de stage)';
+    if (j.contract === 'Alternance') return '45 jours de formation pratique en entreprise, consécutifs ou non';
+    if (j.contract === 'CDD') {
+      if (!start || !end || end < start) return '1 jour par semaine de contrat (2 semaines au plus jusqu’à 6 mois, 1 mois au-delà)';
+      if (end <= addDays(addMonths(start, 6), -1)) return `${plural(Math.min(14, Math.max(1, Math.ceil((dayDiff(start, end) + 1) / 7))), 'jour', 'jours')} (1 jour par semaine de contrat)`;
+      return `${plural(Math.min(30, Math.ceil((dayDiff(start, end) + 1) / 7)), 'jour', 'jours')} (1 jour par semaine de contrat, 1 mois au plus)`;
+    }
+    const months = { Cadre: cr.essaiC, 'Agent de maîtrise': cr.essaiAM }[cat] || cr.essaiE;
+    return `${months} mois${cr.renouv ? ', renouvelable une fois par accord écrit des deux parties' : ', non renouvelable'}`;
+  }
+  // Intitulé sans « H/F » pour la proposition, la fiche, le registre et le contrat.
+  const noHF = (t) => String(t || '').replace(/\s*[(\[]?\s*\b[HF]\s*\/\s*[HF]\b\s*[)\]]?/gi, '').trim();
   MODALS['offer-doc'] = (m, shell) => {
     const c = findCand(m.id), o = c.offer, j = candJob(c), html = o.html || fillTpl(tplOf('proposition').body, candCtx(c, j, { offer: o }));
     return shell('Proposition d’embauche', `<div class="modal-b"><article class="letter locked"><header><b>${COMPANY.entreprise}</b><span>${COMPANY.ville}, le ${fmtDate(o.sentAt)}</span></header>${unmark(html)}</article></div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true);
   };
   MODALS['offer-decline'] = (m, shell, formShell, opt, f) => formShell(`Proposition déclinée · ${esc(findCand(m.id).name)}`, 'offer-decline', `${f('od-r', 'Raison donnée par le candidat', `<select id="od-r" name="reason" class="select">${opt(['Rémunération insuffisante', 'A accepté une autre offre', 'Projet personnel', 'Autre raison'])}</select>`, true)}
-    <label style="display:flex;gap:8px;align-items:center;font-size:14px;margin-top:12px"><input type="checkbox" name="pool" checked> Garder le dossier dans le vivier</label>`, 'Enregistrer');
+    <label style="display:flex;gap:8px;align-items:center;font-size:14px;margin-top:12px"><input type="checkbox" name="pool"> Garder le dossier dans le vivier (avec l’accord du candidat)</label>`, 'Enregistrer');
 
   // ================================================================ Arrivée : pré-embauche et embauche (en parallèle), puis intégration
   const ARR_DOCS = [['identite', 'Pièce d’identité'], ['secu', 'Attestation de sécurité sociale (carte Vitale)'], ['rib', 'RIB'], ['domicile', 'Justificatif de domicile'], ['diplome', 'Diplômes et certifications'],
@@ -5000,12 +5277,16 @@
     const away = pop.filter((e) => { const l = leaveOn(e, TODAY); return l && l.type !== 'Télétravail'; }).length, openJobs = db.jobs.filter((j) => j.status === 'Ouverte');
     const arrivals = db.employees.filter((e) => e.stage === 2), trial = pop.filter((e) => e.stage === 4).length;
     const offers = db.jobs.filter((j) => NEED_OPEN.includes(j.status)).sort((a, c) => (a.status === 'Ouverte' ? 0 : 1) - (c.status === 'Ouverte' ? 0 : 1) || c.createdAt.localeCompare(a.createdAt)).map((j) => [j, offerStats(j)]);
-    const fun = ['Reçues', 'Présélection', 'Entretien', 'Proposition', 'Embauche'].map((l, k) => [l, openJobs.reduce((acc, j) => acc + offerStats(j).funnel[k], 0)]);
+    // Entonnoir sur toutes les offres publiées depuis 12 mois (ouvertes, pourvues, clôturées) ; embauches par sexe (égalité, directive 2023/970).
+    const yearJobs = db.jobs.filter((j) => NEED_OPEN.includes(j.status) && (pubDate(j) || j.createdAt) >= addDays(TODAY, -365));
+    const fun = ['Reçues', 'Présélection', 'Entretien', 'Proposition', 'Embauche'].map((l, k) => [l, yearJobs.reduce((acc, j) => acc + offerStats(j).funnel[k], 0)]);
+    const hiresFH = db.candidates.filter((c) => c.stage === 'Embauché' && c.empId && emp(c.empId) && (c.hiredAt || '') >= addDays(TODAY, -365)).map((c) => emp(c.empId).sex);
     const today = `<div class="kpis">${kpi('Absents aujourd’hui', away, fmtDate(TODAY, { weekday: 'long', day: 'numeric', month: 'long' }))}${kpi('Absences à valider', db.leaves.filter((l) => l.status === 'En attente').length, 'Congés, RTT, télétravail')}
       ${kpi('Postes ouverts', openJobs.length, `${plural(db.jobs.filter((j) => j.status === 'En validation').length, 'besoin en attente', 'besoins en attente')} de validation`)}${kpi('Arrivées en cours', arrivals.length, `${plural(trial, 'personne', 'personnes')} en intégration`)}</div>`;
     const offersCard = card('Offres d’emploi', `<span class="muted" style="font-size:13px">${plural(openJobs.length, 'offre ouverte', 'offres ouvertes')}</span>`, `<div class="table-wrap"><table><thead><tr><th>Référence</th><th>Offre</th><th class="r">En ligne · délai</th><th class="r">Candidatures</th><th class="r">Passage en entretien</th><th>Meilleure source</th></tr></thead><tbody>
-        ${offers.map(([j, x]) => `<tr><td class="num">${jobRef(j)}</td><td><b>${esc(j.title)}</b><br><small class="muted">${esc(j.dept)} · ${j.status === 'Ouverte' ? 'ouverte' : j.status.toLowerCase()}</small></td><td class="r num">${plural(x.days, 'jour', 'jours')}${x.hired ? '<br><small class="muted">pourvue</small>' : ''}</td><td class="r num">${x.n}<br><small class="muted">${x.active} en cours</small></td><td class="r num">${Math.round(x.toIv * 100)} %</td><td>${x.best ? `${esc(x.best.src)} <small class="muted num">${x.best.avg.toFixed(1).replace('.', ',')}/5</small>` : '—'}</td></tr>`).join('')}</tbody></table></div>
-      <div class="card-b"><h4 class="sub">Entonnoir des offres ouvertes</h4>${hBars(fun)}${dataTable(['Étape atteinte', 'Candidats'], fun)}</div>`);
+        ${offers.map(([j, x]) => `<tr><td class="num">${jobRef(j)}</td><td><b>${esc(j.title)}</b><br><small class="muted">${esc(j.dept)} · ${j.status === 'Ouverte' ? 'ouverte' : j.status.toLowerCase()}</small></td><td class="r num">${x.days ? plural(x.days, 'jour', 'jours') : 'moins d’un jour'}${x.hired ? '<br><small class="muted">pourvue</small>' : ''}</td><td class="r num">${x.n}<br><small class="muted">${x.active} en cours</small></td><td class="r num">${Math.round(x.toIv * 100)} %</td><td>${x.best ? `${esc(x.best.src)} <small class="muted num">${x.best.avg.toFixed(1).replace('.', ',')}/5</small>` : '—'}</td></tr>`).join('')}</tbody></table></div>
+      <div class="card-b"><h4 class="sub">Entonnoir des offres publiées depuis 12 mois</h4>${hBars(fun)}${dataTable(['Étape atteinte', 'Candidats'], fun)}
+        <p class="hint" style="margin:10px 0 0">Embauches sur 12 mois : ${hiresFH.filter((s) => s === 'F').length} femme(s), ${hiresFH.filter((s) => s === 'H').length} homme(s)${hiresFH.filter((s) => s !== 'F' && s !== 'H').length ? `, ${hiresFH.filter((s) => s !== 'F' && s !== 'H').length} non renseigné(s)` : ''}. Le sexe des candidats n’est pas collecté : la répartition des candidatures n’est pas suivie.</p></div>`);
     return `${today}<div class="kpis six">${kpi('Effectif', n, `${plural(exitsPlanned.length, 'départ prévu', 'départs prévus')} · ${plural(db.employees.filter((e) => e.stage === 2 && e.startDate > TODAY).length, 'arrivée prévue', 'arrivées prévues')}`)}
         ${kpi('Entrées sur 12 mois', entries.length, `taux d’entrée ${pct1(entries.length / Math.max(1, n))}`)}${kpi('Turnover sur 12 mois', pct1(exitsDone.length / Math.max(1, n)), `${plural(exitsDone.length, 'sortie', 'sorties')} réalisée${exitsDone.length > 1 ? 's' : ''}`, 'Sorties des 12 derniers mois rapportées à l’effectif')}
         ${kpi('Absentéisme maladie', pct1(absRate), `${plural(sickDays, 'jour ouvré', 'jours ouvrés')} sur 12 mois`, 'Jours d’arrêt maladie rapportés à 218 jours travaillés par salarié')}
@@ -5107,16 +5388,22 @@
       required: [['dernier_jour', 'Date de fin de contrat'], ['motif_depart', 'Motif de la rupture']] },
     proposition: { label: 'Proposition d’embauche (lettre)', group: 'Courriers aux candidats', kind: 'doc', title: 'Proposition d’embauche',
       body: paras('<b>À l’attention de {{candidat}}</b>', '<b>Objet : proposition d’embauche – offre de contrat de travail</b>', 'Madame, Monsieur,', 'Suite à nos échanges, nous avons le plaisir de vous proposer de rejoindre {{entreprise}} aux conditions suivantes :',
-        '<ul><li>Poste : {{offre}}, au sein du service {{offre_service}}, rattaché à {{proposition_manager}}</li><li>Contrat : {{proposition_contrat}}</li><li>Lieu de travail : {{offre_lieu}}</li><li>Rémunération annuelle brute : {{proposition_salaire}}, versée en 12 mensualités</li><li>Date d’entrée : {{proposition_date_entree}}</li></ul>',
-        'Une période d’essai s’appliquera conformément à la convention collective. Cette offre est valable jusqu’au {{proposition_limite}}. Elle peut être retirée tant que vous ne l’avez pas acceptée ; votre acceptation avant cette date vaut conclusion du contrat de travail.', 'Nous serions ravis de vous compter parmi nous.') + '<p class="sig"><b>{{signataire}}</b><br>{{signataire_titre}}</p>',
-      required: [['offre', 'Emploi proposé'], ['proposition_salaire', 'Rémunération'], ['proposition_date_entree', 'Date d’entrée'], ['proposition_limite', 'Délai de réponse']] },
+        '<ul><li>Poste : {{offre}}, au sein du service {{offre_service}}, rattaché à {{proposition_manager}}</li><li>Contrat : {{proposition_contrat}}</li><li>Statut et durée du travail : {{proposition_statut}}</li><li>Lieu de travail : {{offre_lieu}}</li><li>Rémunération annuelle brute : {{proposition_salaire}}, versée en 12 mensualités</li><li>Date d’entrée : {{proposition_date_entree}}</li><li>Période d’essai : {{proposition_essai}}</li></ul>',
+        // À VÉRIFIER (juriste) : rédaction de l'irrévocabilité de l'offre pendant le délai (art. 1116 du Code civil, Cass. soc. 21 sept. 2017).
+        'Cette offre est valable jusqu’au {{proposition_limite}} inclus : nous nous engageons à la maintenir jusqu’à cette date. Votre acceptation avant cette date vaut conclusion du contrat de travail.', 'Nous serions ravis de vous compter parmi nous.') + '<p class="sig"><b>{{signataire}}</b><br>{{signataire_titre}}</p>',
+      required: [['offre', 'Emploi proposé'], ['proposition_salaire', 'Rémunération'], ['proposition_date_entree', 'Date d’entrée'], ['proposition_limite', 'Délai de réponse'], ['proposition_essai', 'Période d’essai (art. L1221-23)']] },
     'msg-ack': { label: 'Accusé de réception', group: 'Courriers aux candidats', kind: 'msg', subject: 'Nous avons bien reçu votre candidature',
       body: paras('Bonjour {{candidat_prenom}},', 'Merci pour votre candidature au poste de {{offre}}. Nous l’étudions et reviendrons vers vous sous {{delai_reponse}}.', '{{rgpd}}', 'L’équipe RH de {{entreprise}}'), required: [['rgpd', 'Information sur les données personnelles (RGPD)']] },
     'msg-point': { label: 'Point d’étape', group: 'Courriers aux candidats', kind: 'msg', subject: 'Votre candidature est toujours à l’étude',
       body: paras('Bonjour {{candidat_prenom}},', 'Nous revenons vers vous au sujet de votre candidature au poste de {{offre}} : elle est toujours à l’étude. Nous vous tiendrons informé·e de la suite d’ici une semaine.', 'L’équipe RH de {{entreprise}}') },
     'msg-convocation': { label: 'Convocation à un entretien', group: 'Courriers aux candidats', kind: 'msg', subject: 'Invitation à un entretien',
-      body: paras('Bonjour {{candidat_prenom}},', 'Nous avons le plaisir de vous inviter à un {{entretien_type}} pour le poste de {{offre}}, le {{entretien_date}} à {{entretien_heure}}, avec {{entretien_avec}}.', 'Merci de nous confirmer votre disponibilité.', 'L’équipe RH de {{entreprise}}'),
-      required: [['entretien_date', 'Date de l’entretien'], ['entretien_heure', 'Heure']] },
+      body: paras('Bonjour {{candidat_prenom}},', 'Nous avons le plaisir de vous inviter à un {{entretien_type}} pour le poste de {{offre}}, le {{entretien_date}} à {{entretien_heure}}, avec {{entretien_avec}}.', 'Lieu : {{entretien_lieu}}.', '{{entretien_modalites}}', 'Merci de nous confirmer votre disponibilité.', 'L’équipe RH de {{entreprise}}'),
+      required: [['entretien_date', 'Date de l’entretien'], ['entretien_heure', 'Heure'], ['entretien_lieu', 'Lieu ou lien de visio'], ['entretien_modalites', 'Méthodes d’évaluation (art. L1221-8)']] },
+    'msg-report': { label: 'Report d’un entretien', group: 'Courriers aux candidats', kind: 'msg', subject: 'Report de votre entretien',
+      body: paras('Bonjour {{candidat_prenom}},', 'Votre {{entretien_type}} pour le poste de {{offre}}, prévu le {{entretien_ancienne_date}}, est reporté au {{entretien_date}} à {{entretien_heure}}, avec {{entretien_avec}}.', 'Lieu : {{entretien_lieu}}.', '{{entretien_modalites}}', 'Merci de nous confirmer votre disponibilité.', 'L’équipe RH de {{entreprise}}'),
+      required: [['entretien_date', 'Nouvelle date'], ['entretien_heure', 'Heure']] },
+    'msg-annulation': { label: 'Annulation d’un entretien', group: 'Courriers aux candidats', kind: 'msg', subject: 'Annulation de votre entretien',
+      body: paras('Bonjour {{candidat_prenom}},', 'Nous devons annuler votre {{entretien_type}} pour le poste de {{offre}}, prévu le {{entretien_date}} à {{entretien_heure}}. Nous reviendrons vers vous rapidement pour la suite de votre candidature.', 'L’équipe RH de {{entreprise}}') },
     'msg-refus': { label: 'Réponse négative', group: 'Courriers aux candidats', kind: 'msg', subject: 'Votre candidature chez {{entreprise}}',
       body: paras('Bonjour {{candidat_prenom}},', 'Merci pour l’intérêt que vous portez à {{entreprise}}. Après étude, nous ne donnons pas suite à votre candidature au poste de {{offre}}. Motif : {{motif_refus}}.', '{{vivier}}', 'L’équipe RH de {{entreprise}}'),
       required: [['vivier', 'Information sur la conservation des données']] },
@@ -5156,12 +5443,16 @@
   }
   function candCtx(c, j, x = {}) {
     const o = x.offer || c.offer, iv = x.iv;
-    return Object.assign(docCtx(null), { candidat: c.name, candidat_prenom: firstName(c), offre: (o && o.title) || j.title, offre_service: j.dept, offre_lieu: j.location, rgpd: RGPD_NOTE, delai_reponse: `${ANSWER_DAYS} jours`, suppression_donnees: longDate(addYears(TODAY, RETENTION_YEARS)),
+    return Object.assign(docCtx(null), { candidat: c.name, candidat_prenom: firstName(c), offre: (o && o.title) || j.title, offre_service: j.dept, offre_lieu: j.location, rgpd: rgpdNote(c), delai_reponse: `${ANSWER_DAYS} jours`, suppression_donnees: longDate(addYears(TODAY, RETENTION_YEARS)),
       motif_refus: x.reason ? x.reason.charAt(0).toLowerCase() + x.reason.slice(1) : '',
       vivier: x.pool ? `Nous conservons votre dossier dans notre vivier pour vous proposer de futures opportunités. Il sera supprimé automatiquement le ${longDate(addYears(TODAY, RETENTION_YEARS))}, sauf nouvel échange. Vous pouvez vous y opposer en répondant simplement à ce message.`
-        : `Nous ne vous recontacterons pas pour d’autres offres. Votre dossier sera supprimé automatiquement au plus tard le ${longDate(addYears(TODAY, RETENTION_YEARS))}.`,
+        // À VÉRIFIER (juriste) : durée de conservation hors vivier (référentiel CNIL recrutement : 2 ans au plus après le dernier contact, sauf opposition).
+        : `Nous ne vous recontacterons pas pour d’autres offres. Sauf opposition de votre part, votre dossier est conservé pour pouvoir justifier notre décision, puis supprimé automatiquement au plus tard le ${longDate(addYears(TODAY, RETENTION_YEARS))}. Vous pouvez demander sa suppression immédiate en répondant à ce message.`,
       entretien_type: iv ? iv.kind.toLowerCase() : '', entretien_date: iv ? fmtDateY(iv.date.slice(0, 10), { weekday: 'long', month: 'long' }) : '', entretien_heure: iv ? iv.date.slice(11, 16) : '', entretien_avec: iv ? fullName(emp(iv.with)) : '',
-      proposition_contrat: o ? o.contract : '', proposition_salaire: o ? eur0(o.salary) : '', proposition_date_entree: o ? longDate(o.startDate) : '', proposition_limite: o ? longDate(o.deadline) : '', proposition_manager: o ? fullName(emp(o.managerId)) : '' });
+      entretien_lieu: iv ? iv.place || 'lieu communiqué séparément' : '', entretien_modalites: iv ? (iv.method ? `Déroulé et méthode d’évaluation : ${iv.method}.` : `Il s’agit d’un échange avec ${fullName(emp(iv.with))} sur votre parcours et les missions du poste, évalué à partir des compétences attendues.`) : '',
+      entretien_ancienne_date: x.ivFrom ? `${fmtDateY(x.ivFrom.slice(0, 10), { weekday: 'long', month: 'long' })} à ${x.ivFrom.slice(11, 16)}` : '',
+      proposition_contrat: o ? (o.contract === 'CDD' ? cddText(o, o.endDate) : o.contract) : '', proposition_salaire: o ? eur0(o.salary) : '', proposition_date_entree: o ? longDate(o.startDate) : '', proposition_limite: o ? longDate(o.deadline) : '', proposition_manager: o ? fullName(emp(o.managerId)) : '',
+      proposition_statut: o ? statutText(o.category ? o : j) : '', proposition_essai: o ? o.essai || offerTrial(j, o.startDate, o.endDate) : '' });
   }
   // Remplace les champs : valeur connue → texte ; valeur manquante ou champ à saisir → zone jaune à compléter.
   function fillTpl(body, ctx, fields = []) {
@@ -5518,11 +5809,12 @@
     if (m.type === 'payslip') return shell(`Bulletin de paie · ${monthLabel(m.m)}`, `<div class="modal-b">${payslipHTML(emp(m.id), m.m)}</div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', 'xl');
     if (m.type === 'cand') {
       return formShell('Ajouter un candidat', 'cand', `<div class="form-grid">${f('k-name', 'Prénom et nom', '<input id="k-name" name="name" class="input" required>', true)}
-        ${f('k-email', 'E-mail', '<input id="k-email" name="email" type="email" class="input">')}${f('k-phone', 'Téléphone', '<input id="k-phone" name="phone" class="input">')}
+        ${f('k-email', 'E-mail *', '<input id="k-email" name="email" type="email" class="input" maxlength="80" required>')}${f('k-phone', 'Téléphone', '<input id="k-phone" name="phone" class="input">')}
         ${f('k-source', 'Source', `<select id="k-source" name="source" class="select">${opt(['Site carrière', 'Jobboard', 'Réseaux sociaux', 'Cooptation', 'École'])}</select>`)}${f('k-exp', 'Expérience', '<input id="k-exp" name="experience" class="input" placeholder="Ex. 4 ans · agence">')}
         ${f('k-cv', 'CV', '<input id="k-cv" name="f_cv" type="file" class="input file" accept=".pdf,image/*">')}${f('k-lm', 'Lettre de motivation', '<input id="k-lm" name="f_lm" type="file" class="input file" accept=".pdf,image/*">')}
         ${f('k-autre', 'Autre document (portfolio, diplôme…)', '<input id="k-autre" name="f_autre" type="file" class="input file" accept=".pdf,image/*">', true)}</div>
-        <label style="display:flex;gap:8px;align-items:center;font-size:14px;margin-top:12px"><input type="checkbox" name="ack" checked> Envoyer l’accusé de réception (avec l’information sur ses données personnelles)</label>`, 'Ajouter');
+        <label style="display:flex;gap:8px;align-items:center;font-size:14px;margin-top:12px"><input type="checkbox" name="ack" checked> Envoyer l’accusé de réception</label>
+        <p class="hint" style="margin:6px 0 0">L’information sur ses données personnelles (art. 13 et 14 du RGPD) est envoyée dans tous les cas, avec l’accusé de réception ou seule. Fichiers : 700 Ko au plus pour l’aperçu dans cette démonstration (au-delà, seul le nom est conservé).</p>`, 'Ajouter');
     }
     if (m.type === 'reset') {
       return shell('Réinitialiser la démo', '<div class="modal-b"><p style="margin:0">Toutes vos modifications (demandes, validations, embauches, paies…) seront effacées et les données de départ seront restaurées.</p></div>',
@@ -5595,8 +5887,18 @@
       col.addEventListener('drop', (ev) => { ev.preventDefault(); col.classList.remove('over'); moveCandidate(ev.dataTransfer.getData('text/plain'), col.dataset.stage); });
     });
   }
-  function moveCandidate(id, stage) {
+  function moveCandidate(id, stage, force) {
     const c = db.candidates.find((x) => x.id === id); if (!c || c.stage === stage) return;
+    // Choix d'un candidat dont l'évaluation n'est pas terminée : avertissement, puis choix confirmé et tracé.
+    if (stage === 'Proposition' && !force && activeCand(c)) {
+      const job = candJob(c), rounds = (job.scorecard && job.scorecard.rounds) || 0, done = (c.interviews || []).filter((iv) => iv.eval).length, open = ivOn(c).filter((iv) => !iv.eval).length;
+      if (done < rounds || open) {
+        confirmAct({ title: `Choisir ${esc(c.name)} sans évaluation complète ?`, act: 'cand-choose', trace: 'Candidat choisi avant la fin des évaluations', candId: c.id, confirm: ui.profile === 'rh' ? 'Préparer la proposition' : 'Choisir ce candidat',
+          text: `<p>${plural(done, 'entretien évalué', 'entretiens évalués')} sur ${plural(rounds, 'entretien prévu', 'entretiens prévus')}${open ? `, ${plural(open, 'entretien sans évaluation', 'entretiens sans évaluation')}` : ''}. Une décision appuyée sur toutes les évaluations est plus juste et plus facile à justifier.</p>`,
+          fields: [{ name: 'why', type: 'text', required: true, label: 'Pourquoi décider maintenant' }] }, () => moveCandidate(id, stage, true));
+        return;
+      }
+    }
     if (c.stage === 'Embauché') { toast('Ce candidat est déjà embauché.', 'info'); return; }
     if (stage === 'Embauché') { toast('L’embauche se fait quand le candidat accepte la proposition : ouvrez sa fiche.', 'info'); return; }
     if (c.offer && ['Envoyée', 'Expirée'].includes(offerStatus(c.offer))) { toast('Une proposition est en cours : enregistrez la réponse du candidat ou retirez-la.', 'info'); return; }
@@ -5605,7 +5907,7 @@
     if (stage === 'Proposition' && ui.profile === 'rh') { ui.modal = { type: 'offer', id }; render(); return; }
     if (stage === 'Proposition') notify('e1', `${fullName(me())} a choisi ${c.name} pour « ${candJob(c).title} » : proposition à préparer.`);
     if (c.stage === 'Refusé') c.refusal = null;
-    logCand(c, `${c.stage} → ${stage}`); c.stage = stage; toast(stage === 'Proposition' ? `${c.name} est choisi·e · les RH préparent la proposition` : `${c.name} : ${stage}`); commit();
+    logCand(c, `${c.stage} → ${stage}`); c.stage = stage; toast(stage === 'Proposition' ? `${c.name} est choisi·e · les RH préparent la proposition` : stage === 'Présélection' ? `${c.name} est présélectionné·e · étape suivante : planifier un entretien` : `${c.name} : ${stage}`); commit();
   }
 
   function advance(id) {
@@ -5789,26 +6091,54 @@
     },
     async cand(v) {
       if (!v.name.trim()) return formError('Indiquez le nom du candidat.');
-      const files = [];
-      for (const k of ['cv', 'lm', 'autre']) { const f = v['f_' + k]; if (f && f.name) files.push(Object.assign({ kind: k, uploaded: true }, await readFile(f))); }
-      const c = { id: uid('c'), jobId: ui.modal.jobId, name: v.name.trim(), email: v.email.trim() || '—', phone: v.phone.trim() || '—', source: v.source, experience: v.experience.trim(), stage: 'Reçue', score: 0, notes: '', interviews: [], appliedAt: TODAY, messages: [], offer: null, refusal: null, pool: false, files, log: [] };
+      // E-mail obligatoire et valide : il sert à informer le candidat sur ses données (RGPD) et à lui répondre.
+      const email = (v.email || '').trim().toLowerCase();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return formError('Indiquez un e-mail valide (ex. prenom.nom@exemple.fr) : il sert à l’informer sur ses données et à lui répondre.');
+      // Doublons : même e-mail ou même nom sur cette offre (bloquant) ou sur une autre (second clic).
+      const key = (x) => x.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+      const twin = db.candidates.find((x) => x.email === email || key(x.name) === key(v.name));
+      if (twin && twin.jobId === ui.modal.jobId) return formError(`${twin.name} a déjà candidaté à cette offre (${twin.stage}) : ouvrez sa fiche plutôt que d’en créer une seconde.`);
+      if (twin && !ui.modal.twinOk) { ui.modal.twinOk = true; const tj = candJob(twin); return formError(`${twin.name} a déjà un dossier (candidature « ${tj ? tj.title : '—'} », ${twin.stage}). S’il s’agit d’une autre personne ou d’une nouvelle candidature, cliquez à nouveau sur « Ajouter ».`); }
+      const files = [], heavy = [];
+      for (const k of ['cv', 'lm', 'autre']) { const f = v['f_' + k]; if (f && f.name) { const r = await readFile(f); if (!r.data && f.size > 700 * 1024) heavy.push(f.name); files.push(Object.assign({ kind: k, uploaded: true }, r)); } }
+      const c = { id: uid('c'), jobId: ui.modal.jobId, name: v.name.trim(), email, phone: v.phone.trim() || '—', source: v.source, experience: v.experience.trim(), stage: 'Reçue', score: 0, notes: '', interviews: [], appliedAt: TODAY, messages: [], offer: null, refusal: null, pool: false, files, log: [] };
       db.candidates.push(c); logCand(c, `Candidature ajoutée${files.length ? ` avec ${plural(files.length, 'document', 'documents')}` : ''}`);
       if (v.ack === 'on') sendMsg(c, 'ack', ...MSG_TPL.ack[1](c, candJob(c)));
-      ui.modal = null; toast(v.ack === 'on' ? 'Candidat ajouté · accusé de réception envoyé' : 'Candidat ajouté'); commit();
+      else sendMsg(c, 'rgpd', 'Information sur vos données personnelles', `Bonjour ${firstName(c)},\n\n${rgpdNote(c)}${SIGN}`);
+      logCand(c, 'Information RGPD envoyée (art. 13 et 14)');
+      ui.modal = null; toast(`${v.ack === 'on' ? 'Candidat ajouté · accusé de réception et information RGPD envoyés' : 'Candidat ajouté · information RGPD envoyée'}${heavy.length ? ` · « ${heavy.join(' », « ')} » dépasse 700 Ko : seul son nom est conservé` : ''}`, heavy.length ? 'info' : 'ok'); commit();
     },
     interview(v, form) {
-      const c = db.candidates.find((x) => x.id === form.dataset.id);
+      const c = db.candidates.find((x) => x.id === form.dataset.id), old = form.dataset.iv && c.interviews.find((x) => x.id === form.dataset.iv);
       if (!v.date) { toast('Choisissez une date d’entretien.', 'info'); return; }
-      const iv = { id: uid('i'), date: v.date, with: v.with, kind: v.kind, eval: null };
-      c.interviews = c.interviews || []; c.interviews.push(iv);
+      // Pas d'entretien dans le passé ; lieu (ou lien) et, pour un test, la méthode d'évaluation annoncée au candidat (L1221-8).
+      if (v.date < nowStamp()) { toast(`Date passée : l’entretien doit avoir lieu après maintenant (${fmtDateY(TODAY)} à ${nowStamp().slice(11, 16)}).`, 'info'); return; }
+      if (!(v.place || '').trim()) { toast('Indiquez le lieu ou le lien de visio : il figure dans la convocation.', 'info'); return; }
+      if (v.kind === 'Test technique' && !(v.method || '').trim()) { toast('Test technique : décrivez l’épreuve et la façon dont elle est évaluée ; le candidat doit en être informé à l’avance (art. L1221-8).', 'info'); return; }
+      c.interviews = c.interviews || [];
+      const fields = { date: v.date, with: v.with, kind: v.kind, place: v.place.trim(), method: (v.method || '').trim() };
+      if (old) {
+        const was = old.date; Object.assign(old, fields, { movedFrom: (old.movedFrom || []).concat([was]) });
+        if (v.convoc === 'on') sendMsg(c, 'report', ...tplMsg('msg-report', candCtx(c, candJob(c), { iv: old, ivFrom: was })));
+        logCand(c, `${v.kind} reporté du ${fmtDateY(was.slice(0, 10))} au ${fmtDateY(v.date.slice(0, 10))} à ${v.date.slice(11, 16)}`);
+        if (v.with !== me().id) notify(v.with, `${v.kind} avec ${c.name} reporté au ${fmtDateY(v.date.slice(0, 10))} à ${v.date.slice(11, 16)}.`);
+        if (ui.drawer) ui.drawer.plan = false; toast(`Entretien reporté${v.convoc === 'on' ? ' · candidat prévenu' : ''}`); commit(); return;
+      }
+      const iv = Object.assign({ id: uid('i'), eval: null }, fields);
+      c.interviews.push(iv);
       if (v.convoc === 'on') sendMsg(c, 'convocation', ...convocMsg(c, candJob(c), iv));
       if (['Reçue', 'Présélection'].includes(c.stage)) c.stage = 'Entretien';
       if (ui.drawer) ui.drawer.plan = false;
-      logCand(c, `${v.kind} planifié le ${fmtDate(v.date.slice(0, 10))} avec ${fullName(emp(v.with))}`);
-      if (v.with !== me().id) notify(v.with, `${v.kind} avec ${c.name} le ${fmtDate(v.date.slice(0, 10))} à ${v.date.slice(11, 16)}.`);
+      logCand(c, `${v.kind} planifié le ${fmtDateY(v.date.slice(0, 10))} avec ${fullName(emp(v.with))}`);
+      if (v.with !== me().id) notify(v.with, `${v.kind} avec ${c.name} le ${fmtDateY(v.date.slice(0, 10))} à ${v.date.slice(11, 16)}.`);
       toast('Entretien planifié'); commit();
     },
-    'cand-note'(v, form) { const c = db.candidates.find((x) => x.id === form.dataset.id); c.notes = v.notes.trim(); toast('Note enregistrée'); commit(); },
+    'cand-note'(v, form) {
+      const c = db.candidates.find((x) => x.id === form.dataset.id), notes = v.notes.trim(), flagged = lintFree(notes);
+      // Notes : même analyse que l'annonce et les évaluations ; alerte au premier enregistrement.
+      if (flagged.length && (ui.drawer || {}).noteOk !== notes) { if (ui.drawer) ui.drawer.noteOk = notes; c.notesDraft = notes; toast(`Note à reformuler : « ${flagged.flatMap((x) => x.words).join(' », « ')} » (${flagged.map((x) => x.cat.toLowerCase()).join(', ')}). Pour l’enregistrer telle quelle, cliquez à nouveau.`, 'info'); render(); return; }
+      c.notes = notes; delete c.notesDraft; toast('Note enregistrée'); commit();
+    },
     profile(v) {
       const e = me();
       if (!v.phone.trim()) { document.getElementById('p-err').textContent = 'Le numéro de téléphone est obligatoire.'; return; }
@@ -6135,6 +6465,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
   if (DEMO && isMob() && ui.profile !== 'salarie') Object.assign(ui, { profile: 'salarie', selfOf: null, view: 'accueil', stage: null });
   render(); helpInit();
   // Tests automatisés seulement : fonctions pures du socle exposées si la page de test pose window.TEAMORA_TEST avant le chargement.
-  if (window.TEAMORA_TEST === true) window.__teamoraTest = { isHoliday, isOuvre, isOuvrable, addOuvres, addOuvrables, addCalendarDaysReport, countOuvres, countOuvrables, addWorkDays, subWorkDays, workDays, salaryCheck, dateGuard, fmtShort, fmtDateY, TODAY };
+  if (window.TEAMORA_TEST === true) window.__teamoraTest = { isHoliday, isOuvre, isOuvrable, addOuvres, addOuvrables, addCalendarDaysReport, countOuvres, countOuvrables, addWorkDays, subWorkDays, workDays, salaryCheck, dateGuard, fmtShort, fmtDateY, TODAY,
+    lintAd, lintFree, cddError, cddText, offerTrial, noHF, rgpdNote };
   if (DEMO) { let seen = false; try { seen = !!localStorage.getItem(TOUR_KEY); } catch (e) { /* ignore */ } if (!seen) setTimeout(tourStart, 500); }
 })();

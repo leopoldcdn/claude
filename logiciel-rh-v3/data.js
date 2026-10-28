@@ -136,7 +136,7 @@ window.TEAMORA_SEED = function () {
       dpae: { date: '2026-09-01', ref: 'DPAE-75-2026-0907' }, info7: '2026-09-10', info1m: '2026-10-01', mutuelle: 'Dispense', assignedAt: '2026-09-07',
       plan: { accueil: '2026-09-07', materiel: '2026-09-07', entreprise: '2026-09-09', equipe: '2026-09-11' } },
     e22: { docs: ALLDOCS('2026-09-01'), contract: { status: 'Signé', sentAt: '2026-09-02', signedAt: '2026-09-04', paper: true }, prep: { poste: '2026-09-10', ordinateur: '2026-09-11', comptes: '2026-09-11', badge: '2026-09-11', bienvenue: '2026-09-08' }, buddy: 'e4',
-      convention: '2026-09-04', assignedAt: '2026-09-10', checkins: { j30: '2026-10-05' },
+      convention: '2026-09-04', assignedAt: '2026-09-10', checkins: { j30: { date: '2026-10-05', note: 'Bonne intégration dans l’équipe research ; premiers entretiens utilisateurs menés en autonomie. Objectif : synthèse de l’étude d’ici fin novembre.', by: 'e2' } },
       plan: { accueil: '2026-09-14', materiel: '2026-09-14', entreprise: '2026-09-16', equipe: '2026-09-18', mission: '2026-09-25', formation: '2026-09-28' } },
   };
   // Programme d'intégration : modèle commun à toute l'entreprise, modifiable par les RH (jour = J+n après l'arrivée).

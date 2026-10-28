@@ -201,8 +201,11 @@
     if (e.stage >= 15) return ['Sorti', 'neutral', 'Sorti'];
     if (e.stage >= 13) { const x = e.exit || {}; return [x.lastDay ? `Départ le ${fmtShort(x.lastDay)}${x.reason ? ` · ${x.reason.toLowerCase()}` : ''}` : 'Départ en cours', 'bad', 'Départ en cours']; }
     if (inArrival(e) && e.startDate > TODAY) return [`Arrivée le ${fmtShort(e.startDate)}`, 'accent', 'Arrivée prévue'];
+    // Arrivée : recrue déjà entrée mais embauche pas terminée ; essai échu sans décision = contrat définitif.
+    if (inArrival(e)) return ['Embauche en cours', 'warn', 'En intégration'];
     if (e.stage <= 4) { const t = trialInfo(e), dec = dossier(e).trialDecision;
       if (t && dec !== 'Confirmée' && t.end >= TODAY) return [`Essai jusqu’au ${fmtShort(t.end)}`, 'accent', 'Période d’essai'];
+      if (t && !dec && t.end < TODAY) return ['Essai terminé · contrat définitif', 'info', 'En intégration'];
       return ['En intégration', 'info', 'En intégration']; }
     const l = leaveOn(e, TODAY);
     if (l) return l.type === 'Télétravail' ? ['Télétravail', 'info', 'Télétravail'] : ['Absent', 'warn', 'Absent'];
@@ -270,7 +273,8 @@
       // Plus de chronologie entre l'intégration et le départ : un collaborateur en poste a un seul état.
       if (e.stage > 5 && e.stage < 13) e.stage = 5;
       if (!e.category) e.category = e.contract === 'Alternance' || e.contract === 'Stage' ? 'Employé' : e.salary >= 45000 ? 'Cadre' : 'Employé';
-      if (e.zone === undefined) e.zone = 'France'; if (e.nationality === undefined) e.nationality = '';
+      // Arrivée : pas de zone « France » par défaut, elle découle de la nationalité (titre de séjour hors UE).
+      if (e.zone === undefined) e.zone = e.nationality ? zoneOf(e.nationality) : inArrival(e) ? null : 'France'; if (e.nationality === undefined) e.nationality = '';
       // Situation familiale : valeur par défaut seulement pour les anciennes données ; une recrue garde un champ vide jusqu'à sa saisie.
       if (e.sex === undefined) e.sex = null; if (e.family === undefined) e.family = 'Célibataire'; if (e.iban === undefined) e.iban = '—';
       if (e.registeredAt === undefined) e.registeredAt = e.stage >= 3 ? e.startDate : null;
@@ -1110,13 +1114,14 @@
   // confirmAct(o, run) ouvre une modale (ui.modal.type = 'confirm') qui rappelle les conséquences, exige au besoin des champs,
   // puis appelle run(valeurs) — qui fait l'action et son commit() — et trace la décision (journal du collaborateur, historique du candidat).
   // o : { title (HTML, données passées par esc()), text (HTML), confirm (libellé du bouton), danger (bouton rouge), fields,
-  //       act (nom de l'action, pour le libellé du journal), trace (libellé de la trace), empId (id ou fonction appelée après run), candId }.
+  //       act (nom de l'action, pour le libellé du journal), trace (libellé de la trace), empId (id ou fonction appelée après run), candId,
+  //       check (facultatif : fonction(valeurs) → message d'erreur bloquant ou '') }.
   // fields : [{ name, label, type: 'date' | 'check' | 'text' | 'textarea' | 'select', required, value, options, hint, guard }]
   //   date : guard = options de dateGuard (ex. { notAfter: { date: TODAY, label: 'aujourd’hui' } }) ; check : case « J'atteste… » ; select : options = liste ou [valeur, libellé].
   // Exemple : confirmAct({ title: 'Retirer ?', danger: true, act: 'offer-withdraw', candId: c.id, fields: [{ name: 'motif', label: 'Motif', type: 'text', required: true }] }, (v) => { …; commit(); });
   const CONFIRM_RUN = {};
   function confirmAct(o, run) {
-    const cid = uid('cf'); CONFIRM_RUN[cid] = { run: run || o.run, empId: o.empId, candId: o.candId };
+    const cid = uid('cf'); CONFIRM_RUN[cid] = { run: run || o.run, empId: o.empId, candId: o.candId, check: o.check };
     ui.modal = { type: 'confirm', cid, title: o.title || 'Confirmer', text: o.text || '', confirm: o.confirm || 'Confirmer', danger: !!o.danger, act: o.act || '', trace: o.trace || '',
       fields: (o.fields || []).map((x) => Object.assign({ type: 'text' }, x)) };
     render();
@@ -1147,6 +1152,8 @@
         else if (x.required && !val) return formError(`${name} : à renseigner.`);
         if (val) said.push(`${name} : ${x.type === 'date' ? fmtDateY(val) : x.type === 'select' ? optLabel(x, val) : val}`);
       }
+      // Contrôle propre à l'action (facultatif, ajouté par le tronçon Arrivée) : o.check(valeurs) renvoie un message d'erreur ou ''.
+      const bad = reg.check && reg.check(vals); if (bad) return formError(bad);
       delete CONFIRM_RUN[m.cid]; ui.modal = null;
       reg.run(vals);
       // Trace de la décision confirmée : qui, quand, et ce qui a été attesté ou saisi.
@@ -2216,11 +2223,15 @@
       ${f('an-mgr', 'Manager (ou tuteur pour un stage)', `<select id="an-mgr" name="managerId" class="select"><option value="">À désigner</option>${opt(mgrs, '')}</select>`)}${f('an-cat', 'Catégorie', `<select id="an-cat" name="category" class="select">${opt(['Employé', 'Agent de maîtrise', 'Cadre'], 'Employé')}</select>`)}
       ${f('an-contract', 'Contrat', `<select id="an-contract" name="contract" class="select" data-live="arrnew">${opt(['CDI', 'CDD', 'Alternance', 'Stage'], 'CDI')}</select>`)}${f('an-site', 'Lieu de travail', `<select id="an-site" name="location" class="select">${opt(SITES().concat(['Télétravail majoritaire']), SITES()[0])}</select>`)}
       ${f('an-start', 'Date d’arrivée', `<input id="an-start" name="startDate" type="date" class="input" value="${nextMonday(TODAY, 3)}" required>`)}${f('an-end', 'Date de fin (CDD, alternance, stage)', '<input id="an-end" name="endDate" type="date" class="input">')}
-      <div class="full" id="an-cdd" hidden><p class="hint" style="margin:0 0 8px">CDD : cas de recours, motif précis et personne remplacée sont obligatoires par écrit (art. L1242-12) ; ils seront repris dans le contrat.</p><div class="form-grid">
-        ${f('an-cddcase', 'Cas de recours *', `<select id="an-cddcase" name="cddCase" class="select" data-live="arrnew"><option value="">Choisir…</option>${opt(CDD_CASES.map((x) => x.k), '')}</select>`, true)}
-        ${f('an-cddreason', 'Motif précis *', '<input id="an-cddreason" name="cddReason" class="input" maxlength="160">', true)}
-        <div class="field" id="an-cddrepl" hidden><label for="an-cddreplaces">Personne remplacée *</label><select id="an-cddreplaces" name="cddReplaces" class="select"><option value="">Choisir…</option>${opt(db.employees.filter((x) => x.stage < 15).map((x) => [x.id, fullName(x)]), '')}</select></div></div></div>
-      ${f('an-sal', 'Salaire annuel brut (€) · gratification annuelle pour un stage', '<input id="an-sal" name="salary" type="number" min="0" step="100" class="input num" required>', true)}</div>`, 'Créer l’arrivée', true);
+      ${f('an-sal', 'Salaire annuel brut (€) · gratification annuelle pour un stage', '<input id="an-sal" name="salary" type="number" min="0" step="100" class="input num" required>', true)}
+      ${f('an-time', 'Durée du travail', `<select id="an-time" name="worktime" class="select">${opt([['', 'Selon la catégorie (forfait jours pour un cadre)'], ['heures', 'Horaire collectif'], ['forfait', `Forfait annuel de ${FORFAIT_DAYS} jours`]], '')}</select>`)}
+      ${f('an-nat', 'Nationalité (sinon la recrue la renseigne)', nationalitySelect({}, 'id="an-nat" name="nationality"'))}${f('an-sex', 'Sexe (registre du personnel)', `<select id="an-sex" name="sex" class="select">${opt([['', 'À renseigner par la recrue'], ['F', 'Femme'], ['H', 'Homme']], '')}</select>`)}
+      <h4 class="sub full" style="margin:6px 0 0">CDD seulement · motif de recours (art. L1242-2)</h4>
+      ${f('an-cddr', 'Cas de recours', `<select id="an-cddr" name="cddReason" class="select"><option value="">Choisir le cas de recours…</option>${opt(CDD_REASONS, '')}</select>`, true)}
+      ${f('an-cddd', 'Précision du motif (ex. surcroît lié au projet X)', '<input id="an-cddd" name="cddDetail" class="input" maxlength="140">')}
+      ${f('an-cddp', 'Personne remplacée (nom et prénom)', '<input id="an-cddp" name="cddReplaced" class="input" maxlength="60">')}${f('an-cddq', 'Sa qualification (poste, catégorie)', '<input id="an-cddq" name="cddReplacedQual" class="input" maxlength="80">')}
+      <label class="full agree"><input type="checkbox" name="cddImprecise"> Terme imprécis : fin au retour de la personne remplacée, la date de fin ci-dessus étant la durée minimale</label>
+      <label class="full agree"><input type="checkbox" name="cddRenew"> Clause de renouvellement dans le contrat</label></div>`, 'Créer l’arrivée', true);
   };
   Object.assign(MOD_FORMS, {
     'arr-new'(v) {
@@ -2242,19 +2253,41 @@
       if (v.contract === 'CDD' && v.endDate > addDays(addMonths(v.startDate, cs.max), -1)) return formError(`Ce cas de recours limite le CDD à ${cs.max} mois, renouvellements compris.`);
       if (!(salary >= 0) || (v.contract !== 'Stage' && !(salary > 0))) return formError('Indiquez un salaire annuel brut supérieur à 0 €.');
       if (v.contract === 'Stage' && v.endDate > addDays(addMonths(v.startDate, 2), -1) && salary / 12 < STAGE_FREE) return formError(`Stage de plus de 2 mois : gratification obligatoire d’au moins ${eur(STAGE_FREE)} par mois, soit ${eur0(STAGE_FREE * 12)} par an.`);
-      // Socle : SMIC bloquant, minimum conventionnel indicatif à confirmer par un second clic (montant mémorisé).
-      const sc = salaryCheck({ annual: salary, contract: v.contract, category: v.category, kind: 'salaire' });
+      // CDD : cas de recours, motif précis et personne remplacée (art. L1242-2 et L1242-12) ; sans eux, le contrat est réputé à durée indéterminée.
+      const cdd = v.contract === 'CDD' ? { reason: v.cddReason || '', detail: (v.cddDetail || '').trim(), replaced: (v.cddReplaced || '').trim(), replacedQual: (v.cddReplacedQual || '').trim(), imprecise: v.cddImprecise === 'on', renew: v.cddRenew === 'on' } : null;
+      if (cdd) {
+        if (!cdd.reason) return formError('CDD : choisissez le cas de recours (art. L1242-2). Sans motif précis, le contrat est réputé conclu pour une durée indéterminée.');
+        if (cddReplace(cdd.reason) && (!cdd.replaced || !cdd.replacedQual)) return formError('CDD de remplacement : indiquez le nom et la qualification de la personne remplacée (art. L1242-12).');
+        if (!cddReplace(cdd.reason) && cdd.detail.length < 5) return formError('CDD : précisez le motif (ex. la commande ou le projet qui justifie le surcroît d’activité).');
+        if (cdd.imprecise && !/^Remplacement|^Attente|saisonnier|d’usage/.test(cdd.reason)) return formError('Un terme imprécis n’est possible que pour un remplacement, un emploi saisonnier ou d’usage : indiquez une date de fin précise.');
+      }
+      // Stage : tuteur obligatoire.
+      if (v.contract === 'Stage' && !v.managerId) return formError('Stage : désignez le tuteur ou la tutrice dans l’entreprise (obligatoire).');
+      // Socle : SMIC bloquant ; les avertissements (minimum conventionnel, plafonds de stagiaires) se confirment par un second clic, valeurs mémorisées.
+      const forfait = arrForfait({ contract: v.contract, category: v.category, worktime: v.worktime || undefined });
+      const sc = salaryCheck({ annual: salary, contract: v.contract, category: v.category, kind: 'salaire', forfait });
       if (sc.level === 'error') return formError(sc.msg);
-      if (sc.level === 'warn' && ui.modal.salOk !== salary) { ui.modal.salOk = salary; return formError(`${sc.msg} Pour garder ce montant, cliquez à nouveau sur « Créer l’arrivée ».`); }
-      if (v.startDate < TODAY) toast('Date d’arrivée passée : faites la DPAE au plus vite (elle doit précéder l’embauche).', 'info');
+      const warns = sc.level === 'warn' ? [sc.msg] : [];
+      if (v.contract === 'Stage') {
+        // À VÉRIFIER (juriste) : plafonds de l'art. R124-10 (3 stagiaires sous 20 salariés, 15 % de l'effectif au-delà) et R124-13 (3 stagiaires par tuteur).
+        const span = (x) => x.contract === 'Stage' && x.stage < 13 && x.startDate <= (v.endDate || v.startDate) && (!x.endDate || x.endDate >= v.startDate);
+        const tut = db.employees.filter((x) => span(x) && x.managerId === v.managerId).length, all = db.employees.filter(span).length, staff = db.employees.filter((x) => isEmployed(x) && x.contract !== 'Stage').length;
+        if (tut >= 3) warns.push(`${fullName(emp(v.managerId))} suit déjà ${tut} stagiaires sur cette période : 3 au plus par tuteur.`);
+        const cap = staff < 20 ? 3 : Math.floor(staff * 0.15);
+        if (all >= cap) warns.push(`L’entreprise accueille déjà ${all} stagiaires sur cette période, pour un plafond de ${cap} (${staff < 20 ? 'moins de 20 salariés' : '15 % de l’effectif'}).`);
+      }
+      const warnKey = JSON.stringify([salary, warns]);
+      if (warns.length && ui.modal.salOk !== warnKey) { ui.modal.salOk = warnKey; return formError(`${warns.join(' ')} Pour continuer malgré tout, cliquez à nouveau sur « Créer l’arrivée ».`); }
       const id = uid('e'), first = v.firstName.trim(), last = v.lastName.trim();
       const twin = db.employees.find((x) => x.stage < 15 && nameKey(x) === nameKey({ firstName: first, lastName: last }));
-      if (twin && !ui.modal.twinOk) { ui.modal.twinOk = true; return formError(`${fullName(twin)} a déjà un dossier (${twin.title} · ${twin.dept}). Pour lui confier un service de plus, désignez-le responsable dans Paramètres > Services. S’il s’agit d’un homonyme, cliquez à nouveau sur « Créer l’arrivée ».`); }
+      if (twin && !ui.modal.twinOk) { ui.modal.twinOk = true; return formError(`${fullName(twin)} a déjà un dossier (${twin.title} · ${twin.dept}, ${statusOf(twin)[0].toLowerCase()}). S’il s’agit de la même personne, ouvrez son dossier depuis l’annuaire plutôt que d’en créer un second. S’il s’agit d’une autre personne du même nom, cliquez à nouveau sur « Créer l’arrivée ».`); }
+      if (v.startDate < TODAY) toast('Date d’arrivée passée : faites la DPAE au plus vite (elle doit précéder l’embauche).', 'info');
       const email = `${first}.${last}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z.]/g, '') + `@${COMPANY.domaine}`, taken = (x) => db.employees.some((y) => y.email === x);
       let mail = email; for (let n = 2; taken(mail); n++) mail = email.replace('@', n + '@');
-      db.employees.push(Object.assign({ id, firstName: first, lastName: last, title: v.title.trim(), dept: v.dept, managerId: v.managerId || null, stage: 2, startDate: v.startDate, endDate: fixed ? v.endDate : null, contract: v.contract, category: v.category, salary,
-        email: mail, personalEmail: (v.personalEmail || '').trim().toLowerCase(), phone: (v.phone || '').trim(), location: v.location, birthDate: '', address: '', emergency: '', family: '', cp: 0, rtt: 0, exit: null, source: v.source, registeredAt: null },
-      cs ? { cddCase: v.cddCase, cddReason: v.cddReason.trim(), cddReplaces: cs.repl ? v.cddReplaces : null, cddTerm: 'precis' } : {}));
+      // Pas de zone par défaut : elle découle de la nationalité, saisie ici ou par la recrue (titre de séjour demandé hors UE).
+      db.employees.push({ id, firstName: first, lastName: last, title: v.title.trim(), dept: v.dept, managerId: v.managerId || null, stage: 2, startDate: v.startDate, endDate: fixed ? v.endDate : null, contract: v.contract, category: v.category, salary,
+        email: mail, personalEmail: (v.personalEmail || '').trim().toLowerCase(), phone: (v.phone || '').trim(), location: v.location, birthDate: '', address: '', emergency: '', family: '', cp: 0, rtt: 0, exit: null, source: v.source, registeredAt: null,
+        nationality: v.nationality || '', zone: zoneOf(v.nationality), sex: v.sex || null, worktime: v.worktime || null, cdd });
       normalizeEmployees();
       if (v.managerId) notify(v.managerId, `${first} ${last} rejoint votre équipe le ${fmtDate(v.startDate)} (${v.title.trim()}).`);
       notify(id, `Bienvenue chez ${COMPANY.nom} ! Dépose tes documents dans « Mon arrivée » : ton contrat suivra.`);
@@ -4346,14 +4379,84 @@
     return { end, notice, months, alt, decideBy: addDays(end, -notice), renewable: e.contract === 'CDI' && !d.trialRenewed && !!cr.renouv,
       label: alt ? '45 jours de formation pratique en entreprise' : `${months} mois${d.trialRenewed ? `, renouvelée de ${months} mois` : ''}` };
   }
+  // ---- Arrivée : règles de la période d'essai, contrôles d'identité, valeurs reprises dans les documents.
+  // Essai arrivé à son terme sans rupture ni renouvellement : le contrat est définitif (art. L1221-21 et L1221-23).
+  const trialOver = (e, t = trialInfo(e)) => !!t && TODAY > t.end;
+  // Délai de prévenance selon la présence à la date où la rupture est notifiée : employeur (art. L1221-25), salarié (art. L1221-26).
+  // Renvoie des jours calendaires (1 = 24 h, 2 = 48 h, 14 = 2 semaines, 30 = 1 mois).
+  function trialNotice(e, at, by = 'employeur') {
+    if (e.contract === 'Alternance') return 0;
+    const short = at < addDays(e.startDate, 7);
+    if (by === 'salarie') return short ? 1 : 2;
+    return short ? 1 : at < addMonths(e.startDate, 1) ? 2 : at < addMonths(e.startDate, 3) ? 14 : 30;
+  }
+  // Rupture de l'essai notifiée le « at », dernier jour « lastDay » : fin normale du délai de prévenance et indemnité si le délai n'est pas tenu.
+  // L'essai ne peut pas être prolongé par le délai de prévenance : la rupture prend effet au plus tard le dernier jour de l'essai, et l'employeur
+  // verse alors les salaires du délai restant, congés payés compris (art. L1221-25).
+  // À VÉRIFIER (juriste) : calcul approché en jours calendaires (salaire annuel / 365, + 10 % de congés payés).
+  function breakQuote(e, at, lastDay, by = 'employeur') {
+    const notice = trialNotice(e, at, by), noticeEnd = notice === 30 ? addMonths(at, 1) : addDays(at, notice);
+    const missing = by === 'employeur' && lastDay < noticeEnd ? dayDiff(lastDay, noticeEnd) : 0;
+    return { notice, noticeEnd, missing, indemnity: missing ? Math.round((e.salary / 365) * missing * 1.1) : 0 };
+  }
+  // NIR : 13 caractères (2A ou 2B pour la Corse) et une clé de 2 chiffres égale à 97 − (nombre mod 97). Cohérence avec le sexe et la date de naissance.
+  function nirCheck(raw, e = {}) {
+    const n = String(raw || '').replace(/[\s.-]/g, '').toUpperCase();
+    if (!n) return { level: 'empty', msg: '', value: '' };
+    if (!/^[1-8]\d{4}(\d{2}|2A|2B)\d{8}$/.test(n)) return { level: 'error', msg: 'Le numéro de sécurité sociale compte 15 caractères : 13 chiffres (2A ou 2B pour la Corse) puis une clé de 2 chiffres.', value: n };
+    const body = n.slice(0, 13).replace('2A', '19').replace('2B', '18');
+    if (97 - Number(BigInt(body) % 97n) !== Number(n.slice(13))) return { level: 'error', msg: 'Numéro de sécurité sociale invalide : la clé ne correspond pas. Vérifiez la saisie sur la carte Vitale ou l’attestation.', value: n };
+    const w = [];
+    if ((e.sex === 'H' && n[0] === '2') || (e.sex === 'F' && n[0] === '1')) w.push('le premier chiffre ne correspond pas au sexe saisi');
+    if (e.birthDate && /^(0[1-9]|1[0-2])$/.test(n.slice(3, 5)) && (n.slice(1, 3) !== e.birthDate.slice(2, 4) || n.slice(3, 5) !== e.birthDate.slice(5, 7))) w.push('l’année ou le mois ne correspondent pas à la date de naissance');
+    return w.length ? { level: 'warn', msg: `Numéro de sécurité sociale à vérifier : ${w.join(' ; ')}.`, value: n } : { level: 'ok', msg: '', value: n };
+  }
+  // Données d'état civil demandées par la DPAE (art. R1221-1) et le registre ; le NIR peut manquer s'il n'est pas encore connu.
+  const civMissing = (e) => [[e.sex, 'sexe'], [e.birthDate, 'date de naissance'], [e.birthPlace, 'lieu de naissance'], [e.nationality, 'nationalité']].filter(([v]) => !v).map(([, l]) => l);
+  // Durée du travail : forfait en jours pour un cadre autonome (choix fait à la création, convention individuelle signée avec le contrat), sinon horaire collectif.
+  const arrForfait = (e) => !['Stage', 'Alternance'].includes(e.contract) && (e.worktime === 'forfait' || (!e.worktime && e.category === 'Cadre'));
+  function dureeTravail(e) {
+    if (arrForfait(e)) return `Forfait annuel de ${FORFAIT_DAYS} jours travaillés, journée de solidarité comprise, sans référence horaire, dans le cadre de l’accord collectif applicable. La présente clause vaut convention individuelle de forfait en jours, que le salarié accepte expressément par sa signature (art. L3121-55). Le salarié bénéficie d’un suivi régulier de sa charge de travail et d’un entretien annuel portant sur sa charge de travail, l’articulation entre vie professionnelle et vie personnelle et sa rémunération.`;
+    const h = (db.settings && db.settings.temps && db.settings.temps.heures) || 35;
+    return `Durée hebdomadaire : ${String(h).replace('.', ',')} heures, selon les horaires collectifs en vigueur dans l’entreprise ; heures supplémentaires selon la loi et la convention collective.`;
+  }
+  // Cas de recours au CDD (art. L1242-2 et L1242-3) : le motif précis est repris dans le contrat.
+  const CDD_REASONS = ['Remplacement d’un salarié absent ou dont le contrat est suspendu', 'Remplacement d’un salarié passé provisoirement à temps partiel', 'Attente de l’entrée en service d’un salarié recruté en CDI', 'Remplacement avant la suppression du poste d’un salarié parti',
+    'Accroissement temporaire de l’activité', 'Emploi à caractère saisonnier', 'Emploi pour lequel il est d’usage de ne pas recourir au CDI', 'Recrutement d’un ingénieur ou cadre pour un objet défini (accord de branche ou d’entreprise)', 'Remplacement d’un chef d’entreprise ou d’un associé', 'Contrat lié à la politique de l’emploi ou à un complément de formation (art. L1242-3)'];
+  const cddReplace = (r) => /^Remplacement|^Attente/.test(r || '');
+  // Recrue venue d'une offre : cas de recours, motif et personne remplacée saisis au recrutement.
+  function cddFromOffer(e) {
+    if (!e.cddCase) return {};
+    const r = e.cddReplaces && emp(e.cddReplaces);
+    return { reason: e.cddCase, detail: e.cddReason || '', replaced: r ? fullName(r) : '', replacedQual: r ? `${r.title}, ${(r.category || '').toLowerCase()}`.replace(/, $/, '') : '', imprecise: e.cddTerm === 'imprecis', renew: false };
+  }
+  const NONE = { html: '' }; // valeur « sans objet » : n'affiche rien et ne crée pas de zone à compléter
+  // Valeurs des documents issues du dossier d'arrivée ; une valeur vide devient une zone jaune à compléter.
+  function arrivalCtx(e) {
+    const f = e.sex === 'F', h = e.sex === 'H', c = e.cdd || cddFromOffer(e), co = (db.settings && db.settings.company) || {}, ob = db.onboarding && db.onboarding[e.id], dp = ob && ob.dpae;
+    const ctx = { ne: f ? 'née' : h ? 'né' : 'né·e', engage: f ? 'engagée' : h ? 'engagé' : 'engagé·e', nationalite: e.nationality ? e.nationality.charAt(0).toLowerCase() + e.nationality.slice(1) : '',
+      naissance_lieu: e.birthPlace || '', duree_travail: dureeTravail(e), retraite: co.retraite || '', prevoyance_org: co.prevoyance || '', dpae_date: dp ? longDate(dp.date) : '', dpae_ref: dp ? dp.ref : '' };
+    if (e.contract === 'CDD') Object.assign(ctx, { 'saisie:motif': c.reason ? `${c.reason.charAt(0).toLowerCase() + c.reason.slice(1)}${c.detail ? ` (${c.detail})` : ''}` : '',
+      cdd_remplace: !c.reason ? NONE : cddReplace(c.reason) ? (c.replaced ? `${f ? 'La salariée est engagée' : h ? 'Le salarié est engagé' : 'Le salarié est engagé'} pour remplacer ${c.replaced}${c.replacedQual ? `, ${c.replacedQual}` : ''}.` : '') : NONE,
+      cdd_terme: !e.endDate ? '' : c.imprecise ? `Le contrat prend effet le ${longDate(e.startDate)}. Conclu sans terme précis, il prendra fin au retour de la personne remplacée, avec une durée minimale allant jusqu’au ${longDate(e.endDate)}.` : `Le contrat prend effet le ${longDate(e.startDate)} et prendra fin le ${longDate(e.endDate)}.`,
+      cdd_renouvellement: c.renew ? 'Le contrat pourra être renouvelé par avenant proposé avant son terme, dans les limites légales et conventionnelles (deux renouvellements et 18 mois au total dans le cas général).' : c.reason ? 'Le contrat n’est pas renouvelable.' : NONE });
+    return ctx;
+  }
   function arrivalSteps(e, stage) {
     const d = dossier(e);
-    if (stage === 2) return [reqDocs(e).every(([k]) => d.docs[k]) && (!needsTitre(e) || !!d.titreCheck), d.contract.status === 'Signé', PREP_TASKS.every(([k]) => d.prep[k]) && !!d.buddy];
-    if (stage === 3 && isIntern(e)) return [!!d.convention && !!e.registeredAt, true, !!d.assignedAt, true];
-    if (stage === 3) return [!!d.dpae && !!e.registeredAt, !!d.info7 && !!d.info1m, !!d.assignedAt, !!d.mutuelle && db.visits.some((v) => v.empId === e.id && /information/i.test(v.kind) && v.date >= addDays(e.startDate, -30))];
+    // Pré-embauche : pièces validées, nationalité connue (elle décide du titre de séjour), titre vérifié auprès de la préfecture si besoin.
+    if (stage === 2) return [reqDocs(e).every(([k]) => d.docs[k]) && !!e.nationality && (!needsTitre(e) || !!d.titreCheck), d.contract.status === 'Signé', PREP_TASKS.every(([k]) => d.prep[k]) && !!d.buddy];
+    // Stage : convention, registre (partie stagiaires), tutorat et affectation ; rien n'est acquis d'office.
+    if (stage === 3 && isIntern(e)) return [!!d.convention, !!e.registeredAt, !!d.assignedAt, !!d.convention && !!d.assignedAt];
+    // Embauche : la prévoyance des cadres fait partie des dispositifs à mettre en place.
+    if (stage === 3) return [!!d.dpae && !!e.registeredAt, !!d.info7 && !!d.info1m, !!d.assignedAt, !!d.mutuelle && db.visits.some((v) => v.empId === e.id && /information/i.test(v.kind) && v.date >= addDays(e.startDate, -30)) && (e.category !== 'Cadre' || !!d.prevoyance)];
     // V2 : la période d'essai (juridique) et l'intégration (managériale) se terminent séparément ; sans période d'essai, seul le bilan clôt l'intégration.
-    return planList().map(([k]) => !!d.plan[k]).concat([!!d.checkins.j30, !!d.astonish, trialInfo(e) ? !!d.trialDecision && d.trialDecision !== 'Renouvelée' : !!d.integrationClosed]);
+    // Un essai arrivé à son terme sans décision vaut contrat définitif : le point est acquis.
+    const t = trialInfo(e);
+    return planList().map(([k]) => !!d.plan[k]).concat([checkinDone(d.checkins.j30), !!d.astonish, t ? (!!d.trialDecision && d.trialDecision !== 'Renouvelée') || trialOver(e, t) : !!d.integrationClosed]);
   }
+  // Un point de suivi n'est fait qu'avec son compte rendu.
+  const checkinDone = (c) => !!(c && typeof c === 'object' && c.note);
   // Actions qui attendent le profil courant pour une arrivée, sur la page de l'étape i (2 pré-embauche, 3 embauche, 4 intégration).
   function arrivalActions(e, i = e.stage) {
     const d = dossier(e), rh = ui.profile === 'rh', mine = (o) => (rh ? o === 'rh' : o !== 'rh'), out = [], start = e.startDate;
@@ -4361,6 +4464,7 @@
       const check = reqDocs(e).filter(([k]) => docState(d, k) === 'check').length, miss = reqDocs(e).filter(([k]) => ['missing', 'refused'].includes(docState(d, k))).length;
       if (rh && check) out.push(plural(check, 'pièce à vérifier', 'pièces à vérifier'));
       if (rh && miss && dayDiff(TODAY, start) <= 10) out.push(`${plural(miss, 'pièce manquante', 'pièces manquantes')} à moins de 10 jours de l’arrivée`);
+      if (rh && !e.nationality) out.push('nationalité à renseigner');
       if (rh && needsTitre(e) && !d.titreCheck) out.push(`vérifier le titre de séjour avant le ${fmtShort(subWorkDays(start, 2))}`);
       if (rh && ['À préparer', 'Prêt'].includes(d.contract.status)) out.push(d.contract.status === 'Prêt' ? 'contrat à envoyer pour signature' : 'contrat à préparer');
       const prep = PREP_TASKS.filter(([k, , o]) => !d.prep[k] && mine(o)).length + (!d.buddy && !rh ? 1 : 0);
@@ -4375,17 +4479,22 @@
       if (!d.info7 && TODAY >= start) out.push(`informations à remettre avant le ${fmtShort(addDays(start, 7))}`);
       else if (d.info7 && !d.info1m && TODAY >= addDays(start, 7)) out.push(`informations complémentaires avant le ${fmtShort(addMonths(start, 1))}`);
       if (!d.mutuelle && TODAY >= addDays(start, -8)) out.push('mutuelle');
+      if (e.category === 'Cadre' && !d.prevoyance && TODAY >= addDays(start, -8)) out.push('prévoyance des cadres');
       if (!d.assignedAt && TODAY >= addDays(start, -8)) out.push('affectation à confirmer');
     } else if (i === 4 && e.stage === 4) {
       const late = planList().filter(([k, , day, o]) => !d.plan[k] && TODAY >= addDays(start, day) && mine(o)).length;
       if (late) out.push(plural(late, 'action du programme', 'actions du programme'));
-      CHECKINS.forEach(([k, l, day]) => { if (!d.checkins[k] && TODAY >= addDays(start, day) && TODAY <= addDays(start, day + 30)) out.push(l.toLowerCase()); });
+      CHECKINS.forEach(([k, l, day]) => { if (!checkinDone(d.checkins[k]) && TODAY >= addDays(start, day) && TODAY <= addDays(start, day + 30)) out.push(l.toLowerCase()); });
       const t = trialInfo(e);
-      if (rh && t && !d.trialDecision && dayDiff(TODAY, t.decideBy) <= 14) out.push(`décision sur la période d’essai avant le ${fmtShort(t.decideBy)}`);
+      if (rh && t && !d.trialDecision && trialOver(e, t)) out.push(`essai terminé le ${fmtShort(t.end)} : contrat définitif`);
+      else if (rh && t && !d.trialDecision && dayDiff(TODAY, t.decideBy) <= 14) out.push(`décision sur la période d’essai avant le ${fmtShort(t.decideBy)}`);
+      const vip = arrVip(e);
+      if (rh && (!vip || vip.status !== 'Réalisée') && TODAY > addMonths(start, 3)) out.push('visite d’information et de prévention en retard');
       if (rh && arrivalSteps(e, 4).every(Boolean)) out.push('intégration à clôturer');
     }
     return out;
   }
+  const arrVip = (e) => db.visits.find((v) => v.empId === e.id && /information/i.test(v.kind) && v.date >= addDays(e.startDate, -30));
   // Pièces que la recrue doit encore déposer depuis son espace.
   const myArrivalTodo = (e) => (e.stage === 2 ? reqDocs(e).filter(([k]) => ['missing', 'refused'].includes(docState(dossier(e), k))).length : 0);
   // Passage automatique en intégration : pré-embauche et embauche terminées, contrat signé.
@@ -4393,7 +4502,7 @@
     db.employees.filter((e) => e.stage === 3).forEach((e) => { e.stage = 2; });
     db.employees.filter((e) => e.stage === 2 && arrivalSteps(e, 2).every(Boolean) && arrivalSteps(e, 3).every(Boolean)).forEach((e) => {
       db.journey[e.id] = db.journey[e.id] || {}; db.journey[e.id][2] = STAGES[2].steps.map(() => true); db.journey[e.id][3] = STAGES[3].steps.map(() => true);
-      e.stage = 4; notify(e.id, 'Votre pré-embauche et votre embauche sont terminées : place à l’intégration !');
+      e.stage = 4; notify(e.id, 'Ta pré-embauche et ton embauche sont terminées : place à l’intégration !');
       if (e.managerId) notify(e.managerId, `${fullName(e)} passe en intégration.`);
       if (ui.selPerson === e.id) ui.selPerson = null;
       toast(`${fullName(e)} passe automatiquement en intégration`);
@@ -4406,11 +4515,32 @@
       if (days >= 0 && days <= 10 && miss && !d.remind10) {
         d.remind10 = TODAY;
         notify('e1', `Relance J-10 : ${plural(miss, 'pièce manquante', 'pièces manquantes')} pour ${fullName(e)}, qui arrive le ${fmtDate(e.startDate)}.`);
-        notify(e.id, `Il vous reste ${plural(miss, 'pièce', 'pièces')} à déposer avant votre arrivée le ${fmtDate(e.startDate)}.`);
+        notify(e.id, `Il te reste ${plural(miss, 'pièce', 'pièces')} à déposer avant ton arrivée le ${fmtDate(e.startDate)}.`);
       }
-      if (days >= 0 && days <= 7 && !d.remind7) { d.remind7 = TODAY; notify(e.id, `Votre arrivée approche : rendez-vous le ${fmtDate(e.startDate)}. Votre programme du premier jour est dans « Mon arrivée ».`); }
+      if (days >= 0 && days <= 7 && !d.remind7) { d.remind7 = TODAY; notify(e.id, `Ton arrivée approche : rendez-vous le ${fmtDate(e.startDate)}. Ton programme du premier jour est dans « Mon arrivée ».`); }
     });
   }
+  // Mutuelle : cas de dispense à l'initiative du salarié. À VÉRIFIER (juriste) : liste et conditions des art. L911-7 et D911-2 du Code de la sécurité sociale.
+  const MUT_DISPENSES = ['Couvert par ailleurs à titre obligatoire, y compris comme ayant droit (ex. contrat du conjoint)', 'CDD ou contrat de mission de moins de 3 mois, avec une couverture individuelle responsable', 'CDD ou apprenti de 12 mois et plus, justifiant d’une couverture individuelle',
+    'CDD ou apprenti de moins de 12 mois', 'Temps partiel ou apprenti dont la cotisation atteindrait 10 % de la rémunération brute', 'Bénéficiaire de la complémentaire santé solidaire', 'Couvert par un contrat individuel, jusqu’à son échéance', 'Présent dans l’entreprise lors de la mise en place du régime par décision unilatérale'];
+  // Contrôles avant la DPAE et avant la prise de poste : erreurs bloquantes et avertissements.
+  function dpaeChecks(e) {
+    const d = dossier(e), err = [], warn = [], miss = civMissing(e), nir = nirCheck(e.nir, e);
+    if (miss.length) err.push(`Données requises pour la déclaration manquantes : ${miss.join(', ')} (art. R1221-1).`);
+    if (nir.level === 'error') err.push(nir.msg); else if (nir.level === 'warn') warn.push(nir.msg);
+    else if (nir.level === 'empty') warn.push('Numéro de sécurité sociale non renseigné : la DPAE reste possible, à compléter dès que la recrue le transmet.');
+    if (needsTitre(e)) {
+      if (!d.docs.titre) err.push('Titre de séjour autorisant à travailler : pièce non validée.');
+      if (!d.titreCheck) err.push(`Vérification du titre auprès de la préfecture non faite : elle doit être demandée au plus tard le ${fmtDate(subWorkDays(e.startDate, 2))}, 2 jours ouvrables avant l’embauche (art. R5221-41).`);
+      if (e.titreEnd && e.titreEnd < e.startDate) err.push(`Le titre de séjour expire le ${fmtDateY(e.titreEnd)}, avant l’embauche.`);
+    }
+    const left = reqDocs(e).filter(([k]) => !d.docs[k]).map(([, l]) => l.toLowerCase());
+    if (left.length) warn.push(`${plural(left.length, 'pièce du dossier n’est pas encore validée', 'pièces du dossier ne sont pas encore validées')} (${left.join(', ')}).`);
+    return { err, warn };
+  }
+  // Consignes de dépôt propres à chaque pièce.
+  const DOC_HINT = { identite: 'Carte d’identité ou passeport en cours de validité, recto et verso', secu: 'Attestation de droits ou carte Vitale lisible', rib: 'RIB à ton nom', domicile: 'Facture ou quittance de moins de 3 mois', diplome: 'Diplôme le plus élevé ou certification demandée pour le poste',
+    cerfa: 'Cerfa visé par l’école', convention: 'Convention signée par l’école et par toi', rcivile: 'Attestation de l’année en cours', titre: 'Titre en cours de validité, recto et verso, autorisant à travailler' };
   function arrivalDossier(e, i) {
     const d = dossier(e), rh = ui.profile === 'rh', mgr = ui.profile === 'manager', can = (o) => rh || (mgr && o !== 'rh');
     const row = (label, sub, state) => `<div class="todo"><div class="t"><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div>${state}</div>`;
@@ -4422,22 +4552,33 @@
     const sec = (title, body) => `<h4 class="sub" style="margin-top:18px">${title}</h4>${body}`;
     // Le manager ne voit en embauche que l'avancement (les puces), sans le détail administratif.
     if (i === 3 && !rh) return '';
-    let html = `<p class="hint" style="margin:12px 0 0">${when} · ${esc(e.contract)} · ${esc(e.title)} · manager : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}${d.buddy && emp(d.buddy) ? ` · parrain : ${esc(fullName(emp(d.buddy)))}` : d.buddy === 'none' ? ' · sans parrain' : ''}</p>`;
+    let html = `<p class="hint" style="margin:12px 0 0">${when} · ${esc(e.contract)} · ${esc(e.title)} · ${isIntern(e) ? 'tuteur' : 'manager'} : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}${d.buddy && emp(d.buddy) ? ` · parrain : ${esc(fullName(emp(d.buddy)))}` : d.buddy === 'none' ? ' · sans parrain' : ''}</p>`;
     if (i === 2) {
       if (rh) {
         const sel = (f, list, v) => `<select class="select" data-change="arr-civ" data-id="${e.id}" data-f="${f}" aria-label="${f}">${list.map((x) => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
-        html += sec('État civil (registre du personnel)', `<div class="form-grid civ"><div class="field"><label>Sexe</label>${sel('sex', ['—', 'F', 'H'], e.sex || '—')}</div><div class="field"><label>Nationalité</label>${nationalitySelect(e, `data-change="arr-civ" data-id="${e.id}" data-f="nationality" aria-label="Nationalité"`)}</div>
-          <div class="field"><label>Zone</label>${sel('zone', ['France', 'UE', 'Hors UE'], e.zone || 'France')}<small class="field-hint">Déduite de la nationalité ; « Hors UE » demande un titre de séjour</small></div><div class="field"><label>Date de naissance</label><input type="date" class="input" value="${esc(e.birthDate || '')}" data-change="arr-civ" data-id="${e.id}" data-f="birthDate" aria-label="Date de naissance"></div></div>`);
+        const inp = (f, label, v, extra = '') => `<div class="field"><label>${label}</label><input class="input" value="${esc(v || '')}" data-change="arr-civ" data-id="${e.id}" data-f="${f}" aria-label="${label}" ${extra}></div>`;
+        const nir = nirCheck(e.nir, e);
+        html += sec('État civil (DPAE et registre du personnel)', `<p class="hint" style="margin:0 0 6px">${esc(e.firstName)} complète ces informations depuis son espace ; vous pouvez les corriger ici. Elles remplissent le contrat, la DPAE et le registre.</p><div class="form-grid civ"><div class="field"><label>Sexe</label>${sel('sex', ['—', 'F', 'H'], e.sex || '—')}</div><div class="field"><label>Nationalité</label>${nationalitySelect(e, `data-change="arr-civ" data-id="${e.id}" data-f="nationality" aria-label="Nationalité"`)}</div>
+          <div class="field"><label>Zone</label>${sel('zone', ['—', 'France', 'UE', 'Hors UE'], e.zone || '—')}<small class="field-hint">${e.nationality ? 'Déduite de la nationalité ; « Hors UE » demande un titre de séjour' : 'À déterminer : renseignez la nationalité'}</small></div><div class="field"><label>Date de naissance</label><input type="date" class="input" value="${esc(e.birthDate || '')}" max="${addYears(TODAY, -14)}" data-change="arr-civ" data-id="${e.id}" data-f="birthDate" aria-label="Date de naissance"></div>
+          ${inp('birthPlace', 'Lieu de naissance (commune, pays)', e.birthPlace, 'maxlength="80"')}<div class="field"><label>N° de sécurité sociale</label><input class="input num" value="${esc(e.nir || '')}" data-change="arr-civ" data-id="${e.id}" data-f="nir" aria-label="Numéro de sécurité sociale" maxlength="21" inputmode="numeric">${nir.msg ? `<small class="field-hint" style="color:var(--${nir.level === 'error' ? 'bad' : 'warn'})">${esc(nir.msg)}</small>` : ''}</div>
+          ${inp('address', 'Adresse', e.address, 'maxlength="140"')}${inp('emergency', 'Contact d’urgence', e.emergency, 'maxlength="80"')}
+          ${needsTitre(e) ? `${inp('titreType', 'Type du titre de travail', e.titreType, 'maxlength="60" placeholder="Ex. carte de séjour « salarié »"')}${inp('titreNum', 'Numéro du titre', e.titreNum, 'maxlength="30"')}<div class="field"><label>Fin de validité du titre</label><input type="date" class="input" value="${esc(e.titreEnd || '')}" data-change="arr-civ" data-id="${e.id}" data-f="titreEnd" aria-label="Fin de validité du titre"></div>` : ''}</div>`);
         html += sec(`Pièces du dossier · contrat ${esc(e.contract)}`, `<p class="hint" style="margin:0 0 6px">${esc(e.firstName)} dépose ses pièces depuis son espace ; vous les vérifiez ici.</p>` + reqDocs(e).map(([k, l]) => { const st = docState(d, k), f = d.files[k];
           const file = f ? `<button type="button" class="btn ghost sm" data-act="file-view" data-id="${e.id}" data-k="${k}">${ic('file')}Voir</button>` : '';
           const sub = k === 'titre' ? 'Salarié hors Union européenne : le titre doit autoriser à travailler' : f ? `${esc(f.name)} · déposé le ${fmtShort(f.date)}${f.refused ? ` · refusé : ${esc(f.refused)}` : ''}` : '';
           return row(l, sub, st === 'ok' ? `${ok(d.docs[k], 'Validé')}${file}` : st === 'check' ? `<span class="pill info">À vérifier</span>${file}${b('arr-doc', `${ic('check')}Valider`, `data-k="${k}"`, 'ok')}${b('doc-refuse', 'Refuser', `data-k="${k}"`)}`
             : `${pend(st === 'refused' ? 'À redéposer' : 'En attente du dépôt', st === 'refused' ? 'bad' : 'neutral')}${b('arr-doc', 'Reçu sur papier', `data-k="${k}"`)}`); }).join('')
-          + (needsTitre(e) ? row('Vérification du titre auprès de la préfecture', `Au plus tard le ${fmtDate(subWorkDays(start, 2))}, 2 jours ouvrables avant l’embauche (art. R5221-41)`, d.titreCheck ? ok(d.titreCheck, 'Demande envoyée') : b('arr-titre', 'Demande envoyée')) : ''));
-        const c = d.contract, st = { 'À préparer': 'neutral', Prêt: 'info', Envoyé: 'warn', Signé: 'ok' }[c.status];
-        html += sec('Contrat de travail', row(`Contrat ${esc(e.contract)} · ${esc(e.title)}`, `${e.contract === 'CDD' ? 'À transmettre au plus tard 2 jours ouvrables après l’embauche (art. L1242-13). ' : ''}${c.status === 'Envoyé' ? `Envoyé le ${fmtShort(c.sentAt)} : ${esc(e.firstName)} le signe à la main depuis l’onglet « Contrat de travail » de son espace.` : `Poste, rémunération, durée du travail, période d’essai, ${CONV().mention}.`}`,
-          `<span class="pill ${st}">${c.status === 'Envoyé' ? 'En attente de signature' : c.status === 'Signé' ? `${ic('lock')}Signé${c.paper ? ' sur papier' : ''}` : c.status}${c.signedAt ? ` le ${fmtShort(c.signedAt)}` : ''}</span>${c.docId ? docBtn(db.documents.find((x) => x.id === c.docId), c.status === 'Signé' ? 'Voir le contrat signé' : 'Voir') : ''}
-          ${c.status === 'À préparer' ? b('arr-contract', 'Générer le contrat', 'data-s="Prêt"', 'primary') : c.status === 'Prêt' ? b('arr-contract', 'Envoyer pour signature', 'data-s="Envoyé"') : c.status === 'Envoyé' ? b('arr-contract', 'Signé sur papier', 'data-s="Signé"') : ''}`));
+          + (needsTitre(e) ? row('Vérification du titre auprès de la préfecture', `Au plus tard le ${fmtDate(subWorkDays(start, 2))}, 2 jours ouvrables avant l’embauche (art. R5221-41). Simulée dans la démonstration : la demande réelle se fait sur le site de l’administration.`, d.titreCheck ? ok(d.titreCheck, 'Demande envoyée') : b('arr-titre', 'Demande envoyée')) : ''));
+        const c = d.contract, st = { 'À préparer': 'neutral', Prêt: 'info', Envoyé: 'warn', Signé: 'ok' }[c.status], cdoc = c.docId && db.documents.find((x) => x.id === c.docId);
+        const sc = isIntern(e) ? { level: 'ok' } : salaryCheck({ annual: e.salary, contract: e.contract, category: e.category, kind: 'salaire', forfait: arrForfait(e) });
+        const salWarn = sc.level !== 'ok' && sc.msg ? `<span style="display:block;color:var(--${sc.level === 'error' ? 'bad' : 'warn'})">${esc(sc.msg)}</span>` : '';
+        const vers = (c.versions || []).length ? ` Version ${(c.versions || []).length + 1} ; ${plural(c.versions.length, 'version précédente annulée', 'versions précédentes annulées')}.` : '';
+        const ttl = isIntern(e) ? 'Conditions d’accueil en stage' : 'Contrat de travail';
+        const sub = isIntern(e) ? 'Récapitulatif des conditions d’accueil remis au stagiaire. La convention tripartite, signée par l’école, est suivie dans l’onglet Embauche.'
+          : `${e.contract === 'CDD' ? 'À transmettre au plus tard 2 jours ouvrables après l’embauche (art. L1242-13). ' : ''}${c.status === 'Envoyé' ? `Signé pour l’employeur et envoyé le ${fmtShort(c.sentAt)} : ${esc(e.firstName)} le signe depuis l’onglet « Contrat de travail » de son espace. Pour le corriger, créez une nouvelle version : elle devra être signée à nouveau.` : `Poste, rémunération, ${arrForfait(e) ? 'forfait annuel en jours' : 'durée du travail'}, période d’essai, ${CONV().mention}.`}${vers}`;
+        html += sec(ttl, row(`${isIntern(e) ? 'Stage' : `Contrat ${esc(e.contract)}`} · ${esc(e.title)}`, sub + salWarn,
+          `<span class="pill ${st}">${c.status === 'Envoyé' ? 'En attente de signature' : c.status === 'Signé' ? `${ic('lock')}Signé${c.paper ? ' sur papier' : ''}` : c.status}${c.signedAt ? ` le ${fmtShort(c.signedAt)}` : ''}</span>${cdoc ? docBtn(cdoc, c.status === 'Signé' ? 'Voir le contrat signé' : 'Voir') : ''}
+          ${c.status === 'À préparer' ? b('arr-contract', isIntern(e) ? 'Générer le document' : 'Générer le contrat', 'data-s="Prêt"', 'primary') : c.status === 'Prêt' ? b('arr-contract', 'Envoyer pour signature', 'data-s="Envoyé"') : c.status === 'Envoyé' ? `${b('arr-contract', 'Signé sur papier', 'data-s="Signé"')}${b('arr-contract-revise', 'Nouvelle version')}` : ''}`));
       }
       // Tout l'effectif présent peut parrainer (sauf la recrue et son manager), en commençant par son service ; « Pas de parrain » est un choix assumé.
       const buddies = db.employees.filter((x) => isEmployed(x) && x.stage >= 4 && x.id !== e.id && x.id !== e.managerId).sort((a, z) => (z.dept === e.dept) - (a.dept === e.dept) || a.lastName.localeCompare(z.lastName, 'fr'));
@@ -4450,47 +4591,65 @@
     }
     if (i === 3) {
       const open = TODAY >= addDays(start, -8);
-      if (isIntern(e)) html += sec('Formalités du stage', row('Convention de stage tripartite', 'Signée par l’école, l’entreprise et le stagiaire avant le premier jour. Un stagiaire n’est pas salarié : pas de DPAE ni de contrat de travail.',
-          d.convention ? ok(d.convention, 'Signée') : b('arr-conv', 'Convention reçue signée', '', TODAY >= addDays(start, -5) ? 'primary' : 'ghost'))
-        + row('Registre unique du personnel', 'Les stagiaires sont inscrits dans une partie spécifique du registre', `${e.registeredAt ? ok(e.registeredAt, 'Inscrit') : b('arr-register', 'Inscrire')}<button type="button" class="btn ghost sm" data-act="register-view">Voir le registre</button>`)
-        + row('Tuteur ou tutrice dans l’entreprise', 'Obligatoire ; un tuteur suit au plus 3 stagiaires', e.managerId ? ok(TODAY, esc(fullName(emp(e.managerId)))) : pend('À désigner', 'warn')));
-      else html += sec('Formalités', row('Déclaration préalable à l’embauche (DPAE)', 'Auprès de l’Urssaf, au plus tôt 8 jours avant l’embauche et au plus tard avant la prise de poste. Elle vaut aussi adhésion au service de santé au travail.',
-        d.dpae ? ok(d.dpae.date, `N° ${esc(d.dpae.ref)}`) : open ? b('arr-dpae', TODAY > start ? 'Faire la DPAE (en retard)' : 'Effectuer la DPAE', '', TODAY > start ? 'bad' : 'primary') : `<span class="pill neutral">Possible dès le ${fmtShort(addDays(start, -8))}</span>`)
-        + row('Registre unique du personnel', 'Inscription obligatoire au moment de l’embauche', `${e.registeredAt ? ok(e.registeredAt, 'Inscrit') : b('arr-register', 'Inscrire')}<button type="button" class="btn ghost sm" data-act="register-view">Voir le registre</button>`));
+      // Inscription au registre le jour de l'embauche, pas avant (art. L1221-13).
+      const reg = (label) => (e.registeredAt ? ok(e.registeredAt, 'Inscrit') : TODAY >= start ? b('arr-register', label) : `<span class="pill neutral">Le jour de l’embauche, ${fmtShort(start)}</span>`) + '<button type="button" class="btn ghost sm" data-act="register-view">Voir le registre</button>';
+      if (isIntern(e)) html += sec('Formalités du stage', row('Convention de stage tripartite', `Signée par l’école, l’entreprise et le stagiaire avant le premier jour. Un stagiaire n’est pas salarié : pas de DPAE ni de contrat de travail.${d.files.convention ? ` Exemplaire déposé par ${esc(e.firstName)} : ${esc(d.files.convention.name)}.` : ''}`,
+          d.convention ? ok(d.convention, 'Signée') : d.docs.convention ? b('arr-conv', 'Confirmer la convention validée', '', 'primary') : b('arr-conv', 'Convention reçue signée', '', TODAY >= addDays(start, -5) ? 'primary' : 'ghost'))
+        + row('Registre unique du personnel', 'Les stagiaires sont inscrits dans une partie spécifique du registre, dans l’ordre d’arrivée', reg('Inscrire'))
+        + row('Tuteur ou tutrice dans l’entreprise', 'Obligatoire ; un tuteur suit au plus 3 stagiaires en même temps', e.managerId ? ok(TODAY, esc(fullName(emp(e.managerId)))) : pend('À désigner', 'warn')));
+      else {
+        const chk = dpaeChecks(e);
+        // À VÉRIFIER (juriste) : la DPAE vaut demande d'examen médical d'embauche ; l'adhésion au service de prévention et de santé au travail est une démarche distincte.
+        html += sec('Formalités', row('Déclaration préalable à l’embauche (DPAE)', `Auprès de l’Urssaf, au plus tôt 8 jours avant l’embauche et au plus tard avant la prise de poste. Elle vaut demande de la visite d’information et de prévention ; l’adhésion au service de prévention et de santé au travail se fait à part. Simulée dans la démonstration : la déclaration réelle se fait sur net-entreprises.fr ou urssaf.fr.${!d.dpae && chk.err.length ? `<span style="display:block;color:var(--bad)">${esc(chk.err[0])}</span>` : ''}`,
+          d.dpae ? `${ok(d.dpae.date, `N° ${esc(d.dpae.ref)}`)}${d.dpaeDoc ? docBtn(db.documents.find((x) => x.id === d.dpaeDoc), 'Copie remise') : ''}` : open ? b('arr-dpae', TODAY > start ? 'Faire la DPAE (en retard)' : 'Effectuer la DPAE', '', TODAY > start ? 'bad' : 'primary') : `<span class="pill neutral">Possible dès le ${fmtShort(addDays(start, -8))}</span>`)
+          + row('Registre unique du personnel', 'Inscription le jour de l’embauche, dans l’ordre des embauches', reg('Inscrire')));
+      }
+      const signed = d.contract.status === 'Signé';
       const info = (k, l, sub, due) => { const doc = d[k + 'Doc'] && db.documents.find((x) => x.id === d[k + 'Doc']);
-        return row(l, `${sub} · à remettre avant le ${fmtDate(due)}`, d[k] ? `${ok(d[k], 'Remis')}${docBtn(doc)}` : doc ? `<span class="pill warn">Brouillon</span>${docBtn(doc)}` : b('arr-info', 'Rédiger', `data-k="${k}"`, TODAY > due ? 'bad' : 'ghost')); };
+        return row(l, `${sub} · à remettre avant le ${fmtDate(due)}`, d[k] ? `${ok(d[k], d.infoInContract ? 'Dans le contrat' : 'Remis')}${docBtn(doc)}` : doc ? `<span class="pill warn">Brouillon</span>${docBtn(doc)}` : b('arr-info', 'Rédiger', `data-k="${k}"`, TODAY > due ? 'bad' : 'ghost')); };
+      // Décret du 30 octobre 2023 : les informations peuvent figurer dans le contrat signé, qui les reprend toutes ; pas de second document à rédiger.
       if (!isIntern(e)) html += sec('Informations obligatoires (décret du 30 octobre 2023)', info('info7', 'Informations essentielles', 'Identité des parties, lieu de travail, emploi, date d’embauche, période d’essai, rémunération, durée du travail', addDays(start, 7))
-        + info('info1m', 'Informations complémentaires', 'Congés payés, procédure de rupture et préavis, droit à la formation, protection sociale, convention collective', addMonths(start, 1)));
+        + info('info1m', 'Informations complémentaires', 'Congés payés, procédure de rupture et préavis, droit à la formation, protection sociale, convention collective', addMonths(start, 1))
+        + (!d.info7 || !d.info1m ? `<div class="toolbar" style="margin-top:8px">${signed ? b('arr-info-contract', `${ic('check')}Informations contenues dans le contrat signé`) : '<span class="hint">Une fois le contrat signé, vous pourrez indiquer qu’il contient ces informations, sans rédiger d’autre document.</span>'}</div>` : ''));
       const t = trialInfo(e);
-      html += sec('Affectation', row(`${esc(e.title)} · ${esc(e.dept)}`, `Manager : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'} · catégorie ${esc(e.category || '—')} · période d’essai : ${t ? `${t.label}, jusqu’au ${fmtDate(t.end)}` : 'aucune'}`,
+      html += sec('Affectation', row(`${esc(e.title)} · ${esc(e.dept)}`, `${isIntern(e) ? 'Tuteur' : 'Manager'} : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'} · catégorie ${esc(e.category || '—')} · période d’essai : ${t ? `${t.label}, jusqu’au ${fmtDate(t.end)}` : 'aucune'}${isIntern(e) ? '' : ` · ${arrForfait(e) ? `forfait de ${FORFAIT_DAYS} jours` : 'horaire collectif'}`}`,
         `<select class="select" data-change="arr-civ" data-id="${e.id}" data-f="category" aria-label="Catégorie">${['Cadre', 'Agent de maîtrise', 'Employé'].map((x) => `<option ${x === e.category ? 'selected' : ''}>${x}</option>`).join('')}</select>${d.assignedAt ? ok(d.assignedAt, 'Confirmée') : b('arr-assign', 'Confirmer')}`));
-      const vip = db.visits.find((v) => v.empId === e.id && /information/i.test(v.kind) && v.date >= addDays(start, -30));
-      if (isIntern(e)) html += sec('Dispositifs', row('Gratification', `Obligatoire au-delà de 2 mois de stage : au moins ${eur(STAGE_FREE)} par mois, exonérée de cotisations`, ok(e.startDate, `${eur0(e.salary / 12)} par mois`)));
-      else html += sec('Dispositifs', row('Mutuelle d’entreprise', 'Affiliation obligatoire au contrat collectif, sauf dispense justifiée', `<select class="select" data-change="arr-mutuelle" data-id="${e.id}" aria-label="Mutuelle"><option value="">À choisir</option>${['Affiliation', 'Dispense'].map((x) => `<option ${x === d.mutuelle ? 'selected' : ''}>${x}</option>`).join('')}</select>`)
-        + (e.category === 'Cadre' ? row('Prévoyance des cadres', 'Obligatoire : 1,50 % de la tranche A à la charge de l’employeur', d.prevoyance ? ok(d.assignedAt || TODAY, 'Affilié') : b('arr-prev', 'Affilier')) : '')
-        + row('Visite d’information et de prévention', `Dans les 3 mois suivant la prise de poste, avant le ${fmtDate(addMonths(start, 3))}`, vip ? `<span class="pill ${vip.status === 'Réalisée' ? 'ok' : 'info'}">${vip.status} · ${fmtShort(vip.date)}</span>` : b('arr-vip', 'Planifier la visite')));
+      const vip = arrVip(e), vipDue = addMonths(start, 3);
+      // À VÉRIFIER (juriste) : taux 2026 de la gratification ; l'exonération ne porte que sur la fraction égale au minimum.
+      if (isIntern(e)) html += sec('Dispositifs', row('Gratification', `Obligatoire au-delà de 2 mois de stage, appréciés en jours de présence : au moins ${eur(STAGE_FREE)} par mois (montant indicatif à vérifier). Seule la part égale au minimum est exonérée de cotisations.`, ok(e.startDate, `${eur0(e.salary / 12)} par mois`)));
+      else {
+        const dis = d.mutuelleDispense;
+        html += sec('Dispositifs', row('Mutuelle d’entreprise', d.mutuelle === 'Dispense' && dis ? `Dispense demandée par écrit le ${fmtDate(dis.askedAt)} : ${esc(dis.reason)}${dis.until ? `, jusqu’au ${fmtDate(dis.until)}` : ''} · justificatif : ${esc(dis.proof || 'reçu')}` : 'Affiliation obligatoire au contrat collectif, sauf dispense demandée par écrit par le salarié, avec justificatif',
+          `<select class="select" data-change="arr-mutuelle" data-id="${e.id}" aria-label="Mutuelle"><option value="">À choisir</option>${['Affiliation', 'Dispense'].map((x) => `<option ${x === d.mutuelle ? 'selected' : ''}>${x}</option>`).join('')}</select>`)
+          + (e.category === 'Cadre' ? row('Prévoyance des cadres', 'Obligatoire : 1,50 % de la tranche A à la charge de l’employeur ; nécessaire pour terminer l’embauche', d.prevoyance ? ok(d.prevoyanceAt || d.assignedAt || TODAY, 'Affilié') : b('arr-prev', 'Affilier', '', TODAY >= addDays(start, -8) ? 'primary' : 'ghost')) : '')
+          + row('Visite d’information et de prévention', `Dans les 3 mois suivant la prise effective du poste, avant le ${fmtDate(vipDue)}${vip && vip.prior ? ' · visite préalable à l’affectation demandée' : ''}`, vip ? `<span class="pill ${vip.status === 'Réalisée' ? 'ok' : vip.date > vipDue ? 'bad' : 'info'}">${vip.status} · ${fmtShort(vip.date)}${vip.status !== 'Réalisée' && vip.date > vipDue ? ' · après la limite' : ''}</span>` : b('arr-vip', TODAY > vipDue ? 'Planifier la visite (en retard)' : 'Planifier la visite', '', TODAY > vipDue ? 'bad' : 'ghost')));
+      }
     }
     if (i === 4) {
       html += sec('Programme d’intégration', planList().map(([k, l, day, o]) => { const due = addDays(start, day);
         return row(esc(l), `${OWNER[o]} · J+${day}, le ${fmtShort(due)}`, d.plan[k] ? ok(d.plan[k]) : `${TODAY > due ? pend('En retard', 'bad') : `<span class="pill neutral">Prévu</span>`}${can(o) ? b('arr-plan', 'Fait', `data-k="${k}"`) : ''}`); }).join(''));
       html += sec('Points de suivi', CHECKINS.map(([k, l, day]) => { const due = addDays(start, day), c = d.checkins[k];
-        return c ? row(l, `${fmtDate(c.date)} · « ${esc(c.note)} »`, ok(c.date)) : TODAY >= addDays(due, -7) && (rh || mgr)
-          ? `<form class="todo checkin" data-form="arr-checkin" data-id="${e.id}" data-k="${k}"><div class="t"><b>${l}</b><small>Prévu le ${fmtDate(due)} · manager et nouvel arrivant</small><label class="sr" for="ck-${k}">Compte rendu</label><input id="ck-${k}" name="note" class="input" placeholder="Ce qui va bien, les points à ajuster, les objectifs suivants"></div><button class="btn ghost sm">Enregistrer</button></form>`
+        return checkinDone(c) ? row(l, `${fmtDate(c.date)} · « ${esc(c.note)} »`, ok(c.date)) : TODAY >= addDays(due, -7) && (rh || mgr)
+          ? `<form class="todo checkin" data-form="arr-checkin" data-id="${e.id}" data-k="${k}"><div class="t"><b>${l}</b><small>Prévu le ${fmtDate(due)} · manager et nouvel arrivant${c ? ' · compte rendu à saisir' : ''}</small><label class="sr" for="ck-${k}">Compte rendu</label><input id="ck-${k}" name="note" class="input" placeholder="Ce qui va bien, les points à ajuster, les objectifs suivants"></div><button class="btn ghost sm">Enregistrer</button></form>`
           : row(l, `Prévu le ${fmtDate(due)}`, '<span class="pill neutral">À venir</span>'); }).join(''));
       html += sec('Rapport d’étonnement', d.astonish ? `<q>${esc(d.astonish.text)}</q><p class="hint" style="margin:6px 0 0">Rédigé le ${fmtDate(d.astonish.date)}</p>`
         : '<p class="hint" style="margin:0">Rédigé par le nouvel arrivant depuis son espace, conseillé vers J+30.</p>');
       const t = trialInfo(e);
       if (t) {
-        const near = !d.trialDecision && dayDiff(TODAY, t.decideBy) <= 14;
-        html += sec('Période d’essai', row(`${t.label} · fin le ${fmtDate(t.end)}`, t.alt ? 'Pour un apprenti, la rupture est libre pendant les 45 premiers jours de formation pratique en entreprise.'
-          : `Pour y mettre fin, prévenez le salarié au plus tard le ${fmtDate(t.decideBy)} (délai de prévenance de ${NOTICE_LABEL[t.notice]}).${t.renewable ? ' Renouvellement possible une fois, avec l’accord écrit du salarié avant la fin de la période initiale.' : ''}`,
-          d.trialDecision ? `<span class="pill ${d.trialDecision === 'Rompue' ? 'bad' : 'ok'}">${d.trialDecision} · ${fmtShort(d.trialDecisionAt)}</span>${d.trialDoc ? docBtn(db.documents.find((x) => x.id === d.trialDoc)) : ''}` : near ? pend(`Décision avant le ${fmtShort(t.decideBy)}`) : '<span class="pill neutral">En cours</span>')
-          + (rh && (!d.trialDecision || d.trialDecision === 'Renouvelée') ? `<div class="toolbar" style="margin-top:10px">${b('arr-trial', `${ic('check')}Confirmer l’embauche`, 'data-v="Confirmée"', 'ok')}${t.renewable ? b('trial-renew', 'Renouveler') : ''}${b('trial-break', 'Mettre fin à la période d’essai', '', 'bad')}</div>` : ''));
+        const over = trialOver(e, t), near = !d.trialDecision && !over && dayDiff(TODAY, t.decideBy) <= 14, rdoc = d.renewPending && db.documents.find((x) => x.id === d.renewPending);
+        const actions = rh && !over && (!d.trialDecision || d.trialDecision === 'Renouvelée') ? `<div class="toolbar" style="margin-top:10px">${b('arr-trial', `${ic('check')}Confirmer l’embauche`, 'data-v="Confirmée"', 'ok')}${t.renewable && !rdoc ? b('trial-renew', 'Renouveler') : ''}${b('trial-break', 'Mettre fin à la période d’essai', '', 'bad')}</div>`
+          : rh && over && !d.trialDecision ? `<div class="toolbar" style="margin-top:10px">${b('arr-trial', `${ic('check')}Envoyer la confirmation`, 'data-v="Confirmée"', 'ok')}<span class="hint">Ni renouvellement ni rupture d’essai après le ${fmtDate(t.end)} : une rupture relèverait désormais de la procédure de licenciement.</span></div>` : '';
+        const pending = rdoc ? `<p class="hint" style="margin:8px 0 0">Accord de renouvellement envoyé le ${fmtDate(rdoc.issuedAt || rdoc.date)} : en attente de la signature de ${esc(e.firstName)}, au plus tard le ${fmtDate(t.end)}.${rh ? '' : ''}</p>${rh ? `<div class="toolbar" style="margin-top:6px">${docBtn(rdoc, 'Voir l’accord')}${b('trial-renew-paper', 'Accord reçu signé sur papier')}${b('trial-renew-cancel', 'Annuler la demande')}</div>` : ''}` : '';
+        html += sec('Période d’essai', row(`${t.label} · fin le ${fmtDate(t.end)}`, over && !d.trialDecision ? `<b style="color:var(--warn)">Essai terminé le ${fmtDate(t.end)} : le contrat est définitif.</b> Une lettre de confirmation peut être envoyée.`
+          : t.alt ? 'Pour un apprenti, la rupture est libre pendant les 45 premiers jours de formation pratique en entreprise.'
+          : `Pour y mettre fin en respectant le délai de prévenance, prévenez le salarié au plus tard le ${fmtDate(t.decideBy)} (${NOTICE_LABEL[t.notice]}). La rupture prend effet au plus tard le ${fmtDate(t.end)} ; un délai non respecté donne droit à une indemnité.${t.renewable ? ' Renouvellement possible une fois, avec l’accord écrit du salarié signé avant la fin de la période initiale.' : ''}`,
+          d.trialDecision ? `<span class="pill ${d.trialDecision === 'Rompue' ? 'bad' : 'ok'}">${d.trialDecision} · ${fmtShort(d.trialDecisionAt)}</span>${d.trialDoc ? docBtn(db.documents.find((x) => x.id === d.trialDoc)) : ''}${d.renewDoc && d.trialDecision === 'Renouvelée' ? docBtn(db.documents.find((x) => x.id === d.renewDoc), 'Accord signé') : ''}`
+            : over ? pend('Contrat définitif', 'ok') : near ? pend(`Décision avant le ${fmtShort(t.decideBy)}`) : '<span class="pill neutral">En cours</span>') + pending + actions);
       }
       // V2 : fin d'intégration distincte de la période d'essai (un stagiaire n'en a pas).
-      const steps = arrivalSteps(e, 4), others = steps.slice(0, -1), left = others.filter((x) => !x).length, trialOk = !t || (d.trialDecision && d.trialDecision !== 'Renouvelée');
+      const steps = arrivalSteps(e, 4), others = steps.slice(0, -1), left = others.filter((x) => !x).length, trialOk = !t || (d.trialDecision && d.trialDecision !== 'Renouvelée') || trialOver(e, t);
       html += sec('Fin de l’intégration', row(t ? 'Bilan d’intégration et passage en poste' : 'Bilan d’intégration (pas de période d’essai)',
-        `${left ? `${plural(left, 'point du programme reste', 'points du programme restent')} ouvert${left > 1 ? 's' : ''}. ` : 'Programme terminé. '}${t && !trialOk ? 'La décision sur la période d’essai doit être prise avant.' : 'La personne passe en poste et sort des arrivées.'}`,
+        `${left ? `${plural(left, 'point du programme reste', 'points du programme restent')} ouvert${left > 1 ? 's' : ''} : la clôture vous les listera. ` : 'Programme terminé. '}${t && !trialOk ? 'La décision sur la période d’essai doit être prise avant.' : 'La personne passe en poste et sort des arrivées.'}`,
         rh ? b('arr-close', `${ic('check')}Clôturer l’intégration`, trialOk ? '' : 'disabled', trialOk && !left ? 'primary' : 'ghost') : pend('Clôture par les RH', 'neutral')));
     }
     return html;
@@ -4506,47 +4665,72 @@
       <form class="plan-row add" data-form="plan-add" novalidate><span class="plan-n">${ic('plus')}</span><label class="sr" for="pl-new">Nouvelle étape</label><input id="pl-new" name="label" class="input" maxlength="90" placeholder="Ex. Rencontre avec la direction">
         <label class="plan-day">J+<input class="input num" name="day" type="number" min="0" max="180" value="5" aria-label="Jour après l’arrivée"></label><select class="select" name="owner" aria-label="Responsable">${Object.entries(OWNER).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select><button class="btn primary sm">Ajouter</button></form></div>`);
   }
-  // Espace de la recrue : son programme et son rapport d'étonnement.
+  // Espace de la recrue : son programme, son rapport d'étonnement et, le cas échéant, l'accord de renouvellement de l'essai à signer.
   function myIntegration(e) {
-    const d = dossier(e);
-    return `${card('Mon programme d’intégration', '', `<div class="card-b">${planList().map(([k, l, day, o]) => `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${OWNER[o]} · ${fmtDate(addDays(e.startDate, day), { weekday: 'long', day: 'numeric', month: 'long' })}</small></div>${d.plan[k] ? '<span class="pill ok">Fait</span>' : '<span class="pill neutral">Prévu</span>'}</div>`).join('')}</div>`)}
+    const d = dossier(e), t = trialInfo(e), rdoc = d.renewPending && db.documents.find((x) => x.id === d.renewPending);
+    const renew = rdoc && t && !trialOver(e, t) ? `<div class="card"><div class="card-h"><h3>Accord de renouvellement de ta période d’essai</h3><span class="pill warn">À signer avant le ${fmtShort(t.end)}</span></div><div class="card-b">${signBox(rdoc, 'Je donne mon accord au renouvellement (« bon pour accord »)', 'Signer l’accord')}</div></div>` : '';
+    return `${renew}${card('Mon programme d’intégration', '', `<div class="card-b">${planList().map(([k, l, day, o]) => `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${OWNER[o]} · ${fmtDate(addDays(e.startDate, day), { weekday: 'long', day: 'numeric', month: 'long' })}</small></div>${d.plan[k] ? '<span class="pill ok">Fait</span>' : '<span class="pill neutral">Prévu</span>'}</div>`).join('')}</div>`)}
       ${card('Mon rapport d’étonnement', '', `<div class="card-b">${d.astonish ? `<q>${esc(d.astonish.text)}</q><p class="hint" style="margin:6px 0 0">Envoyé le ${fmtDate(d.astonish.date)}</p>`
-        : `<form data-form="arr-astonish" data-id="${e.id}"><label class="sr" for="as-${e.id}">Rapport d’étonnement</label><textarea id="as-${e.id}" name="text" class="input" placeholder="Ce qui m’a surpris, ce que je changerais, ce que j’apprécie déjà…"></textarea><div class="toolbar" style="margin-top:8px"><span class="hint">Conseillé vers J+30 · lu par les RH et votre manager.</span><button class="btn primary sm" style="margin-left:auto">Envoyer</button></div></form>`}</div>`)}`;
+        : `<form data-form="arr-astonish" data-id="${e.id}"><label class="sr" for="as-${e.id}">Rapport d’étonnement</label><textarea id="as-${e.id}" name="text" class="input" placeholder="Ce qui m’a surpris, ce que je changerais, ce que j’apprécie déjà…"></textarea><div class="toolbar" style="margin-top:8px"><span class="hint">Conseillé vers J+30 · lu par les RH et ton manager.</span><button class="btn primary sm" style="margin-left:auto">Envoyer</button></div></form>`}</div>`)}`;
+  }
+  // Lecture puis signature d'un document (contrat, accord de renouvellement), sur ordinateur comme sur téléphone.
+  // Le document se lit dans un cadre qu'il faut faire défiler jusqu'au bout avant de pouvoir signer.
+  function signBox(doc, agree, label) {
+    return `<div class="read-box" id="read-box" tabindex="0" aria-label="Texte du document : fais-le défiler jusqu’à la fin"><article class="letter">${docBody(doc)}</article><span id="read-end" aria-hidden="true"></span></div>
+      <p class="hint read-state" id="read-state" aria-live="polite">${ic('arrow')}Fais défiler le document jusqu’à la fin : la signature s’ouvre une fois la lecture terminée.</p>
+      <div class="sign-box"><h4 class="sub">Ta signature</h4><p class="hint" style="margin:0 0 8px">Signe à la souris ou au doigt dans le cadre : ta signature sera apposée sur le document, avec la date, l’heure et une empreinte du texte signé.</p>
+        <canvas id="sig-pad" class="sig-pad" width="560" height="170" aria-label="Zone de signature"></canvas>
+        <div class="toolbar sig-tools" style="margin-top:10px"><button type="button" class="btn ghost sm" data-act="sig-clear">Effacer</button><label class="agree"><input type="checkbox" id="sig-ok"> ${agree}</label>
+        <button type="button" class="btn primary" data-act="sig-sign" data-id="${doc.id}" style="margin-left:auto">${ic('edit')}${label}</button></div><p class="err" id="sig-err" aria-live="polite"></p></div>`;
+  }
+  // Informations saisies une seule fois par la recrue : elles remplissent le contrat, la DPAE et le registre.
+  function myInfoCard(e) {
+    const miss = civMissing(e).concat(e.address ? [] : ['adresse']), fld = (id, label, input, full) => `<div class="field${full ? ' full' : ''}"><label for="${id}">${label}</label>${input}</div>`;
+    const v = (x) => esc(x || '');
+    return card('Mes informations', miss.length ? `<span class="pill warn">${plural(miss.length, 'information à compléter', 'informations à compléter')}</span>` : '<span class="pill ok">Complètes</span>', `<div class="card-b"><p class="hint" style="margin:0 0 10px">Elles servent à ton contrat, à ta déclaration d’embauche et au registre du personnel : tu ne les saisis qu’une fois.</p>
+      <form data-form="arr-me" novalidate><div class="form-grid">
+        ${fld('me-sex', 'Sexe (registre du personnel)', `<select id="me-sex" name="sex" class="select"><option value="">Choisir…</option><option value="F" ${e.sex === 'F' ? 'selected' : ''}>Femme</option><option value="H" ${e.sex === 'H' ? 'selected' : ''}>Homme</option></select>`)}
+        ${fld('me-birth', 'Date de naissance', `<input id="me-birth" name="birthDate" type="date" class="input" value="${v(e.birthDate)}" max="${addYears(TODAY, -14)}">`)}
+        ${fld('me-place', 'Lieu de naissance (commune, pays)', `<input id="me-place" name="birthPlace" class="input" maxlength="80" value="${v(e.birthPlace)}" placeholder="Ex. Lyon, France">`)}
+        ${fld('me-nat', 'Nationalité', nationalitySelect(e, 'id="me-nat" name="nationality"'))}
+        ${fld('me-nir', 'Numéro de sécurité sociale (15 chiffres)', `<input id="me-nir" name="nir" class="input num" inputmode="numeric" maxlength="21" value="${v(e.nir)}" placeholder="1 90 01 75 056 123 45">`)}
+        ${fld('me-addr', 'Adresse', `<input id="me-addr" name="address" class="input" maxlength="140" value="${v(e.address)}" autocomplete="street-address">`)}
+        ${fld('me-urg', 'Contact en cas d’urgence (nom et téléphone)', `<input id="me-urg" name="emergency" class="input" maxlength="80" value="${v(e.emergency)}">`, true)}
+      </div><p class="err" aria-live="polite"></p><div class="toolbar"><button class="btn primary sm" style="margin-left:auto">Enregistrer mes informations</button></div></form></div>`);
   }
 
-  // ---- Espace de la recrue : « Mon arrivée » (pré-embauche) et « Contrat de travail » (embauche)
+  // ---- Espace de la recrue : « Mon arrivée » (pré-embauche) et « Contrat de travail » (embauche). On y tutoie la recrue.
   function viewArrivee() {
     const e = me(), d = dossier(e), days = dayDiff(TODAY, e.startDate), mgr = e.managerId && emp(e.managerId), buddy = d.buddy && emp(d.buddy);
     const docs = reqDocs(e).map(([k, l]) => { const st = docState(d, k), f = d.files[k];
       const state = st === 'ok' ? '<span class="pill ok">Validé</span>' : st === 'check' ? '<span class="pill info">En cours de vérification</span>' : st === 'refused' ? '<span class="pill bad">À redéposer</span>' : '<span class="pill warn">À déposer</span>';
-      const up = st === 'missing' || st === 'refused' ? `<label class="btn ${st === 'refused' ? 'primary' : 'ghost'} sm upload">${ic('plus')}${st === 'refused' ? 'Déposer à nouveau' : mobSal() ? 'Photo ou fichier' : 'Déposer'}<input type="file" accept=".pdf,image/*" data-change="arr-upload" data-k="${k}" aria-label="Déposer : ${esc(l)}"></label>` : '';
-      return `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${f ? `${esc(f.name)} · déposé le ${fmtShort(f.date)}${f.refused ? ` · refusé : ${esc(f.refused)}` : ''}` : d.docs[k] ? `Reçu le ${fmtShort(d.docs[k])}` : 'PDF ou photo lisible'}</small></div>${state}${up}</div>`; }).join('');
+      // Une pièce déposée par erreur peut être remplacée tant que les RH ne l'ont pas validée.
+      const lab = st === 'refused' ? 'Déposer à nouveau' : st === 'check' ? 'Remplacer' : mobSal() ? 'Photo ou fichier' : 'Déposer';
+      const up = st !== 'ok' ? `<label class="btn ${st === 'refused' ? 'primary' : 'ghost'} sm upload">${ic(st === 'check' ? 'edit' : 'plus')}${lab}<input type="file" accept=".pdf,image/*" data-change="arr-upload" data-k="${k}" aria-label="${lab} : ${esc(l)}"></label>` : '';
+      return `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${f ? `${esc(f.name)} · déposé le ${fmtShort(f.date)}${f.refused ? ` · refusé : ${esc(f.refused)}` : ''}` : d.docs[k] ? `Reçu le ${fmtShort(d.docs[k])}` : esc(DOC_HINT[k] || 'PDF ou photo lisible')}</small></div>${state}${up}</div>`; }).join('');
     const first = planList().filter(([, , day]) => day <= 2);
-    const c = d.contract;
-    return `<div class="panel stage-page"><div class="card card-b">${stageHead(2)}<p style="margin:14px 0 0">Bienvenue ${esc(e.firstName)} ! ${days > 0 ? `Vous nous rejoignez dans <b class="num">${plural(days, 'jour', 'jours')}</b>, le ${fmtDate(e.startDate, { weekday: 'long', day: 'numeric', month: 'long' })}` : `Vous nous avez rejoints le ${fmtDate(e.startDate)}`}, au poste de ${esc(e.title)} (${esc(e.contract)}).</p>
-      ${locked(e) ? '<p class="hint" style="margin:6px 0 0">Les autres rubriques de votre espace s’ouvriront le jour de votre arrivée.</p>' : ''}</div>
+    const c = d.contract, word = isIntern(e) ? 'document d’accueil' : 'contrat';
+    return `<div class="panel stage-page"><div class="card card-b">${stageHead(2)}<p style="margin:14px 0 0">Bienvenue ${esc(e.firstName)} ! ${days > 0 ? `Tu nous rejoins dans <b class="num">${plural(days, 'jour', 'jours')}</b>, le ${fmtDate(e.startDate, { weekday: 'long', day: 'numeric', month: 'long' })}` : `Tu nous as rejoints le ${fmtDate(e.startDate)}`}, au poste de ${esc(e.title)} (${esc(e.contract)}).</p>
+      ${locked(e) ? '<p class="hint" style="margin:6px 0 0">Les autres rubriques de ton espace s’ouvriront le jour de ton arrivée.</p>' : ''}</div>
       <div class="card"><div class="card-h"><h3>Où en est mon arrivée</h3></div><div class="card-b">${stepsList(arrivalSteps(e, 2), STAGES[2].steps, false)}</div></div>
-      ${c.status === 'Envoyé' ? `<div class="card card-b callout"><b>${ic('edit')}Votre contrat de travail est prêt à signer</b><button type="button" class="btn primary sm" data-act="go" data-v="contrat">${mobSal() ? 'Lire mon contrat' : 'Signer mon contrat'}${ic('arrow')}</button></div>` : ''}
-      ${card('Mes documents', `<span class="muted num" style="font-size:13px">${plural(reqDocs(e).filter(([k]) => d.docs[k]).length, 'pièce validée', 'pièces validées')} sur ${reqDocs(e).length}</span>`, `<div class="card-b"><p class="hint" style="margin:0 0 6px">Pièces demandées pour un contrat ${esc(e.contract)}. Les RH les vérifient et vous préviennent si l’une doit être redéposée.</p>${docs}</div>`)}
-      ${card('Mon premier jour', '', `<div class="card-b"><div class="info-grid"><div><span>Date et lieu</span>${fmtDate(e.startDate, { weekday: 'long', day: 'numeric', month: 'long' })} · ${esc(e.location)}</div><div><span>Manager</span>${mgr ? esc(fullName(mgr)) : '—'}</div><div><span>Parrain ou marraine</span>${buddy ? esc(fullName(buddy)) : d.buddy === 'none' ? 'Pas de parrain prévu : ton manager t’accompagne' : 'Bientôt désigné'}</div><div><span>Contact RH</span>${esc(fullName(emp(db.settings.company.signataire) || emp('e1')))} · rh@${esc(COMPANY.domaine)}</div></div>
+      ${c.status === 'Envoyé' ? `<div class="card card-b callout"><b>${ic('edit')}Ton ${word} est prêt à signer</b><button type="button" class="btn primary sm" data-act="go" data-v="contrat">Lire et signer${ic('arrow')}</button></div>` : ''}
+      ${myInfoCard(e)}
+      ${card('Mes documents', `<span class="muted num" style="font-size:13px">${plural(reqDocs(e).filter(([k]) => d.docs[k]).length, 'pièce validée', 'pièces validées')} sur ${reqDocs(e).length}</span>`, `<div class="card-b"><p class="hint" style="margin:0 0 6px">Pièces demandées pour un contrat ${esc(e.contract)}. Les RH les vérifient et te préviennent si l’une doit être redéposée ; tant qu’elle n’est pas validée, tu peux la remplacer.</p>${docs}</div>`)}
+      ${card('Mon premier jour', '', `<div class="card-b"><div class="info-grid"><div><span>Date et lieu</span>${fmtDate(e.startDate, { weekday: 'long', day: 'numeric', month: 'long' })} · ${esc(e.location)}</div><div><span>${isIntern(e) ? 'Tuteur ou tutrice' : 'Manager'}</span>${mgr ? esc(fullName(mgr)) : '—'}</div><div><span>Parrain ou marraine</span>${buddy ? esc(fullName(buddy)) : d.buddy === 'none' ? 'Pas de parrain prévu : ton manager t’accompagne' : 'Bientôt désigné'}</div><div><span>Contact RH</span>${esc(fullName(emp(db.settings.company.signataire) || emp('e1')))} · rh@${esc(COMPANY.domaine)}</div></div>
         <h4 class="sub" style="margin-top:16px">Au programme</h4>${first.map(([, l, day]) => `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${day ? `J+${day}` : 'Premier jour'}</small></div></div>`).join('') || '<p class="muted" style="margin:0">Le programme sera bientôt disponible.</p>'}</div>`)}</div>`;
   }
   function viewContrat() {
-    const e = me(), d = dossier(e), c = d.contract, docs = db.documents.filter((x) => x.empId === e.id && ['contrat', 'avenant'].includes(x.kind) && docVisible(x)).sort((a, b) => a.date.localeCompare(b.date));
+    const e = me(), d = dossier(e), c = d.contract, docs = db.documents.filter((x) => x.empId === e.id && ['contrat', 'avenant', 'dpae', 'renouv-essai', 'rupture-essai', 'essai'].includes(x.kind) && docVisible(x) && x.status !== 'Annulé').sort((a, b) => a.date.localeCompare(b.date));
     const pending = e.stage === 2 && c.status === 'Envoyé' && c.docId && db.documents.find((x) => x.id === c.docId);
     let main;
-    if (pending) main = `<div class="card"><div class="card-h"><h3>Contrat à signer</h3><span class="pill warn">Envoyé le ${fmtShort(c.sentAt)}</span></div><div class="card-b"><article class="letter">${docBody(pending)}</article>
-      ${mobSal() ? `<div class="callout-info mob-sign">${ic('lock')}<span>La signature du contrat se fait sur ordinateur, pour le relire sur grand écran. Ouvre Teamora sur ton ordinateur : ton contrat t’y attend.</span></div>` : `<div class="sign-box"><h4 class="sub">Votre signature</h4><p class="hint" style="margin:0 0 8px">Signez à la souris ou au doigt dans le cadre : votre signature sera apposée sur le contrat.</p>
-        <canvas id="sig-pad" class="sig-pad" width="560" height="170" aria-label="Zone de signature"></canvas>
-        <div class="toolbar" style="margin-top:10px"><button type="button" class="btn ghost sm" data-act="sig-clear">Effacer</button><label class="agree"><input type="checkbox" id="sig-ok"> J’ai lu le contrat et j’en accepte les termes (« lu et approuvé »)</label>
-        <button type="button" class="btn primary" data-act="sig-sign" data-id="${pending.id}" style="margin-left:auto">${ic('edit')}Signer le contrat</button></div><p class="err" id="sig-err" aria-live="polite"></p></div>`}</div></div>`;
-    else if (e.stage === 2 && c.status !== 'Signé') main = `<div class="card card-b"><p style="margin:0">Votre contrat est en cours de préparation par les RH. Vous serez prévenu·e dès qu’il sera prêt à signer.</p></div>`;
+    if (pending) main = `<div class="card"><div class="card-h"><h3>${isIntern(e) ? 'Document d’accueil à signer' : 'Contrat à signer'}</h3><span class="pill warn">Envoyé le ${fmtShort(c.sentAt)}</span></div><div class="card-b">${signBox(pending, 'J’ai lu le document en entier et j’en accepte les termes (« lu et approuvé »)', 'Signer le contrat')}</div></div>`;
+    else if (e.stage === 2 && c.status !== 'Signé') main = `<div class="card card-b"><p style="margin:0">Ton contrat est en cours de préparation par les RH. Tu seras prévenu${e.sex === 'F' ? 'e' : e.sex === 'H' ? '' : '·e'} dès qu’il sera prêt à signer.</p></div>`;
     else main = '';
     return `<div class="panel stage-page"><div class="card card-b">${stageHead(3)}</div>${main}
-      ${card('Mes documents contractuels', '', `<div class="card-b">${docs.filter((x) => x !== pending).map((x) => `<div class="todo"><span class="doc-ic">${ic('file')}</span><div class="t"><b>${esc(x.title)}</b><small>${fmtDate(x.date)}${x.signature ? ` · signé le ${fmtDate(x.signature.date)}` : ''}</small></div><button type="button" class="btn ghost sm" data-act="doc-view" data-id="${x.id}">Consulter</button></div>`).join('') || '<p class="muted" style="margin:0">Aucun document signé pour le moment.</p>'}</div>`)}
+      ${card('Mes documents contractuels', '', `<div class="card-b">${docs.filter((x) => x !== pending).map((x) => `<div class="todo"><span class="doc-ic">${ic('file')}</span><div class="t"><b>${esc(x.title)}</b><small>${fmtDate(x.date)}${x.signature ? ` · signé le ${fmtDate(x.signature.date)}` : ''}</small></div><button type="button" class="btn ghost sm" data-act="doc-view" data-id="${x.id}">Consulter</button><button type="button" class="btn ghost sm" data-act="doc-download" data-id="${x.id}">${ic('file')}PDF</button></div>`).join('') || '<p class="muted" style="margin:0">Aucun document signé pour le moment.</p>'}</div>`)}
       ${e.stage === 2 ? card('Où en est mon embauche', '', `<div class="card-b">${stepsList(arrivalSteps(e, 3), STAGES[3].steps, false)}</div>`) : ''}</div>`;
   }
-  // Signature manuscrite : tracé à la souris, au stylet ou au doigt.
+  // Signature manuscrite : tracé à la souris, au stylet ou au doigt, ouverte une fois le document lu jusqu'au bout.
   function bindSignature() {
     const cv = document.getElementById('sig-pad'); if (!cv) return;
     const ctx = cv.getContext('2d'); let drawing = false; cv._strokes = 0;
@@ -4556,12 +4740,110 @@
     cv.addEventListener('pointermove', (ev) => { if (!drawing) return; const [x, y] = pos(ev); ctx.lineTo(x, y); ctx.stroke(); cv._ink = (cv._ink || 0) + 1; });
     const end = () => { drawing = false; };
     cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+    // Le message d'erreur disparaît dès que la case est cochée.
+    const okBox = document.getElementById('sig-ok'), err = document.getElementById('sig-err');
+    if (okBox) okBox.addEventListener('change', () => { if (okBox.checked && err && /Cochez|case/.test(err.textContent)) err.textContent = ''; });
+    // Lecture complète : le bas du document doit avoir été atteint (ou le document tient entièrement dans le cadre).
+    const box = document.getElementById('read-box'), state = document.getElementById('read-state');
+    const done = () => { if (cv._read) return; cv._read = true; if (state) { state.innerHTML = `${ic('check')}Document lu jusqu’à la fin : tu peux signer.`; state.classList.add('ok'); } if (err && /défiler/.test(err.textContent)) err.textContent = ''; };
+    if (!box) { cv._read = true; return; }
+    const check = () => { if (box.scrollTop + box.clientHeight >= box.scrollHeight - 8) done(); };
+    box.addEventListener('scroll', check, { passive: true }); requestAnimationFrame(check);
   }
+  // Registre unique du personnel (art. L1221-13) : salariés dans l'ordre des embauches, stagiaires dans une partie à part, dates avec l'année.
+  // À VÉRIFIER (juriste) : mentions des art. D1221-23 et D1221-24, dont le type et le numéro du titre de travail des salariés étrangers.
+  function registerRows() {
+    const list = db.employees.filter((e) => e.registeredAt).sort((a, b) => a.startDate.localeCompare(b.startDate) || a.registeredAt.localeCompare(b.registeredAt) || a.lastName.localeCompare(b.lastName, 'fr'));
+    const out = (e) => (e.stage >= 13 && e.exit && e.exit.lastDay && (e.stage >= 15 || e.exit.lastDay <= TODAY) ? fmtDateY(e.exit.lastDay) : '');
+    const titre = (e) => (needsTitre(e) ? [e.titreType || 'Titre autorisant à travailler', e.titreNum ? `n° ${e.titreNum}` : 'n° à compléter', e.titreEnd ? `valable jusqu’au ${fmtDateY(e.titreEnd)}` : ''].filter(Boolean).join(', ') : '');
+    const staff = list.filter((e) => !isIntern(e)).map((e, k) => [k + 1, `${e.lastName.toUpperCase()} ${e.firstName}`, e.nationality || '', e.birthDate ? fmtDateY(e.birthDate) : '', e.sex || '', e.title, e.category || '', e.contract, fmtDateY(e.startDate), out(e), titre(e)]);
+    const interns = list.filter(isIntern).map((e, k) => [k + 1, `${e.lastName.toUpperCase()} ${e.firstName}`, e.title, e.managerId ? fullName(emp(e.managerId)) : '', e.location || '', fmtDateY(e.startDate), e.endDate ? fmtDateY(e.endDate) : '']);
+    return { staff, interns };
+  }
+  const REG_STAFF = ['N°', 'Nom et prénoms', 'Nationalité', 'Naissance', 'Sexe', 'Emploi', 'Qualification', 'Contrat', 'Entrée', 'Sortie', 'Titre de travail (étrangers)'];
+  const REG_INTERNS = ['N°', 'Nom et prénoms', 'Stage', 'Tuteur ou tutrice', 'Lieu', 'Début', 'Fin'];
   function registerHTML() {
-    const list = db.employees.filter((e) => e.registeredAt).sort((a, b) => a.registeredAt.localeCompare(b.registeredAt) || a.startDate.localeCompare(b.startDate));
-    return `<div class="table-wrap"><table class="register"><thead><tr><th>N°</th><th>Nom et prénoms</th><th>Nationalité</th><th>Naissance</th><th>Sexe</th><th>Emploi</th><th>Qualification</th><th>Contrat</th><th>Entrée</th><th>Sortie</th></tr></thead><tbody>
-      ${list.map((e, k) => `<tr><td class="num">${k + 1}</td><td><b>${esc(e.lastName.toUpperCase())}</b> ${esc(e.firstName)}</td><td>${esc(e.nationality || '—')}</td><td class="num">${e.birthDate ? fmtDateY(e.birthDate) : '—'}</td><td>${esc(e.sex || '—')}</td><td>${esc(e.title)}</td><td>${esc(e.category || '—')}</td><td>${esc(e.contract)}</td><td class="num">${fmtDateY(e.startDate)}</td><td class="num">${e.stage >= 15 && e.exit ? fmtDateY(e.exit.lastDay) : '—'}</td></tr>`).join('')}</tbody></table></div>`;
+    const { staff, interns } = registerRows(), tbl = (head, rows, empty, cls) => `<div class="table-wrap"><table class="register ${cls}"><thead><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>
+      ${rows.map((r) => `<tr>${r.map((x, k) => `<td${k === 0 || /\d{4}$/.test(String(x)) ? ' class="num"' : ''}>${k === 1 ? `<b>${esc(String(x).split(' ')[0])}</b> ${esc(String(x).split(' ').slice(1).join(' '))}` : esc(String(x || '—'))}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${head.length}" class="empty">${empty}</td></tr>`}</tbody></table></div>`;
+    return `<h4 class="sub">Salariés</h4>${tbl(REG_STAFF, staff, 'Aucun salarié inscrit.', 'staff')}<h4 class="sub" style="margin-top:16px">Stagiaires (partie spécifique)</h4>${tbl(REG_INTERNS, interns, 'Aucun stagiaire inscrit.', 'interns')}`;
   }
+  // ---- Fichiers téléchargeables, produits dans la page (pas d'impression du navigateur).
+  function downloadBlob(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); }
+  const fileSlug = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+  // Empreinte SHA-256 du texte signé (hexadécimal), calculée sans bibliothèque.
+  function sha256(str) {
+    const rr = (v, n) => (v >>> n) | (v << (32 - n)), K = [];
+    let H = [];
+    for (let c = 2, n = 0; n < 64; c++) { let p = true; for (let q = 2; q * q <= c; q++) if (c % q === 0) { p = false; break; } if (p) { if (n < 8) H[n] = (Math.pow(c, 1 / 2) * 2 ** 32) | 0; K[n++] = (Math.pow(c, 1 / 3) * 2 ** 32) | 0; } }
+    const bytes = new TextEncoder().encode(str), l = bytes.length, words = [];
+    for (let i = 0; i < l; i++) words[i >> 2] |= bytes[i] << ((3 - (i & 3)) * 8);
+    words[l >> 2] |= 0x80 << ((3 - (l & 3)) * 8);
+    const n = (((l + 8) >> 6) + 1) * 16; words[n - 1] = (l * 8) >>> 0; words[n - 2] = Math.floor((l * 8) / 2 ** 32);
+    for (let j = 0; j < n; j += 16) {
+      const w = Array.from({ length: 64 }, (_, k) => (k < 16 ? words[j + k] | 0 : 0)); let [a, b, c, d, e, f, g, h] = H;
+      for (let i = 0; i < 64; i++) {
+        if (i >= 16) { const x = w[i - 15], y = w[i - 2]; w[i] = (w[i - 16] + (rr(x, 7) ^ rr(x, 18) ^ (x >>> 3)) + w[i - 7] + (rr(y, 17) ^ rr(y, 19) ^ (y >>> 10))) | 0; }
+        const t1 = (h + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0, t2 = ((rr(a, 2) ^ rr(a, 13) ^ rr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+        h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+      }
+      H = [a, b, c, d, e, f, g, h].map((x, k) => (x + H[k]) | 0);
+    }
+    return H.map((x) => (x >>> 0).toString(16).padStart(8, '0')).join('');
+  }
+  // PDF minimal (texte en Helvetica, encodage WinAnsi, images en JPEG) d'un document : contrat, courriers, copie de DPAE…
+  const PDF_WIN = { '€': 128, '‚': 130, '„': 132, '…': 133, '‘': 145, '’': 146, '“': 147, '”': 148, '•': 149, '–': 150, '—': 151, 'Œ': 140, 'œ': 156, 'Ÿ': 159 };
+  const pdfEnc = (s) => [...String(s).replace(/[   ]/g, ' ')].map((ch) => { let c = PDF_WIN[ch] ?? ch.charCodeAt(0); if (c > 255) c = 63; const x = String.fromCharCode(c); return x === '(' || x === ')' || x === '\\' ? `\\${x}` : x; }).join('');
+  const pdfW = (ch) => (/[il.,;:'’!| ]/.test(ch) ? 278 : /[fjrt()[\]-]/.test(ch) ? 333 : /[mwMW]/.test(ch) ? 833 : /[A-ZÀ-Ý]/.test(ch) ? 667 : 556);
+  const pdfLen = (s, size, bold) => ([...s].reduce((t, ch) => t + pdfW(ch), 0) * size * (bold ? 1.05 : 1)) / 1000;
+  function pdfWrap(text, size, width, bold) {
+    const out = []; let line = '';
+    text.split(/\s+/).filter(Boolean).forEach((word) => { const next = line ? `${line} ${word}` : word; if (line && pdfLen(next, size, bold) > width) { out.push(line); line = word; } else line = next; });
+    if (line) out.push(line); return out;
+  }
+  const jpegOf = (src) => new Promise((res) => { const im = new Image(); im.onload = () => { const c = document.createElement('canvas'); c.width = im.naturalWidth || 1; c.height = im.naturalHeight || 1; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0); res({ w: c.width, h: c.height, data: atob(c.toDataURL('image/jpeg', 0.9).split(',')[1]) }); }; im.onerror = () => res(null); im.src = src; });
+  async function docPDF(d) {
+    const div = document.createElement('div'); div.innerHTML = docBody(d); div.querySelectorAll('br').forEach((x) => x.replaceWith('\n'));
+    const sel = 'header img, header b, header span, h2, h3, p, li, tr, .sig-block > span, .sig-block > img, .sig-block > small';
+    const els = [...div.querySelectorAll(sel)].filter((el, k, all) => !all.some((o) => o !== el && o.contains(el)));
+    const M = 56, W = 595, H = 842, pages = [[]], imgs = []; let y = H - M;
+    const need = (h) => { if (y - h < M + 14) { pages.push([]); y = H - M; } };
+    for (const el of els) {
+      if (el.tagName === 'IMG') {
+        const j = await jpegOf(el.src); if (!j) continue;
+        const w = el.closest('header') ? 110 : 150, h = (j.h / j.w) * w, x = el.closest('.sig-block') ? W - M - w : M; need(h + 6);
+        imgs.push(j); pages[pages.length - 1].push(`q ${w.toFixed(1)} 0 0 ${h.toFixed(1)} ${x.toFixed(1)} ${(y - h).toFixed(1)} cm /Im${imgs.length} Do Q`); y -= h + 6; continue;
+      }
+      const tag = el.tagName, txt = tag === 'TR' ? [...el.cells].map((c) => c.textContent.trim()).join('   ') : el.textContent;
+      const size = tag === 'H2' ? 15 : tag === 'H3' ? 11.5 : el.matches('header b') ? 12 : el.matches('header span, .sig-block > small') ? 8.5 : 10;
+      const bold = tag === 'H2' || tag === 'H3' || el.matches('header b, .sig-block > span'), right = !!el.closest('.sig-block'), ind = tag === 'LI' ? 12 : 0;
+      if (tag === 'H3' || tag === 'H2') y -= 8;
+      txt.split('\n').map((x) => x.trim()).filter(Boolean).forEach((para, k) => pdfWrap((tag === 'LI' && !k ? '• ' : '') + para, size, W - 2 * M - ind, bold).forEach((line) => {
+        need(size * 1.45); y -= size * 1.45; const x = right ? W - M - pdfLen(line, size, bold) : M + ind;
+        pages[pages.length - 1].push(`BT /${bold ? 'F2' : 'F1'} ${size} Tf ${x.toFixed(1)} ${y.toFixed(1)} Td (${pdfEnc(line)}) Tj ET`); }));
+      y -= tag === 'P' || tag === 'H2' ? 6 : 2;
+    }
+    const objs = [], add = (o) => objs.push(o);
+    add('<< /Type /Catalog /Pages 2 0 R >>'); add(''); add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'); add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+    const xo = imgs.map((j, k) => `/Im${k + 1} ${add(`<< /Type /XObject /Subtype /Image /Width ${j.w} /Height ${j.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${j.data.length} >>\nstream\n${j.data}\nendstream`)} 0 R`).join(' ');
+    const foot = (k) => `BT /F1 7.5 Tf ${M} 30 Td (${pdfEnc(`${d.title} · page ${k + 1} sur ${pages.length} · fichier produit par Teamora le ${fmtDateY(TODAY)}${d.signature && d.signature.hash ? ` · empreinte ${d.signature.hash.slice(0, 16)}…` : ''}`)}) Tj ET`;
+    const kids = pages.map((ops, k) => { const body = ops.concat(foot(k)).join('\n'), c = add(`<< /Length ${body.length} >>\nstream\n${body}\nendstream`);
+      return add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >>${xo ? ` /XObject << ${xo} >>` : ''} >> /Contents ${c} 0 R >>`); });
+    objs[1] = `<< /Type /Pages /Kids [${kids.map((k) => `${k} 0 R`).join(' ')}] /Count ${kids.length} >>`;
+    let out = '%PDF-1.4\n%âãÏÓ\n'; const offs = [];
+    objs.forEach((o, k) => { offs.push(out.length); out += `${k + 1} 0 obj\n${o}\nendobj\n`; });
+    const xref = out.length;
+    out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${offs.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+    const bytes = new Uint8Array(out.length); for (let k = 0; k < out.length; k++) bytes[k] = out.charCodeAt(k) & 255;
+    return new Blob([bytes], { type: 'application/pdf' });
+  }
+  // Renouvellement de l'essai : appliqué à la signature (ou à la réception de l'accord papier), toujours avant la fin de la période initiale.
+  function applyRenewal(e, at, docId, how) {
+    const x = dossier(e); delete x.renewPending;
+    Object.assign(x, { trialRenewed: true, trialDecision: 'Renouvelée', trialDecisionAt: at, renewAgreedAt: at, renewDoc: docId, renewHow: how });
+    const t = trialInfo(e); notify(e.id, `Ta période d’essai est renouvelée jusqu’au ${fmtDate(t.end)}.`); if (e.managerId) notify(e.managerId, `Période d’essai de ${fullName(e)} renouvelée jusqu’au ${fmtDate(t.end)}.`);
+    journalAdd(e.id, 'Renouvellement de la période d’essai', 'trial-renew', `Accord écrit du salarié du ${fmtDateY(at)} (${how}) · fin de l’essai le ${fmtDateY(t.end)}`);
+  }
+  const renewVars = (e) => { const t = trialInfo(e); return { essai_renouv: `${t.months} mois`, essai_fin_renouv: longDate(addDays(addMonths(addDays(t.end, 1), t.months), -1)) }; };
   const arrE = (d) => emp(d.id);
   Object.assign(MOD_ACT, {
     // Pendant l'arrivée, on ouvre la pré-embauche, ou l'embauche (RH) quand la pré-embauche est terminée.
@@ -4570,65 +4852,137 @@
       else Object.assign(ui, { view: k, stage: PROC[k].node, procTab: e.stage === 15 ? 'apres' : 'cours', procSel: e.id, procPhase: null, drawer: null, notif: false, modal: null });
       window.scrollTo(0, 0); render(); },
     'register-view'() { ui.modal = { type: 'register' }; render(); },
-    'arr-doc'(d) { const e = arrE(d), x = dossier(e); x.docs[d.k] = TODAY; if (x.files[d.k]) delete x.files[d.k].refused; toast(x.files[d.k] ? 'Pièce validée' : 'Pièce reçue'); commit(); },
+    'register-csv'() {
+      const { staff, interns } = registerRows(), q = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
+      const csv = [['Registre unique du personnel', COMPANY.entreprise, `extrait le ${fmtDateY(TODAY)}`], [], ['Salariés'], REG_STAFF, ...staff, [], ['Stagiaires'], REG_INTERNS, ...interns].map((r) => r.map(q).join(';')).join('\r\n');
+      downloadBlob(`registre-du-personnel-${TODAY}.csv`, new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })); toast('Registre exporté (fichier CSV)'); },
+    'doc-download'(d) { const doc = db.documents.find((x) => x.id === d.id); if (!doc) return;
+      docPDF(doc).then((blob) => { downloadBlob(`${fileSlug(doc.title)}-${fileSlug(fullName(emp(doc.empId)))}.pdf`, blob); toast('PDF téléchargé'); }).catch(() => toast('Le PDF n’a pas pu être produit.', 'info')); },
+    'arr-doc'(d) { const e = arrE(d), x = dossier(e); x.docs[d.k] = TODAY; if (x.files[d.k]) delete x.files[d.k].refused;
+      // Une seule source pour la convention de stage : la pièce validée vaut convention reçue.
+      if (d.k === 'convention' && !x.convention) x.convention = TODAY;
+      toast(x.files[d.k] ? 'Pièce validée' : 'Pièce reçue'); commit(); },
     'doc-refuse'(d) { ui.modal = { type: 'doc-refuse', id: d.id, k: d.k }; render(); },
     'file-view'(d) { ui.modal = { type: 'file-view', id: d.id, k: d.k }; render(); },
     'sig-clear'() { const cv = document.getElementById('sig-pad'); if (cv) { cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); cv._strokes = 0; cv._ink = 0; } },
     'sig-sign'(d) {
       const cv = document.getElementById('sig-pad'), err = document.getElementById('sig-err');
-      if (!cv || !(cv._ink > 8)) { err.textContent = 'Tracez votre signature dans le cadre.'; return; }
-      if (!document.getElementById('sig-ok').checked) { err.textContent = 'Cochez la case « lu et approuvé » pour signer.'; return; }
-      const e = me(), doc = db.documents.find((x) => x.id === d.id), c = dossier(e).contract;
-      doc.signature = { img: cv.toDataURL('image/png'), date: TODAY, name: fullName(e) };
+      if (cv && !cv._read) { err.textContent = 'Fais défiler le document jusqu’à la fin avant de signer.'; const box = document.getElementById('read-box'); if (box) box.focus(); return; }
+      if (!cv || !(cv._ink > 8)) { err.textContent = 'Trace ta signature dans le cadre.'; return; }
+      if (!document.getElementById('sig-ok').checked) { err.textContent = 'Coche la case pour signer.'; return; }
+      const e = me(), doc = db.documents.find((x) => x.id === d.id), x = dossier(e), c = x.contract;
+      if (!doc || doc.status !== 'Envoyé') { err.textContent = 'Ce document n’est plus à signer : recharge la page.'; return; }
+      if (doc.kind === 'renouv-essai' && trialOver(e)) { err.textContent = 'La période d’essai initiale est terminée : le renouvellement n’est plus possible.'; return; }
+      // Signature simple : tracé, date et heure, empreinte SHA-256 du texte signé. Ce n'est pas une signature électronique qualifiée (eIDAS).
+      const now = new Date(), at = `${TODAY} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, html = unmark(doc.html || '');
+      doc.signature = { img: cv.toDataURL('image/png'), date: TODAY, at, name: fullName(e), hash: sha256(`${html}|${fullName(e)}|${at}`) };
       // Signé = figé : le document n'est plus modifiable par personne.
-      Object.assign(doc, { status: 'Signé', signedAt: TODAY, html: unmark(doc.html || '') });
+      Object.assign(doc, { status: 'Signé', signedAt: TODAY, html });
+      if (doc.kind === 'renouv-essai') { applyRenewal(e, TODAY, doc.id, 'signé dans Teamora'); notify('e1', `${fullName(e)} a signé l’accord de renouvellement de sa période d’essai.`); ui.modal = { type: 'doc', id: doc.id }; toast('Accord signé · ta période d’essai est renouvelée'); commit(); return; }
       Object.assign(c, { status: 'Signé', signedAt: TODAY });
+      // La clause de forfait jours vaut convention individuelle, conclue à la signature du contrat.
+      if (arrForfait(e)) e.forfait = { days: FORFAIT_DAYS, agreedAt: TODAY, docId: doc.id };
       notify('e1', `${fullName(e)} a signé son contrat de travail.`); if (e.managerId) notify(e.managerId, `Le contrat de ${fullName(e)} est signé.`);
-      ui.modal = { type: 'doc', id: doc.id }; toast('Contrat signé · un exemplaire est disponible dans vos documents'); commit();
+      ui.modal = { type: 'doc', id: doc.id }; toast('Contrat signé · ton exemplaire est dans tes documents, en PDF'); commit();
     },
     'plan-del'(d) { ui.modal = { type: 'plan-del', k: d.k }; render(); },
     'plan-del-ok'(d) { db.onboardingPlan = db.onboardingPlan.filter((x) => x.k !== d.k); ui.modal = null; toast('Étape supprimée du programme'); commit(); },
-    'arr-titre'(d) { dossier(arrE(d)).titreCheck = TODAY; toast('Demande de vérification envoyée à la préfecture'); commit(); },
+    'arr-titre'(d) { const e = arrE(d); if (!dossier(e).docs.titre) { toast('Validez d’abord la copie du titre de séjour : la demande à la préfecture porte sur ce titre.', 'info'); return; } dossier(e).titreCheck = TODAY; toast('Demande de vérification envoyée à la préfecture (simulée)'); commit(); },
     'arr-contract'(d) {
       const e = arrE(d), c = dossier(e).contract;
       // Le contrat naît en brouillon depuis le modèle du type de contrat : les RH le relisent et le complètent avant de l'envoyer.
       if (d.s === 'Prêt') { db.documents = db.documents.filter((x) => x.id !== c.docId); c.docId = addDoc(e.id, 'contrat').id; c.status = 'Prêt'; ui.modal = { type: 'doc-edit', id: c.docId }; toast('Contrat créé : complétez-le puis envoyez-le pour signature'); commit(); return; }
       const doc = db.documents.find((x) => x.id === c.docId);
       if (d.s === 'Envoyé') { const err = doc ? issueDoc(doc) : 'Contrat introuvable.'; if (err) { ui.modal = { type: 'doc-edit', id: doc.id, err }; render(); return; } toast(`Contrat envoyé à ${fullName(e)} pour signature`); commit(); return; }
-      if (d.s === 'Signé') { c.signedAt = TODAY; c.paper = true; if (doc) Object.assign(doc, { status: 'Signé', signedAt: TODAY, html: unmark(doc.html || '') }); notify(e.managerId, `Le contrat de ${fullName(e)} est signé.`); }
+      if (d.s === 'Signé') { c.signedAt = TODAY; c.paper = true; if (doc) Object.assign(doc, { status: 'Signé', signedAt: TODAY, html: unmark(doc.html || '') }); if (arrForfait(e)) e.forfait = { days: FORFAIT_DAYS, agreedAt: TODAY, docId: c.docId }; notify(e.managerId, `Le contrat de ${fullName(e)} est signé.`); }
       c.status = d.s; toast('Contrat signé sur papier'); commit();
     },
+    // Un contrat envoyé n'est plus modifiable : une correction annule la version envoyée et en crée une nouvelle, à signer à nouveau.
+    'arr-contract-revise'(d) { const e = arrE(d), c = dossier(e).contract, old = db.documents.find((x) => x.id === c.docId);
+      confirmAct({ title: `Nouvelle version du contrat · ${esc(fullName(e))}`, text: `<p style="margin:0">La version envoyée le ${esc(fmtDateY(c.sentAt))} sera annulée et conservée dans l’historique. ${esc(e.firstName)} sera prévenu${e.sex === 'F' ? 'e' : ''} et devra signer la nouvelle version.</p>`, confirm: 'Créer la nouvelle version', empId: e.id, trace: 'Contrat : nouvelle version', act: 'arr-contract',
+        fields: [{ name: 'why', label: 'Ce qui change', type: 'text', required: true }] }, (v) => {
+        c.versions = (c.versions || []).concat([{ docId: c.docId, sentAt: c.sentAt, why: v.why, at: TODAY }]);
+        if (old) Object.assign(old, { status: 'Annulé', title: `${old.title} (version ${c.versions.length}, annulée)`, cancelledAt: TODAY });
+        const doc = addDoc(e.id, 'contrat'); doc.title = `${doc.title} · version ${c.versions.length + 1}`; Object.assign(c, { docId: doc.id, status: 'Prêt', sentAt: null });
+        notify(e.id, `Ton contrat de travail est en cours de correction (${v.why}) : une nouvelle version te sera envoyée à signer.`);
+        ui.modal = { type: 'doc-edit', id: doc.id }; commit(); });
+    },
     'arr-prep'(d) { const e = arrE(d); dossier(e).prep[d.k] = TODAY; toast('Tâche terminée'); commit(); },
-    'arr-dpae'(d) { const e = arrE(d); dossier(e).dpae = { date: TODAY, ref: `DPAE-75-${TODAY.slice(0, 4)}-${String(Math.floor(Math.random() * 9000) + 1000)}` }; toast('DPAE transmise à l’Urssaf · accusé de réception reçu'); commit(); },
-    'arr-register'(d) { arrE(d).registeredAt = TODAY; toast('Inscrit au registre unique du personnel'); commit(); },
+    'arr-dpae'(d) { const e = arrE(d); if (isIntern(e)) return; ui.modal = { type: 'arr-dpae', id: e.id }; render(); },
+    'arr-register'(d) { const e = arrE(d); if (TODAY < e.startDate) { toast(`L’inscription au registre se fait le jour de l’embauche, le ${fmtDate(e.startDate)}.`, 'info'); return; } e.registeredAt = TODAY; toast(isIntern(e) ? 'Inscrit dans la partie « stagiaires » du registre' : 'Inscrit au registre unique du personnel'); commit(); },
     'arr-info'(d) { const e = arrE(d), x = dossier(e), doc = addDoc(e.id, d.k); x[d.k + 'Doc'] = doc.id; ui.modal = { type: 'doc-edit', id: doc.id }; toast('Brouillon créé : relisez-le avant de le remettre'); commit(); },
+    // Décret du 30 octobre 2023 : les informations peuvent être remises dans le contrat signé, qui les contient.
+    'arr-info-contract'(d) { const e = arrE(d), x = dossier(e); if (x.contract.status !== 'Signé') { toast('Le contrat doit d’abord être signé.', 'info'); return; }
+      confirmAct({ title: `Informations remises dans le contrat · ${esc(fullName(e))}`, text: '<p style="margin:0">Le contrat signé contient les informations essentielles et complémentaires (identité des parties, lieu, emploi, date d’embauche, essai, rémunération, durée du travail, congés, rupture et préavis, formation, protection sociale, convention collective). Aucun autre document n’est à rédiger.</p>',
+        confirm: 'Enregistrer', empId: e.id, act: 'arr-info', trace: 'Informations obligatoires remises dans le contrat', fields: [{ name: 'attest', label: 'J’ai vérifié que le contrat signé contient toutes ces informations', type: 'check', required: true }] }, () => {
+        Object.assign(x, { info7: x.info7 || x.contract.signedAt || TODAY, info1m: x.info1m || x.contract.signedAt || TODAY, infoInContract: true, info7Doc: x.info7Doc || x.contract.docId, info1mDoc: x.info1mDoc || x.contract.docId }); commit(); }); },
     'arr-conv'(d) { const e = arrE(d); dossier(e).convention = TODAY; db.history.push({ id: uid('h'), empId: e.id, date: TODAY, label: 'Convention de stage', detail: 'Convention tripartite reçue signée' }); toast('Convention de stage enregistrée'); commit(); },
+    // Clôture : confirmation qui liste les points encore ouverts.
     'arr-close'(d) { const e = arrE(d), x = dossier(e), t = trialInfo(e);
-      if (t && !(x.trialDecision && x.trialDecision !== 'Renouvelée')) { toast('Décide d’abord de la période d’essai.', 'info'); return; }
-      x.integrationClosed = TODAY; e.stage = 5; db.history.push({ id: uid('h'), empId: e.id, date: TODAY, label: 'Fin de l’intégration', detail: t ? 'Période d’essai confirmée, bilan d’intégration fait' : 'Bilan d’intégration fait' });
-      notify(e.id, 'Ton intégration est terminée : bienvenue dans l’équipe !'); if (e.managerId) notify(e.managerId, `Intégration de ${fullName(e)} clôturée.`);
-      ui.selPerson = null; toast(`${fullName(e)} est en poste`); commit(); },
+      if (t && !(x.trialDecision && x.trialDecision !== 'Renouvelée') && !trialOver(e, t)) { toast('Décidez d’abord de la période d’essai.', 'info'); return; }
+      const labels = stageSteps(4), open = arrivalSteps(e, 4).slice(0, -1).map((v, k) => (v ? null : labels[k])).filter(Boolean);
+      confirmAct({ title: `Clôturer l’intégration · ${esc(fullName(e))}`, confirm: 'Clôturer l’intégration', empId: e.id, act: 'arr-close',
+        text: open.length ? `<p style="margin:0 0 6px">${plural(open.length, 'point reste ouvert', 'points restent ouverts')} :</p><ul style="margin:0;padding-left:18px">${open.map((l) => `<li>${esc(l)}</li>`).join('')}</ul><p style="margin:8px 0 0">Ils ne pourront plus être suivis dans les arrivées.</p>` : '<p style="margin:0">Le programme est terminé : la personne passe en poste et sort des arrivées.</p>',
+        fields: open.length ? [{ name: 'attest', label: 'Je clôture malgré les points ouverts', type: 'check', required: true }] : [] }, () => {
+        x.integrationClosed = TODAY; e.stage = 5; db.history.push({ id: uid('h'), empId: e.id, date: TODAY, label: 'Fin de l’intégration', detail: `${t ? (x.trialDecision === 'Confirmée' ? 'Période d’essai confirmée' : 'Période d’essai arrivée à son terme') + ', ' : ''}bilan d’intégration fait${open.length ? ` (${plural(open.length, 'point resté ouvert', 'points restés ouverts')})` : ''}` });
+        notify(e.id, 'Ton intégration est terminée : bienvenue dans l’équipe !'); if (e.managerId) notify(e.managerId, `Intégration de ${fullName(e)} clôturée.`);
+        ui.selPerson = null; toast(`${fullName(e)} est en poste`); commit(); }); },
     'arr-assign'(d) { const e = arrE(d); dossier(e).assignedAt = TODAY; toast('Affectation confirmée'); commit(); },
-    'arr-prev'(d) { dossier(arrE(d)).prevoyance = true; toast('Affiliation à la prévoyance enregistrée'); commit(); },
-    'arr-vip'(d) { const e = arrE(d), date = addDays(e.startDate > TODAY ? e.startDate : TODAY, 21); db.visits.push({ id: uid('v'), empId: e.id, kind: "Visite d'information et de prévention", date, status: 'Planifiée', result: null }); notify(e.id, `Visite d’information et de prévention prévue le ${fmtDate(date)}.`); toast('Visite planifiée · visible dans Santé & QVT'); commit(); },
+    'arr-prev'(d) { const x = dossier(arrE(d)); x.prevoyance = true; x.prevoyanceAt = TODAY; toast('Affiliation à la prévoyance enregistrée'); commit(); },
+    // Visite d'information et de prévention : dans les 3 mois de la prise effective du poste (art. R4624-10) ; avant l'affectation pour certains postes.
+    'arr-vip'(d) { const e = arrE(d), due = addMonths(e.startDate, 3), base = addDays(e.startDate > TODAY ? e.startDate : TODAY, 21), late = TODAY > due;
+      const age = ageAt(e, e.startDate), minor = age !== null && age < 18;
+      // À VÉRIFIER (juriste) : visite préalable à l'affectation (travail de nuit, moins de 18 ans, suivi individuel renforcé : art. R4624-18 et R4624-24).
+      confirmAct({ title: `Visite d’information et de prévention · ${esc(fullName(e))}`, confirm: 'Planifier la visite', empId: e.id, act: 'arr-vip', trace: 'Visite d’information et de prévention planifiée',
+        text: `<p style="margin:0">À réaliser dans les 3 mois suivant la prise effective du poste, au plus tard le <b>${esc(fmtDateY(due))}</b>.${late ? ' <b style="color:var(--bad)">La limite est dépassée : planifiez la visite au plus vite.</b>' : ''}${minor ? ' <b>Recrue de moins de 18 ans : visite à faire avant l’affectation au poste.</b>' : ''}</p>`,
+        fields: [{ name: 'date', label: 'Date de la visite', type: 'date', required: true, value: late ? base : base > due ? due : base, guard: { notPastOf: TODAY } },
+          { name: 'prior', label: 'Poste exigeant une visite avant l’affectation (travail de nuit, moins de 18 ans, risques particuliers)', type: 'check', value: minor }],
+        check: (v) => (!late && v.date > due ? `La visite doit avoir lieu au plus tard le ${fmtDate(due)}.` : '') }, (v) => {
+        db.visits.push({ id: uid('v'), empId: e.id, kind: "Visite d'information et de prévention", date: v.date, status: 'Planifiée', result: null, prior: !!v.prior });
+        notify(e.id, `Visite d’information et de prévention prévue le ${fmtDate(v.date)}.`);
+        toast(v.prior && v.date > e.startDate ? 'Visite planifiée après l’affectation : vérifiez si elle doit avoir lieu avant la prise de poste.' : 'Visite planifiée · visible dans Santé & QVT', v.prior && v.date > e.startDate ? 'info' : 'ok'); commit(); }); },
     'arr-buddy-set'(d) { dossier(emp(d.id)).buddy = null; render(); setTimeout(() => { const q = document.querySelector('.succ-pick .emp-pick input'); if (q) q.focus(); }, 0); },
     'arr-plan'(d) { dossier(arrE(d)).plan[d.k] = TODAY; toast('Étape du programme terminée'); commit(); },
-    'arr-trial'(d) { const e = arrE(d), x = dossier(e), doc = addDoc(e.id, 'essai'); ui.modal = { type: 'doc-edit', id: doc.id }; Object.assign(x, { trialDecision: 'Confirmée', trialDecisionAt: TODAY, trialDoc: doc.id }); notify(e.id, 'Votre période d’essai est confirmée : bienvenue définitivement chez ' + COMPANY.nom + ' !'); if (e.managerId) notify(e.managerId, `Période d’essai de ${fullName(e)} confirmée.`); toast('Période d’essai confirmée'); commit(); },
-    'trial-renew'(d) { ui.modal = { type: 'trial-renew', id: d.id }; render(); },
-    'trial-break'(d) { ui.modal = { type: 'trial-break', id: d.id }; render(); },
+    'arr-trial'(d) { const e = arrE(d), x = dossier(e), over = trialOver(e), doc = addDoc(e.id, 'essai'); ui.modal = { type: 'doc-edit', id: doc.id };
+      Object.assign(x, { trialDecision: 'Confirmée', trialDecisionAt: TODAY, trialDoc: doc.id, trialAuto: over || undefined });
+      notify(e.id, `Ta période d’essai est ${over ? 'terminée' : 'confirmée'} : bienvenue définitivement chez ${COMPANY.nom} !`); if (e.managerId) notify(e.managerId, `Période d’essai de ${fullName(e)} ${over ? 'terminée : contrat définitif' : 'confirmée'}.`); toast(over ? 'Contrat définitif · lettre de confirmation à relire' : 'Période d’essai confirmée'); commit(); },
+    'trial-renew'(d) { const e = arrE(d); if (trialOver(e)) { toast('Période d’essai terminée : le renouvellement n’est plus possible.', 'info'); render(); return; } ui.modal = { type: 'trial-renew', id: d.id }; render(); },
+    'trial-renew-paper'(d) { const e = arrE(d), x = dossier(e), t = trialInfo(e), doc = db.documents.find((y) => y.id === x.renewPending);
+      if (trialOver(e, t)) { toast('Période d’essai terminée : le renouvellement n’est plus possible.', 'info'); return; }
+      confirmAct({ title: `Accord de renouvellement reçu sur papier · ${esc(fullName(e))}`, confirm: 'Renouveler la période d’essai', empId: e.id, act: 'trial-renew', trace: 'Accord de renouvellement reçu sur papier',
+        text: `<p style="margin:0">L’accord doit être signé par ${esc(e.firstName)} au plus tard le ${esc(fmtDateY(t.end))}, dernier jour de la période initiale.</p>`,
+        fields: [{ name: 'at', label: 'Date de l’accord signé', type: 'date', required: true, value: TODAY, guard: { notAfter: { date: TODAY < t.end ? TODAY : t.end, label: TODAY < t.end ? 'aujourd’hui' : 'la fin de la période initiale' }, notBefore: { date: e.startDate, label: 'l’arrivée' } } },
+          { name: 'attest', label: 'J’ai l’accord écrit et signé du salarié, joint au dossier', type: 'check', required: true }] }, (v) => {
+        if (doc) Object.assign(doc, { status: 'Signé', signedAt: v.at, html: unmark(doc.html || ''), paper: true }); applyRenewal(e, v.at, doc && doc.id, 'accord papier'); toast('Période d’essai renouvelée'); commit(); }); },
+    'trial-renew-cancel'(d) { const e = arrE(d), x = dossier(e), doc = db.documents.find((y) => y.id === x.renewPending); if (doc) Object.assign(doc, { status: 'Annulé', title: `${doc.title} (annulé)` }); delete x.renewPending; notify(e.id, 'La demande de renouvellement de ta période d’essai est annulée.'); toast('Demande de renouvellement annulée'); commit(); },
+    'trial-break'(d) { const e = arrE(d); if (trialOver(e)) { toast('Période d’essai terminée : une rupture relève désormais de la procédure de licenciement.', 'info'); render(); return; } ui.modal = { type: 'trial-break', id: d.id }; render(); },
   });
   Object.assign(MOD_CHG, {
-    'arr-civ'(v, d) { const e = emp(d.id); e[d.f] = v === '—' ? null : v;
-      if (d.f === 'nationality' && zoneOf(v) && zoneOf(v) !== e.zone) { e.zone = zoneOf(v); if (e.zone === 'Hors UE') toast('Nationalité hors UE, EEE et Suisse : titre de séjour autorisant à travailler ajouté aux pièces', 'info'); }
+    'arr-civ'(v, d) { const e = emp(d.id);
+      if (d.f === 'nir') { const n = nirCheck(v, e); e.nir = n.value || ''; if (n.msg) toast(n.msg, 'info'); commit(); return; }
+      if (d.f === 'birthDate' && v && (v > addYears(TODAY, -14) || v < '1930-01-01')) { toast('Date de naissance invalide : vérifiez l’année.', 'info'); render(); return; }
+      e[d.f] = v === '—' || v === '' ? null : String(v).trim();
+      if (d.f === 'nationality') { e.zone = zoneOf(v); if (e.zone === 'Hors UE') toast('Nationalité hors UE, EEE et Suisse : titre de séjour autorisant à travailler ajouté aux pièces', 'info'); }
       commit(); },
     'arr-buddy-none'(v, d, t) { if (!t.checked) return; dossier(emp(d.id)).buddy = 'none'; toast('Pas de parrain pour cette arrivée'); commit(); },
     'arr-buddy'(v, d) { const e = emp(d.id); dossier(e).buddy = v || null; if (v) notify(v, `Vous êtes le parrain ou la marraine de ${fullName(e)}, qui arrive le ${fmtDate(e.startDate)}.`); toast(v ? 'Parrain désigné' : 'Parrain retiré'); commit(); },
-    'arr-mutuelle'(v, d) { dossier(emp(d.id)).mutuelle = v || null; toast('Mutuelle enregistrée'); commit(); },
+    // Dispense de mutuelle : demande écrite du salarié, cas de dispense et justificatif.
+    'arr-mutuelle'(v, d) { const e = emp(d.id), x = dossier(e);
+      if (v !== 'Dispense') { x.mutuelle = v || null; delete x.mutuelleDispense; toast('Mutuelle enregistrée'); commit(); return; }
+      confirmAct({ title: `Dispense de mutuelle · ${esc(fullName(e))}`, confirm: 'Enregistrer la dispense', empId: e.id, act: 'arr-mutuelle', trace: 'Dispense de mutuelle',
+        text: '<p style="margin:0">La dispense est demandée par écrit par le salarié, dans un des cas prévus, avec un justificatif (attestation de l’autre couverture, de la complémentaire santé solidaire…). Sans ces éléments, l’affiliation est obligatoire.</p>',
+        fields: [{ name: 'reason', label: 'Cas de dispense', type: 'select', required: true, options: [['', 'Choisir…']].concat(MUT_DISPENSES.map((x) => [x, x])) },
+          { name: 'askedAt', label: 'Date de la demande écrite du salarié', type: 'date', required: true, guard: { notAfter: { date: TODAY, label: 'aujourd’hui' } } },
+          { name: 'proof', label: 'Justificatif reçu (nature du document)', type: 'text', required: true },
+          { name: 'until', label: 'Fin de la dispense (fin du contrat individuel, de la couverture…)', type: 'date', hint: 'Laisser vide si la dispense dure tant que la situation ne change pas ; le salarié doit alors prévenir de tout changement.', guard: { notBefore: { date: TODAY, label: 'aujourd’hui' } } },
+          { name: 'attest', label: 'J’ai la demande écrite signée du salarié et le justificatif', type: 'check', required: true }] }, (r) => {
+        x.mutuelle = 'Dispense'; x.mutuelleDispense = { reason: r.reason, askedAt: r.askedAt, proof: r.proof, until: r.until || null, at: TODAY }; toast('Dispense de mutuelle enregistrée'); commit(); });
+    },
     // Dépôt d'une pièce par la recrue : le fichier est gardé dans ce navigateur s'il est léger (aperçu), sinon seul son nom l'est.
     'arr-upload'(v, d, t) {
       const file = t.files && t.files[0]; if (!file) return;
-      const e = me(), x = dossier(e), label = ARR_DOCS.find(([k]) => k === d.k)[1];
-      const done = (data) => { x.files[d.k] = { name: file.name, date: TODAY, type: file.type, data }; notify('e1', `${fullName(e)} a déposé une pièce à vérifier : ${label}.`); toast('Pièce déposée · les RH vont la vérifier'); commit(); };
+      const e = me(), x = dossier(e), label = ARR_DOCS.find(([k]) => k === d.k)[1], again = x.files[d.k] && !x.files[d.k].refused;
+      const done = (data) => { x.files[d.k] = { name: file.name, date: TODAY, type: file.type, data }; notify('e1', `${fullName(e)} a ${again ? 'remplacé' : 'déposé'} une pièce à vérifier : ${label}.`); toast(again ? 'Pièce remplacée · les RH vont la vérifier' : 'Pièce déposée · les RH vont la vérifier'); commit(); };
       if (file.size <= 700 * 1024 && /^(image\/|application\/pdf)/.test(file.type)) { const r = new FileReader(); r.onload = () => done(r.result); r.onerror = () => done(null); r.readAsDataURL(file); } else done(null);
     },
     'plan-edit'(v, d) {
@@ -4646,29 +5000,78 @@
       db.onboardingPlan.push({ k: uid('p'), label: v.label.trim(), day: Math.max(0, Math.min(180, Math.round(Number(v.day) || 0))), owner: v.owner });
       db.onboardingPlan.sort((a, b) => a.day - b.day); toast('Étape ajoutée au programme'); commit();
     },
+    // Informations saisies par la recrue (une seule fois), avec contrôles.
+    'arr-me'(v, form) {
+      const e = me(), err = (m) => { const el = form.querySelector('.err'); if (el) el.textContent = m; };
+      if (v.birthDate && (v.birthDate > addYears(TODAY, -14) || v.birthDate < '1930-01-01')) return err('Date de naissance invalide : vérifie l’année.');
+      const next = Object.assign({}, e, { sex: v.sex || null, birthDate: v.birthDate || '' }), n = nirCheck(v.nir, next);
+      if (n.level === 'error') return err(n.msg);
+      if (v.birthPlace && !/[a-zà-ÿ]/i.test(v.birthPlace)) return err('Lieu de naissance : indique la commune et le pays.');
+      Object.assign(e, { sex: v.sex || e.sex || null, birthDate: v.birthDate || e.birthDate || '', birthPlace: (v.birthPlace || '').trim(), nir: n.value || '', address: (v.address || '').trim(), emergency: (v.emergency || '').trim() });
+      if (v.nationality) { e.nationality = v.nationality; e.zone = zoneOf(v.nationality); }
+      if (ui.profile === 'salarie') notify('e1', `${fullName(e)} a complété ses informations personnelles.`);
+      toast(n.level === 'warn' ? n.msg : e.zone === 'Hors UE' && !dossier(e).files.titre ? 'Informations enregistrées · dépose aussi ton titre de séjour autorisant à travailler' : 'Informations enregistrées', n.level === 'warn' ? 'info' : 'ok'); commit();
+    },
     'doc-refuse'(v) {
       const e = emp(ui.modal.id), x = dossier(e), why = v.reason === 'Autre' ? (v.other || '').trim() : v.reason, label = ARR_DOCS.find(([k]) => k === ui.modal.k)[1];
       if (!why) return formError('Précisez le motif pour que la recrue sache quoi redéposer.');
       x.files[ui.modal.k].refused = why; delete x.docs[ui.modal.k];
-      notify(e.id, `Votre pièce « ${label} » est à redéposer : ${why}.`); ui.modal = null; toast('Pièce refusée · la recrue est prévenue'); commit();
+      notify(e.id, `Ta pièce « ${label} » est à redéposer : ${why}.`); ui.modal = null; toast('Pièce refusée · la recrue est prévenue'); commit();
     },
     'arr-checkin'(v, form) { const e = emp(form.dataset.id); if (!v.note.trim()) { toast('Écrivez un court compte rendu.', 'info'); return; } dossier(e).checkins[form.dataset.k] = { date: TODAY, note: v.note.trim(), by: me().id }; toast('Point de suivi enregistré'); commit(); },
     'arr-astonish'(v, form) { const e = emp(form.dataset.id); if (!v.text.trim()) { toast('Le rapport est vide.', 'info'); return; } dossier(e).astonish = { date: TODAY, text: v.text.trim() }; if (ui.profile !== 'rh') notify('e1', `Rapport d’étonnement de ${fullName(e)} disponible.`); toast('Rapport d’étonnement enregistré'); commit(); },
+    // DPAE : contrôles des données requises et du titre de séjour, puis copie remise au salarié. Simulée : la déclaration réelle se fait sur net-entreprises.fr ou urssaf.fr.
+    'arr-dpae'(v) {
+      const e = emp(ui.modal.id), x = dossier(e), chk = dpaeChecks(e);
+      if (chk.err.length) return formError(chk.err.join(' '));
+      if (TODAY < addDays(e.startDate, -8)) return formError(`La DPAE se fait au plus tôt 8 jours avant l’embauche, soit à partir du ${fmtDate(addDays(e.startDate, -8))}.`);
+      if (!/^\d{2}:\d{2}$/.test(v.hour || '')) return formError('Indiquez l’heure d’embauche déclarée.');
+      if (v.attest !== 'on') return formError('Cochez la case pour confirmer que la déclaration a été faite.');
+      const key = JSON.stringify(chk.warn);
+      if (chk.warn.length && ui.modal.warnOk !== key) { ui.modal.warnOk = key; return formError(`${chk.warn.join(' ')} Pour déclarer malgré tout, cliquez à nouveau.`); }
+      x.dpae = { date: TODAY, ref: (v.ref || '').trim() || `DPAE-75-${TODAY.slice(0, 4)}-${String(Math.floor(Math.random() * 9000) + 1000)}`, hour: v.hour, simulated: !(v.ref || '').trim() };
+      if (v.copy === 'on') { const doc = addDoc(e.id, 'dpae'); issueDoc(doc); x.dpaeDoc = doc.id; }
+      ui.modal = null; toast(`DPAE enregistrée${v.copy === 'on' ? ' · copie remise au salarié' : ''}`); commit();
+    },
     'trial-renew'(v) {
-      const e = emp(ui.modal.id); if (v.agree !== 'on') return formError('Le renouvellement exige l’accord écrit du salarié, obtenu avant la fin de la période initiale.');
-      Object.assign(dossier(e), { trialRenewed: true, trialDecision: 'Renouvelée', trialDecisionAt: TODAY }); notify(e.id, `Votre période d’essai est renouvelée jusqu’au ${fmtDate(trialInfo(e).end)}.`);
-      ui.modal = null; toast('Période d’essai renouvelée'); commit();
+      const e = emp(ui.modal.id), t = trialInfo(e);
+      if (trialOver(e, t)) return formError(`La période d’essai a pris fin le ${fmtDate(t.end)} : le contrat est définitif, le renouvellement n’est plus possible (art. L1221-23).`);
+      if (v.mode === 'paper') {
+        const bad = dateGuard(v.at, { label: 'La date de l’accord', notAfter: { date: TODAY < t.end ? TODAY : t.end, label: TODAY < t.end ? 'aujourd’hui' : 'la fin de la période initiale' }, notBefore: { date: e.startDate, label: 'l’arrivée' } });
+        if (bad) return formError(bad);
+        if (v.agree !== 'on') return formError('Le renouvellement exige l’accord exprès et écrit du salarié, signé avant la fin de la période initiale.');
+        const doc = addDoc(e.id, 'renouv-essai', { vars: renewVars(e) }); Object.assign(doc, { status: 'Signé', signedAt: v.at, issuedAt: TODAY, html: unmark(doc.html), paper: true });
+        applyRenewal(e, v.at, doc.id, 'accord papier'); ui.modal = null; toast('Période d’essai renouvelée'); commit(); return;
+      }
+      // Accord à signer dans l'espace du salarié : le renouvellement ne prend effet qu'à sa signature, avant la fin de la période initiale.
+      const doc = addDoc(e.id, 'renouv-essai', { vars: renewVars(e) }), err = issueDocSign(doc); if (err) { ui.modal = { type: 'doc-edit', id: doc.id, err }; render(); return; }
+      dossier(e).renewPending = doc.id; notify(e.id, `Ton employeur te propose de renouveler ta période d’essai : l’accord est à signer avant le ${fmtDate(t.end)}, dans « Intégration ».`);
+      journalAdd(e.id, 'Accord de renouvellement envoyé à signer', 'trial-renew'); ui.modal = null; toast(`Accord envoyé à ${fullName(e)} pour signature`); commit();
     },
     'trial-break'(v) {
-      const e = emp(ui.modal.id), t = trialInfo(e), min = addDays(TODAY, t.notice);
-      if (!v.lastDay || v.lastDay < min) return formError(`Avec le délai de prévenance de ${NOTICE_LABEL[t.notice] || 'aucun délai'}, la rupture prend effet au plus tôt le ${fmtDate(min)}.`);
-      Object.assign(dossier(e), { trialDecision: 'Rompue', trialDecisionAt: TODAY });
-      e.exit = { reason: 'Rupture de la période d’essai', lastDay: v.lastDay, comment: (v.comment || '').trim() }; e.stage = 13;
+      const e = emp(ui.modal.id), t = trialInfo(e), by = v.by === 'salarie' ? 'salarie' : 'employeur';
+      if (trialOver(e, t)) return formError(`La période d’essai a pris fin le ${fmtDate(t.end)} : le contrat est définitif. Une rupture relève désormais de la procédure de licenciement ou de démission.`);
+      const bad = dateGuard(v.notifiedAt, { label: 'La date de notification', notAfter: { date: TODAY, label: 'aujourd’hui' }, notBefore: { date: e.startDate, label: 'l’arrivée' } })
+        || dateGuard(v.lastDay, { label: 'Le dernier jour', notBefore: { date: v.notifiedAt || TODAY, label: 'la notification' }, notAfter: { date: t.end, label: `la fin de la période d’essai (${fmtDate(t.end)}) : l’essai ne peut pas être prolongé par le délai de prévenance` } });
+      if (bad) return formError(bad);
+      const q = breakQuote(e, v.notifiedAt, v.lastDay, by), key = JSON.stringify([by, v.notifiedAt, v.lastDay]);
+      if (q.missing && ui.modal.ackKey !== key) { ui.modal.ackKey = key; return formError(`Délai de prévenance de ${NOTICE_LABEL[q.notice]} non respecté de ${plural(q.missing, 'jour', 'jours')} (il finirait le ${fmtDate(q.noticeEnd)}) : vous devrez verser une indemnité compensatrice d’environ ${eur0(q.indemnity)}, congés payés compris (art. L1221-25). Cliquez à nouveau pour confirmer.`); }
+      const reason = by === 'salarie' ? 'Rupture de la période d’essai à l’initiative du salarié' : 'Rupture de la période d’essai';
+      Object.assign(dossier(e), { trialDecision: 'Rompue', trialDecisionAt: v.notifiedAt, trialBreakBy: by });
+      e.exit = { reason, lastDay: v.lastDay, notifiedAt: v.notifiedAt, by, channel: v.channel, noticeIndemnity: q.indemnity || 0, comment: (v.comment || '').trim() }; e.stage = 13;
       db.journey[e.id] = db.journey[e.id] || {}; db.journey[e.id][13] = [true, false, false, false, false];
-      notify(e.id, `Fin de votre période d’essai : dernier jour le ${fmtDate(v.lastDay)}.`); if (e.managerId) notify(e.managerId, `Fin de la période d’essai de ${fullName(e)} le ${fmtDate(v.lastDay)}.`);
-      ui.modal = null; ui.selPerson = null; toast(`Départ de ${fullName(e)} lancé`); commit();
+      journalAdd(e.id, reason, 'trial-break', `Notifiée le ${fmtDateY(v.notifiedAt)} (${v.channel}) · dernier jour le ${fmtDateY(v.lastDay)}${q.indemnity ? ` · indemnité de prévenance ≈ ${eur0(q.indemnity)}` : ''}`);
+      notify(e.id, `Fin de ta période d’essai : dernier jour le ${fmtDate(v.lastDay)}.`); if (e.managerId) notify(e.managerId, `Fin de la période d’essai de ${fullName(e)} le ${fmtDate(v.lastDay)}.`);
+      ui.selPerson = null;
+      if (by === 'employeur') {
+        const doc = addDoc(e.id, 'rupture-essai', { vars: { prevenance: NOTICE_LABEL[q.notice] || 'aucun délai', prevenance_indemnite: q.indemnity ? `Le délai de prévenance ne pouvant être entièrement respecté, vous percevrez une indemnité compensatrice de ${eur0(q.indemnity)}, correspondant à ${plural(q.missing, 'jour', 'jours')} de salaire, congés payés compris.` : NONE } });
+        dossier(e).trialDoc = doc.id; ui.modal = { type: 'doc-edit', id: doc.id }; toast('Départ lancé · relisez la lettre de rupture avant de la remettre'); commit(); return;
+      }
+      ui.modal = null; toast(`Départ de ${fullName(e)} lancé`); commit();
     },
   });
+  // Envoi d'un document à signer dans l'espace du salarié (accord de renouvellement) : figé dès l'envoi.
+  function issueDocSign(d) { ensureDocHtml(d); const gaps = docGaps(d.html || ''); if (gaps.length) return `Complétez d’abord : ${gaps.slice(0, 3).join(', ')}.`; Object.assign(d, { html: unmark(d.html), status: 'Envoyé', issuedAt: TODAY, issuedBy: me().id }); return ''; }
   MODALS['doc-refuse'] = (m, shell, formShell, opt, f) => formShell(`Refuser la pièce · ${esc(ARR_DOCS.find(([k]) => k === m.k)[1])}`, 'doc-refuse',
     `<div class="form-grid">${f('dr-r', 'Motif communiqué à la recrue', `<select id="dr-r" name="reason" class="select">${opt(DOC_REFUSALS.concat(['Autre']))}</select>`, true)}${f('dr-o', 'Si autre, précisez', '<input id="dr-o" name="other" class="input" maxlength="140">', true)}</div>`, 'Refuser la pièce');
   MODALS['file-view'] = (m, shell) => {
@@ -4680,13 +5083,30 @@
   MODALS['plan-del'] = (m, shell) => { const x = db.onboardingPlan.find((p) => p.k === m.k);
     return shell('Supprimer l’étape du programme', `<div class="modal-b"><p style="margin:0">« ${esc(x.label)} » sera retirée du programme de toutes les recrues en intégration.</p></div>`,
       `<div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="button" class="btn bad" data-act="plan-del-ok" data-k="${x.k}">Supprimer</button></div>`); };
-  MODALS.register = (m, shell) => shell('Registre unique du personnel', `<div class="modal-b"><p class="hint" style="margin:0 0 12px">Tenu dès le premier salarié, dans l’ordre des embauches. Les mentions sont conservées 5 ans après le départ du salarié.</p>${registerHTML()}</div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true);
-  MODALS['trial-renew'] = (m, shell, formShell) => { const e = emp(m.id), t = trialInfo(e);
-    return formShell(`Renouveler la période d’essai · ${esc(fullName(e))}`, 'trial-renew', `<p style="margin:0 0 12px">La période d’essai serait prolongée de ${t.months} mois, jusqu’au ${fmtDate(addDays(addMonths(addDays(t.end, 1), t.months), -1))}. Le renouvellement doit être prévu par le contrat et par la convention collective (${CONV().kind === 'syntec' ? 'Syntec l’autorise' : 'prévu par la convention saisie dans les paramètres'}).</p>
-      <label style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="agree"> J’ai reçu l’accord écrit du salarié, daté d’avant le ${fmtDate(t.end)}</label>`, 'Renouveler'); };
-  MODALS['trial-break'] = (m, shell, formShell, opt, f) => { const e = emp(m.id), t = trialInfo(e), min = addDays(TODAY, t.notice);
-    return formShell(`Mettre fin à la période d’essai · ${esc(fullName(e))}`, 'trial-break', `<p style="margin:0 0 12px">${t.notice ? `Délai de prévenance : ${NOTICE_LABEL[t.notice]}. La rupture prend effet au plus tôt le ${fmtDate(min)}.` : 'Aucun délai de prévenance.'} Aucune indemnité de rupture n’est due ; la rupture doit être notifiée par écrit.</p>
-      <div class="form-grid">${f('tb-day', 'Dernier jour travaillé', `<input id="tb-day" name="lastDay" type="date" class="input" value="${min > t.end ? t.end : min}">`)}${f('tb-c', 'Commentaire interne (facultatif)', '<input id="tb-c" name="comment" class="input" maxlength="140">')}</div>`, 'Confirmer la rupture'); };
+  MODALS.register = (m, shell) => shell('Registre unique du personnel', `<div class="modal-b"><p class="hint" style="margin:0 0 12px">Tenu dès le premier salarié, dans l’ordre des embauches ; chaque personne y est inscrite le jour de son embauche. Les stagiaires figurent dans une partie spécifique. Les mentions sont conservées 5 ans après le départ du salarié.</p>${registerHTML()}</div>`,
+    '<div class="modal-f"><button type="button" class="btn ghost" data-act="register-csv">Exporter (CSV)</button><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true);
+  MODALS['arr-dpae'] = (m, shell, formShell, opt, f) => { const e = emp(m.id), chk = dpaeChecks(e);
+    const li = (x, cls) => `<li style="color:var(--${cls})">${esc(x)}</li>`;
+    return formShell(`Déclaration préalable à l’embauche · ${esc(fullName(e))}`, 'arr-dpae', `<p style="margin:0 0 10px">Démonstration : la déclaration est <b>simulée</b>. En réel, elle se fait sur net-entreprises.fr ou urssaf.fr, au plus tôt 8 jours avant l’embauche et avant la prise de poste.</p>
+      <p style="margin:0 0 6px"><b>Données déclarées</b> : ${esc(fullName(e))} · ${e.sex === 'F' ? 'femme' : e.sex === 'H' ? 'homme' : 'sexe ?'} · née ou né le ${e.birthDate ? esc(fmtDateY(e.birthDate)) : '?'} à ${esc(e.birthPlace || '?')} · ${esc(e.nationality || 'nationalité ?')} · NIR ${esc(e.nir || 'non renseigné')} · embauche le ${esc(fmtDateY(e.startDate))} · ${esc(e.contract)}${e.endDate ? ` jusqu’au ${esc(fmtDateY(e.endDate))}` : ''}.</p>
+      ${chk.err.length || chk.warn.length ? `<ul style="margin:0 0 10px;padding-left:18px">${chk.err.map((x) => li(x, 'bad')).join('')}${chk.warn.map((x) => li(x, 'warn')).join('')}</ul>` : '<p class="hint" style="margin:0 0 10px">Toutes les données requises sont présentes.</p>'}
+      <div class="form-grid">${f('dp-h', 'Heure d’embauche déclarée', '<input id="dp-h" name="hour" type="time" class="input" value="09:00">')}${f('dp-r', 'N° de l’accusé de réception (facultatif)', '<input id="dp-r" name="ref" class="input" maxlength="40" placeholder="Sinon, un numéro de démonstration">')}
+      <label class="full agree"><input type="checkbox" name="copy" checked> Remettre une copie de la déclaration au salarié (art. R1221-9), dans son espace</label>
+      <label class="full agree"><input type="checkbox" name="attest"> J’atteste que la déclaration a été transmise à l’Urssaf</label></div>`, chk.err.length ? 'Vérifier à nouveau' : 'Enregistrer la DPAE'); };
+  MODALS['trial-renew'] = (m, shell, formShell, opt, f) => { const e = emp(m.id), t = trialInfo(e), nEnd = addDays(addMonths(addDays(t.end, 1), t.months), -1);
+    return formShell(`Renouveler la période d’essai · ${esc(fullName(e))}`, 'trial-renew', `<p style="margin:0 0 12px">La période d’essai serait prolongée de ${t.months} mois, du ${fmtDate(addDays(t.end, 1))} au ${fmtDate(nEnd)}. Le renouvellement doit être prévu par le contrat et par la convention collective (${CONV().kind === 'syntec' ? 'Syntec l’autorise' : 'prévu par la convention saisie dans les paramètres'}), et accepté par écrit par le salarié <b>au plus tard le ${fmtDate(t.end)}</b>.</p>
+      <div class="form-grid"><label class="full agree"><input type="radio" name="mode" value="sign" checked> Envoyer l’accord de renouvellement à signer dans l’espace de ${esc(e.firstName)} (le renouvellement prend effet à sa signature)</label>
+      <label class="full agree"><input type="radio" name="mode" value="paper"> L’accord écrit a déjà été signé sur papier</label>
+      ${f('tr-at', 'Si papier : date de l’accord signé', `<input id="tr-at" name="at" type="date" class="input" value="${TODAY <= t.end ? TODAY : t.end}">`)}
+      <label class="full agree"><input type="checkbox" name="agree"> Si papier : j’ai l’accord écrit et signé du salarié, daté au plus tard du ${fmtDate(t.end)}</label></div>`, 'Renouveler'); };
+  MODALS['trial-break'] = (m, shell, formShell, opt, f) => { const e = emp(m.id), t = trialInfo(e), q = breakQuote(e, TODAY, t.end), def = q.noticeEnd < t.end ? q.noticeEnd : t.end, sal = trialNotice(e, TODAY, 'salarie');
+    return formShell(`Mettre fin à la période d’essai · ${esc(fullName(e))}`, 'trial-break', `<p style="margin:0 0 8px">L’essai se termine le <b>${fmtDate(t.end)}</b> : la rupture prend effet au plus tard ce jour-là, le délai de prévenance ne pouvant pas le prolonger.
+      ${t.notice ? `À l’initiative de l’employeur, notifiée aujourd’hui : délai de prévenance de ${NOTICE_LABEL[q.notice]}, soit jusqu’au ${fmtDate(q.noticeEnd)}. S’il ne peut pas être respecté, une indemnité compensatrice égale au salaire restant à courir, congés payés compris, est due (art. L1221-25).` : 'Apprenti : rupture libre pendant les 45 premiers jours de formation pratique.'}
+      À l’initiative du salarié : ${NOTICE_LABEL[sal]} de prévenance (art. L1221-26).</p>
+      <p style="margin:0 0 12px">Aucune indemnité de rupture n’est due ; l’indemnité compensatrice des congés payés acquis reste due. La rupture se notifie par écrit : une lettre est préparée pour une rupture par l’employeur.</p>
+      <div class="form-grid">${f('tb-by', 'À l’initiative de', `<select id="tb-by" name="by" class="select">${opt([['employeur', 'L’employeur'], ['salarie', 'Le salarié']], 'employeur')}</select>`)}${f('tb-ch', 'Notification', `<select id="tb-ch" name="channel" class="select">${opt(['Lettre remise en main propre contre décharge', 'Lettre recommandée avec avis de réception', 'Lettre ou e-mail du salarié'], 'Lettre remise en main propre contre décharge')}</select>`)}
+      ${f('tb-not', 'Date de notification', `<input id="tb-not" name="notifiedAt" type="date" class="input" value="${TODAY}" max="${TODAY}">`)}${f('tb-day', 'Dernier jour du contrat', `<input id="tb-day" name="lastDay" type="date" class="input" value="${def}" max="${t.end}">`)}
+      ${f('tb-c', 'Commentaire interne (facultatif)', '<input id="tb-c" name="comment" class="input" maxlength="140">', true)}</div>`, 'Confirmer la rupture'); };
 
   // ================================================================ Vie administrative (étape 6)
   const CHANGE_FIELDS = { address: ['Adresse postale', 'Justificatif de domicile de moins de 3 mois'], iban: ['Coordonnées bancaires (RIB)', 'RIB au nom du salarié'], family: ['Situation familiale', 'Acte ou attestation (mariage, PACS, naissance…)'], lastName: ['Nom d’usage', 'Pièce justificative'] };
@@ -5312,14 +5732,19 @@
   // ---------------------------------------------------------------- Documents RH et modèles
   // Chaque document naît d'un modèle rédigé par les RH : texte libre, champs automatiques {{clé}} remplis depuis le dossier,
   // champs à saisir {{saisie:id}} complétés à la création. Un document reste modifiable par les RH tant qu'il n'est ni remis ni signé.
-  const DOC_LABEL = { contrat: 'Contrat de travail', info7: 'Informations essentielles sur la relation de travail', info1m: 'Informations complémentaires sur la relation de travail', essai: 'Confirmation de fin de période d’essai', attestation: 'Attestation employeur', avenant: 'Avenant au contrat', certificat: 'Certificat de travail', solde: 'Reçu pour solde de tout compte', 'france-travail': 'Attestation employeur France Travail' };
+  const DOC_LABEL = { contrat: 'Contrat de travail', info7: 'Informations essentielles sur la relation de travail', info1m: 'Informations complémentaires sur la relation de travail', essai: 'Confirmation de fin de période d’essai', attestation: 'Attestation employeur', avenant: 'Avenant au contrat', certificat: 'Certificat de travail', solde: 'Reçu pour solde de tout compte', 'france-travail': 'Attestation employeur France Travail',
+    // Arrivée : courriers de la période d'essai et copie de la DPAE.
+    'rupture-essai': 'Lettre de rupture de la période d’essai', 'renouv-essai': 'Accord de renouvellement de la période d’essai', dpae: 'Copie de la déclaration préalable à l’embauche' };
   const COMPANY = { entreprise: 'Nova Studio SAS', entreprise_adresse: '12 rue de la Paix, 75002 Paris', siret: '000 000 000 00000 (fictif)', convention: 'nationale des bureaux d’études techniques (Syntec)', ville: 'Paris' };
   const longDate = (s) => (s ? fmtDate(s, { day: 'numeric', month: 'long', year: 'numeric' }) : '');
   // Champs automatiques : [clé, libellé, groupe].
   const TOKENS = [
-    ['salarie', 'Nom du salarié', 'Salarié'], ['prenom', 'Prénom', 'Salarié'], ['nom', 'Nom de famille', 'Salarié'], ['naissance', 'Date de naissance', 'Salarié'], ['nationalite', 'Nationalité', 'Salarié'], ['adresse', 'Adresse du salarié', 'Salarié'],
+    ['salarie', 'Nom du salarié', 'Salarié'], ['prenom', 'Prénom', 'Salarié'], ['nom', 'Nom de famille', 'Salarié'], ['naissance', 'Date de naissance', 'Salarié'], ['naissance_lieu', 'Lieu de naissance', 'Salarié'], ['nationalite', 'Nationalité', 'Salarié'], ['adresse', 'Adresse du salarié', 'Salarié'],
+    ['ne', 'Accord « né » ou « née »', 'Salarié'], ['engage', 'Accord « engagé » ou « engagée »', 'Salarié'],
     ['poste', 'Poste', 'Contrat'], ['service', 'Service', 'Contrat'], ['manager', 'Manager', 'Contrat'], ['contrat', 'Type de contrat', 'Contrat'], ['categorie', 'Catégorie', 'Contrat'], ['salaire', 'Salaire annuel brut', 'Contrat'], ['salaire_mensuel', 'Salaire mensuel brut', 'Contrat'],
     ['date_entree', 'Date d’entrée', 'Contrat'], ['date_fin', 'Date de fin du contrat', 'Contrat'], ['lieu', 'Lieu de travail', 'Contrat'], ['essai', 'Durée de la période d’essai', 'Contrat'], ['essai_fin', 'Fin de la période d’essai', 'Contrat'], ['anciennete', 'Ancienneté', 'Contrat'],
+    ['duree_travail', 'Durée du travail (heures ou forfait jours)', 'Contrat'], ['cdd_remplace', 'CDD : personne remplacée', 'Contrat'], ['cdd_terme', 'CDD : terme du contrat', 'Contrat'], ['cdd_renouvellement', 'CDD : clause de renouvellement', 'Contrat'],
+    ['essai_renouv', 'Durée du renouvellement de l’essai', 'Contrat'], ['essai_fin_renouv', 'Fin de l’essai renouvelé', 'Contrat'], ['prevenance', 'Délai de prévenance', 'Contrat'], ['prevenance_indemnite', 'Indemnité de prévenance', 'Contrat'], ['dpae_date', 'Date de la DPAE', 'Contrat'], ['dpae_ref', 'Référence de la DPAE', 'Contrat'],
     ['nouveau_poste', 'Nouveau poste', 'Avenant'], ['nouveau_service', 'Nouveau service', 'Avenant'], ['nouveau_salaire', 'Nouveau salaire', 'Avenant'], ['date_effet', 'Date d’effet', 'Avenant'],
     ['dernier_jour', 'Dernier jour travaillé', 'Départ'], ['motif_depart', 'Motif de fin de contrat', 'Départ'], ['solde_detail', 'Détail du solde de tout compte (tableau)', 'Départ'], ['solde_total', 'Total du solde de tout compte', 'Départ'],
     ['candidat', 'Nom du candidat', 'Candidat'], ['candidat_prenom', 'Prénom du candidat', 'Candidat'], ['offre', 'Poste de l’offre', 'Candidat'], ['offre_service', 'Service de l’offre', 'Candidat'], ['offre_lieu', 'Lieu de l’offre', 'Candidat'],
@@ -5327,28 +5752,32 @@
     ['motif_refus', 'Motif du refus', 'Candidat'], ['vivier', 'Phrase sur le vivier et la conservation des données', 'Candidat'], ['suppression_donnees', 'Date de suppression des données', 'Candidat'], ['rgpd', 'Information sur les données personnelles', 'Candidat'], ['delai_reponse', 'Délai de réponse annoncé', 'Candidat'],
     ['proposition_contrat', 'Contrat proposé', 'Candidat'], ['proposition_salaire', 'Salaire proposé', 'Candidat'], ['proposition_date_entree', 'Date d’entrée proposée', 'Candidat'], ['proposition_limite', 'Date limite de réponse', 'Candidat'], ['proposition_manager', 'Manager du poste proposé', 'Candidat'],
     ['entreprise', 'Nom de l’entreprise', 'Entreprise'], ['entreprise_adresse', 'Adresse de l’entreprise', 'Entreprise'], ['siret', 'SIRET', 'Entreprise'], ['convention', 'Convention collective', 'Entreprise'], ['signataire', 'Signataire RH', 'Entreprise'], ['signataire_titre', 'Fonction du signataire', 'Entreprise'], ['ville', 'Ville', 'Entreprise'], ['date_jour', 'Date du document', 'Entreprise'],
+    ['retraite', 'Caisse de retraite complémentaire (nom et adresse)', 'Entreprise'], ['prevoyance_org', 'Organisme de prévoyance (nom et adresse)', 'Entreprise'],
   ];
   const TOKEN_LABEL = Object.fromEntries(TOKENS.map(([k, l]) => [k, l]));
   const SIG = '<p class="sig">Fait à {{ville}}, le {{date_jour}}<br><b>{{signataire}}</b>, {{signataire_titre}}</p>';
   const paras = (...xs) => xs.map((x) => (/^<(h3|ul|table|p)/.test(x) ? x : `<p>${x}</p>`)).join('');
   const contractCore = (nature, extra) => paras(`Entre la société {{entreprise}}, {{entreprise_adresse}}, SIRET {{siret}}, représentée par {{signataire}}, {{signataire_titre}}, d’une part,`,
-    `et {{salarie}}, né·e le {{naissance}}, de nationalité {{nationalite}}, demeurant {{adresse}}, d’autre part,`, `il est conclu ${nature}, régi par la convention collective {{convention}}.`, ...extra,
-    '<h3>Lieu et durée du travail</h3>', 'Lieu de travail : {{lieu}}. Durée hebdomadaire : 35 heures, selon les horaires collectifs en vigueur dans l’entreprise.',
+    `et {{salarie}}, {{ne}} le {{naissance}} à {{naissance_lieu}}, de nationalité {{nationalite}}, demeurant {{adresse}}, d’autre part,`, `il est conclu ${nature}, régi par la convention collective {{convention}}.`, ...extra,
+    '<h3>Lieu et durée du travail</h3>', 'Lieu de travail : {{lieu}}. {{duree_travail}}',
     '<h3>Rémunération</h3>', 'Rémunération annuelle brute de {{salaire}}, versée en 12 mensualités de {{salaire_mensuel}}.',
     '<h3>Congés payés</h3>', '2,5 jours ouvrables par mois de travail effectif, dans les conditions légales et conventionnelles.',
+    '<h3>Formation</h3>', 'Le salarié bénéficie du droit à la formation assuré par l’employeur, de son compte personnel de formation et d’un entretien professionnel tous les deux ans.',
     '<h3>Protection sociale</h3>', 'Retraite complémentaire Agirc-Arrco ; mutuelle et prévoyance selon les contrats collectifs de l’entreprise, dont la notice est remise au salarié.') + SIG;
   // Modèles d'origine. kind 'doc' = document mis en page ; 'msg' = message au candidat (texte, avec un objet).
   const DEFAULT_TPL = {
     'contrat-cdi': { label: 'Contrat de travail · CDI', group: 'Documents salariés', kind: 'doc', title: 'Contrat de travail à durée indéterminée',
-      body: contractCore('un contrat de travail à durée indéterminée', ['<h3>Engagement</h3>', '{{salarie}} est engagé·e à compter du {{date_entree}} en qualité de {{poste}}, catégorie {{categorie}}, au sein du service {{service}}, sous la responsabilité de {{manager}}.',
+      body: contractCore('un contrat de travail à durée indéterminée', ['<h3>Engagement</h3>', '{{salarie}} est {{engage}} à compter du {{date_entree}} en qualité de {{poste}}, catégorie {{categorie}}, au sein du service {{service}}, sous la responsabilité de {{manager}}.',
         '<h3>Période d’essai</h3>', 'Le contrat ne deviendra définitif qu’à l’issue d’une période d’essai de {{essai}}, renouvelable une fois avec l’accord écrit du salarié. Pendant cette période, chaque partie peut y mettre fin en respectant le délai de prévenance légal.',
         '<h3>Rupture du contrat</h3>', 'Après la période d’essai, le contrat peut être rompu dans les conditions prévues par le Code du travail et la convention collective, notamment quant au préavis.']),
       required: [['salarie', 'Identité du salarié'], ['poste', 'Emploi occupé'], ['date_entree', 'Date d’entrée'], ['salaire', 'Rémunération'], ['lieu', 'Lieu de travail'], ['convention', 'Convention collective']] },
     'contrat-cdd': { label: 'Contrat de travail · CDD', group: 'Documents salariés', kind: 'doc', title: 'Contrat de travail à durée déterminée', fields: [{ id: 'motif', label: 'Motif précis du recours au CDD' }],
-      body: contractCore('un contrat de travail à durée déterminée, en application de l’article L1242-2 du Code du travail', ['<h3>Motif du recours</h3>', 'Le présent contrat est conclu pour le motif suivant : {{saisie:motif}}.',
-        '<h3>Durée</h3>', 'Le contrat prend effet le {{date_entree}} et prendra fin le {{date_fin}}. {{salarie}} occupe le poste de {{poste}}, catégorie {{categorie}}, au sein du service {{service}}, sous la responsabilité de {{manager}}.',
-        '<h3>Période d’essai</h3>', 'Le contrat comporte une période d’essai de {{essai}}.', '<h3>Fin du contrat</h3>', 'À l’échéance, le salarié perçoit une indemnité de fin de contrat égale à 10 % de la rémunération totale brute, sauf exceptions légales.']),
-      required: [['salarie', 'Identité du salarié'], ['saisie:motif', 'Motif précis du recours (sinon le contrat est réputé à durée indéterminée)'], ['date_fin', 'Terme du contrat'], ['poste', 'Emploi occupé'], ['salaire', 'Rémunération'], ['convention', 'Convention collective']] },
+      body: contractCore('un contrat de travail à durée déterminée, en application de l’article L1242-2 du Code du travail', ['<h3>Motif du recours</h3>', 'Le présent contrat est conclu pour le motif suivant : {{saisie:motif}}. {{cdd_remplace}}',
+        '<h3>Durée</h3>', '{{cdd_terme}} {{salarie}} occupe le poste de {{poste}}, catégorie {{categorie}}, au sein du service {{service}}, sous la responsabilité de {{manager}}.', '{{cdd_renouvellement}}',
+        '<h3>Période d’essai</h3>', 'Le contrat comporte une période d’essai de {{essai}}.', '<h3>Fin du contrat</h3>', 'À l’échéance, le salarié perçoit une indemnité de fin de contrat égale à 10 % de la rémunération totale brute, sauf exceptions légales.',
+        // Mentions de l'art. L1242-12 : caisse de retraite complémentaire et organisme de prévoyance (nom et adresse).
+        '<h3>Retraite complémentaire et prévoyance</h3>', 'Caisse de retraite complémentaire : {{retraite}}. Organisme de prévoyance : {{prevoyance_org}}.']),
+      required: [['salarie', 'Identité du salarié'], ['saisie:motif', 'Motif précis du recours (sinon le contrat est réputé à durée indéterminée)'], ['cdd_terme', 'Terme du contrat'], ['poste', 'Emploi occupé'], ['salaire', 'Rémunération'], ['convention', 'Convention collective'], ['retraite', 'Caisse de retraite complémentaire'], ['prevoyance_org', 'Organisme de prévoyance']] },
     'contrat-apprentissage': { label: 'Contrat d’apprentissage', group: 'Documents salariés', kind: 'doc', title: 'Contrat d’apprentissage · conditions d’accueil', fields: [{ id: 'ecole', label: 'Établissement de formation' }, { id: 'maitre', label: 'Maître d’apprentissage' }],
       body: paras('Le contrat d’apprentissage est conclu sur le formulaire Cerfa officiel, visé par l’établissement de formation et transmis à l’OPCO. Le présent document en reprend les conditions pour {{salarie}}.',
         '<h3>Formation</h3>', 'Établissement : {{saisie:ecole}}. Maître d’apprentissage : {{saisie:maitre}}.', '<h3>Durée</h3>', 'Du {{date_entree}} au {{date_fin}}, en qualité de {{poste}} au sein du service {{service}}.',
@@ -5360,7 +5789,7 @@
       required: [['salarie', 'Identité du stagiaire'], ['date_fin', 'Fin du stage'], ['saisie:tuteur', 'Tuteur']] },
     info7: { label: 'Informations essentielles (7 jours)', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.info7,
       body: paras('Conformément aux articles R1221-34 et suivants du Code du travail, voici les informations essentielles relatives à votre relation de travail.',
-        '<ul><li>Employeur : {{entreprise}}, {{entreprise_adresse}} · Salarié : {{salarie}}</li><li>Lieu de travail : {{lieu}}</li><li>Emploi : {{poste}} · catégorie {{categorie}}</li><li>Date d’embauche : {{date_entree}} · contrat {{contrat}}</li><li>Période d’essai : {{essai}}, jusqu’au {{essai_fin}}</li><li>Rémunération : {{salaire}} bruts annuels, versés mensuellement</li><li>Durée du travail : 35 heures par semaine ; heures supplémentaires selon la loi et la convention collective</li></ul>') + SIG,
+        '<ul><li>Employeur : {{entreprise}}, {{entreprise_adresse}} · Salarié : {{salarie}}</li><li>Lieu de travail : {{lieu}}</li><li>Emploi : {{poste}} · catégorie {{categorie}}</li><li>Date d’embauche : {{date_entree}} · contrat {{contrat}}</li><li>Période d’essai : {{essai}}, jusqu’au {{essai_fin}}</li><li>Rémunération : {{salaire}} bruts annuels, versés mensuellement</li><li>Durée du travail : {{duree_travail}}</li></ul>') + SIG,
       required: [['salarie', 'Identité des parties'], ['lieu', 'Lieu de travail'], ['poste', 'Emploi'], ['date_entree', 'Date d’embauche'], ['essai', 'Période d’essai'], ['salaire', 'Rémunération']] },
     info1m: { label: 'Informations complémentaires (1 mois)', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.info1m,
       body: paras('Informations complémentaires relatives à votre relation de travail (art. R1221-35 du Code du travail).',
@@ -5368,6 +5797,21 @@
       required: [['convention', 'Convention collective']] },
     essai: { label: 'Confirmation de fin de période d’essai', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.essai,
       body: paras('{{salarie}},', 'Nous avons le plaisir de vous confirmer que votre période d’essai au poste de {{poste}} a pris fin avec succès. Votre contrat de travail se poursuit donc de manière définitive.', 'Nous vous remercions pour votre engagement depuis votre arrivée le {{date_entree}}.') + SIG, required: [['salarie', 'Destinataire']] },
+    // Courriers de la période d'essai (art. L1221-21 à L1221-26) et copie de la DPAE (art. R1221-9).
+    'rupture-essai': { label: 'Rupture de la période d’essai (lettre)', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL['rupture-essai'],
+      body: paras('<b>Lettre remise en main propre contre décharge ou envoyée en recommandé avec avis de réception</b>', '{{salarie}},', 'Nous vous informons de notre décision de mettre fin à votre période d’essai, commencée le {{date_entree}} au poste de {{poste}}.',
+        'Compte tenu du délai de prévenance de {{prevenance}}, votre contrat de travail prendra fin le {{dernier_jour}}, au plus tard le dernier jour de la période d’essai. {{prevenance_indemnite}}',
+        'Vous recevrez votre dernier salaire, l’indemnité compensatrice des congés payés acquis, votre certificat de travail, votre attestation France Travail et votre reçu pour solde de tout compte.') + SIG + '<p class="sig">Remis en main propre le ………… · Signature du salarié</p>',
+      required: [['dernier_jour', 'Date de fin du contrat'], ['prevenance', 'Délai de prévenance']] },
+    'renouv-essai': { label: 'Accord de renouvellement de la période d’essai', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL['renouv-essai'],
+      body: paras('Entre la société {{entreprise}}, représentée par {{signataire}}, {{signataire_titre}}, et {{salarie}}, il est convenu ce qui suit.',
+        '<b>Article 1.</b> La période d’essai prévue au contrat de travail, qui prend fin le {{essai_fin}}, est renouvelée une fois pour {{essai_renouv}}, soit jusqu’au {{essai_fin_renouv}} inclus, comme le permettent le contrat et la convention collective {{convention}}.',
+        '<b>Article 2.</b> {{salarie}} donne son accord exprès et écrit à ce renouvellement, avant la fin de la période d’essai initiale, en signant le présent accord précédé de la mention « bon pour accord ».') + SIG + '<p class="sig">Le salarié, « bon pour accord »</p>',
+      required: [['essai_fin', 'Fin de la période initiale'], ['essai_fin_renouv', 'Fin de l’essai renouvelé']] },
+    dpae: { label: 'Copie de la DPAE', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.dpae,
+      body: paras('{{salarie}},', '{{entreprise}} a déclaré votre embauche auprès de l’Urssaf le {{dpae_date}} (référence {{dpae_ref}}), avant votre prise de poste du {{date_entree}}.',
+        'La déclaration comporte notamment vos nom et prénoms, sexe, date et lieu de naissance, numéro de sécurité sociale s’il est connu, la date et l’heure d’embauche et la nature du contrat ({{contrat}}).',
+        'Ce document vous est remis en copie, conformément à l’article R1221-9 du Code du travail.') + SIG, required: [['dpae_date', 'Date de la déclaration']] },
     avenant: { label: 'Avenant au contrat', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.avenant,
       body: paras('Entre la société {{entreprise}} et {{salarie}}, il est convenu ce qui suit.', '<b>Article 1.</b> À compter du {{date_effet}}, {{salarie}} occupe le poste de {{nouveau_poste}} au sein du service {{nouveau_service}}.',
         '<b>Article 2.</b> Sa rémunération annuelle brute est portée à {{nouveau_salaire}}, versée en douze mensualités.', '<b>Article 3.</b> Les autres clauses du contrat de travail demeurent inchangées.') + SIG + '<p class="sig">Signature du collaborateur, précédée de la mention « lu et approuvé »</p>',
@@ -5430,7 +5874,9 @@
     const ctx = Object.assign({}, COMPANY, { signataire: fullName(rh), signataire_titre: rh.title, date_jour: longDate(d.date || TODAY) });
     if (e) Object.assign(ctx, { salarie: fullName(e), prenom: e.firstName, nom: e.lastName, naissance: longDate(e.birthDate), nationalite: e.nationality, adresse: e.address, poste: e.title, service: e.dept, manager: e.managerId ? fullName(emp(e.managerId)) : '',
       contrat: e.contract, categorie: e.category, salaire: eur0(e.salary), salaire_mensuel: eur(e.salary / 12), date_entree: longDate(e.startDate), date_fin: longDate(e.endDate), lieu: e.location, essai: t ? t.label : 'aucune', essai_fin: t ? longDate(t.end) : '',
-      anciennete: seniority(e.startDate), dernier_jour: m ? longDate(m.lastDay) : '', motif_depart: m ? m.reason : '' });
+      anciennete: seniority(e.startDate), dernier_jour: m ? longDate(m.lastDay) : '', motif_depart: m ? m.reason : '' }, arrivalCtx(e));
+    // Valeurs propres au document (courriers de la période d'essai, DPAE…), calculées à sa création.
+    if (d.vars) Object.assign(ctx, d.vars);
     if (d.data) Object.assign(ctx, { nouveau_poste: d.data.title, nouveau_service: d.data.dept, nouveau_salaire: eur0(d.data.salary), date_effet: longDate(d.data.effective) });
     if (e && d.kind === 'solde') {
       const lastM = monthKey(m ? m.lastDay : TODAY), p = calcPay(e, lastM), ind = exitIndemnities(e);
@@ -5457,6 +5903,8 @@
   // Remplace les champs : valeur connue → texte ; valeur manquante ou champ à saisir → zone jaune à compléter.
   function fillTpl(body, ctx, fields = []) {
     return body.replace(/\{\{(saisie:)?([\w-]+)\}\}/g, (all, s, k) => {
+      // Champ à saisir déjà connu du dossier (ex. motif du CDD saisi à la création) : repris tel quel.
+      if (s && ctx[`saisie:${k}`]) return esc(ctx[`saisie:${k}`]);
       if (s) { const f = fields.find((x) => x.id === k); const l = f ? f.label : k; return `<mark class="fill" data-f="saisie:${k}" data-l="${esc(l)}">[${esc(l)}]</mark>`; }
       const v = ctx[k];
       if (v && typeof v === 'object') return v.html;
@@ -5470,17 +5918,21 @@
   // Champs requis manquants dans un modèle.
   const tplMissing = (body, req) => req.filter(([k]) => (k.startsWith('kw:') ? !body.toLowerCase().includes(k.slice(3)) : !body.includes(`{{${k}}}`)));
 
-  const docLocked = (d) => ['Remis', 'Signé'].includes(d.status || 'Remis');
+  const docLocked = (d) => ['Remis', 'Signé', 'Annulé'].includes(d.status || 'Remis') || (d.status === 'Envoyé' && ['contrat', 'renouv-essai'].includes(d.kind));
   const docVisible = (d) => (d.status || 'Remis') !== 'Brouillon';
   const DOC_STATUS_PILL = { Brouillon: 'warn', Envoyé: 'info', Remis: 'ok', Signé: 'ok' };
   function docBody(d) {
     const e = emp(d.empId), t = tplOf(tplKeyFor(d.kind, e));
     const head = `<header>${COMPANY.logo ? `<img class="doc-logo" src="${COMPANY.logo}" alt="">` : ''}<b>${esc(COMPANY.entreprise)}</b><span>${esc(COMPANY.entreprise_adresse)} · SIRET ${esc(COMPANY.siret)}</span></header><h2>${esc(d.docTitle || t.title || DOC_LABEL[d.kind])}</h2>`;
-    return `${head}<div class="doc-body">${d.html || fillTpl(t.body, docCtx(e, d), t.fields)}</div>${d.kind === 'contrat' ? contractSig(d, e) : ''}`;
+    return `${head}<div class="doc-body">${d.html || fillTpl(t.body, docCtx(e, d), t.fields)}</div>${d.kind === 'contrat' ? contractSig(d, e) : d.kind === 'renouv-essai' && d.signature ? contractSigSal(d, e) : ''}`;
   }
   // Signature du salarié apposée sur son contrat (tracé manuscrit), ou mention de l'exemplaire signé.
   function contractSig(d, e) {
-    if (d.signature) return `<div class="sig-block"><span>Le salarié, « lu et approuvé »</span><img src="${d.signature.img}" alt="Signature de ${esc(d.signature.name)}"><small>Signé par ${esc(d.signature.name)} le ${fmtDate(d.signature.date)}</small></div>`;
+    const er = d.employerSig ? `<div class="sig-block emp"><span>Pour l’employeur</span><b>${esc(d.employerSig.name)}</b><small>${esc(d.employerSig.title || '')} · signé le ${fmtDateY(d.employerSig.date)}${d.employerSig.at ? ` à ${esc(d.employerSig.at.slice(11))}` : ''}</small></div>` : '';
+    return er + contractSigSal(d, e);
+  }
+  function contractSigSal(d, e) {
+    if (d.signature) return `<div class="sig-block"><span>Le salarié, « lu et approuvé »</span><img src="${d.signature.img}" alt="Signature de ${esc(d.signature.name)}"><small>Signé par ${esc(d.signature.name)} le ${fmtDateY(d.signature.date)}${d.signature.at ? ` à ${esc(d.signature.at.slice(11))}` : ''}</small>${d.signature.hash ? `<small>Empreinte SHA-256 du texte : ${esc(d.signature.hash.slice(0, 32))}…</small>` : ''}</div>`;
     const c = db.onboarding && db.onboarding[e.id] && db.onboarding[e.id].contract;
     if (c && c.docId === d.id && c.status !== 'Signé') return '<div class="sig-block wait"><span>Le salarié, « lu et approuvé »</span><small>Signature en attente</small></div>';
     return `<div class="sig-block"><span>Le salarié, « lu et approuvé »</span><small>Exemplaire signé${c && c.paper ? ' sur papier' : ''}, conservé au dossier du personnel</small></div>`;
@@ -5503,7 +5955,13 @@
     const gaps = docGaps(d.html || ''); if (gaps.length) return `Complétez d’abord : ${gaps.slice(0, 3).join(', ')}${gaps.length > 3 ? '…' : ''}.`;
     const e = emp(d.empId), x = e && db.onboarding && db.onboarding[e.id];
     d.html = unmark(d.html); d.issuedAt = TODAY; d.issuedBy = me().id;
-    if (d.kind === 'contrat') { d.status = 'Envoyé'; const c = dossier(e).contract; Object.assign(c, { status: 'Envoyé', sentAt: TODAY }); notify(e.id, 'Votre contrat de travail est prêt : signez-le dans l’onglet « Contrat de travail ».'); return ''; }
+    if (d.kind === 'contrat') {
+      // Contrôle du salaire à l'envoi (SMIC bloquant) ; l'envoi vaut signature de l'employeur par le signataire RH.
+      const sc = e.contract === 'Stage' ? { level: 'ok' } : salaryCheck({ annual: e.salary, contract: e.contract, category: e.category, kind: 'salaire', forfait: arrForfait(e) });
+      if (sc.level === 'error') return sc.msg;
+      const rh = emp(db.settings.company.signataire) || emp('e1'), now = new Date();
+      d.employerSig = { name: fullName(rh), title: rh.title, date: TODAY, at: `${TODAY} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, by: me().id };
+      d.status = 'Envoyé'; const c = dossier(e).contract; Object.assign(c, { status: 'Envoyé', sentAt: TODAY }); notify(e.id, 'Ton contrat de travail est prêt : lis-le et signe-le dans l’onglet « Contrat de travail », sur ordinateur ou sur téléphone.'); return ''; }
     d.status = 'Remis';
     if (['info7', 'info1m'].includes(d.kind) && x) { x[d.kind] = TODAY; x[d.kind + 'Doc'] = d.id; }
     if (d.reqId) { const r = offb(e).requests.find((q) => q.id === d.reqId); if (r) Object.assign(r, { status: 'Traitée', doneAt: TODAY }); }
@@ -5518,8 +5976,8 @@
   }
   const docBtn = (d, label = 'Voir') => (d ? (ui.profile === 'rh' && !docLocked(d) ? `<button type="button" class="btn ${d.status === 'Brouillon' ? 'primary' : 'ghost'} sm" data-act="doc-edit" data-id="${d.id}">${ic('edit')}${d.status === 'Brouillon' ? 'Relire et remettre' : 'Modifier'}</button>` : `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${d.id}">${label}</button>`) : '');
   MODALS.doc = (m, shell) => { const d = db.documents.find((x) => x.id === m.id);
-    return shell(esc(d.title), `<div class="modal-b"><article class="letter locked">${docBody(d)}</article>${d.issuedAt || d.signedAt ? `<p class="hint" style="margin:10px 0 0">${d.status === 'Signé' ? `${d.signature ? `Signé à la main par ${esc(d.signature.name)}` : 'Signé'} le ${fmtDate(d.signedAt || d.issuedAt)}` : `${d.status === 'Envoyé' ? 'Envoyé pour signature' : 'Remis'} le ${fmtDate(d.issuedAt)}`}${d.tplV ? ` · modèle version ${d.tplV}` : ''} · ${docLocked(d) ? 'document figé' : 'encore modifiable par les RH'}</p>` : ''}</div>`,
-      `<div class="modal-f">${ui.profile === 'rh' && !docLocked(d) ? `<button type="button" class="btn ghost" data-act="doc-edit" data-id="${d.id}">${ic('edit')}Modifier</button>` : ''}<button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>`, true); };
+    return shell(esc(d.title), `<div class="modal-b"><article class="letter locked">${docBody(d)}</article>${d.issuedAt || d.signedAt ? `<p class="hint" style="margin:10px 0 0">${d.status === 'Signé' ? `${d.signature ? `Signé à la main par ${esc(d.signature.name)}` : 'Signé'} le ${fmtDate(d.signedAt || d.issuedAt)}` : `${d.status === 'Envoyé' ? 'Envoyé pour signature' : d.status === 'Annulé' ? 'Version annulée, envoyée' : 'Remis'} le ${fmtDate(d.issuedAt)}`}${d.tplV ? ` · modèle version ${d.tplV}` : ''} · ${docLocked(d) ? 'document figé' : 'encore modifiable par les RH'}</p>` : ''}</div>`,
+      `<div class="modal-f">${ui.profile === 'rh' && !docLocked(d) ? `<button type="button" class="btn ghost" data-act="doc-edit" data-id="${d.id}">${ic('edit')}Modifier</button>` : ''}${d.status !== 'Brouillon' ? `<button type="button" class="btn ghost" data-act="doc-download" data-id="${d.id}">${ic('file')}Télécharger le PDF</button>` : ''}<button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>`, true); };
   // Édition d'un document par les RH : champs à compléter en haut, texte librement modifiable en dessous.
   MODALS['doc-edit'] = (m, shell, ...rest) => {
     if (docLocked(db.documents.find((x) => x.id === m.id))) return MODALS.doc(m, shell, ...rest);
@@ -5527,7 +5985,7 @@
     const marks = [...new Map([...div.querySelectorAll('mark.fill')].map((x) => [x.dataset.f, x])).values()];
     const fields = marks.map((x) => { const val = x.textContent.trim() === `[${x.dataset.l}]` ? '' : x.textContent.trim();
       return `<div class="field"><label for="df-${esc(x.dataset.f)}">${esc(x.dataset.l)}</label><input id="df-${esc(x.dataset.f)}" class="input" value="${esc(val)}" data-docf="${esc(x.dataset.f)}" placeholder="À compléter"></div>`; }).join('');
-    const issue = d.kind === 'contrat' ? (d.status === 'Envoyé' ? '' : 'Envoyer pour signature') : 'Valider et remettre au salarié';
+    const issue = d.kind === 'contrat' ? (d.status === 'Envoyé' ? '' : 'Signer pour l’employeur et envoyer') : 'Valider et remettre au salarié';
     return shell(`${esc(d.title)} · ${esc(fullName(e))}`, `<div class="modal-b"><p class="hint" style="margin:0 0 12px">${d.status === 'Envoyé' ? 'Envoyé pour signature : vous pouvez encore le modifier tant que le salarié ne l’a pas signé ; il sera prévenu de la mise à jour.' : 'Brouillon visible des RH seulement. Complétez les zones jaunes et retouchez le texte si besoin ; une fois remis ou signé, le document ne pourra plus être modifié.'}</p>
       ${fields ? `<div class="form-grid doc-fields">${fields}</div>` : ''}<article class="letter doc-ed"><header><b>${COMPANY.entreprise}</b><span>${COMPANY.entreprise_adresse}</span></header><h2>${esc(d.docTitle || d.title)}</h2><div id="doc-ed" contenteditable="true" spellcheck="true">${d.html || ''}</div></article><p class="err" id="m-err" aria-live="polite">${m.err ? esc(m.err) : ''}</p></div>`,
       `<div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="button" class="btn ghost" data-act="doc-save" data-id="${d.id}">Enregistrer</button>${issue ? `<button type="button" class="btn primary" data-act="doc-issue" data-id="${d.id}">${issue}</button>` : ''}</div>`, true);
@@ -6467,5 +6925,6 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
   // Tests automatisés seulement : fonctions pures du socle exposées si la page de test pose window.TEAMORA_TEST avant le chargement.
   if (window.TEAMORA_TEST === true) window.__teamoraTest = { isHoliday, isOuvre, isOuvrable, addOuvres, addOuvrables, addCalendarDaysReport, countOuvres, countOuvrables, addWorkDays, subWorkDays, workDays, salaryCheck, dateGuard, fmtShort, fmtDateY, TODAY,
     lintAd, lintFree, cddError, cddText, offerTrial, noHF, rgpdNote };
+  if (window.TEAMORA_TEST === true) Object.assign(window.__teamoraTest, { nirCheck, trialNotice, breakQuote, sha256, arrivalCtx, docPDF, trialOver, trialInfo, dpaeChecks });
   if (DEMO) { let seen = false; try { seen = !!localStorage.getItem(TOUR_KEY); } catch (e) { /* ignore */ } if (!seen) setTimeout(tourStart, 500); }
 })();

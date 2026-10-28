@@ -159,9 +159,10 @@
     const r = new FileReader(); r.onload = () => ok(Object.assign(base, { data: r.result })); r.onerror = () => ok(base); r.readAsDataURL(f);
   });
   const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
-  function seniority(start) {
-    if (start > TODAY) return 'Arrivée prévue';
-    const a = parse(start), b = parse(TODAY);
+  // to : date de fin du calcul (TODAY par défaut ; la fin du contrat pour un départ).
+  function seniority(start, to = TODAY) {
+    if (start > to) return 'Arrivée prévue';
+    const a = parse(start), b = parse(to);
     let m = (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth(); if (b.getDate() < a.getDate()) m--;
     const y = Math.floor(m / 12); m %= 12;
     return [y ? plural(y, 'an', 'ans') : '', m ? `${m} mois` : ''].filter(Boolean).join(' et ') || 'Moins d’un mois';
@@ -222,7 +223,7 @@
   function scopeEmployees() {
     const m = me();
     if (ui.profile === 'rh') return db.employees;
-    if (ui.profile === 'manager') return db.employees.filter((e) => e.managerId === m.id);
+    if (ui.profile === 'manager') return db.employees.filter((e) => e.managerId === m.id && !(e.stage >= 15 && db.offboarding && db.offboarding[e.id] && db.offboarding[e.id].archivedAt));
     return [m];
   }
   // Un manager ne voit que ses propres besoins ; en recrutement, il voit aussi les offres où il est évaluateur invité.
@@ -428,9 +429,11 @@
     const regul = payRegul(e, m); regul.forEach((r) => earn.push([`Régularisation de ${monthLabel(r.m).toLowerCase()} (éléments validés après la clôture)`, '', '', r.amount]));
     // V2 · sortie dans le mois : indemnités soumises dans le brut, indemnité de rupture (exonérée dans la limite légale) dans les éléments non soumis.
     const xOut = e.exit && e.exit.lastDay >= start && e.exit.lastDay <= end && e.stage >= 13 ? exitIndemnities(e) : null;
-    if (xOut && xOut.cpPay) earn.push([`Indemnité compensatrice de congés payés (${e.cp} j)`, '', '', xOut.cpPay]);
+    if (xOut && xOut.cpPay) earn.push([`Indemnité compensatrice de congés payés (${String(xOut.cp.days).replace('.', ',')} j, ${xOut.cp.method})`, '', '', xOut.cpPay]);
     if (xOut && xOut.precarite) earn.push(['Indemnité de fin de contrat (10 %)', '', '', xOut.precarite]);
-    const gross = Math.max(0, earn.reduce((s, r) => s + r[3], 0));
+    const gross = Math.max(0, earn.reduce((s, r) => s + r[3], 0)), exitGross = xOut ? xOut.cpPay + xOut.precarite : 0;
+    // Indemnité de rupture (licenciement, rupture conventionnelle, retraite) : hors brut, exonérée dans la limite légale (à vérifier).
+    const rupture = xOut ? xOut.rupture + xOut.retraite : 0;
     // Tranches
     const T1 = Math.min(gross, PSS), T2 = Math.max(0, Math.min(gross, 8 * PSS) - PSS), cad = e.category === 'Cadre';
     const stage = e.contract === 'Stage', appr = e.contract === 'Alternance';
@@ -465,6 +468,8 @@
     // exonération d'impôt sur le revenu dans la limite de 7 500 € nets par an (art. 81 quater CGI). À VÉRIFIER (juriste) : taux et plafonds 2026.
     if (ot.amount && rows.length) R('Retraite', 'Réduction de cotisations salariales sur heures supplémentaires', ot.amount, 0, 0, -Math.min(ot.amount * 0.1131, rows.reduce((s, r) => s + r.s, 0)), 0);
     const otDed = ot.amount && effState().avg12 < 20 ? (ot.h25 + ot.h50) * 1.5 : 0;
+    // Contribution patronale spécifique de 30 % sur l'indemnité de rupture conventionnelle ou de mise à la retraite (À VÉRIFIER (juriste) : assiette = part exonérée de cotisations).
+    if (xOut && xOut.rupture && (isRC(e.exit.reason) || e.exit.reason === 'Mise à la retraite')) R('Autres contributions dues par l’employeur', `Contribution patronale spécifique sur l’indemnité de ${isRC(e.exit.reason) ? 'rupture conventionnelle' : 'mise à la retraite'} (à vérifier)`, xOut.rupture, 0, 0.3);
     // Réduction générale des cotisations patronales (salaires inférieurs à 1,6 SMIC).
     const rg = gross > 0 && gross < 1.6 * SMIC_M && !stage ? Math.min(0.3194, (0.3194 / 0.6) * (1.6 * SMIC_M / gross - 1)) * gross : 0;
     const salTot = rows.reduce((s, r) => s + r.s, 0), empTot = rows.reduce((s, r) => s + r.p, 0) - rg - otDed;
@@ -481,10 +486,10 @@
     const transport = (TRANSPORT[siteOf(e)] || 0) / 2, tele = Math.min(TT_ALLOW_MAX, abs.tt * TT_DAY);
     const ndf = Number(x.ndf || 0), acompte = Number(x.acompte || 0), ppvNet = ppv * (1 - 0.097);
     const extras = [ij ? ['Indemnités journalières de Sécurité sociale (subrogation, nettes de CSG-CRDS)', ij * 0.933] : null, transport ? ['Remboursement des transports en commun (50 %)', transport] : null,
-      tele ? [`Allocation forfaitaire de télétravail (${plural(abs.tt, 'jour', 'jours')})`, tele] : null, ndf ? ['Remboursement de notes de frais', ndf] : null, ppv ? ['Prime de partage de la valeur (nette de CSG-CRDS 9,7 %)', ppvNet] : null, xOut && xOut.legal ? [`Indemnité de rupture (${e.exit.reason.toLowerCase()})`, xOut.legal] : null,
+      tele ? [`Allocation forfaitaire de télétravail (${plural(abs.tt, 'jour', 'jours')})`, tele] : null, ndf ? ['Remboursement de notes de frais', ndf] : null, ppv ? ['Prime de partage de la valeur (nette de CSG-CRDS 9,7 %)', ppvNet] : null, rupture ? [`Indemnité de ${e.exit.reason === 'Départ volontaire à la retraite' ? 'départ à la retraite' : `rupture (${e.exit.reason.toLowerCase()})`}`, rupture] : null,
       trN ? [`Titres-restaurant (${trN} × ${eur(TR_VALUE)}, part salariale)`, -trSal] : null, acompte ? ['Acompte versé', -acompte] : null].filter(Boolean);
     const netBefore = gross - salTot + extras.reduce((s, r) => s + r[1], 0), rate = pasRate(e), tax = netImposable * rate;
-    return { ijNet: ij * 0.933, base, bonus, ot, ppv, ppvNet, gross, earn, rows, rg, otDed, otExo, regul, salTot, empTot, contrib: salTot, netSocial, netImposable, extras, netBefore, rate, tax, net: netBefore - tax,
+    return { exitGross, rupture, exitReason: xOut ? e.exit.reason : '', ijNet: ij * 0.933, base, bonus, ot, ppv, ppvNet, gross, earn, rows, rg, otDed, otExo, regul, salTot, empTot, contrib: salTot, netSocial, netImposable, extras, netBefore, rate, tax, net: netBefore - tax,
       cost: gross + empTot, leaveDays: abs.cp + abs.rtt, abs, trN, trEmployer: trN * TR_EMPLOYER, transport, tele, ndf, acompte, workedDays, lines: rows.map((r) => [r.label, r.ts, r.s]) };
   }
   // Exonération d'impôt des heures supplémentaires déjà utilisée dans l'année avant le mois m.
@@ -527,6 +532,7 @@
   function visibleStages() {
     const m = me();
     if (ui.profile === 'salarie' && locked(m)) return [2, 3];
+    if (ui.profile === 'salarie' && m.stage >= 15) return [7, 15];
     return STAGES.map((s, i) => i).filter((i) => { const v = STAGE_VIEW[ui.profile][i]; return v === 'etape-moi' ? m.stage === i : v === 'arrivee' ? inArrival(m) : !!v; });
   }
   const stageView = (i) => (STAGE_VIEW[ui.profile][i] === 'etape-moi' ? 'etape' : STAGE_VIEW[ui.profile][i]);
@@ -681,7 +687,7 @@
   function asEmpSelect() {
     const cur = me().id, base = db.employees.filter((e) => e.id === profileBase('salarie')), arrivals = db.employees.filter((e) => e.stage >= 2 && e.stage <= 4 && e.id !== profileBase('salarie')).sort((x, y) => y.startDate.localeCompare(x.startDate));
     const o = (e) => `<option value="${e.id}" ${e.id === cur ? 'selected' : ''}>${esc(fullName(e))}${e.stage === 2 ? ` · arrivée le ${fmtShort(e.startDate)}` : ''}</option>`;
-    return `<label class="sr" for="as-emp">Espace du collaborateur</label><select id="as-emp" class="select as-emp" data-change="as-emp">${base.map(o).join('')}<optgroup label="Nouvelles recrues">${arrivals.map(o).join('')}</optgroup></select>`;
+    return `<label class="sr" for="as-emp">Espace du collaborateur</label><select id="as-emp" class="select as-emp" data-change="as-emp">${base.map(o).join('')}<optgroup label="Nouvelles recrues">${arrivals.map(o).join('')}</optgroup>${(() => { const leavers = db.employees.filter((e) => e.stage >= 13 && e.id !== profileBase('salarie')); return leavers.length ? `<optgroup label="Départs et anciens salariés">${leavers.map(o).join('')}</optgroup>` : ''; })()}</select>`;
   }
   function wheelHTML() {
     const sal = ui.profile === 'salarie', m = me(), vis = visibleStages();
@@ -731,6 +737,7 @@
     if (ui.profile === 'salarie') {
       const e = me();
       const arr = journeyOf(e.id, i);
+      if (i >= 13) return `<div class="card card-b">${stageHead(i)}</div>${myDeparture(e, i)}`;
       return `<div class="card card-b">${stageHead(i)}</div><div class="card"><div class="card-h"><h3>Points à suivre</h3><span class="muted" style="font-size:13px">${arr.filter(Boolean).length} sur ${arr.length}</span></div><div class="card-b">${stepsList(arr, steps, false)}</div></div>${i === 4 ? myIntegration(e) : ''}${moduleBtn(i) ? `<div>${moduleBtn(i)}</div>` : ''}`;
     }
     const rh = ui.profile === 'rh', arrival = i >= 2 && i <= 4;
@@ -861,7 +868,7 @@
     }
     return `<div class="drawer-h">${avatar(e, 'lg')}<div style="min-width:0"><h2>${esc(fullName(e))}</h2><p>${esc(e.title)} · ${esc(e.dept)}</p><div style="margin-top:6px">${statusPill(e)}</div></div>
       <button type="button" class="icon-btn drawer-x" data-act="close-drawer" aria-label="Fermer">${ic('x')}</button></div>
-      <div class="drawer-b">${rh ? `<div class="toolbar"><button type="button" class="btn ghost sm" data-act="emp-edit" data-id="${e.id}">${ic('edit')}Modifier</button>${e.stage < 13 && e.stage >= 4 ? `<button type="button" class="btn ghost sm" data-act="move-new" data-id="${e.id}">${ic('arrow')}Changement de situation</button>` : ''}${e.stage < 13 ? `<button type="button" class="btn bad sm" data-act="exit" data-id="${e.id}">Démarrer un départ</button>` : ''}</div>` : ''}
+      <div class="drawer-b">${rh ? `<div class="toolbar"><button type="button" class="btn ghost sm" data-act="emp-edit" data-id="${e.id}">${ic('edit')}Modifier</button>${e.stage < 13 && e.stage >= 4 ? `<button type="button" class="btn ghost sm" data-act="move-new" data-id="${e.id}">${ic('arrow')}Changement de situation</button>` : ''}${e.stage < 13 ? `<button type="button" class="btn bad sm" data-act="exit" data-id="${e.id}">Démarrer un départ</button>` : ''}</div>` : ui.profile === 'manager' && e.managerId === me().id && e.stage >= 4 && e.stage < 13 ? `<div class="toolbar"><button type="button" class="btn ghost sm" data-act="dep-signal" data-id="${e.id}">Signaler une démission reçue</button></div>` : ''}
       <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button type="button" role="tab" aria-selected="${tab === k}" data-act="dtab" data-t="${k}">${l}</button>`).join('')}</div>${body}</div>`;
   }
 
@@ -1208,7 +1215,8 @@
       p.ijNet ? L('Indemnités journalières de Sécurité sociale (subrogation)', '', '', '', p.ijNet) : '',
       p.ndf ? L('Remboursement de notes de frais', '', '', '', p.ndf) : '',
       p.ppv ? L('Prime de partage de la valeur (nette de CSG-CRDS)', p.ppv, '9,70', '', p.ppvNet) : '',
-      p.acompte ? L('Acompte versé', '', '', p.acompte, '') : ''].join('');
+      p.acompte ? L('Acompte versé', '', '', p.acompte, '') : '',
+      p.rupture ? L(`Indemnité de ${p.exitReason === 'Départ volontaire à la retraite' ? 'départ à la retraite' : `rupture · ${esc(p.exitReason.toLowerCase())}`} (non soumise dans la limite légale, à vérifier)`, '', '', '', p.rupture) : ''].join('');
     // Congés : période de référence du 1er juin au 31 mai.
     const refStart = `${m.slice(5) >= '06' ? y : y - 1}-06-01`, monthsN = Math.max(0, (Number(m.slice(0, 4)) - Number(refStart.slice(0, 4))) * 12 + Number(m.slice(5)) - 5);
     const takenN1 = db.leaves.filter((l) => l.empId === e.id && l.type === 'Congés payés' && l.status === 'Approuvée' && l.start >= refStart && l.start <= monthEnd(m)).reduce((s, l) => s + l.days, 0);
@@ -1253,7 +1261,7 @@
   }
   function payCsv(m) {
     const head = ['Matricule', 'Nom', 'Prénom', 'Contrat', 'Salaire mensuel', 'Jours CP', 'Jours RTT', 'Jours maladie', 'Jours sans solde', 'Jours télétravail', 'Heures sup 25 %', 'Heures sup 50 %', 'Prime', 'Prime partage valeur', 'Transport', 'Titres-restaurant', 'Notes de frais', 'Acompte', 'Entrée', 'Sortie', 'Motif de sortie', 'Indemnité CP', 'Indemnité de rupture', 'Indemnité de fin de contrat'];
-    const rows = payPeople(m).map((e) => { const p = calcPay(e, m), a = p.abs; return [e.id, e.lastName, e.firstName, e.contract, (salaryAt(e, m) / 12).toFixed(2), a.cp, a.rtt, a.sick.reduce((s, x) => s + x.work, 0), a.unpaid, a.tt, p.ot.h25, p.ot.h50, p.bonus, p.ppv, p.transport.toFixed(2), p.trN, p.ndf, p.acompte, e.startDate.slice(0, 7) === m ? e.startDate : '', e.exit && e.exit.lastDay.slice(0, 7) === m ? e.exit.lastDay : ''].concat((() => { const x = e.exit && e.exit.lastDay.slice(0, 7) === m ? exitIndemnities(e) : null; return x ? [e.exit.reason, x.cpPay.toFixed(2), x.legal.toFixed(2), x.precarite.toFixed(2)] : ['', '', '', '']; })()); });
+    const rows = payPeople(m).map((e) => { const p = calcPay(e, m), a = p.abs; return [e.id, e.lastName, e.firstName, e.contract, (salaryAt(e, m) / 12).toFixed(2), a.cp, a.rtt, a.sick.reduce((s, x) => s + x.work, 0), a.unpaid, a.tt, p.ot.h25, p.ot.h50, p.bonus, p.ppv, p.transport.toFixed(2), p.trN, p.ndf, p.acompte, e.startDate.slice(0, 7) === m ? e.startDate : '', e.exit && e.exit.lastDay.slice(0, 7) === m ? e.exit.lastDay : ''].concat((() => { const x = e.exit && e.exit.lastDay.slice(0, 7) === m ? exitIndemnities(e) : null; return x ? [e.exit.reason, x.cpPay.toFixed(2), (x.rupture + x.retraite).toFixed(2), x.precarite.toFixed(2)] : ['', '', '', '']; })()); });
     return [head].concat(rows).map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\n');
   }
 
@@ -3490,6 +3498,7 @@
       <div><span>Entretien préalable</span>${c.interview ? fmtDateY(c.interview) : 'À fixer'}${c.convocAt && c.interview && c.interview < c.convocAt ? '<small class="err" style="display:block">Entretien fixé avant la présentation de la convocation : procédure irrégulière</small>' : c.convocAt && c.interview && c.interview < addOuvrables(c.convocAt, 5) ? `<small class="err" style="display:block">Délai court : le salarié doit disposer d’un délai suffisant pour préparer sa défense ; pour un licenciement, 5 jours ouvrables au moins (au plus tôt le ${fmtDateY(addOuvrables(c.convocAt, 5))}), sinon la procédure est irrégulière</small>` : ''}</div><div><span>Sanction notifiable</span>${c.interview ? `du ${fmtDateY(addOuvrables(c.interview, 2))} au ${fmtDateY(addMonths(c.interview, 1))}` : '—'}</div></div>
       <div class="toolbar" style="margin-top:10px"><button type="button" class="btn ghost sm" data-act="disc-doc" data-id="${c.id}" data-k="convoc-disc">${ic('file')}Préparer la convocation</button><button type="button" class="btn ghost sm" data-act="disc-doc" data-id="${c.id}" data-k="notif-sanction" ${c.interview && c.interview <= TODAY ? '' : 'disabled title="Après l’entretien préalable"'}>${ic('file')}Préparer la notification de sanction</button></div>
       <p class="hint" style="margin:8px 0 0">Mise à pied conservatoire : à noter dans la chronologie (type « Mise à pied conservatoire ») ; elle doit être suivie sans délai de l’engagement de la procédure. Licenciement envisagé : lancer un départ (Départs) pour suivre la procédure de licenciement.</p>
+
       <form data-form="case-interview" class="toolbar" style="margin-top:12px" novalidate><div class="field" style="flex:1"><label for="ci-date">Date de l’entretien préalable</label><input id="ci-date" name="interview" type="date" class="input" value="${c.interview || addOuvrables(TODAY, 6)}"></div><button class="btn ghost" style="align-self:flex-end">Enregistrer</button></form>
       <p class="hint" style="margin:10px 0 0">Repères indicatifs (Code du travail, art. L1332-2 et L1332-4) : prescription de 2 mois, sanction au plus tôt 2 jours ouvrables et au plus tard 1 mois après l’entretien. À valider avec votre conseil juridique.</p></div>` : '';
     return `<div class="drawer-h">${avatar(e, 'lg')}<div style="min-width:0"><h2>${esc(c.title)}</h2><p>${esc(fullName(e))} · ${esc(e.title)}</p><div class="toolbar" style="margin-top:6px"><span class="pill neutral">${esc(c.kind)}</span><span class="pill ${CASE_PILL[c.status]}">${c.status}</span></div></div>
@@ -3511,6 +3520,8 @@
     'disc-doc'(d) { const c = db.cases.find((x) => x.id === d.id), doc = addDoc(c.empId, d.k, { title: tplOf(d.k).title }); c.events.push({ date: TODAY, type: 'Note interne', note: `${doc.title} préparée (brouillon).`, by: me().id, visible: false }); ui.modal = { type: 'doc-edit', id: doc.id }; toast('Brouillon créé : complétez-le puis remettez-le au salarié'); commit(); },
 
     'case-open'(d) { ui.drawer = { type: 'case', id: d.id }; drawerAnim = true; render(); },
+    // Mesure « Licenciement » : ouvre le départ, motif disciplinaire présélectionné, dates de convocation et d'entretien reprises.
+    'case-exit'(d) { const c = db.cases.find((x) => x.id === d.id); ui.modal = { type: 'exit', id: c.empId, reason: 'Licenciement pour motif personnel', caseId: c.id }; render(); },
   });
   MOD_CHG.caseStatus = (v) => { ui.caseStatus = v; render(); };
   MOD_CHG['case-status'] = (v, d) => { const c = db.cases.find((x) => x.id === d.id); c.status = v; if (v === 'Clos') tickJourney(c.empId, 12, 3); toast(`Dossier : ${v}`); commit(); };
@@ -3886,7 +3897,7 @@
       if (go === 'publish') {
         const flagged = lintAd(a.title, a.description).issues.flatMap((x) => x.words), noPay = !/€|euros?|rémunération|salaire/i.test(a.description);
         const publish = () => {
-          a.ready = true; j.title = a.title; j.description = a.description; j.status = 'Ouverte'; j.publishedAt = TODAY;
+          a.ready = true; j.title = a.title; j.description = a.description; j.status = 'Ouverte'; j.publishedAt = TODAY; notifyRehirePriority(j);
           j.approvals.push({ step: 'publication', by: me().id, decision: 'Publiée', date: TODAY, comment: '' });
           if (flagged.length) logTo(j, `Publiée malgré ${plural(flagged.length, 'terme signalé', 'termes signalés')} : « ${flagged.join(' », « ')} »`);
           if (noPay) logTo(j, 'Publiée sans la rémunération dans l’annonce');
@@ -5895,22 +5906,82 @@
   const RETURN_ITEMS = [['ordinateur', 'Ordinateur et chargeur'], ['badge', 'Badge d’accès'], ['telephone', 'Téléphone professionnel']];
   const TRANSFER = [['dossiers', 'Dossiers en cours transmis au successeur'], ['acces', 'Accès partagés et mots de passe transférés'], ['doc', 'Documentation des processus à jour']];
   const EXIT_REASONS = ['Évolution de carrière', 'Rémunération', 'Management', 'Charge de travail', 'Projet personnel', 'Mobilité géographique', 'Autre'];
-  function offb(e) { db.offboarding = db.offboarding || {}; const d = db.offboarding[e.id] = db.offboarding[e.id] || {}; return Object.assign(d, { transfer: d.transfer || {}, returned: d.returned || {}, requests: d.requests || [], rc: d.rc || {} }); }
+  function offb(e) { db.offboarding = db.offboarding || {}; const d = db.offboarding[e.id] = db.offboarding[e.id] || {}; return Object.assign(d, { transfer: d.transfer || {}, returned: d.returned || {}, requests: d.requests || [], rc: d.rc || {}, proc: d.proc || {} }); }
   // V2 : motifs de rupture complets, regroupés par initiative.
   const EXIT_GROUPS = [['À l’initiative du salarié', ['Démission', 'Départ volontaire à la retraite', 'Prise d’acte de la rupture', 'Présomption de démission (abandon de poste)']],
     ['D’un commun accord', ['Rupture conventionnelle']],
     ['À l’initiative de l’employeur', ['Licenciement pour motif personnel', 'Licenciement pour faute grave ou lourde', 'Licenciement économique', 'Mise à la retraite']],
     ['Fin de contrat', ['Fin de CDD', 'Fin du contrat d’apprentissage', 'Fin de stage']], ['Autre', ['Décès du salarié']]];
+  // Motifs réservés à un type de contrat : « Fin de CDD » pour un CDD seulement, etc.
+  const EXIT_ONLY = { 'Fin de CDD': 'CDD', 'Fin du contrat d’apprentissage': 'Alternance', 'Fin de stage': 'Stage' };
+  const exitReasonOk = (e, r) => !EXIT_ONLY[r] || EXIT_ONLY[r] === e.contract;
   const exitDefault = (e) => (e.contract === 'CDD' ? 'Fin de CDD' : e.contract === 'Alternance' ? 'Fin du contrat d’apprentissage' : e.contract === 'Stage' ? 'Fin de stage' : 'Démission');
-  function exitHint(e, reason) {
-    const f = Object.assign({}, e, { exit: { reason, lastDay: (e.exit && e.exit.lastDay) || addDays(TODAY, 30) } }), n = noticeInfo(f), ind = exitIndemnities(f);
-    const extra = { 'Prise d’acte de la rupture': 'Rupture immédiate ; le juge dira si elle produit les effets d’un licenciement ou d’une démission.', 'Présomption de démission (abandon de poste)': 'Mise en demeure de reprendre le travail sous 15 jours minimum avant de constater la démission (art. L1237-1-1).',
-      'Licenciement économique': 'Entretien préalable, proposition du contrat de sécurisation professionnelle, priorité de réembauche pendant 1 an.', 'Licenciement pour faute grave ou lourde': 'Ni préavis ni indemnité de licenciement ; procédure disciplinaire dans les 2 mois suivant les faits.',
-      'Décès du salarié': 'Le contrat prend fin à la date du décès ; les sommes dues sont versées aux ayants droit.', 'Fin de stage': 'Pas de documents de fin de contrat de travail : attestation de stage à remettre.' }[reason] || '';
-    return `Préavis : ${n.label}.${ind.legal ? ` Indemnité de rupture estimée : ${eur0(ind.legal)}.` : ''}${ind.precarite ? ` Indemnité de fin de contrat : ${eur0(ind.precarite)}.` : ''} ${extra}${reason === 'Licenciement économique' ? pseHint(e) : ''}`;
+  const isLic = (r) => /^Licenciement/.test(r || '');
+  const isRC = (r) => /conventionnelle/.test(r || '');
+  // Dispense de préavis : à l'initiative de l'employeur, le contrat court jusqu'au terme du préavis, payé (art. L1234-5) ; demandée par le salarié, accord écrit et préavis non payé.
+  const DISPENSE = [['', 'Aucune : préavis exécuté'], ['employeur', 'À l’initiative de l’employeur (préavis payé)'], ['salarie', 'Demandée par le salarié (accord écrit, non payé)']];
+  // Cas où l'indemnité de fin de CDD n'est pas due (art. L1243-10). À VÉRIFIER (juriste) : liste complète et conditions de chaque cas.
+  const CDD_EXCL = [['', 'Due : 10 % de la rémunération brute totale'], ['cdi-refus', 'Non due : CDI proposé pour le même emploi et refusé'], ['cdi', 'Non due : embauche en CDI à l’issue du CDD'],
+    ['rupture-salarie', 'Non due : rupture anticipée à l’initiative du salarié'], ['faute', 'Non due : faute grave ou force majeure'], ['usage', 'Non due : CDD saisonnier ou d’usage'], ['jeune', 'Non due : jeune pendant ses vacances scolaires ou universitaires']];
+  const optLbl = (list, v) => (list.find(([k]) => k === (v || '')) || list[0])[1];
+  const num1 = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
+  // Date de notification de la rupture : réception de la démission, présentation de la lettre de licenciement… (saisie au lancement, modifiable).
+  const exitNotif = (e) => (e.exit && e.exit.notifiedAt) || (db.offboarding && db.offboarding[e.id] && db.offboarding[e.id].notifiedAt) || TODAY;
+  // Fin du préavis : il court à partir de la notification ; months peut valoir 0,5 (15 jours).
+  function noticeEndOf(s, months) { if (!s || !months) return s; const m = Math.floor(months); return addDays(addDays(addMonths(s, m), Math.round((months - m) * 30)), -1); }
+  // Fin du contrat proposée par défaut : fin du préavis, terme du CDD, ou lendemain de l'homologation d'une rupture conventionnelle signée aujourd'hui.
+  function exitProposed(e, reason, notif = TODAY) {
+    const f = Object.assign({}, e, { exit: { reason, notifiedAt: notif } }), n = noticeInfo(f);
+    if (n.rc) return rcCalendar({ rc: {} }, TODAY).earliest;
+    if (/CDD|apprentissage|stage/.test(reason) && e.endDate) return e.endDate;
+    if (n.months) return noticeEndOf(notif, n.months);
+    return /faute grave|Prise d’acte|Décès/.test(reason) ? notif : addDays(notif, 30);
+  }
+  const EXIT_EXTRA = { 'Prise d’acte de la rupture': 'Rupture immédiate ; le juge dira si elle produit les effets d’un licenciement ou d’une démission.', 'Présomption de démission (abandon de poste)': 'Mise en demeure de reprendre le travail sous 15 jours minimum avant de constater la démission (art. L1237-1-1).',
+    'Licenciement pour motif personnel': 'Procédure : convocation, entretien préalable 5 jours ouvrables au moins après, lettre motivée 2 jours ouvrables au moins après l’entretien.',
+    'Licenciement économique': 'Entretien préalable, proposition du contrat de sécurisation professionnelle, critères d’ordre, priorité de réembauche pendant 1 an.', 'Licenciement pour faute grave ou lourde': 'Ni préavis ni indemnité de licenciement ; procédure disciplinaire dans les 2 mois suivant les faits.',
+    'Mise à la retraite': 'Possible à 70 ans, ou dès 67 ans avec l’accord du salarié (art. L1237-5).', 'Décès du salarié': 'Le contrat prend fin à la date du décès ; les sommes dues sont versées aux ayants droit.', 'Fin de stage': 'Pas de documents de fin de contrat de travail : attestation de stage à remettre.' };
+  // Aperçu du formulaire de départ, recalculé avec les dates saisies (o : lastDay, notifiedAt, dispense, workedUntil, cddExclusion).
+  function exitHint(e, reason, o = {}) {
+    const x = Object.assign({ reason, lastDay: (e.exit && e.exit.lastDay) || exitProposed(e, reason) }, o), f = Object.assign({}, e, { exit: x }), n = noticeInfo(f), ind = exitIndemnities(f), notif = x.notifiedAt || TODAY;
+    const out = [`Préavis : ${n.label}${n.months ? `, du ${fmtDateY(notif)} au ${fmtDateY(noticeEndOf(notif, n.months))}` : ''}.`];
+    if (x.dispense === 'employeur' && n.months) out.push('Dispense à l’initiative de l’employeur : le contrat court jusqu’à la fin du préavis, qui est payé.');
+    if (ind.rupture) out.push(`Indemnité de rupture estimée : ${eur0(ind.rupture)}${ind.conv > ind.legal ? ` (conventionnelle ${CONV().short} indicative, plus favorable que la légale de ${eur0(ind.legal)})` : ''}.`);
+    if (ind.retraite) out.push(`Indemnité de départ à la retraite : ${eur0(ind.retraite)}.`);
+    if (ind.precarite) out.push(`Indemnité de fin de contrat : ${eur0(ind.precarite)}.`);
+    out.push(`Congés payés à indemniser : ${num1(ind.cp.days)} j, ${eur0(ind.cpPay)}.`);
+    if (/retraite/i.test(reason)) { const a = ageAt(e, x.lastDay); out.push(a === null ? 'Date de naissance non renseignée : âge à contrôler.' : `Âge à la fin du contrat : ${a} ans.`); }
+    return `${out.join(' ')} ${EXIT_EXTRA[reason] || ''}${reason === 'Licenciement économique' ? pseHint(e) : ''}`.trim();
+  }
+  // Contrôles du formulaire de départ : [erreurs bloquantes, alertes à confirmer par un second clic].
+  function exitChecks(e, x) {
+    const err = [], warn = [], r = x.reason, n = noticeInfo(Object.assign({}, e, { exit: x })), notif = x.notifiedAt || TODAY, end = noticeEndOf(notif, n.months), age = ageAt(e, x.lastDay);
+    if (!exitReasonOk(e, r)) err.push(`« ${r} » ne s’applique qu’à un contrat ${EXIT_ONLY[r]} ; ${fullName(e)} est en ${e.contract}.`);
+    const g = dateGuard(x.lastDay, { label: 'Fin du contrat', notBefore: { date: e.startDate, label: 'la date d’entrée' } })
+      || dateGuard(notif, { label: 'Date de notification', notBefore: { date: e.startDate, label: 'la date d’entrée' }, notAfter: { date: x.lastDay, label: 'la fin du contrat' } })
+      || (x.workedUntil ? dateGuard(x.workedUntil, { label: 'Dernier jour travaillé', notBefore: { date: notif, label: 'la notification' }, notAfter: { date: x.lastDay, label: 'la fin du contrat' } }) : '');
+    if (g) err.push(g);
+    if (r === 'Mise à la retraite') {
+      if (age === null) err.push('Mise à la retraite : renseignez d’abord la date de naissance dans la fiche, l’âge conditionne la procédure.');
+      else if (age < 67) err.push(`Mise à la retraite impossible à ${age} ans : l’employeur ne peut l’imposer qu’à 70 ans, ou dès 67 ans avec l’accord du salarié (art. L1237-5). Avant, la rupture serait requalifiée en licenciement nul ou sans cause réelle et sérieuse.`);
+      else if (age < 70) warn.push(`Mise à la retraite à ${age} ans : possible seulement avec l’accord du salarié, interrogé par écrit 3 mois avant son anniversaire (à vérifier).`);
+    }
+    // À VÉRIFIER (juriste) : âge légal de 62 à 64 ans selon l'année de naissance ; départs anticipés possibles (carrière longue, handicap, incapacité…).
+    if (r === 'Départ volontaire à la retraite') {
+      if (age === null) warn.push('Départ à la retraite : date de naissance non renseignée, l’âge n’est pas contrôlé.');
+      else if (age < 62) warn.push(`Départ volontaire à la retraite à ${age} ans : avant l’âge légal (62 à 64 ans selon l’année de naissance), sauf départ anticipé (carrière longue…). À vérifier avec le salarié.`);
+    }
+    if (n.months && end && x.lastDay) {
+      if (x.dispense !== 'salarie' && x.lastDay < end) warn.push(`La fin du contrat (${fmtDateY(x.lastDay)}) précède la fin du préavis (${fmtDateY(end)}). En cas de dispense par l’employeur, le contrat court jusqu’au ${fmtDateY(end)} : indiquez cette date et le dernier jour travaillé.`);
+      if (x.dispense === 'salarie') warn.push('Dispense demandée par le salarié : conservez sa demande écrite et votre accord ; le préavis non exécuté n’est pas payé.');
+    }
+    if (isRC(r)) { const rc = rcCalendar({ rc: {} }, TODAY); if (x.lastDay < rc.earliest) warn.push(`Rupture conventionnelle : même signée aujourd’hui, le contrat ne peut pas finir avant le ${fmtDateY(rc.earliest)} (rétractation puis homologation).`); }
+    if (r === 'Fin de CDD' && e.contract === 'CDD' && !e.endDate) warn.push('Ce CDD n’a pas de terme enregistré : un CDD doit comporter un terme précis (art. L1242-12), sinon il peut être requalifié en CDI.');
+    if (r === 'Fin de CDD' && e.endDate && x.lastDay !== e.endDate) warn.push(`Le terme prévu du CDD est le ${fmtDateY(e.endDate)}.`);
+    return [err, warn];
   }
   function noticeInfo(e) {
-    const r = (e.exit && e.exit.reason) || '', yrs = dayDiff(e.startDate, TODAY) / 365.25, cadre = e.category === 'Cadre', base = cadre ? 3 : yrs >= 2 ? 2 : 1;
+    const r = (e.exit && e.exit.reason) || '', yrs = dayDiff(e.startDate, exitNotif(e)) / 365.25, cadre = e.category === 'Cadre', base = cadre ? 3 : yrs >= 2 ? 2 : 1;
     if (/faute grave/.test(r)) return { months: 0, label: 'aucun (faute grave ou lourde)' };
     if (/Prise d’acte|Décès/.test(r)) return { months: 0, label: 'aucun, la rupture est immédiate' };
     if (/apprentissage|stage/.test(r)) return { months: 0, label: 'aucun, fin au terme prévu' };
@@ -5931,30 +6002,147 @@
     if (/essai/.test(r)) return { months: 0, label: 'Délai de prévenance de la période d’essai' };
     return { months: 0, label: '—' };
   }
-  function rcCalendar(d) {
-    if (!d.rc.signed) return null;
-    const retract = addDays(d.rc.signed, 15), request = addDays(retract, 1), homol = addWorkDays(request, 15);
-    return { retract, request, homol, earliest: addDays(homol, 1) };
+  // Mention sur les congés pendant le préavis : seulement quand un préavis s'exécute.
+  // À VÉRIFIER (juriste) : des congés fixés avant la notification suspendent le préavis et reportent sa fin.
+  const noticeLeaveNote = (n, r) => (n.months && /Démission|Licenciement|retraite|Présomption/i.test(r) ? ' Des congés posés pendant le préavis ne le prolongent pas ; des congés fixés avant la notification le suspendent et reportent sa fin (à vérifier).' : '');
+  // Calendrier de la rupture conventionnelle (art. L1237-13 et L1237-14) : rétractation de 15 jours calendaires après la signature, échéance reportée
+  // au premier jour ouvré si elle tombe un samedi, un dimanche ou un férié ; instruction de 15 jours ouvrables (fériés exclus) à compter de la réception
+  // de la demande ; le contrat prend fin au plus tôt le lendemain de l'homologation (expresse ou tacite).
+  // À VÉRIFIER (juriste) : report de l'échéance de l'instruction (art. R1231-1) et date de réception de la demande retenue (date d'envoi saisie ici).
+  // from : date de signature supposée quand la convention n'est pas encore signée (calendrier provisoire).
+  function rcCalendar(d, from) {
+    const rc = (d && d.rc) || {}, signed = rc.signed || from; if (!signed) return null;
+    const retract = addCalendarDaysReport(signed, 15), request = rc.requestAt || addDays(retract, 1), homol = addCalendarDaysReport(addOuvrables(request, 15), 0);
+    const homologated = !rc.refusedAt && (!!rc.homologAt || (!!rc.signed && TODAY > homol));
+    return { signed, retract, request, homol, earliest: addDays(rc.homologAt && rc.homologAt < homol ? rc.homologAt : homol, 1), homologated, tacit: homologated && !rc.homologAt, provisional: !rc.signed };
+  }
+  // Primes versées par la paie entre deux dates (mois de paie inclus).
+  const bonusesBetween = (e, a, b) => Object.keys(db.payroll || {}).filter((m) => m >= monthKey(a) && m <= monthKey(b)).reduce((s, m) => s + Number(((db.payroll[m] || {}).bonus || {})[e.id] || 0), 0);
+  // Salaire de référence (art. R1234-4) : le plus favorable entre la moyenne des 12 derniers mois et celle des 3 derniers mois, primes comprises ;
+  // une prime annuelle ou exceptionnelle versée dans les 3 mois n'y compte qu'au prorata (1/12 par mois). Démonstration : salaire fixe actuel chaque mois.
+  function refSalary(e, last) {
+    const m = e.salary / 12, b12 = bonusesBetween(e, addMonths(last, -11), last), b3 = bonusesBetween(e, addMonths(last, -2), last);
+    const r12 = m + b12 / 12, r3 = m + b3 / 12; return { r12, r3, ref: Math.max(r12, r3) };
+  }
+  // Indemnité conventionnelle Syntec INDICATIVE : à partir de 2 ans d'ancienneté, 1/4 de mois par année pour un ETAM (10 mois au plus), 1/3 de mois pour un cadre (12 mois au plus).
+  // À VÉRIFIER (juriste) : barème et plafonds de la convention Syntec en vigueur, application à la rupture conventionnelle.
+  const convIndemnity = (e, years, ref) => (CONV().kind !== 'syntec' || years < 2 ? 0 : ref * Math.min(e.category === 'Cadre' ? 12 : 10, years * (e.category === 'Cadre' ? 1 / 3 : 1 / 4)));
+  // Indemnité de départ volontaire à la retraite (art. L1237-9 et D1237-1, à vérifier) : 1/2 mois après 10 ans, 1 mois après 15 ans, 1,5 mois après 20 ans, 2 mois après 30 ans.
+  const retireMonths = (y) => (y >= 30 ? 2 : y >= 20 ? 1.5 : y >= 15 ? 1 : y >= 10 ? 0.5 : 0);
+  // Indemnité compensatrice de congés payés (art. L3141-28) : tous les congés acquis et non pris (solde N-1 et congés N acquis depuis le 1er juin, 2,08 j ouvrés par mois),
+  // au plus favorable entre le maintien de salaire et le dixième de la rémunération de la période de référence (art. L3141-24).
+  // À VÉRIFIER (juriste) : assiette du dixième (indemnité de fin de CDD comprise ici), congés N pris par anticipation (non gérés).
+  function cpExit(e, x, extraBase = 0) {
+    const last = x.lastDay || TODAY, y = Number(last.slice(0, 4)) - (last.slice(5) < '06-01' ? 1 : 0), refStart = `${y}-06-01`, prevStart = `${y - 1}-06-01`, prevEnd = addDays(refStart, -1), m = e.salary / 12;
+    const months = (a, b) => (b < a ? 0 : dayDiff(a, addDays(b, 1)) / 30.4375);
+    const fromN = e.startDate > refStart ? e.startDate : refStart, mN = months(fromN, last), daysN = Math.min(25, Math.round(mN * 2.08 * 10) / 10);
+    const fromN1 = e.startDate > prevStart ? e.startDate : prevStart, mN1 = Math.min(12, months(fromN1, prevEnd)), acqN1 = Math.min(25, mN1 * 2.08);
+    // Recrue de la période précédente sans solde saisi ni congé pris (ex. CDD créé dans Teamora) : ses congés acquis avant le 1er juin sont comptés.
+    const fresh = x.cpAtExit === undefined && !e.cp && e.startDate > prevStart && !(db.leaves || []).some((l) => l.empId === e.id && l.type === 'Congés payés' && l.status === 'Approuvée');
+    const n1 = x.cpAtExit !== undefined ? x.cpAtExit : fresh ? Math.round(acqN1 * 10) / 10 : e.cp || 0;
+    const maintien = (n1 + daysN) * (m / 21.67);
+    const dixieme = (acqN1 > 0 ? 0.1 * (m * mN1 + bonusesBetween(e, fromN1, prevEnd)) * Math.min(1, n1 / acqN1) : 0) + 0.1 * (m * mN + bonusesBetween(e, fromN, last) + extraBase);
+    return { n1, daysN, days: Math.round((n1 + daysN) * 10) / 10, maintien, dixieme, amount: Math.max(maintien, dixieme), method: dixieme > maintien ? 'règle du dixième' : 'maintien de salaire' };
   }
   function exitIndemnities(e) {
-    const x = e.exit || { reason: '', lastDay: TODAY }, r = x.reason, m = e.salary / 12, years = Math.max(0, dayDiff(e.startDate, x.lastDay) / 365.25);
-    const legal = /Licenciement|conventionnelle|Mise à la retraite/.test(r) && !/faute grave/.test(r) && years >= 8 / 12 ? m * (Math.min(years, 10) / 4 + Math.max(0, years - 10) / 3) : 0;
-    return { years, legal, cpPay: e.cp * (e.salary / 12 / 21.67), precarite: e.contract === 'CDD' && /CDD/.test(r) ? e.salary * years * 0.1 : 0 };
+    const x = e.exit || { reason: '', lastDay: TODAY }, r = x.reason || '', last = x.lastDay || TODAY, years = Math.max(0, dayDiff(e.startDate, last) / 365.25), rs = refSalary(e, last);
+    // Ancienneté arrêtée à la fin du contrat, préavis compris (exécuté ou non).
+    const licLike = (isLic(r) || isRC(r) || r === 'Mise à la retraite') && !/faute grave/.test(r);
+    const legal = licLike && years >= 8 / 12 ? rs.ref * (Math.min(years, 10) / 4 + Math.max(0, years - 10) / 3) : 0;
+    const conv = licLike && r !== 'Mise à la retraite' ? convIndemnity(e, years, rs.ref) : 0;
+    const retraite = r === 'Départ volontaire à la retraite' ? rs.ref * retireMonths(years) : 0;
+    const precarite = e.contract === 'CDD' && /CDD/.test(r) && !x.cddExclusion ? 0.1 * (e.salary * years + bonusesBetween(e, e.startDate, last)) : 0;
+    const cp = cpExit(e, x, precarite);
+    // Préavis non exécuté à l'initiative de l'employeur : payé avec les salaires jusqu'à la fin du contrat (montant indicatif).
+    const noticePay = x.dispense === 'employeur' && x.workedUntil && x.workedUntil < last ? (e.salary / 12) * dayDiff(x.workedUntil, last) / 30.4375 : 0;
+    return { years, ref: rs, legal, conv, rupture: Math.max(legal, conv), retraite, precarite, cp, cpPay: cp.amount, noticePay };
   }
   const exitDocs = (e) => ['certificat', 'solde', 'france-travail'].map((k) => db.documents.find((x) => x.empId === e.id && x.kind === k));
+  // Courriers de sortie proposés selon le motif.
+  function exitLetters(e) {
+    const r = (e.exit || {}).reason || '', x = e.exit || {}, out = [];
+    if (/Démission/.test(r)) out.push('accuse-demission');
+    if (x.dispense) out.push('dispense-preavis');
+    if (isLic(r)) out.push('convocation-prealable', 'lettre-licenciement');
+    if (isRC(r)) out.push('convention-rupture');
+    if (r === 'Mise à la retraite') out.push('lettre-retraite');
+    if (r === 'Fin de stage') out.push('attestation-stage');
+    else out.push('notice-portabilite');
+    return out;
+  }
+  // Durée de la portabilité (art. L911-8 CSS) : celle du dernier contrat, 12 mois au plus, arrondie au mois supérieur.
+  const portabilityMonths = (e) => Math.min(12, Math.max(1, Math.ceil(dayDiff(e.startDate, (e.exit && e.exit.lastDay) || TODAY) / 30.4375)));
+  // Délais de la procédure de licenciement, en jours ouvrables fériés exclus (socle addOuvrables).
+  // À VÉRIFIER (juriste) : 5 jours ouvrables « pleins » entre la présentation de la convocation et l'entretien, d'où un entretien au plus tôt le 6e jour ouvrable (art. L1232-2) ;
+  // lettre expédiée au moins 2 jours ouvrables pleins après l'entretien, soit au plus tôt le 3e jour ouvrable (art. L1232-6, L1332-2) ; économique : 7 jours ouvrables, 15 pour un cadre (art. L1233-15).
+  const licInterviewMin = (convoc) => addOuvrables(convoc, 6);
+  const licLetterMin = (interview, e, r) => addOuvrables(interview, r === 'Licenciement économique' ? (e && e.category === 'Cadre' ? 15 : 7) : 3);
+  // Points bloquants avant de passer « Sorti ».
+  function exitBlockers(e) {
+    const x = e.exit || {}, d = offb(e), out = [];
+    if (!x.lastDay) out.push('la date de fin du contrat n’est pas fixée');
+    else if (x.lastDay > TODAY) out.push(`le contrat court jusqu’au ${fmtDateY(x.lastDay)} : le collaborateur reste « en départ » jusqu’à cette date`);
+    if (isRC(x.reason)) {
+      const rc = rcCalendar(d);
+      if (!rc) out.push('la convention de rupture n’est pas signée');
+      else if (d.rc.refusedAt) out.push('l’homologation a été refusée');
+      else if (!rc.homologated) out.push(`la rupture n’est pas homologuée (réponse de la DREETS attendue au plus tard le ${fmtDateY(rc.homol)}, art. L1237-13)`);
+      else if (x.lastDay && x.lastDay < rc.earliest) out.push(`la fin du contrat (${fmtDateY(x.lastDay)}) précède le lendemain de l’homologation (${fmtDateY(rc.earliest)})`);
+    }
+    if (isLic(x.reason) && !d.proc.letterAt) out.push('la lettre de licenciement n’est pas notifiée');
+    if (!exitDocs(e).every(Boolean) && x.reason !== 'Fin de stage') out.push('les documents de sortie ne sont pas préparés');
+    return out;
+  }
   function departSteps(e, stage) {
     const d = offb(e), all = (o, list) => list.every(([k]) => o[k]);
     if (stage === 13) return [!!e.exit, !!d.noticeOk, !!d.calcOk, exitDocs(e).every(Boolean), !!d.returnPlan];
     if (stage === 14) return [!!d.exitInterview, !!d.successor && all(d.transfer, TRANSFER), all(d.returned, RETURN_ITEMS), !!d.accessOff && !!d.portability, !!d.docsGiven];
-    return [!!d.archivedAt, !!d.retentionOk, !d.requests.some((x) => x.status === 'En attente'), d.rehire !== undefined && d.rehire !== null];
+    // « Gestion des demandes » : faite quand les demandes reçues sont traitées, ou quand le dossier est archivé sans demande.
+    return [!!d.archivedAt, !!d.retentionOk, !d.requests.some((x) => x.status === 'En attente') && (d.requests.length > 0 || !!d.archivedAt), d.rehire !== undefined && d.rehire !== null];
   }
   function departActions(e) {
     if (ui.profile !== 'rh') return [];
-    const s = departSteps(e, e.stage), d = offb(e);
-    const labels = { 13: ['', 'préavis à valider', 'indemnités à chiffrer', 'documents de sortie à préparer', 'restitution à planifier'], 14: ['entretien de départ', 'passation', 'matériel à récupérer', 'accès et portabilité', 'documents à remettre'], 15: ['dossier à archiver', 'durées de conservation', 'demande d’un ancien salarié', 'décision de réembauche'] }[e.stage];
+    const s = departSteps(e, e.stage), d = offb(e), x = e.exit || {}, late = x.lastDay && x.lastDay < TODAY ? ` · en retard depuis le ${fmtShort(x.lastDay)}` : '';
+    const labels = { 13: ['', isLic(x.reason) && !d.proc.letterAt ? 'procédure de licenciement' : 'préavis à valider', 'indemnités à chiffrer', 'documents de sortie à préparer', 'restitution à planifier'], 14: ['entretien de départ', 'passation', 'matériel à récupérer', 'accès et portabilité', `documents à remettre${late}`], 15: ['dossier à archiver', 'durées de conservation', 'demande d’un ancien salarié', 'décision de réembauche'] }[e.stage];
     const out = s.map((v, k) => (v ? '' : labels[k])).filter(Boolean);
-    if (e.stage === 14 && e.exit && e.exit.lastDay <= TODAY && !d.accessOff) out.unshift('accès à couper aujourd’hui');
+    if (e.stage === 14 && x.lastDay && x.lastDay <= TODAY && !d.accessOff) out.unshift(x.lastDay < TODAY ? `accès à couper${late}` : 'accès à couper aujourd’hui');
+    if (e.stage === 14 && x.lastDay && x.lastDay <= TODAY && !d.dsnFin && x.reason !== 'Fin de stage') out.push('signalement DSN de fin de contrat');
     return out;
+  }
+  // Procédure de licenciement (RH) : convocation, entretien préalable, lettre ; repères de délai et dispositifs du licenciement économique.
+  function licProcedure(e, d) {
+    const p = d.proc, x = e.exit || {}, r = x.reason, eco = r === 'Licenciement économique';
+    const row = (label, sub, state) => `<div class="todo"><div class="t"><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div>${state}</div>`;
+    const date = (k, v, min, lbl) => `<input type="date" class="input" data-change="dep-proc" data-id="${e.id}" data-k="${k}" value="${v || ''}" ${min ? `min="${min}"` : ''} aria-label="${lbl}">`;
+    const iMin = p.convocAt && licInterviewMin(p.convocAt), lMin = p.interviewAt && licLetterMin(p.interviewAt, e, r);
+    const warn = (t) => ` <b class="warn-t">· ${t}</b>`;
+    let h = row('Convocation à l’entretien préalable', `Lettre recommandée ou remise en main propre contre décharge (art. L1232-2)${p.convocAt ? ` · présentée le ${fmtDateY(p.convocAt)}` : ' · date de présentation à saisir'}`, date('convocAt', p.convocAt, '', 'Convocation présentée le'))
+      + row('Entretien préalable', `${iMin ? `Au plus tôt le ${fmtDateY(iMin, { weekday: 'long' })} : 5 jours ouvrables pleins après la présentation (fériés exclus, à vérifier)` : 'Après la convocation'}${p.interviewAt ? ` · prévu le ${fmtDateY(p.interviewAt)}` : ''}${p.interviewAt && iMin && p.interviewAt < iMin ? warn('délai trop court') : ''}`, date('interviewAt', p.interviewAt, iMin, 'Date de l’entretien préalable'))
+      + row('Lettre de licenciement motivée', `${lMin ? `Expédiée au plus tôt le ${fmtDateY(lMin, { weekday: 'long' })}${eco ? ` (${e.category === 'Cadre' ? 15 : 7} jours ouvrables après l’entretien, art. L1233-15)` : ' (2 jours ouvrables pleins après l’entretien, art. L1232-6)'}${/faute grave/.test(r) ? ` et au plus tard le ${fmtDateY(addMonths(p.interviewAt, 1))} (art. L1332-2)` : ''}` : 'Après l’entretien préalable'}. Le préavis court à partir de sa présentation (art. L1234-3).${p.letterAt ? ` Présentée le ${fmtDateY(p.letterAt)}.` : ''}${p.letterAt && lMin && p.letterAt < lMin ? warn('délai trop court') : ''}`, date('letterAt', p.letterAt, lMin, 'Lettre présentée le'));
+    if (eco) {
+      const btn = (k, l) => (d[k] ? `<span class="pill ok">${l} · ${fmtShort(d[k])}</span>` : `<button type="button" class="btn ghost sm" data-act="dep-set" data-id="${e.id}" data-k="${k}">${l}</button>`);
+      // À VÉRIFIER (juriste) : délai de réflexion du CSP (21 jours) et seuils d'effectif ; critères d'ordre fixés par accord ou après consultation du CSE.
+      h += row('Contrat de sécurisation professionnelle (CSP)', 'À proposer lors de l’entretien préalable dans les entreprises de moins de 1 000 salariés (art. L1233-66) · délai de réflexion de 21 jours (à vérifier)', btn('csp', 'Proposé'))
+        + row('Critères d’ordre des licenciements', 'Charges de famille, ancienneté, situation des salariés en difficulté de réinsertion, qualités professionnelles (art. L1233-5)', btn('ordre', 'Appliqués'))
+        + row('Priorité de réembauche', 'Pendant 1 an à compter de la fin du contrat, si le salarié la demande ; à mentionner dans la lettre (art. L1233-45 et L1233-16)', btn('priorite', 'Mentionnée'));
+    }
+    return h;
+  }
+  // Rupture conventionnelle : entretien, signature, exemplaire remis, demande d'homologation, réponse.
+  function rcRows(e, d, rh) {
+    const rc = rcCalendar(d), x = e.exit || {}, row = (label, sub, state) => `<div class="todo"><div class="t"><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div>${state}</div>`;
+    const date = (k, v, lbl, min) => (rh ? `<input type="date" class="input" data-change="dep-rc" data-id="${e.id}" data-k="${k}" value="${v || ''}" ${min ? `min="${min}"` : ''} aria-label="${lbl}">` : v ? `<span class="pill ok">${fmtShort(v)}</span>` : '<span class="pill warn">À faire</span>');
+    const prov = rc || rcCalendar(d, TODAY), late = x.lastDay && x.lastDay < prov.earliest ? ' <b class="warn-t">· la date de fin prévue est trop tôt</b>' : '';
+    let h = row('Entretien(s) préalable(s)', 'Au moins un entretien avant la signature ; le salarié peut se faire assister (art. L1237-12)', date('interview', d.rc.interview, 'Date de l’entretien'))
+      + row('Signature de la convention', rc ? `Signée le ${fmtDateY(rc.signed)}` : `Si elle est signée aujourd’hui, le contrat ne pourra pas finir avant le ${fmtDateY(prov.earliest)}${late}`, date('signed', d.rc.signed, 'Date de signature'));
+    if (rc) {
+      h += row('Calendrier', `Rétractation jusqu’au ${fmtDateY(rc.retract, { weekday: 'short' })} (15 jours calendaires, reportés au premier jour ouvré) · demande d’homologation à partir du ${fmtDateY(addDays(rc.retract, 1))} · réponse de la DREETS au plus tard le ${fmtDateY(rc.homol, { weekday: 'short' })} (15 jours ouvrables) · fin du contrat au plus tôt le ${fmtDateY(rc.earliest)}${late}`, '')
+        + row('Exemplaire remis au salarié', 'Un exemplaire signé lui est remis, sinon la convention est nulle', d.rc.copyGiven ? `<span class="pill ok">Remis · ${fmtShort(d.rc.copyGiven)}</span>` : rh ? `<button type="button" class="btn ghost sm" data-act="dep-rc-copy" data-id="${e.id}">Remis</button>` : '<span class="pill warn">À faire</span>')
+        + row('Demande d’homologation (TéléRC)', 'Envoi sur telerc.travail.gouv.fr, hors de Teamora (simulé) : saisissez la date d’envoi', date('requestAt', d.rc.requestAt, 'Demande envoyée le', addDays(rc.retract, 1)))
+        + row('Homologation', d.rc.refusedAt ? `Refusée le ${fmtDateY(d.rc.refusedAt)}` : d.rc.homologAt ? `Homologuée le ${fmtDateY(d.rc.homologAt)}` : rc.tacit ? `Homologation tacite acquise le ${fmtDateY(addDays(rc.homol, 1))} (pas de réponse dans le délai)` : `En attente : sans réponse au ${fmtDateY(rc.homol)}, elle est acquise le lendemain`,
+          rc.homologated ? `<span class="pill ok">${rc.tacit ? 'Tacite' : 'Homologuée'}</span>` : date('homologAt', d.rc.homologAt, 'Homologuée le'));
+    }
+    return h;
   }
   function departDossier(e, i) {
     const d = offb(e), rh = ui.profile === 'rh', x = e.exit || {};
@@ -5962,31 +6150,45 @@
     const ok = (date, txt = 'Fait') => `<span class="pill ok">${txt}${date ? ` · ${fmtShort(date)}` : ''}</span>`;
     const b = (act, label, extra = '', cls = 'ghost') => (rh ? `<button type="button" class="btn ${cls} sm" data-act="${act}" data-id="${e.id}" ${extra}>${label}</button>` : '<span class="pill warn">À faire</span>');
     const sec = (title, body) => `<h4 class="sub" style="margin-top:18px">${title}</h4>${body}`;
-    let html = `<p class="hint" style="margin:12px 0 0">${esc(x.reason || '—')} · dernier jour ${x.lastDay ? `le ${fmtDate(x.lastDay)}` : 'à fixer'} · ${esc(e.contract)} · ${esc(e.category || '')} · entré·e le ${fmtDate(e.startDate)} (${seniority(e.startDate)})</p>`;
+    const n = noticeInfo(e), notif = exitNotif(e), nEnd = noticeEndOf(notif, n.months), out = x.lastDay || TODAY;
+    let html = `<p class="hint" style="margin:12px 0 0">${esc(x.reason || '—')} · fin du contrat ${x.lastDay ? `le ${fmtDateY(x.lastDay)}` : 'à fixer'}${x.workedUntil ? ` · dernier jour travaillé le ${fmtDateY(x.workedUntil)}` : ''} · ${esc(e.contract)} · ${esc(e.category || '')} · entré·e le ${fmtDate(e.startDate)} (${seniority(e.startDate, out)} à la fin du contrat)</p>`;
     if (i === 13) {
-      const n = noticeInfo(e), rc = rcCalendar(d);
-      let notice = row('Préavis', `${n.label}${n.months && d.notifiedAt ? ` · notifié le ${fmtDate(d.notifiedAt)}, fin le ${fmtDate(addDays(addMonths(d.notifiedAt, n.months), -1))}` : ''}. Les congés pris pendant le préavis ne le prolongent pas.`, d.noticeOk ? ok(d.noticeOk, 'Validé') : b('dep-set', 'Valider', 'data-k="noticeOk"'));
-      if (n.rc) notice += row('Calendrier de la rupture conventionnelle', rc ? `Signée le ${fmtDate(d.rc.signed)} · rétractation jusqu’au ${fmtDate(rc.retract)} (15 jours calendaires) · demande d’homologation le ${fmtDate(rc.request)} · réponse de la DREETS au plus tard le ${fmtDate(rc.homol)} · fin du contrat au plus tôt le ${fmtDate(rc.earliest)}${x.lastDay < rc.earliest ? ' <b class="warn-t">· la date de fin prévue est trop tôt</b>' : ''}` : 'Entretien(s), puis signature de la convention : les délais de rétractation et d’homologation démarrent à la signature.',
-        rc ? ok(d.rc.signed, 'Signée') : `${rh ? `<input type="date" class="input" data-change="rc-signed" data-id="${e.id}" aria-label="Date de signature">` : ''}`);
+      const short = n.months && x.lastDay && x.lastDay < nEnd && x.dispense !== 'salarie';
+      let notice = row('Préavis', `${n.label}${n.months ? ` · notifié le ${fmtDateY(notif)}, fin le ${fmtDateY(nEnd)}` : ''}${x.dispense ? ` · dispense ${x.dispense === 'employeur' ? 'à l’initiative de l’employeur (préavis payé)' : 'demandée par le salarié (accord écrit)'}` : ''}.${noticeLeaveNote(n, x.reason)}${short ? ' <b class="warn-t">· la fin du contrat précède la fin du préavis</b>' : ''}`,
+        d.noticeOk ? ok(d.noticeOk, 'Validé') : `${rh && !isLic(x.reason) ? `<input type="date" class="input" data-change="dep-notif" data-id="${e.id}" value="${notif}" aria-label="Date de notification">` : ''}${b('dep-set', 'Valider', 'data-k="noticeOk"')}`);
+      if (n.rc) notice += rcRows(e, d, rh);
       html += sec('Motif et préavis', notice);
-      const ind = exitIndemnities(e);
-      html += sec('Chiffrage de la fin de contrat', row('Indemnités', `${ind.legal ? `Indemnité ${/conventionnelle/.test(x.reason) ? 'de rupture (au moins l’indemnité légale)' : 'légale de licenciement'} : <b class="num">${eur0(ind.legal)}</b> (1/4 de mois par année jusqu’à 10 ans, 1/3 au-delà) · ` : ''}Indemnité compensatrice de congés payés (${e.cp} j) : <b class="num">${eur0(ind.cpPay)}</b>${ind.precarite ? ` · Indemnité de fin de CDD (10 %) : <b class="num">${eur0(ind.precarite)}</b>` : ''}.${CONV().kind === 'code' ? '' : ` Vérifier l’indemnité conventionnelle ${CONV().short} si plus favorable.`}`, d.calcOk ? ok(d.calcOk, 'Validé') : b('dep-set', 'Valider le chiffrage', 'data-k="calcOk"')));
+      if (isLic(x.reason) && rh) html += sec('Procédure de licenciement', licProcedure(e, d));
+      if (rh) {
+        const ind = exitIndemnities(e), cp = ind.cp, r = x.reason, L = [];
+        if (ind.legal || ind.conv) L.push(`Indemnité ${isRC(r) ? 'spécifique de rupture conventionnelle (au moins l’indemnité légale)' : r === 'Mise à la retraite' ? 'de mise à la retraite (au moins l’indemnité légale de licenciement, art. L1237-7)' : 'de licenciement'} : <b class="num">${eur0(ind.rupture)}</b> · légale ${eur0(ind.legal)} (1/4 de mois par année jusqu’à 10 ans, 1/3 au-delà)${CONV().kind === 'syntec' && r !== 'Mise à la retraite' ? ` · conventionnelle Syntec indicative ${ind.conv ? eur0(ind.conv) : 'non due avant 2 ans'} (barème à vérifier)` : CONV().kind === 'code' ? '' : ` · vérifier l’indemnité conventionnelle ${CONV().short}`} · la plus favorable est due`);
+        if (ind.retraite) L.push(`Indemnité de départ à la retraite : <b class="num">${eur0(ind.retraite)}</b> (${String(retireMonths(ind.years)).replace('.', ',')} mois de salaire, art. D1237-1, à vérifier)`);
+        else if (r === 'Départ volontaire à la retraite') L.push('Indemnité de départ à la retraite : non due avant 10 ans d’ancienneté (art. D1237-1, à vérifier)');
+        if (ind.precarite) L.push(`Indemnité de fin de CDD (10 % de la rémunération brute totale) : <b class="num">${eur0(ind.precarite)}</b>`);
+        else if (e.contract === 'CDD' && /CDD/.test(r)) L.push(`Indemnité de fin de CDD : ${esc(optLbl(CDD_EXCL, x.cddExclusion))}`);
+        L.push(`Indemnité compensatrice de congés payés (${num1(cp.days)} j : ${num1(cp.n1)} j de la période précédente et ${num1(cp.daysN)} j acquis depuis le 1er juin) : <b class="num">${eur0(cp.amount)}</b> · ${cp.method} retenu (maintien ${eur0(cp.maintien)}, dixième ${eur0(cp.dixieme)})`);
+        if (ind.noticePay) L.push(`Préavis non exécuté du ${fmtDateY(addDays(x.workedUntil, 1))} au ${fmtDateY(x.lastDay)} : indemnité compensatrice de préavis d’environ ${eur0(ind.noticePay)}, versée avec les salaires jusqu’à la fin du contrat`);
+        if (ind.legal || ind.conv || ind.retraite) L.push(`Salaire de référence ${eur0(ind.ref.ref)} : le plus favorable entre la moyenne des 12 derniers mois (${eur0(ind.ref.r12)}) et des 3 derniers mois (${eur0(ind.ref.r3)}), primes comprises (art. R1234-4) · ancienneté de ${num1(ind.years)} ans à la fin du contrat`);
+        if (isRC(r) || r === 'Mise à la retraite') L.push('Contribution patronale spécifique de 30 % sur la part exonérée de l’indemnité (à vérifier), reprise sur le bulletin');
+        html += sec('Chiffrage de la fin de contrat', row('Indemnités', L.join('<br>'), d.calcOk ? ok(d.calcOk, 'Validé') : b('dep-set', 'Valider le chiffrage', 'data-k="calcOk"')));
+      } else html += sec('Chiffrage de la fin de contrat', row('Indemnités', 'Chiffrées par les RH ; les montants ne sont pas communiqués au manager.', d.calcOk ? ok(d.calcOk, 'Validé') : '<span class="pill neutral">En cours</span>'));
       const docs = exitDocs(e);
       // Un document par ligne : chacun a son propre état et son bouton.
-      const DOC_SUB = { certificat: 'Remis au salarié le dernier jour', solde: 'Remis le dernier jour, signé par le salarié (contestable pendant 6 mois)', 'france-travail': 'Transmise via la DSN ; une copie est remise au salarié' };
+      const DOC_SUB = { certificat: `Remis à la fin du contrat${x.lastDay ? `, le ${fmtDateY(x.lastDay)}` : ''}, avec les emplois occupés (art. L1234-19)`, solde: 'Remis à la fin du contrat, signé par le salarié (contestable pendant 6 mois)', 'france-travail': 'À établir par le signalement DSN de fin de contrat (net-entreprises.fr), puis copie remise au salarié' };
       const docState = (doc) => (doc.status === 'Brouillon' ? '<span class="pill warn">À relire</span>' : ok(doc.issuedAt || doc.signedAt, doc.status || 'Remis'));
-      html += sec('Documents de sortie', docs.every(Boolean) ? docs.map((doc) => row(esc(DOC_LABEL[doc.kind]), DOC_SUB[doc.kind], `${docState(doc)}${docBtn(doc, 'Voir')}`)).join('')
-        : row('Certificat de travail, reçu pour solde de tout compte, attestation France Travail', 'Préparés en une fois, puis relus et remis un par un.', b('dep-docs', 'Préparer les documents', '', 'primary')));
-      html += sec('Restitution et accès', row('Matériel et accès', `${RETURN_ITEMS.map(([, l]) => l).join(', ')} à récupérer le ${x.lastDay ? fmtDate(x.lastDay) : '—'} ; comptes désactivés le soir même.`, d.returnPlan ? ok(d.returnPlan, 'Planifié') : b('dep-set', 'Planifier', 'data-k="returnPlan"')));
+      html += sec('Documents de sortie', docs.every(Boolean) ? docs.map((doc) => row(esc(DOC_LABEL[doc.kind]), DOC_SUB[doc.kind], `${docState(doc)}${rh ? docBtn(doc, 'Voir') : ''}`)).join('')
+        : row('Certificat de travail, reçu pour solde de tout compte, attestation France Travail', 'Préparés en brouillon, datés de la fin du contrat, puis relus et remis le dernier jour.', b('dep-docs', 'Préparer les documents', '', 'primary')));
+      html += sec('Restitution et accès', row('Matériel et accès', `${RETURN_ITEMS.map(([, l]) => l).join(', ')} à récupérer le ${x.workedUntil || x.lastDay ? fmtDateY(x.workedUntil || x.lastDay) : '—'} ; comptes désactivés le soir même.`, d.returnPlan ? ok(d.returnPlan, 'Planifié') : b('dep-set', 'Planifier', 'data-k="returnPlan"')));
+      if (rh) html += sec('Courriers de sortie', exitLetterRows(e));
     }
     if (i === 14) {
       const xi = d.exitInterview;
-      html += sec('Entretien de départ', xi ? row(`Motif principal : ${esc(xi.reason)} · recommande l’entreprise ${xi.enps}/10 · prêt·e à revenir : ${esc(xi.back)}`, `Points forts : ${esc(xi.good || '—')} · À améliorer : ${esc(xi.improve || '—')}`, ok(xi.date)) : rh ? `<form data-form="exit-int" data-id="${e.id}" class="exit-form"><div class="form-grid">
+      html += sec('Entretien de départ', xi ? row(`Motif principal : ${esc(xi.reason)} · recommande l’entreprise ${xi.enps}/10 · prêt·e à revenir : ${esc(xi.back)}`, `Points forts : ${esc(xi.good || '—')} · À améliorer : ${esc(xi.improve || '—')}${xi.by === 'salarie' ? ' · questionnaire rempli par le salarié' : ''}`, ok(xi.date)) : rh ? `<form data-form="exit-int" data-id="${e.id}" class="exit-form"><div class="form-grid">
           <div class="field"><label for="xi-r">Motif principal du départ</label><select id="xi-r" name="reason" class="select">${EXIT_REASONS.map((r) => `<option>${r}</option>`).join('')}</select></div>
           <div class="field"><label for="xi-n">Recommanderiez-vous ${esc(COMPANY.nom)} ? (0 à 10)</label><input id="xi-n" name="enps" type="number" min="0" max="10" class="input num" value="7"></div>
           <div class="field"><label for="xi-g">Ce qui a bien fonctionné</label><input id="xi-g" name="good" class="input"></div><div class="field"><label for="xi-i">Ce qui serait à améliorer</label><input id="xi-i" name="improve" class="input"></div>
           <div class="field"><label for="xi-b">Prêt·e à revenir un jour ?</label><select id="xi-b" name="back" class="select"><option>Oui</option><option>Peut-être</option><option>Non</option></select></div></div>
-          <div class="toolbar" style="margin-top:10px"><span class="hint">Mené par les RH plutôt que par le manager, pour des réponses franches.</span><button class="btn primary sm" style="margin-left:auto">Enregistrer</button></div></form>` : row('Entretien de départ', 'Mené par les RH', '<span class="pill neutral">À venir</span>'));
+          <div class="toolbar" style="margin-top:10px"><span class="hint">Mené par les RH plutôt que par le manager, pour des réponses franches. Le salarié peut aussi remplir le questionnaire depuis son espace.</span><button class="btn primary sm" style="margin-left:auto">Enregistrer</button></div></form>` : row('Entretien de départ', 'Mené par les RH', '<span class="pill neutral">À venir</span>'));
       // Successeur : recherche parmi tout l'effectif présent (hors personnes elles-mêmes sur le départ), ou « aucun successeur ».
       const can = rh || ui.profile === 'manager', none = d.successor === 'none', succ = !none && d.successor ? emp(d.successor) : null;
       const cands = employed().filter((y) => y.id !== e.id && !y.exit && y.stage >= 4).sort((a, z) => (z.dept === e.dept) - (a.dept === e.dept) || a.lastName.localeCompare(z.lastName, 'fr'));
@@ -5997,23 +6199,103 @@
       html += sec('Transmission', row('Successeur ou relais', none ? 'Le poste n’est pas repris : les dossiers sont archivés ou répartis' : 'Personne qui reprend les dossiers (tout l’effectif, en commençant par le service)', pick)
         + TRANSFER.map(([k, l]) => row(none && k === 'dossiers' ? 'Dossiers en cours archivés ou répartis' : l, '', d.transfer[k] ? ok(d.transfer[k]) : rh || ui.profile === 'manager' ? `<button type="button" class="btn ghost sm" data-act="dep-transfer" data-id="${e.id}" data-k="${k}">Fait</button>` : '')).join(''));
       html += sec('Restitution du matériel', RETURN_ITEMS.map(([k, l]) => row(l, '', d.returned[k] ? ok(d.returned[k], 'Rendu') : b('dep-return', 'Rendu', `data-k="${k}"`))).join(''));
-      html += sec('Fin des accès et des dispositifs', row('Comptes, messagerie et accès aux locaux', 'À désactiver le dernier jour, après la passation', d.accessOff ? ok(d.accessOff, 'Désactivés') : b('dep-set', 'Désactiver', 'data-k="accessOff"', x.lastDay && x.lastDay <= TODAY ? 'bad' : 'ghost'))
-        + row('Portabilité de la mutuelle et de la prévoyance', 'Maintien gratuit jusqu’à 12 mois si le salarié est indemnisé par France Travail (sauf faute lourde) : notice à remettre', d.portability ? ok(d.portability, 'Notice remise') : b('dep-set', 'Notice remise', 'data-k="portability"')));
-      const docs = exitDocs(e);
-      html += sec('Documents de fin de contrat', `${docs.filter(Boolean).map((doc) => row(esc(doc.title), doc.kind === 'solde' ? 'Peut être dénoncé par le salarié dans les 6 mois suivant sa signature' : doc.kind === 'france-travail' ? 'Transmise à France Travail via la DSN' : 'Remis le dernier jour', docBtn(doc))).join('') || row('Documents non préparés', 'À générer à l’étape « Préparation du départ »', b('dep-docs', 'Préparer'))}
-        ${row('Remise au salarié', '', d.docsGiven ? ok(d.docsGiven, 'Remis') : b('dep-set', 'Remis au salarié', 'data-k="docsGiven"'))}`);
+      const pm = portabilityMonths(e);
+      html += sec('Fin des accès et des dispositifs', row('Comptes, messagerie et accès aux locaux', 'À désactiver le dernier jour travaillé, après la passation', d.accessOff ? ok(d.accessOff, 'Désactivés') : b('dep-set', 'Désactiver', 'data-k="accessOff"', x.lastDay && x.lastDay <= TODAY ? 'bad' : 'ghost'))
+        + row('Portabilité de la mutuelle et de la prévoyance', `Maintien gratuit pendant ${pm} mois (durée du dernier contrat, 12 mois au plus), si le salarié est indemnisé par France Travail, sauf faute lourde (art. L911-8 du Code de la sécurité sociale) : notice à remettre`, d.portability ? ok(d.portability, 'Notice remise') : b('dep-set', 'Notice remise', 'data-k="portability"'))
+        + row('Organisme assureur informé', 'Signaler la fin du contrat à la mutuelle et à l’organisme de prévoyance pour ouvrir la portabilité', d.insurer ? ok(d.insurer, 'Informé') : b('dep-set', 'Informé', 'data-k="insurer"')));
+      const docs = exitDocs(e), early = x.lastDay && x.lastDay > TODAY;
+      html += sec('Documents de fin de contrat', `${docs.filter(Boolean).map((doc) => row(esc(doc.title), doc.kind === 'solde' ? 'Peut être dénoncé par le salarié dans les 6 mois suivant sa signature' : doc.kind === 'france-travail' ? 'Établie à partir du signalement DSN de fin de contrat ; copie remise au salarié' : 'Remis à la fin du contrat', rh ? docBtn(doc) : '')).join('') || row('Documents non préparés', 'À générer à l’étape « Préparation du départ »', b('dep-docs', 'Préparer'))}
+        ${x.reason === 'Fin de stage' ? '' : row('Signalement DSN de fin de contrat', 'À faire sur net-entreprises.fr après la fin du contrat (délai à vérifier) : il produit l’attestation employeur France Travail. Teamora n’envoie pas la DSN (simulé) : saisissez la date d’envoi.', d.dsnFin ? ok(d.dsnFin, 'Signalé') : rh ? `<input type="date" class="input" data-change="dep-dsn" data-id="${e.id}" ${x.lastDay ? `min="${x.lastDay}"` : ''} aria-label="Signalement DSN envoyé le">` : '<span class="pill warn">À faire</span>')}
+        ${row('Remise au salarié', early ? `À remettre à la fin du contrat, le ${fmtDateY(x.lastDay)} : pas avant (art. L1234-19)` : '', d.docsGiven ? ok(d.docsGiven, 'Remis') : early ? '<span class="pill neutral">Pas encore</span>' : b('dep-set', 'Remis au salarié', 'data-k="docsGiven"'))}`);
+      if (rh) html += sec('Courriers de sortie', exitLetterRows(e));
     }
     if (i === 15) {
-      const out = x.lastDay || TODAY;
-      html += sec('Archivage', row('Dossier du salarié', 'Accès restreint aux RH après archivage', d.archivedAt ? ok(d.archivedAt, 'Archivé') : b('dep-set', 'Archiver le dossier', 'data-k="archivedAt"', 'primary')));
-      html += sec('Durées de conservation', [['Contrat, avenants, dossier du personnel', 5], ['Copie des bulletins de paie', 5], ['Registre unique du personnel (mentions)', 5], ['Déclarations d’accident du travail', 10]].map(([l, y]) => row(l, `${y} ans après le départ`, `<span class="pill neutral">Jusqu’au ${fmtDateY(addYears(out, y))}</span>`)).join('')
-        + row('Application des durées', 'Les pièces sont supprimées automatiquement à l’échéance', d.retentionOk ? ok(d.retentionOk, 'Programmé') : b('dep-set', 'Programmer', 'data-k="retentionOk"')));
-      html += sec('Demandes après le départ', d.requests.length ? d.requests.map((r) => row(esc(r.label), `Reçue le ${fmtDate(r.date)}`, r.status === 'Traitée' ? ok(r.doneAt, 'Envoyée') : b('dep-request', 'Générer et envoyer', `data-r="${r.id}"`, 'primary'))).join('') : '<p class="muted" style="margin:0">Aucune demande.</p>');
+      const purgeOn = addYears(out, 5), alumniEnd = addYears(out, 1);
+      html += sec('Archivage', row('Dossier du salarié', d.archivedAt ? `Accès restreint aux RH : le manager ne voit plus la fiche. L’ancien salarié garde ses bulletins et documents jusqu’au ${fmtDateY(alumniEnd)}.` : 'Après archivage, seuls les RH accèdent au dossier ; le manager ne le voit plus', d.archivedAt ? ok(d.archivedAt, 'Archivé') : b('dep-set', 'Archiver le dossier', 'data-k="archivedAt"', 'primary')));
+      html += sec('Durées de conservation', [['Contrat, avenants, dossier du personnel', 5, 'prescription des actions liées au contrat'], ['Copie des bulletins de paie', 5, 'art. L3243-4'], ['Registre unique du personnel (mentions)', 5, 'art. R1221-26'], ['Déclarations d’accident du travail', 10, 'conservées après la purge']].map(([l, y, ref]) => row(l, `${y} ans après le départ · ${ref}`, `<span class="pill neutral">Jusqu’au ${fmtDateY(addYears(out, y))}</span>`)).join('')
+        + row('Application des durées', d.purgedAt ? `Données personnelles et documents supprimés le ${fmtDateY(d.purgedAt)} ; les mentions du registre et les accidents du travail sont gardés.` : d.retentionOk ? `Suppression automatique le ${fmtDateY(purgeOn)} : coordonnées, contact d’urgence, IBAN, absences et documents ; accidents du travail gardés 10 ans.` : 'Programmez la suppression automatique à l’échéance de 5 ans. Le registre des traitements RGPD se tient hors de Teamora (non géré par la démo).',
+          d.purgedAt ? ok(d.purgedAt, 'Supprimé') : d.retentionOk ? ok(d.retentionOk, 'Programmé') : b('dep-set', 'Programmer', 'data-k="retentionOk"')));
+      html += sec('Demandes après le départ', d.requests.length ? d.requests.map((r) => row(esc(r.label), `Reçue le ${fmtDateY(r.date)}${r.note ? ` · ${esc(r.note)}` : ''}`, r.status === 'Traitée' ? ok(r.doneAt, 'Envoyée') : r.kind === 'autre' ? b('dep-request-done', 'Marquer traitée', `data-r="${r.id}"`) : b('dep-request', 'Générer et envoyer', `data-r="${r.id}"`, 'primary'))).join('') : `<p class="muted" style="margin:0">Aucune demande. L’ancien salarié peut en faire depuis son espace jusqu’au ${fmtDateY(alumniEnd)}.</p>`);
+      if (x.reason === 'Licenciement économique') html += sec('Priorité de réembauche', row(`Jusqu’au ${fmtDateY(addYears(out, 1))}`, 'Si l’ancien salarié l’a demandée, tout poste compatible avec sa qualification doit lui être proposé (art. L1233-45). Les RH sont prévenues à l’ouverture d’une offre.', d.prioriteAsked ? ok(d.prioriteAsked, 'Demandée') : b('dep-set', 'Demandée par le salarié', 'data-k="prioriteAsked"')));
       const xi = d.exitInterview;
       html += sec('Lien avec l’ancien collaborateur', row('Réembauche possible', `${xi ? `Prêt·e à revenir : ${esc(xi.back)} · ` : ''}Les « salariés boomerang » connaissent déjà la culture de l’entreprise.`, rh ? `<select class="select" data-change="dep-rehire" data-id="${e.id}" aria-label="Réembauche"><option value="">À décider</option>${['Oui', 'Non'].map((y) => `<option ${d.rehire === y ? 'selected' : ''}>${y}</option>`).join('')}</select>` : '')
-        + (d.rehire === 'Oui' && rh ? row('Proposer une offre ouverte', 'Ajoute l’ancien collaborateur aux candidats, source « Ancien salarié »', `<select class="select" data-change="boomerang" data-id="${e.id}" aria-label="Offre"><option value="">Choisir une offre…</option>${db.jobs.filter((j) => j.status === 'Ouverte').map((j) => `<option value="${j.id}">${esc(j.title)}</option>`).join('')}</select>`) : ''));
+        + (d.rehire === 'Oui' && rh ? row('Proposer une offre ouverte', 'Avec son accord seulement : il est ajouté aux candidats (source « Ancien salarié ») avec l’e-mail personnel qu’il vous a donné', `<select class="select" data-change="boomerang" data-id="${e.id}" aria-label="Offre"><option value="">Choisir une offre…</option>${db.jobs.filter((j) => j.status === 'Ouverte').map((j) => `<option value="${j.id}">${esc(j.title)}</option>`).join('')}</select>`) : ''));
     }
     return html;
+  }
+  // Courriers de sortie : un brouillon par courrier, à relire puis remettre ou envoyer.
+  function exitLetterRows(e) {
+    return exitLetters(e).map((k) => { const doc = db.documents.filter((x) => x.empId === e.id && x.kind === k).slice(-1)[0];
+      return `<div class="todo"><div class="t"><b>${esc(DOC_LABEL[k])}</b><small>${esc(DEFAULT_TPL[k].hint || '')}</small></div>${doc ? docBtn(doc) : `<button type="button" class="btn ghost sm" data-act="dep-letter" data-id="${e.id}" data-k="${k}">${ic('plus')}Préparer</button>`}</div>`; }).join('');
+  }
+  // Espace du salarié pendant et après son départ (tutoiement) : dates, ce qui l'attend, questionnaire de départ, demandes d'ancien salarié.
+  function myDeparture(e, i) {
+    const d = offb(e), x = e.exit || {}, n = noticeInfo(e), notif = exitNotif(e), rh = emp(db.settings.company.signataire) || emp('e1');
+    const li = (t, done) => `<div class="step ${done ? 'done' : ''}"><span class="ckbox" aria-checked="${!!done}">${ic('check')}</span><span>${t}</span></div>`;
+    if (i === 15) {
+      const until = addYears(x.lastDay || TODAY, 1), open = TODAY <= until;
+      const docs = db.documents.filter((y) => y.empId === e.id && docVisible(y)).sort((a, b) => b.date.localeCompare(a.date));
+      return card('Ton espace d’ancien salarié', `<span class="muted" style="font-size:13px">${open ? `ouvert jusqu’au ${fmtDateY(until)}` : 'accès terminé'}</span>`, `<div class="card-b"><p style="margin:0">Ton contrat a pris fin le ${fmtDateY(x.lastDay)}. ${open ? 'Tu gardes l’accès à tes bulletins de paie et à tes documents ; le reste de ton espace est fermé.' : `Ton accès est terminé : pour un document, écris à ${esc(fullName(rh))} (${esc(rh.email)}).`}</p>
+        ${open ? `<div class="req-list" style="margin-top:12px">${docs.map((y) => `<div class="req"><span class="doc-ic">${ic('file')}</span><div class="what"><b>${esc(y.title)}</b><small>${fmtDateY(y.date)}</small></div><button type="button" class="btn ghost sm" data-act="doc-view" data-id="${y.id}">Consulter</button></div>`).join('') || '<div class="empty">Aucun document.</div>'}</div>` : ''}</div>`)
+        + (open ? `<form class="card" data-form="alumni-req" novalidate><div class="card-h"><h3>Demander un document aux RH</h3></div><div class="card-b"><div class="form-grid">
+          <div class="field"><label for="al-k">Document</label><select id="al-k" name="kind" class="select"><option value="attestation">Attestation employeur</option><option value="certificat">Duplicata du certificat de travail</option><option value="autre">Autre demande</option></select></div>
+          <div class="field"><label for="al-n">Précisions (facultatif)</label><input id="al-n" name="note" class="input" maxlength="200"></div></div>
+          <div class="toolbar" style="margin-top:12px"><span class="err" id="al-err"></span><button class="btn primary" style="margin-left:auto">Envoyer la demande</button></div>
+          ${d.requests.length ? `<div class="req-list" style="margin-top:12px">${d.requests.map((r) => `<div class="req"><div class="what"><b>${esc(r.label)}</b><small>Demandée le ${fmtDateY(r.date)}</small></div><span class="pill ${r.status === 'Traitée' ? 'ok' : 'warn'}">${r.status === 'Traitée' ? 'Envoyée' : 'En attente'}</span></div>`).join('')}</div>` : ''}</div></form>` : '');
+    }
+    const docs = exitDocs(e).filter(Boolean), given = !!d.docsGiven;
+    const facts = `<div class="info-grid"><div><span>Motif</span>${esc(x.reason || '—')}</div><div><span>Notifié le</span>${fmtDateY(notif)}</div><div><span>Préavis</span>${esc(n.label)}${n.months ? ` · jusqu’au ${fmtDateY(noticeEndOf(notif, n.months))}` : ''}</div>
+      <div><span>Fin du contrat</span><b>${x.lastDay ? fmtDateY(x.lastDay) : 'à fixer'}</b></div>${x.workedUntil ? `<div><span>Dernier jour travaillé</span>${fmtDateY(x.workedUntil)}</div>` : ''}${x.dispense ? `<div><span>Dispense de préavis</span>${x.dispense === 'employeur' ? 'à l’initiative de l’employeur, préavis payé' : 'à ta demande'}</div>` : ''}</div>`;
+    const steps = [li(`Restitution du matériel le ${fmtDateY(x.workedUntil || x.lastDay)} : ${RETURN_ITEMS.map(([k, l]) => `${l.toLowerCase()}${d.returned[k] ? ' (rendu)' : ''}`).join(', ')}`, RETURN_ITEMS.every(([k]) => d.returned[k])),
+      li('Tes comptes et accès sont désactivés le dernier jour travaillé', !!d.accessOff),
+      li(`Documents de fin de contrat remis le dernier jour : certificat de travail, reçu pour solde de tout compte, attestation France Travail${given ? ' (disponibles dans tes documents)' : ''}`, given),
+      li(`Mutuelle et prévoyance : maintien gratuit pendant ${portabilityMonths(e)} mois si tu es indemnisé·e par France Travail (portabilité)`, !!d.portability)].join('');
+    const xi = d.exitInterview;
+    const quiz = xi ? `<p class="muted" style="margin:0">Merci : ton questionnaire de départ est enregistré${xi.by === 'salarie' ? '' : ' (entretien mené avec les RH)'}.</p>` : `<form data-form="exit-quiz" novalidate><div class="form-grid">
+        <div class="field"><label for="xq-r">Principale raison de ton départ</label><select id="xq-r" name="reason" class="select">${EXIT_REASONS.map((r) => `<option>${r}</option>`).join('')}</select></div>
+        <div class="field"><label for="xq-n">Recommanderais-tu ${esc(COMPANY.nom)} ? (0 à 10)</label><input id="xq-n" name="enps" type="number" min="0" max="10" class="input num" value="7"></div>
+        <div class="field"><label for="xq-g">Ce qui a bien fonctionné</label><input id="xq-g" name="good" class="input" maxlength="300"></div><div class="field"><label for="xq-i">Ce qui serait à améliorer</label><input id="xq-i" name="improve" class="input" maxlength="300"></div>
+        <div class="field"><label for="xq-b">Prêt·e à revenir un jour ?</label><select id="xq-b" name="back" class="select"><option>Oui</option><option>Peut-être</option><option>Non</option></select></div></div>
+        <div class="toolbar" style="margin-top:10px"><span class="hint">Facultatif. Seuls les RH lisent tes réponses, pas ton manager.</span><button class="btn primary sm" style="margin-left:auto">Envoyer</button></div></form>`;
+    return card('Ton départ', '', `<div class="card-b">${facts}<h4 class="sub" style="margin-top:16px">Ce qui t’attend</h4><div class="steps">${steps}</div>
+      <p class="hint" style="margin:12px 0 0">Une question ? Ton contact RH : ${esc(fullName(rh))} · ${esc(rh.email)}${docs.length ? '' : ''}.</p></div>`) + card('Questionnaire de départ', '', `<div class="card-b">${quiz}</div>`);
+  }
+  // Priorité de réembauche (licenciement économique) : anciens salariés à prévenir quand une offre s'ouvre (art. L1233-45).
+  function rehirePriority() { return db.employees.filter((x) => x.exit && x.exit.reason === 'Licenciement économique' && x.exit.lastDay && addYears(x.exit.lastDay, 1) >= TODAY && (x.stage >= 15 || x.exit.lastDay <= TODAY) && db.offboarding && db.offboarding[x.id] && db.offboarding[x.id].prioriteAsked); }
+  function notifyRehirePriority(j) { const l = rehirePriority(); if (l.length) notify('e1', `Offre « ${j.title} » ouverte : priorité de réembauche à respecter pour ${l.map(fullName).join(', ')} (licenciement économique, art. L1233-45).`); }
+  // Purge des anciens salariés à l'échéance programmée (5 ans après la fin du contrat) : coordonnées, absences et documents supprimés ;
+  // identité, emploi et dates gardés pour le registre unique du personnel ; accidents du travail gardés 10 ans. Tracé dans db.exitPurgeLog.
+  function purgeLeavers() {
+    const done = [];
+    db.employees.forEach((e) => { const d = db.offboarding && db.offboarding[e.id];
+      if (e.stage < 15 || !d || !d.retentionOk || d.purgedAt || !e.exit || !e.exit.lastDay || addYears(e.exit.lastDay, 5) > TODAY) return;
+      Object.assign(e, { address: '', phone: '', emergency: '', iban: '—', personalEmail: '', birthDate: '' });
+      db.documents = db.documents.filter((x) => x.empId !== e.id); db.leaves = db.leaves.filter((x) => x.empId !== e.id); if (db.timesheets) db.timesheets = db.timesheets.filter((x) => x.empId !== e.id);
+      delete d.exitInterview; d.requests = []; d.purgedAt = TODAY; done.push(e.id); });
+    if (done.length) db.exitPurgeLog = [{ date: TODAY, count: done.length, ids: done }].concat(db.exitPurgeLog || []);
+  }
+  // Sortie confirmée : les soldes de congés sont payés par l'indemnité compensatrice (gardés dans e.exit pour le bulletin), puis remis à zéro.
+  function closeExit(e) { if (!e.exit || e.exit.cpAtExit !== undefined) return; Object.assign(e.exit, { cpAtExit: e.cp || 0, rttAtExit: e.rtt || 0 }); e.cp = 0; e.rtt = 0; }
+  // Emplois successivement occupés (certificat de travail, art. D1234-6, à vérifier) : reconstitués depuis l'historique des changements de poste.
+  function jobsHeld(e, to) {
+    const ch = (db.history || []).filter((h) => h.empId === e.id && h.detail && h.label !== 'Changement de manager').map((h) => [h.date, h.detail.split(' · ')[0].match(/^(?!service |manager |salaire|temps )(.+?) → (.+)$/)]).filter(([, mm]) => mm).sort((a, b) => a[0].localeCompare(b[0]));
+    const list = []; let from = e.startDate, title = ch.length ? ch[0][1][1] : e.title;
+    ch.forEach(([date, mm]) => { if (date > from) list.push(`${title} du ${longDate(from)} au ${longDate(addDays(date, -1))}`); from = date; title = mm[2]; });
+    list.push(`${title} du ${longDate(from)} au ${longDate(to)}`);
+    return list.join(' ; ');
+  }
+  // Champs des courriers de sortie, calculés depuis le dossier de départ.
+  function exitCtx(e) {
+    const m = e.exit, o = offb(e), n = noticeInfo(e), notif = exitNotif(e), ind = exitIndemnities(e), r = m.reason || '', end = n.months ? noticeEndOf(notif, n.months) : m.lastDay;
+    const pre = n.months ? `${String(n.months).replace('.', ',')} mois` : '';
+    return { date_notification: longDate(notif), preavis: pre || 'aucun', fin_preavis: longDate(end), dernier_travaille: longDate(m.workedUntil || m.lastDay),
+      entretien_prealable: o.proc.interviewAt ? fmtDateY(o.proc.interviewAt, { weekday: 'long', month: 'long' }) : '', rc_entretien: o.rc.interview ? longDate(o.rc.interview) : '', indemnite_rupture: ind.rupture ? eur(ind.rupture) : '',
+      portabilite_duree: `${portabilityMonths(e)} mois`, age_fin: ageAt(e, m.lastDay) === null ? '' : String(ageAt(e, m.lastDay)),
+      mesure_envisagee: r === 'Licenciement économique' ? 'une mesure de licenciement pour motif économique' : /faute grave/.test(r) ? 'une sanction disciplinaire pouvant aller jusqu’au licenciement' : 'une mesure de licenciement',
+      mentions_licenciement: /faute grave/.test(r) ? 'Compte tenu de la gravité des faits, votre licenciement prend effet dès la présentation de cette lettre, sans préavis ni indemnité de licenciement. L’indemnité compensatrice de congés payés vous reste due.'
+        : `Votre préavis de ${pre || 'durée légale'} débute à la première présentation de cette lettre ; votre contrat prendra fin le ${longDate(m.lastDay)}. Vous percevrez l’indemnité de licenciement à laquelle vous avez droit.${r === 'Licenciement économique' ? ' Vous bénéficiez d’une priorité de réembauche pendant un an à compter de la fin de votre contrat, si vous nous en faites la demande au cours de ce délai (art. L1233-45). Vous pouvez aussi adhérer au contrat de sécurisation professionnelle qui vous a été proposé.' : ''}`,
+      dispense_texte: m.dispense === 'employeur' ? `À notre initiative, nous vous dispensons d’exécuter votre préavis${m.workedUntil ? ` à compter du ${longDate(addDays(m.workedUntil, 1))}` : ''}. Votre contrat prend fin au terme du préavis, le ${longDate(m.lastDay)} ; votre rémunération vous est maintenue jusqu’à cette date (art. L1234-5 du Code du travail).`
+        : m.dispense === 'salarie' ? `Nous acceptons votre demande écrite de ne pas exécuter votre préavis. Votre contrat prendra fin le ${longDate(m.lastDay)} ; la partie non exécutée du préavis n’est pas rémunérée.` : '' };
   }
   function exitStats() {
     const list = Object.entries(db.offboarding || {}).map(([id, d]) => d.exitInterview).filter(Boolean);
@@ -6023,6 +6305,33 @@
     return card('Enseignements des entretiens de départ', `<span class="muted num">${plural(list.length, 'entretien', 'entretiens')}</span>`, `<div class="card-b"><div class="crit">${Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([r, n]) => `<div class="crit-row"><span>${esc(r)}</span><b class="num">${n}</b></div>`).join('')}
       <div class="crit-row total"><span>eNPS des partants</span><b class="num">${Math.round(((prom - det) / list.length) * 100)}</b></div><div class="crit-row"><span>Prêts à revenir</span><b class="num">${Math.round((back / list.length) * 100)} %</b></div></div></div>`);
   }
+  // Formulaire « Démarrer un départ » : motif, notification, dispense, fin du contrat (proposée = fin du préavis), dernier jour travaillé, fin de CDD.
+  MODALS.exit = (m, shell, formShell, opt, f) => {
+    const e = emp(m.id), r0 = m.reason || exitDefault(e), day = exitProposed(e, r0), cdd = e.contract === 'CDD';
+    const reasons = EXIT_GROUPS.map(([g, l]) => [g, l.filter((r) => exitReasonOk(e, r))]).filter(([, l]) => l.length);
+    return formShell(`Départ de ${esc(fullName(e))}`, 'exit', `<p class="muted" style="margin:0">Le départ est lancé : préavis, documents de sortie et restitution du matériel.${m.caseId ? ' Les dates de la procédure disciplinaire sont reprises.' : ''}</p><div class="form-grid">
+        ${f('x-reason', 'Motif', `<select id="x-reason" name="reason" class="select" data-live="exit">${reasons.map(([g, l]) => `<optgroup label="${g}">${l.map((r) => `<option ${r === r0 ? 'selected' : ''}>${r}</option>`).join('')}</optgroup>`).join('')}</select>`)}
+        ${f('x-notif', 'Date de notification', `<input id="x-notif" name="notifiedAt" type="date" class="input" value="${TODAY}" data-live="exit"><small class="hint" style="display:block;margin-top:4px">Réception de la démission, présentation de la lettre de licenciement… Le préavis court à partir de cette date.</small>`)}
+        ${f('x-disp', 'Dispense de préavis', `<select id="x-disp" name="dispense" class="select" data-live="exit">${opt(DISPENSE, '')}</select>`)}
+        ${f('x-day', 'Fin du contrat (dernier jour du contrat)', `<input id="x-day" name="lastDay" type="date" class="input" value="${day}" data-live="exit-day"><small class="hint" style="display:block;margin-top:4px">Proposée : fin du préavis ou terme du contrat.</small>`)}
+        ${f('x-worked', 'Dernier jour travaillé (si dispense)', '<input id="x-worked" name="workedUntil" type="date" class="input" data-live="exit">')}
+        ${cdd ? f('x-cdd', 'Indemnité de fin de CDD', `<select id="x-cdd" name="cddExclusion" class="select" data-live="exit">${opt(CDD_EXCL, '')}</select>`) : ''}
+        ${f('x-comment', 'Commentaire (facultatif)', '<input id="x-comment" name="comment" class="input" maxlength="140">', true)}</div><p class="hint" id="x-info" style="margin:10px 0 0">${esc(exitHint(e, r0, { lastDay: day, notifiedAt: TODAY }))}</p>`, 'Démarrer le départ');
+  };
+  // Sortie refusée : ce qui manque avant de passer « Sorti ».
+  MODALS['exit-blocked'] = (m, shell) => { const e = emp(m.id);
+    return shell(`Sortie de ${esc(fullName(e))} pas encore possible`, `<div class="modal-b"><p style="margin:0">Le collaborateur reste « en départ » tant que :</p>${m.items.map((t) => `<p class="lint bad" style="margin:8px 0 0">${esc(t.charAt(0).toUpperCase() + t.slice(1))}.</p>`).join('')}</div>`,
+      '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Compris</button></div>'); };
+  const exitFormVals = (form) => { const g = (k) => { const el = form.elements.namedItem(k); return el ? el.value : ''; }; return { reason: g('reason'), notifiedAt: g('notifiedAt') || TODAY, dispense: g('dispense'), lastDay: g('lastDay'), workedUntil: g('workedUntil'), cddExclusion: g('cddExclusion') }; };
+  Object.assign(MOD_LIVE, {
+    // Motif, notification ou dispense changés : la fin du contrat proposée suit, tant qu'elle n'a pas été saisie à la main.
+    exit(form) {
+      const e = emp(ui.modal.id), v = exitFormVals(form), day = form.elements.namedItem('lastDay');
+      if (!form.dataset.dayTouched && day) { day.value = exitProposed(e, v.reason, v.notifiedAt); v.lastDay = day.value; }
+      const el = document.getElementById('x-info'); if (el) el.textContent = exitHint(e, v.reason, v);
+    },
+    'exit-day'(form) { form.dataset.dayTouched = '1'; const e = emp(ui.modal.id), v = exitFormVals(form), el = document.getElementById('x-info'); if (el) el.textContent = exitHint(e, v.reason, v); },
+  });
   Object.assign(MOD_ACT, {
     // Volet forfait jours de l'entretien annuel (art. L3121-65) : un vrai formulaire, plus un simple clic.
     workload(d) { ui.modal = { type: 'workload', id: d.id }; render(); },
@@ -6037,14 +6346,26 @@
       (v) => { e.forfait = v.mode === 'non' ? null : { date: v.date }; toast(e.forfait ? `Forfait jours enregistré pour ${fullName(e)}` : `${fullName(e)} déclare désormais ses heures`); commit(); });
     },
 
-    'dep-set'(d) { const e = emp(d.id);
-      if (d.k === 'docsGiven') { const docs = exitDocs(e).filter(Boolean), err = docs.filter((x) => !docLocked(x)).map((x) => issueDoc(x, true)).find(Boolean); if (err) { toast(err, 'info'); commit(); return; } notify(e.id, 'Vos documents de fin de contrat sont disponibles dans vos documents.'); }
-      offb(e)[d.k] = TODAY; if (d.k === 'accessOff') notify(e.managerId, `Accès de ${fullName(e)} désactivés.`); toast('Enregistré'); commit(); },
-    'dep-docs'(d) { const e = emp(d.id); ['certificat', 'solde', 'france-travail'].forEach((k) => { if (!db.documents.some((x) => x.empId === e.id && x.kind === k)) addDoc(e.id, k); }); offb(e).docsReady = TODAY; toast('Documents de sortie préparés'); commit(); },
+    'dep-set'(d) { const e = emp(d.id), x = e.exit || {}, o = offb(e);
+      if (d.k === 'noticeOk' && isLic(x.reason) && !o.proc.letterAt) { toast('Licenciement : saisissez d’abord la date de présentation de la lettre de licenciement, le préavis court à partir de cette date.', 'info'); return; }
+      if (d.k === 'docsGiven' && x.lastDay && x.lastDay > TODAY) { toast(`Les documents de fin de contrat se remettent à la fin du contrat, le ${fmtDateY(x.lastDay)} (art. L1234-19).`, 'info'); return; }
+      if (d.k === 'docsGiven') { const docs = exitDocs(e).filter(Boolean), err = docs.filter((y) => !docLocked(y)).map((y) => issueDoc(y, true)).find(Boolean); if (err) { toast(err, 'info'); commit(); return; } notify(e.id, 'Tes documents de fin de contrat sont disponibles dans tes documents.'); }
+      o[d.k] = TODAY; if (d.k === 'accessOff') notify(e.managerId, `Accès de ${fullName(e)} désactivés.`); toast('Enregistré'); commit(); },
+    // Documents de sortie datés de la fin du contrat (ou du jour, si elle est passée).
+    'dep-docs'(d) { const e = emp(d.id), x = e.exit || {}, date = x.lastDay && x.lastDay > TODAY ? x.lastDay : TODAY; ['certificat', 'solde', 'france-travail'].forEach((k) => { if (!db.documents.some((y) => y.empId === e.id && y.kind === k)) addDoc(e.id, k, { date }); }); offb(e).docsReady = TODAY; toast('Documents de sortie préparés'); commit(); },
+    'dep-letter'(d) { const doc = addDoc(d.id, d.k); ui.modal = { type: 'doc-edit', id: doc.id }; toast('Brouillon créé : relisez-le avant de le remettre'); commit(); },
+    'dep-rc-copy'(d) { offb(emp(d.id)).rc.copyGiven = TODAY; toast('Exemplaire remis au salarié'); commit(); },
     'dep-succ-clear'(d) { offb(emp(d.id)).successor = null; render(); setTimeout(() => { const q = document.querySelector('.succ-pick .emp-pick input'); if (q) q.focus(); }, 0); },
     'dep-transfer'(d) { offb(emp(d.id)).transfer[d.k] = TODAY; toast('Passation enregistrée'); commit(); },
     'dep-return'(d) { offb(emp(d.id)).returned[d.k] = TODAY; toast('Matériel restitué'); commit(); },
     'dep-request'(d) { const e = emp(d.id), r = offb(e).requests.find((x) => x.id === d.r), doc = addDoc(e.id, r.kind, { reqId: r.id }); ui.modal = { type: 'doc-edit', id: doc.id }; toast('Brouillon créé : relisez-le puis remettez-le'); commit(); },
+    'dep-request-done'(d) { const r = offb(emp(d.id)).requests.find((x) => x.id === d.r); Object.assign(r, { status: 'Traitée', doneAt: TODAY }); notify(d.id, `Ta demande « ${r.label} » a été traitée par les RH.`); toast('Demande traitée'); commit(); },
+    // Manager : signaler aux RH une démission reçue ; les RH lancent ensuite le départ.
+    'dep-signal'(d) { const e = emp(d.id);
+      confirmAct({ title: `Signaler la démission de ${esc(fullName(e))} ?`, act: 'dep-signal', trace: 'Démission signalée par le manager', empId: e.id, confirm: 'Prévenir les RH',
+        text: '<p>Les RH reçoivent la date de réception et lancent le départ (préavis, documents, restitution). Transmettez-leur la lettre ou l’e-mail de démission.</p>',
+        fields: [{ name: 'date', label: 'Démission reçue le', type: 'date', required: true, value: TODAY, guard: { notAfter: { date: TODAY, label: 'aujourd’hui' } } }] },
+      (v) => { notify('e1', `${fullName(me())} signale la démission de ${fullName(e)}, reçue le ${fmtDateY(v.date)} : départ à lancer.`); toast('Les RH sont prévenues'); commit(); }); },
     liaison(d) { const x = (d.k === 'leave' ? db.leaves : db.incidents).find((y) => y.id === d.id); x.liaison = TODAY; notify(x.empId, 'Un rendez-vous de liaison vous est proposé pour préparer votre retour, avec le service de santé au travail.'); toast('Rendez-vous de liaison proposé'); commit(); },
     // Visite de reprise : la RH choisit la date ; la limite des 8 jours après la reprise est rappelée et un retard signalé.
     reprise(d) { const due = addDays(d.d, 8), sug = d.d > TODAY ? addDays(d.d, 3) : addDays(TODAY, 2); ui.modal = { type: 'visit', id: d.id, kind: 'Visite de reprise', ret: d.d, due, date: sug }; render(); },
@@ -6066,19 +6387,66 @@
       x.fund = v; save(); toast('Financement enregistré'); },
     talent(v, d) { db.talent = db.talent || {}; const t = db.talent[d.id] = db.talent[d.id] || {}; t[d.k] = d.k === 'risk' ? v : Number(v); commit(); },
     succ(v, d) { db.succession = db.succession || {}; const s = db.succession[d.id] = db.succession[d.id] || {}; s[d.k] = v || null; if (d.k === 'succ' && !v) s.ready = null; commit(); },
-    'rc-signed'(v, d) { if (!v) return; const x = offb(emp(d.id)); x.rc.signed = v; toast('Date de signature enregistrée'); commit(); },
+    'rc-signed'(v, d) { MOD_CHG['dep-rc'](v, Object.assign({}, d, { k: 'signed' })); },
+    // Rupture conventionnelle : dates saisies (entretien, signature, envoi de la demande, homologation) contrôlées par rapport au calendrier.
+    'dep-rc'(v, d) {
+      const e = emp(d.id), o = offb(e), rc = rcCalendar(o);
+      if (v && d.k === 'requestAt' && rc && v <= rc.retract) { toast(`La demande d’homologation ne peut partir qu’après la fin du délai de rétractation, le ${fmtDateY(rc.retract)}.`, 'info'); render(); return; }
+      if (v && d.k === 'signed' && o.rc.interview && v < o.rc.interview) { toast('La signature suit le ou les entretiens.', 'info'); render(); return; }
+      if (v && d.k === 'homologAt' && (!o.rc.requestAt || v < o.rc.requestAt)) { toast('Saisissez d’abord la date d’envoi de la demande d’homologation.', 'info'); render(); return; }
+      o.rc[d.k] = v || null;
+      if (d.k === 'signed' && v) { const r2 = rcCalendar(o); if (e.exit && e.exit.lastDay < r2.earliest) toast(`Attention : la fin du contrat (${fmtDateY(e.exit.lastDay)}) précède la date possible, le ${fmtDateY(r2.earliest)}.`, 'info'); else toast('Date de signature enregistrée'); }
+      commit();
+    },
+    'dep-notif'(v, d) { if (!v) return; const e = emp(d.id); e.exit.notifiedAt = v; offb(e).notifiedAt = v; toast('Date de notification enregistrée'); commit(); },
+    'dep-dsn'(v, d) { if (!v) return; offb(emp(d.id)).dsnFin = v; toast('Signalement DSN de fin de contrat enregistré'); commit(); },
+    // Procédure de licenciement : repères de délai (alerte, pas de blocage) ; la lettre présentée fait courir le préavis.
+    'dep-proc'(v, d) {
+      const e = emp(d.id), o = offb(e), p = o.proc; p[d.k] = v || null;
+      if (v && d.k === 'interviewAt' && p.convocAt && v < licInterviewMin(p.convocAt)) toast(`Entretien trop tôt : au plus tôt le ${fmtDateY(licInterviewMin(p.convocAt))} (5 jours ouvrables pleins, à vérifier).`, 'info');
+      if (v && d.k === 'letterAt' && p.interviewAt && v < licLetterMin(p.interviewAt, e, e.exit.reason)) toast(`Lettre trop tôt : au plus tôt le ${fmtDateY(licLetterMin(p.interviewAt, e, e.exit.reason))}.`, 'info');
+      if (v && d.k === 'letterAt') { e.exit.notifiedAt = v; o.notifiedAt = v; const end = noticeEndOf(v, noticeInfo(e).months); if (e.exit.lastDay < end && e.exit.dispense !== 'salarie') toast(`Le préavis court jusqu’au ${fmtDateY(end)} : fin du contrat à reporter.`, 'info'); }
+      commit();
+    },
     'dep-succ-none'(v, d, t) { if (!t.checked) return; offb(emp(d.id)).successor = 'none'; toast('Départ sans successeur'); commit(); },
     'dep-succ'(v, d) { const e = emp(d.id); offb(e).successor = v || null; if (v) { notify(v, `Vous reprenez les dossiers de ${fullName(e)}.`); toast(`${fullName(emp(v))} reprend les dossiers`); } commit(); },
     'dep-rehire'(v, d) { offb(emp(d.id)).rehire = v || null; commit(); },
+    // Boomerang : pas d'e-mail inventé, accord de la personne obligatoire, message envoyé seulement si on le demande.
     boomerang(v, d) {
       if (!v) return; const e = emp(d.id), j = db.jobs.find((x) => x.id === v);
-      const c = { id: uid('c'), jobId: v, name: fullName(e), email: e.email.replace(/@.*$/, '@mail.fr'), phone: e.phone, source: 'Ancien salarié', experience: `${e.title} chez Nova Studio de ${e.startDate.slice(0, 4)} à ${(e.exit.lastDay || '').slice(0, 4)}`, stage: 'Présélection', score: 0, notes: '', interviews: [], appliedAt: TODAY, messages: [], offer: null, refusal: null, pool: false };
-      db.candidates.push(c); sendMsg(c, 'point', ...tplMsg('msg-opportunite', candCtx(c, j)));
-      toast(`${fullName(e)} est proposé·e pour « ${j.title} »`); commit();
+      confirmAct({ title: `Proposer « ${esc(j.title)} » à ${esc(fullName(e))} ?`, act: 'boomerang', trace: `Ancien salarié proposé pour « ${j.title} »`, empId: e.id, confirm: 'Ajouter aux candidats',
+        text: '<p>L’ancien collaborateur est ajouté aux candidats de l’offre, source « Ancien salarié ». Utilisez l’adresse personnelle qu’il vous a donnée : son adresse professionnelle est désactivée.</p>',
+        fields: [{ name: 'email', label: 'E-mail personnel', type: 'text', required: true, value: e.personalEmail || '' },
+          { name: 'accord', type: 'check', required: true, label: 'Il a donné son accord pour être recontacté et ajouté aux candidats' },
+          { name: 'send', type: 'check', label: 'Lui envoyer le message « Nouvelle opportunité »' }] },
+      (x) => {
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x.email) || x.email.endsWith(`@${COMPANY.domaine}`)) { toast('E-mail personnel non valide : rien n’a été créé.', 'info'); return; }
+        const c = { id: uid('c'), jobId: v, name: fullName(e), email: x.email.toLowerCase(), phone: e.phone, source: 'Ancien salarié', experience: `${e.title} chez ${COMPANY.entreprise} de ${e.startDate.slice(0, 4)} à ${(e.exit.lastDay || '').slice(0, 4)}`, stage: 'Présélection', score: 0, notes: '', interviews: [], appliedAt: TODAY, messages: [], offer: null, refusal: null, pool: false, consentAt: TODAY, log: [] };
+        db.candidates.push(c); e.personalEmail = x.email.toLowerCase(); if (x.send) sendMsg(c, 'point', ...tplMsg('msg-opportunite', candCtx(c, j)));
+        toast(`${fullName(e)} est proposé·e pour « ${j.title} »${x.send ? ' · message envoyé' : ''}`); commit();
+      });
     },
   });
   Object.assign(MOD_FORMS, {
-    'exit-int'(v, form) { const e = emp(form.dataset.id); offb(e).exitInterview = { date: TODAY, reason: v.reason, enps: Math.max(0, Math.min(10, Number(v.enps) || 0)), good: v.good.trim(), improve: v.improve.trim(), back: v.back }; toast('Entretien de départ enregistré'); commit(); },
+    'exit-int'(v, form) { const e = emp(form.dataset.id); offb(e).exitInterview = { date: TODAY, reason: v.reason, enps: Math.max(0, Math.min(10, Number(v.enps) || 0)), good: v.good.trim(), improve: v.improve.trim(), back: v.back, by: 'rh' }; toast('Entretien de départ enregistré'); commit(); },
+    // Questionnaire de départ rempli par le salarié lui-même (lu par les RH seulement).
+    'exit-quiz'(v) { const e = me(); offb(e).exitInterview = { date: TODAY, reason: v.reason, enps: Math.max(0, Math.min(10, Number(v.enps) || 0)), good: (v.good || '').trim(), improve: (v.improve || '').trim(), back: v.back, by: 'salarie' }; notify('e1', `${fullName(e)} a rempli son questionnaire de départ.`); toast('Merci, ton questionnaire est envoyé aux RH'); commit(); },
+    // Demande d'un ancien salarié depuis son espace.
+    'alumni-req'(v) { const e = me(), label = { attestation: 'Attestation employeur', certificat: 'Duplicata du certificat de travail', autre: 'Autre demande' }[v.kind] || 'Demande';
+      offb(e).requests.push({ id: uid('pr'), kind: v.kind, label, date: TODAY, status: 'En attente', note: (v.note || '').trim() }); notify('e1', `${fullName(e)} (ancien salarié) demande : ${label.toLowerCase()}.`); toast('Demande envoyée aux RH'); commit(); },
+    exit(v) {
+      const e = emp(ui.modal.id), x = { reason: v.reason, lastDay: v.lastDay, notifiedAt: v.notifiedAt || TODAY, dispense: v.dispense || '', workedUntil: v.dispense === 'employeur' && v.workedUntil && v.workedUntil < v.lastDay ? v.workedUntil : '', cddExclusion: v.cddExclusion || '' };
+      if (!v.lastDay) return formError('Indiquez la date de fin du contrat.');
+      const [err, warn] = exitChecks(e, x); if (err.length) return formError(err[0]);
+      const sig = warn.join('|'); if (warn.length && ui.modal.ack !== sig) { ui.modal.ack = sig; return formError(`${warn.join(' ')} Cliquez à nouveau sur « Démarrer le départ » pour confirmer.`); }
+      e.exit = Object.assign({ comment: (v.comment || '').trim() }, x); if (!e.exit.workedUntil) delete e.exit.workedUntil;
+      const o = offb(e); o.notifiedAt = x.notifiedAt;
+      const c = ui.modal.caseId && db.cases.find((y) => y.id === ui.modal.caseId); if (c) Object.assign(o.proc, { convocAt: c.convocAt || null, interviewAt: c.interview || null, caseId: c.id });
+      e.stage = 13; db.journey[e.id] = db.journey[e.id] || {}; db.journey[e.id][13] = [true, false, false, false, false];
+      notify(e.id, `Ton départ est enregistré : fin du contrat le ${fmtDateY(v.lastDay)}.`);
+      if (e.managerId) notify(e.managerId, `Départ de ${fullName(e)} (${v.reason}) : fin du contrat le ${fmtDateY(v.lastDay)}.`);
+      ui.modal = null; if (ui.drawer && ui.drawer.type === 'emp') ui.drawer.tab = 'infos'; toast(`Départ de ${fullName(e)} lancé`); commit();
+    },
   });
 
   // ================================================================ Reporting RH (profil RH)
@@ -6184,7 +6552,9 @@
   // champs à saisir {{saisie:id}} complétés à la création. Un document reste modifiable par les RH tant qu'il n'est ni remis ni signé.
   const DOC_LABEL = { contrat: 'Contrat de travail', info7: 'Informations essentielles sur la relation de travail', info1m: 'Informations complémentaires sur la relation de travail', essai: 'Confirmation de fin de période d’essai', attestation: 'Attestation employeur', avenant: 'Avenant au contrat', certificat: 'Certificat de travail', solde: 'Reçu pour solde de tout compte', 'france-travail': 'Attestation employeur France Travail',
     // Arrivée : courriers de la période d'essai et copie de la DPAE.
-    'rupture-essai': 'Lettre de rupture de la période d’essai', 'renouv-essai': 'Accord de renouvellement de la période d’essai', dpae: 'Copie de la déclaration préalable à l’embauche' };
+    'rupture-essai': 'Lettre de rupture de la période d’essai', 'renouv-essai': 'Accord de renouvellement de la période d’essai', dpae: 'Copie de la déclaration préalable à l’embauche',
+    'accuse-demission': 'Accusé de réception de la démission', 'dispense-preavis': 'Dispense d’exécution du préavis', 'convocation-prealable': 'Convocation à l’entretien préalable', 'lettre-licenciement': 'Lettre de licenciement',
+    'convention-rupture': 'Convention de rupture conventionnelle (récapitulatif)', 'lettre-retraite': 'Lettre de mise à la retraite', 'notice-portabilite': 'Notice de portabilité des garanties', 'attestation-stage': 'Attestation de stage' };
   const COMPANY = { entreprise: 'Nova Studio SAS', entreprise_adresse: '12 rue de la Paix, 75002 Paris', siret: '000 000 000 00000 (fictif)', convention: 'nationale des bureaux d’études techniques (Syntec)', ville: 'Paris' };
   const longDate = (s) => (s ? fmtDate(s, { day: 'numeric', month: 'long', year: 'numeric' }) : '');
   // Champs automatiques : [clé, libellé, groupe].
@@ -6196,7 +6566,10 @@
     ['duree_travail', 'Durée du travail (heures ou forfait jours)', 'Contrat'], ['cdd_remplace', 'CDD : personne remplacée', 'Contrat'], ['cdd_terme', 'CDD : terme du contrat', 'Contrat'], ['cdd_renouvellement', 'CDD : clause de renouvellement', 'Contrat'],
     ['essai_renouv', 'Durée du renouvellement de l’essai', 'Contrat'], ['essai_fin_renouv', 'Fin de l’essai renouvelé', 'Contrat'], ['prevenance', 'Délai de prévenance', 'Contrat'], ['prevenance_indemnite', 'Indemnité de prévenance', 'Contrat'], ['dpae_date', 'Date de la DPAE', 'Contrat'], ['dpae_ref', 'Référence de la DPAE', 'Contrat'],
     ['nouveau_poste', 'Nouveau poste', 'Avenant'], ['nouveau_service', 'Nouveau service', 'Avenant'], ['nouveau_salaire', 'Nouveau salaire', 'Avenant'], ['date_effet', 'Date d’effet', 'Avenant'],
-    ['dernier_jour', 'Dernier jour travaillé', 'Départ'], ['motif_depart', 'Motif de fin de contrat', 'Départ'], ['solde_detail', 'Détail du solde de tout compte (tableau)', 'Départ'], ['solde_total', 'Total du solde de tout compte', 'Départ'],
+    ['dernier_jour', 'Date de fin du contrat', 'Départ'], ['dernier_travaille', 'Dernier jour travaillé', 'Départ'], ['motif_depart', 'Motif de fin de contrat', 'Départ'], ['date_notification', 'Date de notification de la rupture', 'Départ'],
+    ['preavis', 'Durée du préavis', 'Départ'], ['fin_preavis', 'Fin du préavis', 'Départ'], ['emplois', 'Emplois successivement occupés', 'Départ'], ['entretien_prealable', 'Date de l’entretien préalable', 'Départ'], ['mesure_envisagee', 'Mesure envisagée (convocation)', 'Départ'],
+    ['mentions_licenciement', 'Préavis, indemnité et priorité de réembauche (licenciement)', 'Départ'], ['dispense_texte', 'Conditions de la dispense de préavis', 'Départ'], ['rc_entretien', 'Entretien de rupture conventionnelle', 'Départ'], ['indemnite_rupture', 'Indemnité de rupture', 'Départ'],
+    ['portabilite_duree', 'Durée de la portabilité', 'Départ'], ['age_fin', 'Âge à la fin du contrat', 'Départ'], ['solde_detail', 'Détail du solde de tout compte (tableau)', 'Départ'], ['solde_total', 'Total du solde de tout compte', 'Départ'],
     ['candidat', 'Nom du candidat', 'Candidat'], ['candidat_prenom', 'Prénom du candidat', 'Candidat'], ['offre', 'Poste de l’offre', 'Candidat'], ['offre_service', 'Service de l’offre', 'Candidat'], ['offre_lieu', 'Lieu de l’offre', 'Candidat'],
     ['entretien_type', 'Type d’entretien', 'Candidat'], ['entretien_date', 'Date de l’entretien', 'Candidat'], ['entretien_heure', 'Heure de l’entretien', 'Candidat'], ['entretien_avec', 'Interlocuteur de l’entretien', 'Candidat'],
     ['motif_refus', 'Motif du refus', 'Candidat'], ['vivier', 'Phrase sur le vivier et la conservation des données', 'Candidat'], ['suppression_donnees', 'Date de suppression des données', 'Candidat'], ['rgpd', 'Information sur les données personnelles', 'Candidat'], ['delai_reponse', 'Délai de réponse annoncé', 'Candidat'],
@@ -6280,16 +6653,50 @@
       body: paras('Je soussigné·e {{signataire}}, {{signataire_titre}} de la société {{entreprise}}, atteste que {{salarie}} est employé·e au sein de notre société depuis le {{date_entree}}, en qualité de {{poste}}, dans le cadre d’un contrat {{contrat}}.', 'Cette attestation est délivrée à la demande de l’intéressé·e pour servir et valoir ce que de droit.') + SIG,
       required: [['salarie', 'Salarié'], ['date_entree', 'Date d’entrée'], ['poste', 'Emploi']] },
     certificat: { label: 'Certificat de travail', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.certificat,
-      body: paras('Je soussigné·e {{signataire}}, {{signataire_titre}}, certifie que {{salarie}} a été employé·e par la société {{entreprise}} du {{date_entree}} au {{dernier_jour}}, en qualité de {{poste}}.',
+      body: paras('Je soussigné·e {{signataire}}, {{signataire_titre}}, certifie que {{salarie}} a été employé·e par la société {{entreprise}} du {{date_entree}} au {{dernier_jour}}.', 'Emplois successivement occupés : {{emplois}}.',
         '{{salarie}} quitte la société libre de tout engagement. Il·elle bénéficie du maintien de ses garanties santé et prévoyance dans les conditions prévues par la loi (portabilité).') + SIG,
-      required: [['salarie', 'Salarié'], ['date_entree', 'Date d’entrée'], ['dernier_jour', 'Date de sortie'], ['poste', 'Emploi occupé'], ['kw:portabilité', 'Mention de la portabilité des garanties']] },
+      required: [['salarie', 'Salarié'], ['date_entree', 'Date d’entrée'], ['dernier_jour', 'Date de sortie'], ['emplois', 'Emplois occupés et périodes'], ['kw:portabilité', 'Mention de la portabilité des garanties']] },
     solde: { label: 'Reçu pour solde de tout compte', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.solde,
-      body: paras('Je soussigné·e {{salarie}} reconnais avoir reçu de la société {{entreprise}}, pour solde de tout compte, la somme brute de {{solde_total}}, détaillée ci-dessous :', '{{solde_detail}}',
+      body: paras('Je soussigné·e {{salarie}} reconnais avoir reçu de la société {{entreprise}}, pour solde de tout compte, la somme de {{solde_total}}, détaillée ci-dessous :', '{{solde_detail}}',
         'Ce reçu peut être dénoncé dans les six mois qui suivent sa signature, délai au-delà duquel il devient libératoire pour l’employeur pour les sommes qui y sont mentionnées.') + SIG + '<p class="sig">Signature du salarié</p>',
       required: [['solde_detail', 'Détail des sommes versées'], ['kw:six mois', 'Délai de dénonciation de six mois']] },
     'france-travail': { label: 'Attestation employeur France Travail', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL['france-travail'],
-      body: paras('Attestation destinée à France Travail concernant {{salarie}}, employé·e du {{date_entree}} au {{dernier_jour}} en qualité de {{poste}}. Motif de fin de contrat : {{motif_depart}}.', 'En pratique, cette attestation est transmise par voie dématérialisée via la DSN.') + SIG,
+      body: paras('Attestation destinée à France Travail concernant {{salarie}}, employé·e du {{date_entree}} au {{dernier_jour}} en qualité de {{poste}}. Motif de fin de contrat : {{motif_depart}}.', 'L’attestation officielle est produite par le signalement de fin de contrat de travail transmis dans la DSN (net-entreprises.fr), avec les salaires des derniers mois. Ce document en reprend les principaux éléments pour le salarié et ne remplace pas ce signalement.') + SIG,
       required: [['dernier_jour', 'Date de fin de contrat'], ['motif_depart', 'Motif de la rupture']] },
+    'attestation-ancien': { label: 'Attestation employeur · ancien salarié', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.attestation,
+      body: paras('Je soussigné·e {{signataire}}, {{signataire_titre}} de la société {{entreprise}}, atteste que {{salarie}} a été employé·e au sein de notre société du {{date_entree}} au {{dernier_jour}}, en dernier lieu en qualité de {{poste}}, dans le cadre d’un contrat {{contrat}}.', 'Cette attestation est délivrée à la demande de l’intéressé·e pour servir et valoir ce que de droit.') + SIG,
+      required: [['salarie', 'Ancien salarié'], ['date_entree', 'Date d’entrée'], ['dernier_jour', 'Date de fin du contrat']] },
+    // Courriers de sortie : modèles à relire ; les articles cités sont ceux du Code du travail sauf mention contraire.
+    'accuse-demission': { label: 'Démission reçue : confirmation au salarié', group: 'Courriers de sortie', kind: 'doc', title: DOC_LABEL['accuse-demission'], hint: 'Confirme la date de notification, le préavis et la fin du contrat',
+      body: paras('{{salarie}},', 'Nous accusons réception de votre démission, notifiée le {{date_notification}}.', 'Votre préavis de {{preavis}} court à compter de cette date et prend fin le {{fin_preavis}}. Votre contrat de travail prendra fin le {{dernier_jour}}.', 'Vos documents de fin de contrat (certificat de travail, reçu pour solde de tout compte, attestation France Travail) vous seront remis à cette date.') + SIG,
+      required: [['date_notification', 'Date de la démission'], ['dernier_jour', 'Fin du contrat']] },
+    'dispense-preavis': { label: 'Dispense d’exécution du préavis', group: 'Courriers de sortie', kind: 'doc', title: DOC_LABEL['dispense-preavis'], hint: 'Précise qui demande la dispense et si le préavis est payé',
+      body: paras('{{salarie}},', 'Votre préavis de {{preavis}}, notifié le {{date_notification}}, prend fin le {{fin_preavis}}.', '{{dispense_texte}}') + SIG + '<p class="sig">Signature du salarié, précédée de la mention « bon pour accord »</p>',
+      required: [['dispense_texte', 'Initiative et paiement du préavis']] },
+    'convocation-prealable': { label: 'Convocation à l’entretien préalable', group: 'Courriers de sortie', kind: 'doc', title: DOC_LABEL['convocation-prealable'], hint: 'Entretien au moins 5 jours ouvrables après la présentation (art. L1232-2)', fields: [{ id: 'heure', label: 'Heure de l’entretien' }, { id: 'liste', label: 'Où consulter la liste des conseillers du salarié (mairie, inspection du travail)' }],
+      body: paras('<b>Lettre recommandée avec avis de réception ou remise en main propre contre décharge</b>', '{{salarie}},', 'Nous envisageons de prendre à votre égard {{mesure_envisagee}}.', 'Nous vous convoquons à un entretien préalable le {{entretien_prealable}} à {{saisie:heure}}, au {{entreprise_adresse}}. Au cours de cet entretien, nous vous exposerons les motifs de la décision envisagée et recueillerons vos explications.',
+        'Vous pouvez vous faire assister par une personne de votre choix appartenant au personnel de l’entreprise. En l’absence de représentants du personnel, vous pouvez aussi vous faire assister par un conseiller du salarié inscrit sur la liste départementale, consultable : {{saisie:liste}}.') + SIG,
+      required: [['entretien_prealable', 'Date de l’entretien'], ['saisie:heure', 'Heure de l’entretien'], ['kw:assister', 'Droit à l’assistance du salarié']] },
+    'lettre-licenciement': { label: 'Lettre de licenciement', group: 'Courriers de sortie', kind: 'doc', title: DOC_LABEL['lettre-licenciement'], hint: 'Motivée, expédiée au moins 2 jours ouvrables après l’entretien (art. L1232-6)', fields: [{ id: 'motif', label: 'Motifs précis du licenciement (faits datés et vérifiables)' }],
+      body: paras('<b>Lettre recommandée avec avis de réception</b>', '{{salarie}},', 'À la suite de notre entretien préalable du {{entretien_prealable}}, nous vous notifions votre licenciement pour les motifs suivants : {{saisie:motif}}.', '{{mentions_licenciement}}',
+        'Dans les 15 jours suivant la notification, vous pouvez nous demander par lettre recommandée ou remise contre récépissé de préciser les motifs de ce licenciement.', 'À la fin de votre contrat, nous vous remettrons votre certificat de travail, votre reçu pour solde de tout compte et votre attestation France Travail.') + SIG,
+      required: [['saisie:motif', 'Énoncé des motifs (sinon licenciement sans cause réelle et sérieuse)'], ['mentions_licenciement', 'Préavis et indemnité']] },
+    'convention-rupture': { label: 'Convention de rupture conventionnelle', group: 'Courriers de sortie', kind: 'doc', title: DOC_LABEL['convention-rupture'], hint: 'Récapitulatif ; la demande d’homologation se fait sur TéléRC',
+      body: paras('Le formulaire officiel de demande d’homologation est rempli et transmis sur TéléRC (telerc.travail.gouv.fr). Ce document récapitule les termes convenus entre {{entreprise}} et {{salarie}}.',
+        '<ul><li>Entretien préalable : {{rc_entretien}}</li><li>Fin du contrat : {{dernier_jour}}, au plus tôt le lendemain de l’homologation</li><li>Indemnité spécifique de rupture : {{indemnite_rupture}}, au moins égale à l’indemnité légale de licenciement</li></ul>',
+        'Chaque partie dispose d’un délai de rétractation de 15 jours calendaires à compter de la signature. La demande d’homologation est adressée à la DREETS à l’issue de ce délai ; elle dispose de 15 jours ouvrables pour répondre. Un exemplaire signé est remis à chaque partie.') + SIG + '<p class="sig">Signature du salarié, précédée de la mention « lu et approuvé »</p>',
+      required: [['dernier_jour', 'Fin du contrat'], ['indemnite_rupture', 'Indemnité spécifique'], ['kw:rétractation', 'Délai de rétractation']] },
+    'lettre-retraite': { label: 'Lettre de mise à la retraite', group: 'Courriers de sortie', kind: 'doc', title: DOC_LABEL['lettre-retraite'], hint: 'À 70 ans, ou dès 67 ans avec l’accord du salarié (art. L1237-5)', fields: [{ id: 'accord', label: 'Date de l’accord du salarié (avant 70 ans)' }],
+      body: paras('{{salarie}},', 'Vous aurez {{age_fin}} ans à la fin de votre contrat. Conformément à l’article L1237-5 du Code du travail, nous vous informons de votre mise à la retraite. Votre préavis de {{preavis}} prend fin le {{dernier_jour}}, date de fin de votre contrat.',
+        'Vous percevrez une indemnité de mise à la retraite de {{indemnite_rupture}}, au moins égale à l’indemnité légale de licenciement.', 'Avant 70 ans, la mise à la retraite suppose votre accord, donné le {{saisie:accord}}.') + SIG,
+      required: [['age_fin', 'Âge du salarié'], ['kw:L1237-5', 'Fondement légal']] },
+    'notice-portabilite': { label: 'Notice de portabilité', group: 'Courriers de sortie', kind: 'doc', title: DOC_LABEL['notice-portabilite'], hint: 'Durée du dernier contrat, 12 mois au plus (art. L911-8 CSS)', fields: [{ id: 'organisme', label: 'Organisme assureur (mutuelle, prévoyance)' }],
+      body: paras('{{salarie}},', 'À la fin de votre contrat, le {{dernier_jour}}, vous conservez gratuitement vos garanties de complémentaire santé et de prévoyance pendant {{portabilite_duree}} : la durée de votre dernier contrat, dans la limite de 12 mois, si vous êtes indemnisé·e par l’assurance chômage (art. L911-8 du Code de la sécurité sociale). Ce maintien n’est pas ouvert en cas de licenciement pour faute lourde.',
+        'Pour en bénéficier, transmettez à votre organisme assureur ({{saisie:organisme}}) le justificatif de votre prise en charge par France Travail.') + SIG,
+      required: [['portabilite_duree', 'Durée du maintien'], ['kw:12 mois', 'Limite de 12 mois']] },
+    'attestation-stage': { label: 'Attestation de stage', group: 'Courriers de sortie', kind: 'doc', title: DOC_LABEL['attestation-stage'], hint: 'Remise au stagiaire à la fin du stage', fields: [{ id: 'duree', label: 'Durée effective du stage' }, { id: 'gratification', label: 'Montant total de la gratification versée' }],
+      body: paras('Je soussigné·e {{signataire}}, {{signataire_titre}} de la société {{entreprise}}, atteste que {{salarie}} a effectué un stage au sein du service {{service}} du {{date_entree}} au {{dernier_jour}}, en qualité de {{poste}}.', 'Durée effective du stage : {{saisie:duree}}. Montant total de la gratification versée : {{saisie:gratification}}.') + SIG,
+      required: [['dernier_jour', 'Fin du stage'], ['saisie:duree', 'Durée effective'], ['saisie:gratification', 'Gratification versée']] },
     proposition: { label: 'Proposition d’embauche (lettre)', group: 'Courriers aux candidats', kind: 'doc', title: 'Proposition d’embauche',
       body: paras('<b>À l’attention de {{candidat}}</b>', '<b>Objet : proposition d’embauche – offre de contrat de travail</b>', 'Madame, Monsieur,', 'Suite à nos échanges, nous avons le plaisir de vous proposer de rejoindre {{entreprise}} aux conditions suivantes :',
         '<ul><li>Poste : {{offre}}, au sein du service {{offre_service}}, rattaché à {{proposition_manager}}</li><li>Contrat : {{proposition_contrat}}</li><li>Statut et durée du travail : {{proposition_statut}}</li><li>Lieu de travail : {{offre_lieu}}</li><li>Rémunération annuelle brute : {{proposition_salaire}}, versée en 12 mensualités</li><li>Date d’entrée : {{proposition_date_entree}}</li><li>Période d’essai : {{proposition_essai}}</li></ul>',
@@ -6320,30 +6727,34 @@
     'msg-opportunite': { label: 'Nouvelle opportunité (vivier)', group: 'Courriers aux candidats', kind: 'msg', subject: 'Une nouvelle opportunité chez {{entreprise}}',
       body: paras('Bonjour {{candidat_prenom}},', 'Votre profil nous a marqués lors d’un précédent recrutement. Le poste de {{offre}} pourrait vous intéresser : seriez-vous disponible pour en parler ?', 'L’équipe RH de {{entreprise}}') },
   };
-  const TPL_GROUPS = ['Documents salariés', 'Courriers aux candidats'];
+  const TPL_GROUPS = ['Documents salariés', 'Courriers de sortie', 'Courriers aux candidats'];
   // Modèle en vigueur : version enregistrée par les RH, sinon le modèle d'origine.
   function tplOf(key) {
     const base = DEFAULT_TPL[key], own = (db.templates || {})[key];
     return Object.assign({ fields: [], required: [], v: 1, versions: [] }, base, own ? { body: own.body, subject: own.subject ?? base.subject, fields: own.fields, v: own.v, versions: own.versions, title: own.title || base.title } : {});
   }
   const CONTRACT_TPL = { CDI: 'contrat-cdi', CDD: 'contrat-cdd', Alternance: 'contrat-apprentissage', Stage: 'convention-stage' };
-  const tplKeyFor = (kind, e) => (kind === 'contrat' ? CONTRACT_TPL[e.contract] || 'contrat-cdi' : kind);
+  // Attestation demandée par un ancien salarié : modèle au passé (« a été employé·e du … au … »).
+  const tplKeyFor = (kind, e) => (kind === 'contrat' ? CONTRACT_TPL[e.contract] || 'contrat-cdi' : kind === 'attestation' && e && e.stage >= 15 ? 'attestation-ancien' : kind);
   // Valeurs des champs automatiques pour un salarié (et un document) ou un candidat.
   function docCtx(e, d = {}) {
     const rh = emp(db.settings.company.signataire) || emp('e1'), t = e && trialInfo(e), m = e && e.exit;
     const ctx = Object.assign({}, COMPANY, { signataire: fullName(rh), signataire_titre: rh.title, date_jour: longDate(d.date || TODAY) });
     if (e) Object.assign(ctx, { salarie: fullName(e), prenom: e.firstName, nom: e.lastName, naissance: longDate(e.birthDate), nationalite: e.nationality, adresse: e.address, poste: e.title, service: e.dept, manager: e.managerId ? fullName(emp(e.managerId)) : '',
       contrat: e.contract, categorie: e.category, salaire: eur0(e.salary), salaire_mensuel: eur(e.salary / 12), date_entree: longDate(e.startDate), date_fin: longDate(e.endDate), lieu: e.location, essai: t ? t.label : 'aucune', essai_fin: t ? longDate(t.end) : '',
-      anciennete: seniority(e.startDate), dernier_jour: m ? longDate(m.lastDay) : '', motif_depart: m ? m.reason : '' }, arrivalCtx(e));
+      anciennete: seniority(e.startDate, m && m.lastDay ? m.lastDay : TODAY), dernier_jour: m ? longDate(m.lastDay) : '', motif_depart: m ? m.reason : '', emplois: jobsHeld(e, m && m.lastDay ? m.lastDay : TODAY) }, arrivalCtx(e));
+    if (e && m) Object.assign(ctx, exitCtx(e));
     // Valeurs propres au document (courriers de la période d'essai, DPAE…), calculées à sa création.
     if (d.vars) Object.assign(ctx, d.vars);
     if (d.data) Object.assign(ctx, { nouveau_poste: d.data.title, nouveau_service: d.data.dept, nouveau_salaire: eur0(d.data.salary), date_effet: longDate(d.data.effective) });
     if (e && d.kind === 'solde') {
-      const lastM = monthKey(m ? m.lastDay : TODAY), p = calcPay(e, lastM), ind = exitIndemnities(e);
-      const rows = [[`Salaire du dernier mois (${monthLabel(lastM).toLowerCase()})`, p.gross], [`Indemnité compensatrice de congés payés (${e.cp} j)`, ind.cpPay]].concat(ind.legal ? [['Indemnité de rupture', ind.legal]] : [], ind.precarite ? [['Indemnité de fin de contrat (10 %)', ind.precarite]] : []);
+      // Inventaire des sommes (art. L1234-20) : le brut du dernier mois contient déjà l'ICCP et l'indemnité de fin de CDD, retirées ici pour ne pas les compter deux fois.
+      const lastM = monthKey(m ? m.lastDay : TODAY), p = calcPay(e, lastM), ind = exitIndemnities(e), sal = p.gross - (p.exitGross || 0);
+      const rows = [[`Salaire et accessoires du dernier mois (${monthLabel(lastM).toLowerCase()})${ind.noticePay ? ', préavis non exécuté compris' : ''}`, sal], [`Indemnité compensatrice de congés payés (${String(ind.cp.days).replace('.', ',')} j, ${ind.cp.method})`, ind.cpPay]]
+        .concat(ind.precarite ? [['Indemnité de fin de contrat (10 %)', ind.precarite]] : [], ind.rupture ? [[`Indemnité ${isRC(m.reason) ? 'spécifique de rupture conventionnelle' : m.reason === 'Mise à la retraite' ? 'de mise à la retraite' : 'de licenciement'}`, ind.rupture]] : [], ind.retraite ? [['Indemnité de départ à la retraite', ind.retraite]] : []);
       const tot = rows.reduce((s, r) => s + r[1], 0);
-      ctx.solde_total = eur(tot);
-      ctx.solde_detail = { html: `<table><tbody>${rows.map(([l, v]) => `<tr><td>${esc(l)}</td><td class="r num">${eur(v)}</td></tr>`).join('')}<tr><td><b>Total brut</b></td><td class="r num"><b>${eur(tot)}</b></td></tr></tbody></table>` };
+      ctx.solde_total = `${eur(tot)} (montant brut)`;
+      ctx.solde_detail = { html: `<table><tbody>${rows.map(([l, v]) => `<tr><td>${esc(l)}</td><td class="r num">${eur(v)}</td></tr>`).join('')}<tr><td><b>Total des sommes versées (brut)</b></td><td class="r num"><b>${eur(tot)}</b></td></tr></tbody></table>` };
     }
     return ctx;
   }
@@ -6414,6 +6825,8 @@
     ensureDocHtml(d);
     const gaps = docGaps(d.html || ''); if (gaps.length) return `Complétez d’abord : ${gaps.slice(0, 3).join(', ')}${gaps.length > 3 ? '…' : ''}.`;
     const e = emp(d.empId), x = e && db.onboarding && db.onboarding[e.id];
+    // Documents de fin de contrat : remis à l'expiration du contrat, pas avant (art. L1234-19).
+    if (['certificat', 'solde', 'france-travail', 'attestation-stage'].includes(d.kind) && e && e.exit && e.exit.lastDay > TODAY) return `Document de fin de contrat : à remettre à la fin du contrat, le ${fmtDateY(e.exit.lastDay)}, pas avant.`;
     d.html = unmark(d.html); d.issuedAt = TODAY; d.issuedBy = me().id;
     if (d.kind === 'contrat') {
       // Contrôle du salaire à l'envoi (SMIC bloquant) ; l'envoi vaut signature de l'employeur par le signataire RH.
@@ -6729,12 +7142,6 @@
         ${f('e-phone', 'Téléphone', `<input id="e-phone" name="phone" class="input" value="${esc(e.phone)}">`)}${f('e-loc', 'Lieu de travail', `<select id="e-loc" name="location" class="select">${opt(SITES().concat(['Télétravail majoritaire']), e.location)}</select>`)}
         ${m.id ? '' : f('e-stage', 'Situation', `<select id="e-stage" name="stage" class="select">${opt([[2, 'Arrivée (pré-embauche et embauche)'], [4, 'Intégration']].map(([v, l]) => [String(v), l]), '2')}</select>`, true)}</div>`, m.id ? 'Enregistrer' : 'Ajouter', true);
     }
-    if (m.type === 'exit') {
-      const e = emp(m.id);
-      return formShell(`Départ de ${esc(fullName(e))}`, 'exit', `<p class="muted" style="margin:0">Le départ est lancé : préavis, documents de sortie et restitution du matériel.</p><div class="form-grid">
-        ${f('x-reason', 'Motif', `<select id="x-reason" name="reason" class="select" data-live="exit">${EXIT_GROUPS.map(([g, l]) => `<optgroup label="${g}">${l.map((r) => `<option ${r === exitDefault(e) ? 'selected' : ''}>${r}</option>`).join('')}</optgroup>`).join('')}</select>`)}${f('x-day', 'Dernier jour travaillé', `<input id="x-day" name="lastDay" type="date" class="input" value="${addDays(TODAY, 30)}">`)}
-        ${f('x-comment', 'Commentaire (facultatif)', '<input id="x-comment" name="comment" class="input" maxlength="140">', true)}</div><p class="hint" id="x-info" style="margin:10px 0 0">${exitHint(e, exitDefault(e))}</p>`, 'Démarrer le départ');
-    }
     if (m.type === 'refuse') {
       const l = db.leaves.find((x) => x.id === m.id), e = emp(l.empId);
       return formShell('Refuser la demande', 'refuse', `<p style="margin:0">${esc(fullName(e))} · ${esc(typeLabel(l))} du ${fmtShort(l.start)} au ${fmtDate(l.end)} (${plural(l.days, 'jour', 'jours')}).</p>${f('r-why', 'Motif communiqué au collaborateur (obligatoire)', `<input id="r-why" name="why" class="input" maxlength="160" required value="${esc(m.why || '')}" placeholder="Ex. période de livraison, merci de décaler d’une semaine">`, true)}`, 'Refuser la demande');
@@ -6852,7 +7259,8 @@
     db.journey[e.id] = db.journey[e.id] || {};
     db.journey[e.id][e.stage] = stageSteps(e.stage).map(() => true);
     e.stage = inArrival(e) ? 4 : e.stage + 1;
-    if (e.stage === 14) ['certificat', 'solde', 'france-travail'].forEach((k) => { if (!db.documents.some((d) => d.empId === e.id && d.kind === k)) addDoc(e.id, k); });
+    if (e.stage === 14) { const ld = e.exit && e.exit.lastDay, date = ld && ld > TODAY ? ld : TODAY; ['certificat', 'solde', 'france-travail'].forEach((k) => { if (!db.documents.some((d) => d.empId === e.id && d.kind === k)) addDoc(e.id, k, { date }); }); }
+    if (e.stage === 15) closeExit(e);
     notify(e.id, `Votre départ : ${STAGES[e.stage].title.toLowerCase()}.`);
     if (e.managerId && e.managerId !== me().id) notify(e.managerId, `Départ de ${fullName(e)} : ${STAGES[e.stage].short.toLowerCase()}.`);
     toast(`Départ de ${fullName(e)} : ${STAGES[e.stage].short.toLowerCase()}`);
@@ -6910,6 +7318,9 @@
       const e = emp(d.id); if (!e || e.stage >= 15) return;
       if (e.stage < 13 || !STAGES[e.stage + 1]) { advance(d.id); return; }
       const nx = STAGES[e.stage + 1], out = e.stage + 1 === 15, x = e.exit || {}, steps = stageSteps(e.stage), done = journeyOf(e.id, e.stage), left = steps.filter((_, k) => !done[k]);
+      // Tronçon Départ : pas de sortie avant la fin du contrat, l'homologation d'une rupture conventionnelle, la lettre de licenciement et les documents préparés.
+      const stop = out ? exitBlockers(e) : [];
+      if (stop.length) { ui.modal = { type: 'exit-blocked', id: e.id, items: stop }; render(); return; }
       confirmAct({ title: out ? `Enregistrer la sortie de ${esc(fullName(e))} ?` : `Passer à l’étape « ${esc(nx.short)} » pour ${esc(fullName(e))} ?`, act: 'advance', trace: `Étape du départ franchie : ${nx.short}`, empId: e.id, danger: out,
         confirm: out ? 'Confirmer la sortie' : `Passer à « ${esc(nx.short)} »`,
         text: `<p>${out ? 'Le collaborateur passe « Sorti » : son dossier rejoint l’après-départ.' : 'Les documents de sortie (certificat de travail, reçu pour solde de tout compte, attestation France Travail) sont préparés en brouillon.'}</p>`
@@ -6967,7 +7378,6 @@
     q(v) { ui.q = v; const list = filteredEmployees(); document.getElementById('emp-table').innerHTML = empTable(list); document.getElementById('emp-count').textContent = plural(list.length, 'collaborateur', 'collaborateurs'); },
   };
   const LIVE = {
-    exit(form) { const el = document.getElementById('x-info'); if (el) el.textContent = exitHint(emp(ui.modal.id), form.elements.namedItem('reason').value); },
     leave(form) { const fd = new FormData(form); leaveFormSync(form, 'lv'); document.getElementById('lv-preview').innerHTML = leavePreview(fd.get('type'), fd.get('start'), fd.get('end'), me(), fd.get('event'), !!fd.get('young')); },
   };
   const FORMS = {
@@ -7003,15 +7413,6 @@
         toast(`${data.firstName} ${data.lastName} ajouté·e (${STAGES[Number(v.stage)].short.toLowerCase()})`);
       }
       ui.modal = null; commit();
-    },
-    exit(v) {
-      if (!v.lastDay) return formError('Indiquez le dernier jour travaillé.');
-      const e = emp(ui.modal.id);
-      e.exit = { reason: v.reason, lastDay: v.lastDay, comment: (v.comment || '').trim() }; offb(e).notifiedAt = TODAY;
-      e.stage = 13; db.journey[e.id] = db.journey[e.id] || {}; db.journey[e.id][13] = [true, false, false, false, false];
-      notify(e.id, `Votre départ est enregistré : dernier jour le ${fmtDate(v.lastDay)}.`);
-      if (e.managerId) notify(e.managerId, `Départ de ${fullName(e)} (${v.reason}) le ${fmtDate(v.lastDay)}.`);
-      ui.modal = null; ui.drawer.tab = 'infos'; toast(`Départ de ${fullName(e)} lancé`); commit();
     },
     async cand(v) {
       if (!v.name.trim()) return formError('Indiquez le nom du candidat.');
@@ -7330,7 +7731,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
     window.scrollTo(0, 0); render(); toast(t === 'new' ? 'Nouvelle entreprise : suis l’assistant pour paramétrer Teamora' : 'Retour à la démo Nova Studio');
   }
   normalizeSettings(); applySettings(); normalizeCompliance();
-  normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); applyDueSalaries(); applyDueManagers(); applyDueChanges(); purgeCandidates(); syncArrivals(); arrivalReminders(); needReminders(); save();
+  normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); applyDueSalaries(); applyDueManagers(); applyDueChanges(); purgeCandidates(); purgeLeavers(); syncArrivals(); arrivalReminders(); needReminders(); save();
   // Les nouveautés ne s'ouvrent plus d'elles-mêmes (un testeur arrive directement dans l'application) : bouton « Nouveautés de la V3 » en bas de page.
 
   // ================================================================ V2 · Recherche de salarié
@@ -7395,5 +7796,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
   if (window.TEAMORA_TEST === true) Object.assign(window.__teamoraTest, { nirCheck, trialNotice, breakQuote, sha256, arrivalCtx, docPDF, trialOver, trialInfo, dpaeChecks });
   // Tests du tronçon « vie en poste » : calcul des bulletins et des compteurs.
   if (window.TEAMORA_TEST === true) Object.assign(window.__teamoraTest, { calcPay: (id, m) => calcPay(emp(id), m), calcPayLive: (id, m) => calcPayLive(emp(id), m), cpAcquired: (id, d) => cpAcquired(emp(id), d), maintienRate: (id, lid, d) => maintienRate(emp(id), db.leaves.find((l) => l.id === lid), d), isForfait: (id) => isForfait(emp(id)), avg12: (id) => avg12(emp(id)) });
+  // Tests du tronçon « départ » : préavis, indemnités, calendrier de rupture conventionnelle.
+  if (window.TEAMORA_TEST === true) Object.assign(window.__teamoraTest, { rcCalendar, exitIndemnities, cpExit, refSalary, noticeInfo, noticeEndOf, exitChecks, exitBlockers, licInterviewMin, licLetterMin });
   if (DEMO) { let seen = false; try { seen = !!localStorage.getItem(TOUR_KEY); } catch (e) { /* ignore */ } if (!seen) setTimeout(tourStart, 500); }
 })();

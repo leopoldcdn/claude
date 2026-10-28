@@ -2323,6 +2323,10 @@
       ['Obligations selon l’effectif', 'Pictogramme dans le bandeau (RH) : chaque obligation avec son seuil, sa règle de franchissement (immédiat, 12 mois consécutifs, 5 ans), son état et l’écran où la traiter.', 'apercu'],
       ['Alertes', 'Seuil qui approche, obligation qui entre en vigueur (notification aux RH et à la Direction), échéances : elles arrivent dans « À traiter ».', 'apercu'],
       ['Simulation', 'Pour la démo : simuler un effectif (60, 300, 1 200…) et voir le logiciel s’adapter.', 'apercu']]],
+    ['Après le test du parcours', [['Recrutement', 'CDD motivé dès le besoin (cas de recours, motif, personne remplacée), salaire comparé au SMIC et au minimum Syntec, annonce sans terme discriminant, vivier avec consentement, proposition qui engage l’entreprise.', 'besoins'],
+      ['Arrivée', 'Période d’essai bornée par la convention, CDD motivé dans le contrat, forfait jours signé, DPAE et registre contrôlés, signature de l’employeur, PDF téléchargeable, signature possible sur téléphone après lecture complète.', ''],
+      ['Vie en poste', 'Jours fériés et jours ouvrés exacts, bulletins figés une fois diffusés, heures supplémentaires et maintien de salaire, avenants à signer, procédure disciplinaire guidée.', ''],
+      ['Départ', 'Solde de tout compte exact (indemnités, congés, préavis), sortie bloquée tant qu’il manque une pièce, procédures de licenciement et de rupture conventionnelle datées, dossiers archivés puis purgés.', '']]],
     ['Sur téléphone', [['Espace salarié mobile', 'Sur téléphone, le salarié retrouve l’essentiel : absences et heures, bulletins, profil, documents et annuaire, échanges RH et alerte, baromètre, visites médicales, accidents ; la nouvelle recrue dépose ses pièces en photo. Entretiens, formations et contrat s’y consultent ; le reste et la gestion RH ou manager restent sur ordinateur.', '']]],
     ['Recrutement', [['Rédaction partagée de l’offre', 'Le manager qui a émis le besoin et les RH rédigent ensemble l’offre ; le manager l’envoie aux RH, qui seuls la valident et la publient.', 'besoins']]],
     ['Paramètres', [['Toutes les conventions collectives', 'Recherche parmi 673 conventions par nom ou numéro IDCC (Paramètres > Convention). Hors Syntec, les minima du Code du travail s’appliquent jusqu’à la saisie des règles de la convention (essai, préavis, maintien de salaire).', 'param']]],
@@ -2441,14 +2445,6 @@
       if (fixed && v.endDate <= v.startDate) return formError('La date de fin doit suivre la date d’arrivée.');
       if (v.contract === 'CDD' && v.endDate > addDays(addMonths(v.startDate, 18), -1)) return formError('Un CDD ne peut pas dépasser 18 mois, renouvellements compris (cas général).');
       if (v.contract === 'Stage' && v.endDate > addDays(addMonths(v.startDate, 6), -1)) return formError('Un stage ne peut pas dépasser 6 mois par année d’enseignement.');
-      // CDD : cas de recours, motif et personne remplacée (le terme est la date de fin contrôlée ci-dessus).
-      const cs = v.contract === 'CDD' && cddCase(v.cddCase);
-      if (v.contract === 'CDD') {
-        if (!cs) return formError('CDD : choisissez le cas de recours (art. L1242-2).');
-        if ((v.cddReason || '').trim().length < 10) return formError('CDD : précisez le motif du recours ; il figurera dans le contrat.');
-        if (cs.repl && !v.cddReplaces) return formError('CDD de remplacement : indiquez la personne remplacée.');
-      }
-      if (v.contract === 'CDD' && v.endDate > addDays(addMonths(v.startDate, cs.max), -1)) return formError(`Ce cas de recours limite le CDD à ${cs.max} mois, renouvellements compris.`);
       if (!(salary >= 0) || (v.contract !== 'Stage' && !(salary > 0))) return formError('Indiquez un salaire annuel brut supérieur à 0 €.');
       if (v.contract === 'Stage' && v.endDate > addDays(addMonths(v.startDate, 2), -1) && salary / 12 < STAGE_FREE) return formError(`Stage de plus de 2 mois : gratification obligatoire d’au moins ${eur(STAGE_FREE)} par mois, soit ${eur0(STAGE_FREE * 12)} par an.`);
       // CDD : cas de recours, motif précis et personne remplacée (art. L1242-2 et L1242-12) ; sans eux, le contrat est réputé à durée indéterminée.
@@ -2458,6 +2454,7 @@
         if (cddReplace(cdd.reason) && (!cdd.replaced || !cdd.replacedQual)) return formError('CDD de remplacement : indiquez le nom et la qualification de la personne remplacée (art. L1242-12).');
         if (!cddReplace(cdd.reason) && cdd.detail.length < 5) return formError('CDD : précisez le motif (ex. la commande ou le projet qui justifie le surcroît d’activité).');
         if (cdd.imprecise && !/^Remplacement|^Attente|saisonnier|d’usage/.test(cdd.reason)) return formError('Un terme imprécis n’est possible que pour un remplacement, un emploi saisonnier ou d’usage : indiquez une date de fin précise.');
+        if (/^Attente/.test(cdd.reason) && v.endDate > addDays(addMonths(v.startDate, 9), -1)) return formError('CDD dans l’attente de l’entrée en service d’un salarié en CDI : 9 mois au plus (art. L1242-8-1).');
       }
       // Stage : tuteur obligatoire.
       if (v.contract === 'Stage' && !v.managerId) return formError('Stage : désignez le tuteur ou la tutrice dans l’entreprise (obligatoire).');

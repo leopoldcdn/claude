@@ -22,6 +22,30 @@
   La fenêtre des nouveautés ne s'ouvre plus d'elle-même, dans aucune des deux versions. Les anciennes pages V1 et V2 ont été
   supprimées de claude.ai ; leur code reste dans `logiciel-rh/` et `logiciel-rh-v2/`.
 
+## Corrections après le test du parcours collaborateur (octobre 2026)
+
+Le test complet, du besoin de recrutement à l'après-départ, a relevé 129 constats (rapport :
+`reports/Test parcours collaborateur Teamora V3.md`). 114 sont corrigés, 14 en partie, 1 non corrigé (la roue d'accueil).
+
+- **Socle commun** : jours fériés et jours ouvrés / ouvrables, contrôle du salaire (SMIC bloquant, minimum Syntec en alerte),
+  fenêtre de confirmation avec trace au journal, dates affichées avec l'année quand elle diffère.
+- **Recrutement** : CDD motivé dès le besoin (cas de recours, motif, personne remplacée, durée maximale selon le cas),
+  statut et durée du travail dans le besoin et l'offre, annonce relue (termes discriminants, rémunération), vivier sur
+  consentement, courriers aux candidats, proposition engageante reprise dans la fiche de la recrue.
+- **Arrivée** : période d'essai bornée, motif du CDD et clause de renouvellement dans le contrat, convention de forfait jours
+  signée avec le contrat (`e.forfait = { date }`), DPAE et registre contrôlés, signature de l'employeur à l'envoi,
+  empreinte SHA-256 du contrat signé, PDF téléchargeable, signature sur téléphone après lecture complète.
+- **Vie en poste** : bulletins figés une fois diffusés (`calcPay` lit le bulletin figé, `calcPayLive` le calcule),
+  heures supplémentaires et réductions, maintien de salaire, avenants envoyés pour signature, temps partiel complet,
+  convocation et notification de sanction.
+- **Départ** : solde de tout compte exact, préavis et indemnités par motif, contribution patronale sur l'indemnité de rupture
+  conventionnelle, blocages de clôture, courriers de sortie, priorité de réembauche signalée à l'ouverture d'une offre,
+  fiche archivée invisible du manager puis purgée à 5 ans.
+
+Restent partiels : diffusion réelle des annonces, signature électronique qualifiée (eIDAS), vraie DSN et attestation France
+Travail, registre RGPD, saisie des horaires (repos de 11 h), valeurs 2026 du SMIC et de la gratification de stage. Les règles
+marquées `// À VÉRIFIER (juriste)` dans le code sont à faire valider.
+
 ## Ce qui change par rapport à la V2
 
 ### Le socle

@@ -239,7 +239,8 @@
   const backupFor = (m) => (db.settings && db.settings.conges.backup === false ? [] : db.employees.filter((x) => x.managerId === m.id && isAway(x)).flatMap((x) => db.employees.filter((y) => y.managerId === x.id && y.stage < 15)));
   const backupOf = (e) => { const ap = approverOf(e); if (db.settings && db.settings.conges.backup === false) return null; return isAway(ap) && ap.managerId ? emp(ap.managerId) : null; };
 
-  function notify(to, text) { if (to) db.notifications.unshift({ id: uid('n'), to, text, date: TODAY, read: false }); }
+  // Une date abrégée en fin de phrase (« 2 nov. ») ne reçoit pas de second point.
+  function notify(to, text) { if (to) db.notifications.unshift({ id: uid('n'), to, text: String(text).replace(/([^.])\.\.(?=\s|$)/g, '$1.'), date: TODAY, read: false }); }
   function toast(msg, kind = 'ok') {
     const box = document.getElementById('toasts');
     const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status');
@@ -273,7 +274,15 @@
       if (e.sex === undefined) e.sex = null; if (!e.family) e.family = 'Célibataire'; if (e.iban === undefined) e.iban = '—';
       if (e.registeredAt === undefined) e.registeredAt = e.stage >= 3 ? e.startDate : null;
     });
+    normalizeVie();
   }
+  // Vie en poste : forfait jours individuel (convention signée ; sans elle, le cadre déclare ses heures), réponses du baromètre sans nom, bulletins diffusés figés.
+  function normalizeVie() {
+    db.employees.forEach((e) => { if (e.forfait === undefined) e.forfait = null; if (e.forfait && e.category !== 'Cadre') e.forfait = null; });
+    (db.survey || []).forEach((r) => { if (r.empId) { const x = emp(r.empId); r.dept = x ? x.dept : r.dept; r.mgr = x ? x.managerId : r.mgr; db.surveyDone = db.surveyDone || []; if (!db.surveyDone.includes(`${r.month}:${r.empId}`)) db.surveyDone.push(`${r.month}:${r.empId}`); delete r.empId; } });
+    if (db.payroll) freezePayroll();
+  }
+
   // Un contrat déclaré signé sans document (données importées ou signature sur papier ancienne) reçoit son exemplaire, figé, pour rester consultable.
   function ensureSignedContracts() {
     Object.entries(db.onboarding || {}).forEach(([id, d]) => {
@@ -351,32 +360,66 @@
     const start = m + '-01', end = monthEnd(m), clip = (l) => [l.start < start ? start : l.start, l.end > end ? end : l.end];
     const list = db.leaves.filter((l) => l.empId === e.id && l.status === 'Approuvée' && l.start <= end && l.end >= start);
     const days = (t) => list.filter((l) => l.type === t).reduce((s, l) => { const [a, b] = clip(l); return s + workDays(a, b); }, 0);
-    const sick = list.filter((l) => IJ_TYPES.includes(l.type)).map((l) => { const [a, b] = clip(l), carenceEnd = addDays(l.start, 2);
+    const sick = list.filter((l) => IJ_TYPES.includes(l.type)).map((l) => { let [a, b] = clip(l); const carenceEnd = addDays(l.start, 2);
+      // Accident du travail : la journée de l'accident est payée intégralement par l'employeur (art. L433-1 CSS) ; l'arrêt n'est décompté qu'à partir du lendemain.
+      const accDay = l.type === 'Accident du travail' && l.accidentDate && l.accidentDate >= a && l.accidentDate <= b ? l.accidentDate : null;
+      if (accDay && a === accDay) a = addDays(a, 1);
+      if (a > b) return null;
       // Carence de 3 jours pour la maladie seulement (accident du travail, maternité et paternité : aucune).
       const cal = dayDiff(a, b) + 1, carence = l.type !== 'Maladie' ? 0 : Math.max(0, Math.min(cal, dayDiff(a, carenceEnd < b ? carenceEnd : b) + 1)) * (a <= carenceEnd ? 1 : 0);
-      return { l, from: a, to: b, work: workDays(a, b), cal, carence, paid: cal - carence }; });
+      return { l, from: a, to: b, work: workDays(a, b), cal, carence, paid: cal - carence, accDay }; }).filter(Boolean);
     return { cp: days('Congés payés'), rtt: days('RTT'), tt: days('Télétravail'), unpaid: days('Sans solde') + days('Congé parental') + days('Enfant malade'), fam: days('Événement familial'), sick };
   }
+  // Maintien de salaire par l'employeur pendant un arrêt (indemnités journalières déduites) : délai d'attente et paliers [durée en jours calendaires, taux].
+  // Code du travail (L1226-1, D1226-1 à D1226-3) : 7 jours d'attente sauf accident du travail ; 90 % pendant 30 jours puis 66,66 % pendant 30 jours,
+  // chaque palier allongé de 10 jours par tranche de 5 ans d'ancienneté au-delà d'un an (90 jours au plus).
+  // À VÉRIFIER (juriste) : barème Syntec retenu à titre indicatif — ETAM de 1 à 5 ans : 1 mois à 100 % puis 2 mois à 80 % ; ETAM de plus de 5 ans : 2 mois à 100 % puis 1 mois à 80 % ;
+  // cadres : 3 mois à 100 % ; sans délai d'attente. Les durées sont appréciées arrêt par arrêt (le cumul des arrêts sur 12 mois n'est pas géré).
+  function maintienTiers(e, l) {
+    const yrs = Math.floor(dayDiff(e.startDate, l.start) / 365.25);
+    if (CONV().kind === 'syntec') return e.category === 'Cadre' ? { wait: 0, tiers: [[90, 1]] } : { wait: 0, tiers: yrs >= 5 ? [[60, 1], [30, 0.8]] : [[30, 1], [60, 0.8]] };
+    const ext = Math.min(60, Math.max(0, Math.floor((yrs - 1) / 5)) * 10);
+    return { wait: l.type === 'Accident du travail' ? 0 : 7, tiers: [[30 + ext, 0.9], [30 + ext, 2 / 3]] };
+  }
+  const maintienRate = (e, l, day) => { const t = maintienTiers(e, l); let n = dayDiff(l.start, day) - t.wait; if (n < 0) return 0; for (const [len, r] of t.tiers) { if (n < len) return r; n -= len; } return 0; };
+  // Bulletin du mois : figé dès sa diffusion (le bulletin remis ne change plus), sinon calculé.
   function calcPay(e, m) {
-    const start = m + '-01', end = monthEnd(m), quot = ((e.changeNext && e.changeNext.from <= `${m}-01` ? e.changeNext.quotite : e.quotite) || 100) / 100, sal = salaryAt(e, m) * quot, monthly = sal / 12, wd = Math.max(1, workDays(start, end));
+    const fz = db.payroll && db.payroll[m] && db.payroll[m].closed && (db.payroll[m].frozen || {})[e.id];
+    return fz || calcPayLive(e, m);
+  }
+  function calcPayLive(e, m) {
+    const start = m + '-01', end = monthEnd(m), quot = ((e.changeNext && !e.changeNext.pendingSig && e.changeNext.from <= `${m}-01` ? e.changeNext.quotite : e.quotite) || 100) / 100, sal = salaryAt(e, m) * quot, monthly = sal / 12, wd = Math.max(1, workDays(start, end));
     let base = monthly;
     if (e.startDate > start) base *= workDays(e.startDate, end) / wd;
     if (e.exit && e.exit.lastDay < end) base *= workDays(start, e.exit.lastDay) / wd;
     const x = payExtra(m, e.id), pr = payrollOf(m), d = dossierLight(e);
     const bonus = Number(pr.bonus[e.id] || 0), ppv = Number((pr.ppv || {})[e.id] || 0);
     const ot = overtimePay(Object.assign({}, e, { salary: sal }), m), abs = absencesOf(e, m);
-    // Absences : retenue, indemnités journalières (50 % du salaire journalier, après 3 jours de carence) et maintien de salaire après l'ancienneté prévue par la convention (1 an au plus).
-    const daily = monthly / wd, ijDay = Math.min((sal / 365) * 0.5, (1.8 * SMIC_M * 3 / 91.25) * 0.5), senior = start >= addMonths(e.startDate, CONV().rules.maintien);
-    const earn = [[quot < 1 ? `Salaire de base · temps partiel ${Math.round(quot * 100)} %` : 'Salaire de base', e.category === 'Cadre' ? `Forfait ${Math.round(218 * quot)} jours` : `${String(Math.round(HOURS_M * quot * 100) / 100).replace('.', ',')} h`, '', base]];
+    // Absences : retenue, indemnités journalières et maintien de salaire selon l'ancienneté prévue par la convention (1 an au plus) et les paliers de maintienTiers.
+    // IJ maladie : 50 % du salaire journalier de base, après 3 jours de carence, plafonné à 1,4 SMIC ; accident du travail : 60 % puis 80 % à partir du 29e jour, sans carence.
+    // À VÉRIFIER (juriste) : plafonds 2026 (IJ maladie à 1,4 SMIC depuis avril 2025 ; IJ accident du travail à 0,834 % du plafond annuel de la Sécurité sociale).
+    const daily = monthly / wd, ijDay = Math.min((sal / 365) * 0.5, (1.4 * SMIC_M * 3 / 91.25) * 0.5), ijAT = (n) => Math.min(sal / 365, 0.00834 * PSS * 12) * (n < 28 ? 0.6 : 0.8);
+    const senior = (l) => l.start >= addMonths(e.startDate, CONV().rules.maintien);
+    const earn = [[quot < 1 ? `Salaire de base · temps partiel ${Math.round(quot * 100)} %` : 'Salaire de base', isForfait(e) ? `Forfait ${Math.round(FORFAIT_DAYS * quot)} jours` : `${String(Math.round(HOURS_M * quot * 100) / 100).replace('.', ',')} h`, '', base]];
     let ij = 0;
     abs.sick.forEach((s) => {
-      const ret = daily * s.work, ijs = ijDay * s.paid; ij += s.l.subrogation ? ijs : 0;
+      const ret = daily * s.work, at = s.l.type === 'Accident du travail', dayVal = ret / Math.max(1, s.cal);
+      // Indemnités journalières et complément employeur, jour par jour (le taux de maintien change avec la durée de l'arrêt).
+      let ijs = 0, comp = 0, rates = new Set();
+      for (let dd = s.from; dd <= s.to; dd = addDays(dd, 1)) {
+        const n = dayDiff(s.l.start, dd), ijd = at ? ijAT(n) : s.l.type === 'Maladie' && n < 3 ? 0 : ijDay; ijs += ijd;
+        const r = senior(s.l) ? maintienRate(e, s.l, dd) : 0; if (r) { comp += Math.max(0, dayVal * r - ijd); rates.add(Math.round(r * 100)); }
+      }
+      ij += s.l.subrogation ? ijs : 0;
+      if (s.accDay) earn.push([`Journée de l’accident du travail du ${fmtShort(s.accDay)} : payée par l’employeur`, '', '', 0]);
       earn.push([`Absence ${{ Maladie: 'maladie', 'Accident du travail': 'accident du travail', Maternité: 'congé de maternité', 'Paternité et accueil de l’enfant': 'congé de paternité' }[s.l.type] || 'maladie'} du ${fmtShort(s.from)} au ${fmtShort(s.to)}`, `${plural(s.work, 'jour', 'jours')}`, '', -ret]);
-      if (senior) earn.push([`Complément employeur (maintien de salaire${CONV().kind === 'code' ? ' légal' : ` ${CONV().short}`})`, '', '', Math.max(0, ret - ijs)]);
+      if (comp > 0.005) earn.push([`Complément employeur (maintien de salaire${CONV().kind === 'code' ? ' légal' : ` ${CONV().short}`}, ${[...rates].map((x) => `${x} %`).join(' puis ')})`, '', '', comp]);
     });
     if (abs.unpaid) earn.push(['Absence non rémunérée (sans solde, congé parental, enfant malade)', `${plural(abs.unpaid, 'jour', 'jours')}`, '', -daily * abs.unpaid]);
     if (ot.amount) earn.push([`Heures supplémentaires (${fmtH(ot.h25)} à 25 %${ot.h50 ? `, ${fmtH(ot.h50)} à 50 %` : ''})`, fmtH(ot.h25 + ot.h50), '', ot.amount]);
-    if (bonus) earn.push(['Prime exceptionnelle', '', '', bonus]);
+    if (bonus) earn.push([(pr.bonusKind || {})[e.id] || 'Prime exceptionnelle', '', '', bonus]);
+    // Régularisation : éléments d'un mois déjà diffusé validés après sa clôture (heures, absences), reportés sur le premier bulletin ouvert.
+    const regul = payRegul(e, m); regul.forEach((r) => earn.push([`Régularisation de ${monthLabel(r.m).toLowerCase()} (éléments validés après la clôture)`, '', '', r.amount]));
     // V2 · sortie dans le mois : indemnités soumises dans le brut, indemnité de rupture (exonérée dans la limite légale) dans les éléments non soumis.
     const xOut = e.exit && e.exit.lastDay >= start && e.exit.lastDay <= end && e.stage >= 13 ? exitIndemnities(e) : null;
     if (xOut && xOut.cpPay) earn.push([`Indemnité compensatrice de congés payés (${e.cp} j)`, '', '', xOut.cpPay]);
@@ -392,7 +435,8 @@
     const R = (group, label, baseV, ts, tp, fs = null, fp = null) => rows.push({ group, label, base: baseV, ts, tp, s: fs !== null ? fs : baseV * ts, p: fp !== null ? fp : baseV * tp });
     if (!stage || gross > STAGE_FREE) {
       const g = stage ? gross - STAGE_FREE : gross;
-      R('Santé', 'Sécurité sociale · maladie, maternité, invalidité, décès', g, 0, gross > 2.5 * SMIC_M ? 0.13 : 0.07);
+      // Taux réduit maladie jusqu'à 2,25 SMIC depuis 2025 (À VÉRIFIER, juriste : seuil 2026).
+      R('Santé', 'Sécurité sociale · maladie, maternité, invalidité, décès', g, 0, gross > 2.25 * SMIC_M ? 0.13 : 0.07);
       if (mut) R('Santé', 'Complémentaire santé (mutuelle)', null, 0, 0, mut.s, mut.p);
       if (cad) R('Santé', 'Prévoyance des cadres', T1, 0, 0.015);
       R('Accidents du travail · maladies professionnelles', 'Accidents du travail · maladies professionnelles', g, 0, 0.009);
@@ -411,13 +455,20 @@
       R('CSG · CRDS', 'CSG déductible de l’impôt sur le revenu', csgBase, 0.068, 0);
       R('CSG · CRDS', 'CSG et CRDS non déductibles de l’impôt sur le revenu', csgBase, 0.029, 0);
     }
+    // Heures supplémentaires : réduction des cotisations salariales (L241-17 CSS, 11,31 % ici), déduction forfaitaire patronale de 1,50 € par heure sous 20 salariés (L241-18 CSS),
+    // exonération d'impôt sur le revenu dans la limite de 7 500 € nets par an (art. 81 quater CGI). À VÉRIFIER (juriste) : taux et plafonds 2026.
+    if (ot.amount && rows.length) R('Retraite', 'Réduction de cotisations salariales sur heures supplémentaires', ot.amount, 0, 0, -Math.min(ot.amount * 0.1131, rows.reduce((s, r) => s + r.s, 0)), 0);
+    const otDed = ot.amount && effState().avg12 < 20 ? (ot.h25 + ot.h50) * 1.5 : 0;
     // Réduction générale des cotisations patronales (salaires inférieurs à 1,6 SMIC).
     const rg = gross > 0 && gross < 1.6 * SMIC_M && !stage ? Math.min(0.3194, (0.3194 / 0.6) * (1.6 * SMIC_M / gross - 1)) * gross : 0;
-    const salTot = rows.reduce((s, r) => s + r.s, 0), empTot = rows.reduce((s, r) => s + r.p, 0) - rg;
+    const salTot = rows.reduce((s, r) => s + r.s, 0), empTot = rows.reduce((s, r) => s + r.p, 0) - rg - otDed;
     const csgNd = rows.filter((r) => /non déductibles/.test(r.label)).reduce((s, r) => s + r.s, 0);
     const empHealth = (mut ? mut.p : 0);
     const netSocial = gross - salTot + empHealth;
-    const netImposable = gross - salTot + csgNd + empHealth;
+    const otExo = ot.amount ? Math.min(ot.amount * (1 - 0.0931), Math.max(0, 7500 - otExoBefore(e, m))) : 0;
+    let netImposable = gross - salTot + csgNd + empHealth - otExo;
+    // Apprentis et stagiaires : salaire et gratification exonérés d'impôt dans la limite du SMIC annuel (art. 81 bis CGI), ici au prorata mensuel.
+    if (stage || appr) netImposable = Math.max(0, netImposable - SMIC_M);
     // Éléments non soumis : remboursements, titres-restaurant, frais, acompte, prime de partage de la valeur.
     const workedDays = Math.max(0, wd - abs.cp - abs.rtt - abs.unpaid - abs.sick.reduce((s, x) => s + x.work, 0) - (e.startDate > start ? workDays(start, addDays(e.startDate, -1)) : 0) - (e.exit && e.exit.lastDay < end ? workDays(addDays(e.exit.lastDay, 1), end) : 0));
     const trN = stage ? 0 : workedDays, trSal = trN * (TR_VALUE - TR_EMPLOYER);
@@ -427,9 +478,29 @@
       tele ? [`Allocation forfaitaire de télétravail (${plural(abs.tt, 'jour', 'jours')})`, tele] : null, ndf ? ['Remboursement de notes de frais', ndf] : null, ppv ? ['Prime de partage de la valeur (nette de CSG-CRDS 9,7 %)', ppvNet] : null, xOut && xOut.legal ? [`Indemnité de rupture (${e.exit.reason.toLowerCase()})`, xOut.legal] : null,
       trN ? [`Titres-restaurant (${trN} × ${eur(TR_VALUE)}, part salariale)`, -trSal] : null, acompte ? ['Acompte versé', -acompte] : null].filter(Boolean);
     const netBefore = gross - salTot + extras.reduce((s, r) => s + r[1], 0), rate = pasRate(e), tax = netImposable * rate;
-    return { ijNet: ij * 0.933, base, bonus, ot, ppv, ppvNet, gross, earn, rows, rg, salTot, empTot, contrib: salTot, netSocial, netImposable, extras, netBefore, rate, tax, net: netBefore - tax,
+    return { ijNet: ij * 0.933, base, bonus, ot, ppv, ppvNet, gross, earn, rows, rg, otDed, otExo, regul, salTot, empTot, contrib: salTot, netSocial, netImposable, extras, netBefore, rate, tax, net: netBefore - tax,
       cost: gross + empTot, leaveDays: abs.cp + abs.rtt, abs, trN, trEmployer: trN * TR_EMPLOYER, transport, tele, ndf, acompte, workedDays, lines: rows.map((r) => [r.label, r.ts, r.s]) };
   }
+  // Exonération d'impôt des heures supplémentaires déjà utilisée dans l'année avant le mois m.
+  const otExoBefore = (e, m) => payMonths().filter((x) => x.slice(0, 4) === m.slice(0, 4) && x < m && inPayroll(e, x)).reduce((s, x) => s + (calcPay(e, x).otExo || 0), 0);
+  // Éléments variables d'un bulletin (heures supplémentaires, retenues d'absence et maintien) : comparés entre le bulletin figé et un nouveau calcul.
+  const varPart = (p) => (p.ot ? p.ot.amount : 0) + p.earn.filter(([l]) => /^(Absence|Complément employeur)/.test(l)).reduce((s, r) => s + r[3], 0);
+  // Régularisations portées par le bulletin du mois m : pour chaque mois antérieur déjà diffusé, l'écart entre ce qui aurait dû être payé et ce qui l'a été,
+  // déduction faite des régularisations déjà reportées sur des bulletins diffusés entre-temps. Seul le premier mois non diffusé les porte.
+  function payRegul(e, m) {
+    const months = payMonths(), first = months.find((x) => !(db.payroll[x] && db.payroll[x].closed)); if (m !== first) return [];
+    return months.filter((x) => x < m && db.payroll[x] && db.payroll[x].closed && ((db.payroll[x].frozen || {})[e.id]) && inPayroll(e, x)).map((x) => {
+      const fz = db.payroll[x].frozen[e.id], live = calcPayLive(e, x), done = months.filter((y) => y > x && y < m && db.payroll[y] && db.payroll[y].closed).reduce((s, y) => s + (((db.payroll[y].frozen || {})[e.id] || {}).regul || []).filter((r) => r.m === x).reduce((t, r) => t + r.amount, 0), 0);
+      const amount = Math.round((varPart(live) - varPart(fz) - done) * 100) / 100;
+      return { m: x, amount };
+    }).filter((r) => Math.abs(r.amount) >= 0.01);
+  }
+  // Fige les bulletins diffusés : le calcul du jour de la diffusion est enregistré tel quel (aussi pour les mois diffusés avant cette règle).
+  function freezePayroll() {
+    payMonths().forEach((m) => { const pr = db.payroll[m]; if (!pr || !pr.closed) return; pr.frozen = pr.frozen || {};
+      db.employees.filter((e) => inPayroll(e, m) && !pr.frozen[e.id]).forEach((e) => { pr.frozen[e.id] = JSON.parse(JSON.stringify(calcPayLive(e, m))); }); });
+  }
+
   const dossierLight = (e) => (db.onboarding && db.onboarding[e.id]) || {};
 
   // ---------------------------------------------------------------- Shell
@@ -800,16 +871,28 @@
   // Indemnisés par la Sécurité sociale (attestation de salaire à transmettre) ; enregistrés directement, sans validation (ce sont des droits).
   const IJ_TYPES = ['Maladie', 'Accident du travail', 'Maternité', 'Paternité et accueil de l’enfant'];
   const DECLARED = IJ_TYPES.concat(['Événement familial', 'Enfant malade']);
-  // Congés pour événements familiaux (art. L3142-4), en jours ouvrables ramenés ici en jours ouvrés.
+  // Congés pour événements familiaux (art. L3142-4) : durées légales minimales, décomptées ici en jours ouvrés (plus favorable au salarié que les jours ouvrables).
+  // À VÉRIFIER (juriste) : unité de décompte retenue et durées plus longues prévues par la convention Syntec.
   const FAMILY_EVENTS = [['Mariage ou PACS du salarié', 4], ['Mariage d’un enfant', 1], ['Naissance ou adoption', 3], ['Décès d’un enfant', 12], ['Décès du conjoint, partenaire ou concubin', 3], ['Décès d’un parent, beau-parent, frère ou sœur', 3], ['Annonce du handicap ou d’une maladie grave d’un enfant', 5]];
   const TYPE_CLASS = { 'Congés payés': 't-cp', RTT: 't-rtt', Maladie: 't-mal', Télétravail: 't-tt', 'Sans solde': 't-uns', 'Congé parental': 't-uns', 'Accident du travail': 't-mal', Maternité: 't-fam', 'Paternité et accueil de l’enfant': 't-fam', 'Événement familial': 't-fam', 'Enfant malade': 't-fam' };
   const leavePill = (l) => `<span class="pill ${{ 'En attente': 'warn', Approuvée: 'ok', Refusée: 'bad' }[l.status]}">${l.status}</span>`;
   const balanceKey = (type) => (type === 'Congés payés' ? 'cp' : type === 'RTT' ? 'rtt' : null);
+  // Décompte des congés payés réglé dans Paramètres : jours ouvrés (25 j par an, 2,08 j par mois) ou ouvrables (30 j, 2,5 j par mois, samedi compté, art. L3141-3).
+  const cpOuvrables = () => !!(db.settings && db.settings.conges && db.settings.conges.decompte === 'ouvrables');
+  const CP_RATE = () => (cpOuvrables() ? 2.5 : 2.08);
+  const leaveCount = (type, a, b) => (type === 'Congés payés' && cpOuvrables() ? countOuvrables(a, b) : workDays(a, b));
+  const unitOf = (type, n) => plural(n, type === 'Congés payés' && cpOuvrables() ? 'jour ouvrable' : 'jour ouvré', type === 'Congés payés' && cpOuvrables() ? 'jours ouvrables' : 'jours ouvrés');
+  // Solde prévisionnel : les demandes encore en attente sont déjà réservées sur le solde.
+  const pendingDays = (e, k, except) => db.leaves.filter((l) => l.empId === e.id && l.status === 'En attente' && balanceKey(l.type) === k && l.id !== except).reduce((s, l) => s + l.days, 0);
+  const overlaps = (l, a, b) => l.start <= b && l.end >= a;
+  // Absences des collègues de la même équipe sur la même période (vue du valideur).
+  const teamOverlap = (l) => { const e = emp(l.empId); return db.leaves.filter((x) => x.empId !== l.empId && x.status !== 'Refusée' && x.type !== 'Télétravail' && overlaps(x, l.start, l.end) && emp(x.empId) && emp(x.empId).managerId === e.managerId && emp(x.empId).stage < 15); };
   function reqRow(l, actions) {
-    const e = emp(l.empId);
-    return `<div class="req"><div class="who-cell">${avatar(e)}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)} · solde CP ${e.cp} j · RTT ${e.rtt} j</small>${ui.profile === 'manager' && e.managerId && e.managerId !== me().id ? `<span class="pill info" style="margin-top:4px">En remplacement de ${esc(fullName(emp(e.managerId)))}, absent·e</span>` : ''}</div></div>
-      <div class="what"><b>${esc(typeLabel(l))} · ${plural(l.days, 'jour', 'jours')}</b><small>${fmtShort(l.start)} → ${fmtDate(l.end)}${l.comment && typeLabel(l) === l.type ? ` · « ${esc(l.comment)} »` : ''}</small></div>
-      ${actions ? `<div class="acts"><button type="button" class="btn ok sm" data-act="leave-ok" data-id="${l.id}">${ic('check')}Valider</button><button type="button" class="btn bad sm" data-act="leave-ko" data-id="${l.id}">Refuser</button></div>` : leavePill(l)}</div>`;
+    const e = emp(l.empId), past = l.status === 'En attente' && l.start < TODAY, team = actions ? teamOverlap(l) : [];
+    return `<div class="req"><div class="who-cell">${avatar(e)}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)} · solde CP ${e.cp} j${pendingDays(e, 'cp') ? ` (dont ${pendingDays(e, 'cp')} j demandés)` : ''} · RTT ${e.rtt} j</small>${ui.profile === 'manager' && e.managerId && e.managerId !== me().id ? `<span class="pill info" style="margin-top:4px">En remplacement de ${esc(fullName(emp(e.managerId)))}, absent·e</span>` : ''}</div></div>
+      <div class="what"><b>${esc(typeLabel(l))} · ${plural(l.days, 'jour', 'jours')}</b><small>${fmtShort(l.start)} → ${fmtDate(l.end)}${l.comment && typeLabel(l) === l.type ? ` · « ${esc(l.comment)} »` : ''}</small>
+        ${past ? `<small class="warn-t">Période commencée le ${fmtShort(l.start)} : demande à régulariser</small>` : ''}${team.length ? `<small>Également absent·e·s : ${team.map((x) => `${esc(fullName(emp(x.empId)))} (${fmtShort(x.start)} → ${fmtShort(x.end)})`).join(', ')}</small>` : ''}</div>
+      ${actions ? `<div class="acts">${past && ui.profile === 'rh' && approverOf(e).id !== me().id ? `<button type="button" class="btn ghost sm" data-act="leave-remind" data-id="${l.id}">Relancer</button>` : ''}<button type="button" class="btn ok sm" data-act="leave-ok" data-id="${l.id}">${ic('check')}Valider</button><button type="button" class="btn bad sm" data-act="leave-ko" data-id="${l.id}">Refuser</button></div>` : leavePill(l)}</div>`;
   }
   function myAbsences(e) {
     const mine = db.leaves.filter((l) => l.empId === e.id).sort((a, b) => b.start.localeCompare(a.start));
@@ -821,32 +904,110 @@
         <div class="field" id="lv-event-f" hidden><label for="lv-event">Événement</label><select id="lv-event" name="event" class="select" data-live="leave">${FAMILY_EVENTS.map(([t, n]) => `<option value="${esc(t)}">${t} · ${plural(n, 'jour', 'jours')}</option>`).join('')}</select></div>
         <div class="field"><label for="lv-comment">Commentaire (facultatif)</label><input id="lv-comment" name="comment" class="input" maxlength="120" placeholder="Ex. vacances en famille"></div>
         <div class="field"><label for="lv-start">Du</label><input id="lv-start" name="start" type="date" class="input" value="${start}" data-live="leave"></div>
-        <div class="field"><label for="lv-end">Au (inclus)</label><input id="lv-end" name="end" type="date" class="input" value="${end}" data-live="leave"></div></div>
+        <div class="field"><label for="lv-end">Au (inclus)</label><input id="lv-end" name="end" type="date" class="input" value="${end}" data-live="leave"></div>
+        ${leaveExtraFields('lv', 'leave')}</div>
         <div class="toolbar" style="margin-top:16px"><span id="lv-preview" class="hint" aria-live="polite">${leavePreview('Congés payés', start, end, e)}</span><button class="btn primary" style="margin-left:auto">Envoyer la demande</button></div></div></form>
-      <div class="card"><div class="card-h"><h3>Mes demandes</h3></div><div class="req-list">${mine.length ? mine.map((l) => `<div class="req"><div class="what"><b>${esc(l.type)} · ${plural(l.days, 'jour', 'jours')}</b><small>${fmtShort(l.start)} → ${fmtDate(l.end)}${l.comment ? ` · « ${esc(l.comment)} »` : ''}${l.refusal ? ` · Motif du refus : ${esc(l.refusal)}` : ''}</small></div>${leavePill(l)}
-        ${l.status === 'En attente' ? `<button type="button" class="btn ghost sm" data-act="leave-cancel" data-id="${l.id}">Annuler</button>` : ''}</div>`).join('') : '<div class="empty">Vous n’avez encore fait aucune demande.</div>'}</div></div>`;
+      <div class="card"><div class="card-h"><h3>Mes demandes</h3></div><div class="req-list">${mine.length ? mine.map((l) => `<div class="req"><div class="what"><b>${esc(l.type)} · ${plural(l.days, 'jour', 'jours')}</b><small>${fmtShort(l.start)} → ${fmtDate(l.end)}${l.comment ? ` · « ${esc(l.comment)} »` : ''}${l.refusal ? ` · Motif du refus : ${esc(l.refusal)}` : ''}${l.interrupted ? ` · ${plural(l.interrupted, 'jour recrédité', 'jours recrédités')} (arrêt de travail)` : ''}</small></div>${leavePill(l)}
+        ${l.status === 'En attente' ? `<button type="button" class="btn ghost sm" data-act="leave-cancel" data-id="${l.id}">Annuler</button>` : ''}</div>`).join('') : '<div class="empty">Tu n’as encore fait aucune demande.</div>'}</div></div>`;
   }
-  function leavePreview(type, start, end, e, ev) {
-    const d = workDays(start, end);
-    if (!start || !end) return 'Choisissez les dates de début et de fin.';
+  // Champs propres à certains types : enfant de moins d'un an (enfant malade), justificatif (arrêt, événement familial), date de réception de l'avis (RH).
+  const leaveExtraFields = (px, live, rh) => `<div class="field" id="${px}-young-f" hidden><label class="agree"><input type="checkbox" name="young" data-live="${live}"> Enfant de moins d’un an, ou au moins 3 enfants de moins de 16 ans à charge (5 jours par an)</label></div>
+        <div class="field" id="${px}-proof-f" hidden><label for="${px}-proof">Justificatif (avis d’arrêt, acte, certificat)</label><input id="${px}-proof" name="proof" type="file" class="input file" accept=".pdf,image/*"></div>
+        ${rh ? `<div class="field" id="${px}-recv-f"><label for="${px}-recv">Avis ou justificatif reçu le</label><input id="${px}-recv" name="received" type="date" class="input" value="${TODAY}"></div>` : ''}`;
+  const PROOF_TYPES = ['Maladie', 'Accident du travail', 'Événement familial', 'Enfant malade', 'Maternité', 'Paternité et accueil de l’enfant'];
+  function leaveFormSync(form, px) {
+    const t = form.elements.type.value, show = (id, on) => { const el = form.querySelector(`#${px}-${id}`); if (el) el.hidden = !on; };
+    show('event-f', t === 'Événement familial'); show('young-f', t === 'Enfant malade'); show('proof-f', PROOF_TYPES.includes(t));
+  }
+  // Aperçu du décompte (impersonnel : il sert au salarié comme aux RH qui saisissent pour lui).
+  function leavePreview(type, start, end, e, ev, young) {
+    if (!start || !end) return 'Dates de début et de fin à choisir.';
     if (end < start) return '<span class="err">La date de fin doit être après la date de début.</span>';
+    const d = leaveCount(type, start, end), u = unitOf(type, d), cal = dayDiff(start, end) + 1;
     if (!d) return '<span class="err">Cette période ne contient aucun jour ouvré.</span>';
     const k = balanceKey(type);
-    if (k && d > e[k]) return `<span class="err">${plural(d, 'jour ouvré', 'jours ouvrés')} : votre solde (${e[k]} j) est insuffisant.</span>`;
-    if (type === 'Maladie') return `<b class="num">${plural(d, 'jour ouvré', 'jours ouvrés')}</b> · arrêt enregistré directement ; transmettez votre avis d’arrêt sous 48 h`;
-    if (type === 'Accident du travail') return `<b class="num">${plural(d, 'jour ouvré', 'jours ouvrés')}</b> · enregistré directement ; l’employeur déclare l’accident sous 48 h, sans délai de carence`;
-    if (type === 'Maternité') return `<b class="num">${plural(d, 'jour ouvré', 'jours ouvrés')}</b> · droit (16 semaines pour un premier ou deuxième enfant) ; enregistré directement, pas de validation`;
-    if (type === 'Paternité et accueil de l’enfant') return `<b class="num">${plural(d, 'jour ouvré', 'jours ouvrés')}</b> · droit (25 jours calendaires, 4 obligatoires après la naissance) ; prévenir l’employeur 1 mois avant`;
-    if (type === 'Enfant malade') return `<b class="num">${plural(d, 'jour ouvré', 'jours ouvrés')}</b> · droit à 3 jours par an (5 si l’enfant a moins d’un an), non rémunérés ; certificat médical à joindre`;
+    if (k) { const pend = pendingDays(e, k), avail = e[k] - pend;
+      if (d > avail) return `<span class="err">${u} : solde insuffisant (${e[k]} j${pend ? `, dont ${pend} j déjà demandés en attente` : ''} : ${avail} j disponibles).</span>`; }
+    if (type === 'Maladie') return `<b class="num">${plural(cal, 'jour calendaire', 'jours calendaires')}</b> (${u}) · arrêt enregistré directement ; avis d’arrêt à transmettre sous 48 h. Un arrêt pendant des congés les interrompt : les jours de congé sont recrédités.`;
+    if (type === 'Accident du travail') return `<b class="num">${plural(cal, 'jour calendaire', 'jours calendaires')}</b> (${u}) · enregistré directement ; la journée de l’accident est payée par l’employeur, sans délai de carence ; l’employeur déclare l’accident à la CPAM sous 48 h`;
+    if (type === 'Maternité') return `<b class="num">${u}</b> · droit (16 semaines pour un premier ou deuxième enfant) ; enregistré directement, pas de validation`;
+    if (type === 'Paternité et accueil de l’enfant') return `<b class="num">${u}</b> · droit (25 jours calendaires, 4 obligatoires après la naissance) ; prévenir l’employeur 1 mois avant`;
+    if (type === 'Enfant malade') { const used = childSickUsed(e, start), max = young ? 5 : 3;
+      if (used + d > max) return `<span class="err">${u} : ce congé est de ${max} jours par an au plus (art. L1225-61) ; ${used} j déjà pris en ${start.slice(0, 4)}.</span>`;
+      return `<b class="num">${u}</b> · droit à ${max} jours par an (${used} j déjà pris), non rémunérés ; certificat médical à joindre`; }
     if (type === 'Événement familial') { const max = (FAMILY_EVENTS.find(([t]) => t === ev) || FAMILY_EVENTS[0])[1];
-      return d > max ? `<span class="err">${plural(d, 'jour ouvré', 'jours ouvrés')} : ce congé est de ${plural(max, 'jour', 'jours')} au plus.</span>` : `<b class="num">${plural(d, 'jour ouvré', 'jours ouvrés')}</b> · congé rémunéré de droit (${plural(max, 'jour', 'jours')} au plus), justificatif à joindre`; }
-    if (type === 'Congé parental') return `<b class="num">${plural(d, 'jour ouvré', 'jours ouvrés')}</b> · non rémunéré ; demande à faire 2 mois avant, de droit après 1 an d’ancienneté`;
+      return d > max ? `<span class="err">${u} : ce congé est de ${plural(max, 'jour', 'jours')} au plus.</span>` : `<b class="num">${u}</b> · congé rémunéré de droit (${plural(max, 'jour', 'jours')} au plus), justificatif à joindre`; }
+    if (type === 'Congé parental') return `<b class="num">${u}</b> · non rémunéré ; demande à faire 2 mois avant, de droit après 1 an d’ancienneté`;
     if (type === 'Télétravail') {
       const wk = mondayOf(start), we = addDays(wk, 6), already = db.leaves.filter((l) => l.empId === e.id && l.type === 'Télétravail' && l.status !== 'Refusée' && l.start <= we && l.end >= wk).reduce((s, l) => s + workDays(l.start < wk ? wk : l.start, l.end > we ? we : l.end), 0);
-      if (already + workDays(start, end < we ? end : we) > TT_MAX) return `<b class="num">${plural(d, 'jour ouvré', 'jours ouvrés')}</b> · <span class="warn-t">au-delà de ${TT_MAX} jours de télétravail par semaine prévus par la charte</span>`;
+      if (already + workDays(start, end < we ? end : we) > TT_MAX) return `<b class="num">${u}</b> · <span class="warn-t">au-delà de ${TT_MAX} jours de télétravail par semaine prévus par la charte</span>`;
     }
-    return `<b class="num">${plural(d, 'jour ouvré', 'jours ouvrés')}</b>${k ? ` · solde après validation : ${e[k] - d} j` : ''}`;
+    return `<b class="num">${u}</b>${k ? ` · solde après validation : ${e[k] - pendingDays(e, k) - d} j` : ''}`;
   }
+  const childSickUsed = (e, day) => db.leaves.filter((l) => l.empId === e.id && l.type === 'Enfant malade' && l.status !== 'Refusée' && l.start.slice(0, 4) === day.slice(0, 4)).reduce((s, l) => s + l.days, 0);
+  // Arrêt de travail posé sur des congés, des RTT ou du télétravail : ces absences sont coupées autour de l'arrêt, les jours de congé recrédités (report).
+  // À VÉRIFIER (juriste) : report des congés payés en cas de maladie pendant les congés (CJUE, Cass. soc. septembre 2025), conditions de notification de l'arrêt.
+  function splitAroundSick(e, sick) {
+    const out = { cp: 0, rtt: 0 };
+    db.leaves.filter((l) => l.empId === e.id && l !== sick && l.status !== 'Refusée' && ['Congés payés', 'RTT', 'Télétravail'].includes(l.type) && overlaps(l, sick.start, sick.end)).forEach((l) => {
+      const parts = [l.start < sick.start ? [l.start, addDays(sick.start, -1)] : null, l.end > sick.end ? [addDays(sick.end, 1), l.end] : null].filter(Boolean)
+        .map(([a, b]) => ({ a, b, n: leaveCount(l.type, a, b) })).filter((x) => x.n > 0);
+      const lost = Math.max(0, l.days - parts.reduce((s, x) => s + x.n, 0)), k = balanceKey(l.type);
+      if (k && l.status === 'Approuvée') { e[k] += lost; out[k] += lost; }
+      db.leaves = db.leaves.filter((x) => x !== l);
+      parts.forEach((x, i) => db.leaves.push(Object.assign({}, l, { id: i ? uid('l') : l.id, start: x.a, end: x.b, days: x.n, interrupted: lost || undefined })));
+      if (k && lost) db.history.push({ id: uid('h'), empId: e.id, date: TODAY, label: 'Congés interrompus par un arrêt', detail: `${l.type} du ${fmtDateY(l.start)} au ${fmtDateY(l.end)} : ${lost} j ${l.status === 'Approuvée' ? 'recrédités' : 'retirés de la demande'}` });
+    });
+    return out;
+  }
+  // Enregistre une absence pour e : par le salarié lui-même, ou par les RH (opts.rh : avis d'arrêt reçu par courrier ou par e-mail, congé validé à la saisie).
+  // err(message) affiche l'erreur ; renvoie la nouvelle absence, ou null.
+  async function recordLeave(e, v, err, opts = {}) {
+    const k = balanceKey(v.type), rh = !!opts.rh;
+    if (!v.start || !v.end) { err('Dates de début et de fin à choisir.'); return null; }
+    if (v.end < v.start) { err('La date de fin doit être après la date de début.'); return null; }
+    const d = leaveCount(v.type, v.start, v.end);
+    if (!d) { err('Cette période ne contient aucun jour ouvré.'); return null; }
+    if (k && d > e[k] - pendingDays(e, k)) { err(`Solde insuffisant : ${e[k] - pendingDays(e, k)} j disponibles${pendingDays(e, k) ? ` (${pendingDays(e, k)} j déjà demandés en attente)` : ''}.`); return null; }
+    const sick = IJ_TYPES.includes(v.type), splittable = (l) => sick && ['Congés payés', 'RTT', 'Télétravail'].includes(l.type);
+    const clash = db.leaves.filter((l) => l.empId === e.id && l.status !== 'Refusée' && overlaps(l, v.start, v.end) && !splittable(l));
+    if (clash.length) { err(`Une absence est déjà enregistrée sur cette période (${clash[0].type.toLowerCase()} du ${fmtShort(clash[0].start)} au ${fmtShort(clash[0].end)}).`); return null; }
+    if (v.type === 'Événement familial') { const max = (FAMILY_EVENTS.find(([t]) => t === v.event) || FAMILY_EVENTS[0])[1]; if (d > max) { err(`Ce congé est de ${plural(max, 'jour', 'jours')} au plus.`); return null; } }
+    if (v.type === 'Enfant malade') { const used = childSickUsed(e, v.start), max = v.young ? 5 : 3; if (used + d > max) { err(`Congé pour enfant malade : ${max} jours par an au plus (art. L1225-61), ${used} j déjà pris.`); return null; } }
+    if (rh && v.received) { const g = dateGuard(v.received, { notAfter: { date: TODAY, label: 'aujourd’hui' }, label: 'La date de réception' }); if (g) { err(g); return null; } }
+    const proof = v.proof && v.proof.name ? await readFile(v.proof) : null;
+    const declared = DECLARED.includes(v.type), direct = declared || rh;
+    const l = { id: uid('l'), empId: e.id, type: v.type, start: v.start, end: v.end, days: d, status: direct ? 'Approuvée' : 'En attente', comment: [v.type === 'Événement familial' ? v.event : '', (v.comment || '').trim()].filter(Boolean).join(' · ') || (v.type === 'Maladie' ? 'Arrêt de travail' : ''), createdAt: TODAY };
+    if (direct) Object.assign(l, { receivedAt: (rh && v.received) || TODAY, subrogation: false });
+    if (direct && sick) l.dsnAt = null;
+    if (declared) l.declared = true;
+    if (rh) Object.assign(l, { decidedBy: me().id, enteredBy: me().id });
+    if (proof) l.proof = proof;
+    if (v.type === 'Accident du travail') l.accidentDate = opts.accidentDate || v.start;
+    if (opts.incident) l.incidentId = opts.incident;
+    if (k && direct) e[k] -= d;
+    const back = sick ? splitAroundSick(e, l) : { cp: 0, rtt: 0 };
+    db.leaves.push(l);
+    if (v.type === 'Accident du travail' && !opts.incident) linkAccident(e, l, v.comment);
+    const who = fullName(e), per = `du ${fmtShort(v.start)} au ${fmtShort(v.end)}`, hide = sick && !(db.settings && db.settings.droits.motifAbsence);
+    if (sick) { tickJourney(e.id, 6, 2); notify('e1', `Arrêt de travail de ${who} ${per} : attestation de salaire à transmettre.`); }
+    else if (declared) notify('e1', `${who} déclare : ${v.type.toLowerCase()} ${per}.`);
+    if (e.managerId && direct && e.managerId !== me().id) notify(e.managerId, `${who} sera absent·e ${per}${hide ? '' : ` (${v.type.toLowerCase()})`}.`);
+    if (rh) notify(e.id, `Les RH ont enregistré : ${v.type.toLowerCase()} ${per}.`);
+    if (back.cp || back.rtt) notify(e.id, `Arrêt pendant des congés : ${[back.cp ? `${back.cp} j de congés payés` : '', back.rtt ? `${back.rtt} j de RTT` : ''].filter(Boolean).join(' et ')} recrédités, à reposer plus tard.`);
+    const res = { l, back: back.cp + back.rtt, to: '' };
+    if (!direct) { const ap = approverOf(e), bk = backupOf(e);
+      notify(ap.id, `${who} demande ${plural(d, 'jour', 'jours')} (${v.type}) ${per}.`);
+      if (bk) notify(bk.id, `En l’absence de ${fullName(ap)} : ${who} demande ${plural(d, 'jour', 'jours')} (${v.type}) ${per}.`);
+      res.to = `${fullName(ap)}${bk ? ` (absent·e : ${fullName(bk)} peut la valider)` : ''}`; }
+    return res;
+  }
+  // Accident du travail posé comme absence : la déclaration à faire à la CPAM sous 48 h est créée en même temps (un seul événement).
+  function linkAccident(e, l, note) {
+    const x = { id: uid('i'), empId: e.id, date: l.accidentDate || l.start, kind: 'Accident du travail', description: (note || '').trim() || 'Déclaré avec l’arrêt de travail : circonstances à compléter', stopDays: dayDiff(l.start, l.end) + 1, status: 'Déclaré', createdAt: TODAY, knownAt: TODAY, leaveId: l.id };
+    db.incidents.push(x); l.incidentId = x.id; return x;
+  }
+
   function planning(people) {
     const m = ui.planMonth || monthKey(TODAY);
     const days = []; for (let s = m + '-01'; s <= monthEnd(m); s = addDays(s, 1)) days.push(s);
@@ -894,8 +1055,10 @@
         <div class="card"><div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Type</th><th>Période</th><th class="r">Jours</th><th>Demandée le</th><th>Statut</th></tr></thead><tbody>${all.map((l) => { const e = emp(l.empId);
           return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div></td><td>${esc(typeLabel(l))}</td><td>${fmtShort(l.start)} → ${fmtDate(l.end)}</td><td class="r num">${l.days}</td><td>${fmtDate(l.createdAt)}</td><td>${leavePill(l)}</td></tr>`; }).join('')}</tbody></table></div></div>`;
     }
-    return `<div class="tabs" role="tablist">${tabs.map(([k, l, n]) => `<button type="button" role="tab" aria-selected="${ui.absTab === k}" data-act="abs-tab" data-t="${k}">${l}${n !== undefined ? `<span class="count num">${n}</span>` : ''}</button>`).join('')}</div>${body}`;
+    const rhBar = ui.profile === 'rh' ? `<div class="toolbar"><button type="button" class="btn primary" data-act="leave-rh">${ic('plus')}Enregistrer une absence pour un collaborateur</button><span class="hint">Avis d’arrêt reçu par courrier ou par e-mail, congé familial, congé validé hors de Teamora.</span></div>` : '';
+    return `${rhBar}<div class="tabs" role="tablist">${tabs.map(([k, l, n]) => `<button type="button" role="tab" aria-selected="${ui.absTab === k}" data-act="abs-tab" data-t="${k}">${l}${n !== undefined ? `<span class="count num">${n}</span>` : ''}</button>`).join('')}</div>${body}`;
   }
+
 
   // ---------------------------------------------------------------- Paie
   // ---- Paie du mois (voie « préparation ») : variables → contrôles → envoi au prestataire → bulletins reçus et diffusés.
@@ -919,21 +1082,30 @@
       if (e.startDate >= start && e.startDate <= end && (!e.iban || e.iban === '—')) add(`rib-${e.id}`, 'bad', `${fullName(e)} : entrée dans le mois sans RIB`, 'Le virement du salaire ne pourra pas être fait', 'open-dossier');
       if (e.startDate >= start && e.startDate <= end && !isIntern(e) && !(dossierLight(e).dpae)) add(`dpae-${e.id}`, 'bad', `${fullName(e)} : DPAE non faite`, 'Obligatoire avant la prise de poste', 'open-dossier');
       if (e.exit && e.exit.lastDay >= start && e.exit.lastDay <= end) add(`exit-${e.id}`, 'warn', `${fullName(e)} : sortie le ${fmtShort(e.exit.lastDay)}`, 'Indemnités de sortie calculées et ajoutées aux variables du mois', null);
+      // Net négatif ou acompte supérieur au net : bloquant (on ne peut pas le « vérifier »), à corriger dans les variables.
+      if (p.net < 0 || (p.acompte && p.acompte > p.net + p.acompte)) add(`net-${e.id}`, 'bad', `${fullName(e)} : ${p.net < 0 ? `net à payer négatif (${eur(p.net)})` : 'acompte supérieur au net'}`, `Acompte de ${eur(p.acompte)} pour un net avant acompte de ${eur(p.net + p.acompte)} : réduire l’acompte ou le récupérer sur plusieurs mois`, 'block');
+      if (p.bonus && !((pr.bonusKind || {})[e.id])) add(`prime-${e.id}`, 'warn', `${fullName(e)} : prime de ${eur(p.bonus)} sans nature`, 'Préciser la nature de la prime (exceptionnelle, objectifs, vacances…) : elle conditionne son régime et son libellé sur le bulletin', null);
+      // Salariés qui déclarent leurs heures : semaines du mois sans feuille de temps.
+      if (!isForfait(e) && !isIntern(e) && e.contract !== 'Alternance' && e.startDate <= start) { const miss = weeksOf(m).filter((w) => w <= TODAY && !tsOf(e).some((t) => t.week === w && t.status !== 'Brouillon') && !db.leaves.some((l) => l.empId === e.id && l.status === 'Approuvée' && l.type !== 'Télétravail' && l.start <= w && l.end >= addDays(w, 4)));
+        if (miss.length) add(`tsmiss-${e.id}`, 'warn', `${fullName(e)} : ${plural(miss.length, 'semaine sans feuille de temps', 'semaines sans feuille de temps')}`, `Semaine${miss.length > 1 ? 's' : ''} du ${miss.map((w) => fmtShort(w)).join(', ')} : heures non déclarées`, null); }
     });
+    if (pr.status !== 'Envoyée' && !pr.closed && TODAY > (pr.cutoff || `${m}-${String(PAY_CUTOFF).padStart(2, '0')}`)) add(`cutoff-${m}`, 'warn', `Clôture des variables dépassée (${fmtShort(pr.cutoff || `${m}-${String(PAY_CUTOFF).padStart(2, '0')}`)})`, 'Envoyer les variables au prestataire au plus vite pour tenir la date de paiement', null);
     db.leaves.filter((l) => l.status === 'En attente' && l.start <= end && l.end >= start && payPeople(m).some((e) => e.id === l.empId)).forEach((l) => add(`leave-${l.id}`, 'warn', `Absence en attente de validation : ${fullName(emp(l.empId))}`, `${l.type} du ${fmtShort(l.start)} au ${fmtShort(l.end)}`, 'leaves'));
     db.leaves.filter((l) => IJ_TYPES.includes(l.type) && !l.dsnAt && l.start <= end && l.end >= start).forEach((l) => add(`ij-${l.id}`, 'warn', `Arrêt de travail sans attestation de salaire : ${fullName(emp(l.empId))}`, 'Les indemnités journalières ne seront pas versées', 'leaves'));
     (db.timesheets || []).filter((t) => t.status === 'Soumise' && t.week.slice(0, 7) === m).forEach((t) => add(`ts-${t.id}`, 'warn', `Heures non validées : ${fullName(emp(t.empId))}`, `Semaine du ${fmtShort(t.week)}`, 'leaves'));
     payManagers(m).filter((g) => !(pr.mgrOk || {})[g.id]).forEach((g) => add(`mgr-${g.id}`, 'warn', `Variables non validées par ${fullName(g)}`, `${plural(teamOf(g, m).length, 'collaborateur', 'collaborateurs')} · à valider avant le ${fmtShort(pr.cutoff || `${m}-${String(PAY_CUTOFF).padStart(2, '0')}`)}`, 'remind'));
     return out;
   }
-  const openChecks = (m) => payChecks(m).filter((c) => !c.ack);
+  const openChecks = (m) => payChecks(m).filter((c) => !c.ack || c.link === 'block');
+  // Lundis des semaines qui commencent dans le mois m.
+  const weeksOf = (m) => { const out = []; let d = mondayOf(m + '-01'); if (d < m + '-01') d = addDays(d, 7); for (; d <= monthEnd(m); d = addDays(d, 7)) out.push(d); return out; };
   const payCurrent = () => { const ms = payMonths(); return ms.find((x) => payStatus(x) !== 'Diffusée') || ms[ms.length - 1]; };
   function viewPay() {
     const months = payMonths();
     const m = ui.payMonth && months.includes(ui.payMonth) ? ui.payMonth : payCurrent(); ui.payMonth = m;
     const pr = payrollOf(m), st = payStatus(m), edit = st === 'Préparation', idx = months.indexOf(m), people = payPeople(m);
     const defStep = { Préparation: 'variables', Envoyée: 'envoi', Reçue: 'bulletins', Diffusée: 'bulletins' }[st];
-    const step = PAY_STEPS.some(([k]) => k === ui.payStep) ? ui.payStep : defStep, checks = payChecks(m), open = checks.filter((c) => !c.ack);
+    const step = PAY_STEPS.some(([k]) => k === ui.payStep) ? ui.payStep : defStep, checks = payChecks(m), open = checks.filter((c) => !c.ack || c.link === 'block');
     const done = { variables: st !== 'Préparation' || payManagers(m).every((g) => (pr.mgrOk || {})[g.id]), controles: st !== 'Préparation' || !open.length, envoi: ['Reçue', 'Diffusée'].includes(st), bulletins: st === 'Diffusée' };
     const head = `<div class="card"><div class="card-h" style="flex-wrap:wrap"><div class="toolbar"><button type="button" class="icon-btn" data-act="pay-month" data-m="${months[idx - 1] || ''}" ${idx ? '' : 'disabled'} aria-label="Mois précédent">${ic('left')}</button>
       <h3 style="min-width:170px;text-align:center">Paie de ${monthLabel(m).toLowerCase()}</h3><button type="button" class="icon-btn" data-act="pay-month" data-m="${months[idx + 1] || ''}" ${idx < months.length - 1 ? '' : 'disabled'} aria-label="Mois suivant">${ic('right')}</button>
@@ -942,11 +1114,12 @@
       <ol class="pay-steps">${PAY_STEPS.map(([k, l], i) => `<li class="${k === step ? 'now' : done[k] ? 'ok' : ''}"><button type="button" data-act="pay-step" data-s="${k}"><i class="num">${done[k] && k !== step ? '✓' : i + 1}</i>${l}${k === 'controles' && open.length && edit ? `<span class="badge-dot">${open.length}</span>` : ''}</button></li>`).join('')}</ol></div>`;
     let body = '';
     if (step === 'variables') {
-      const rows = people.map((e) => { const p = calcPay(e, m), a = p.abs, sick = a.sick.reduce((s, x) => s + x.work, 0), x = payExtra(m, e.id), ok = !payManagers(m).some((g) => g.id === e.managerId) || (pr.mgrOk || {})[e.managerId];
-        const absTxt = [a.cp ? `${a.cp} j CP` : '', a.rtt ? `${a.rtt} j RTT` : '', sick ? `${sick} j maladie` : '', a.unpaid ? `${a.unpaid} j sans solde` : '', a.tt ? `${a.tt} j télétravail` : ''].filter(Boolean).join(' · ') || '—';
+      const rows = people.map((e) => { const p = calcPay(e, m), a = p.abs, x = payExtra(m, e.id), ok = !payManagers(m).some((g) => g.id === e.managerId) || (pr.mgrOk || {})[e.managerId];
+        const absTxt = absText(a, true);
         const inp = (k, v, label) => (edit ? `<label class="sr" for="v-${k}-${e.id}">${label} · ${esc(fullName(e))}</label><input id="v-${k}-${e.id}" class="input cell-input num" type="number" min="0" step="10" value="${v || ''}" placeholder="0" data-change="pay-var" data-id="${e.id}" data-k="${k}">` : `<span class="num">${v ? eur(v) : '—'}</span>`);
+        const kind = (pr.bonusKind || {})[e.id], kindSel = edit && pr.bonus[e.id] ? `<label class="sr" for="v-bk-${e.id}">Nature de la prime · ${esc(fullName(e))}</label><select id="v-bk-${e.id}" class="select sm" data-change="pay-bonus-kind" data-id="${e.id}"><option value="">Nature…</option>${BONUS_KINDS.map((k) => `<option ${k === kind ? 'selected' : ''}>${k}</option>`).join('')}</select>` : kind ? `<small>${esc(kind)}</small>` : '';
         return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}${e.startDate.slice(0, 7) === m ? ' · entrée' : ''}${e.exit && e.exit.lastDay.slice(0, 7) === m ? ' · sortie' : ''}</small></div></div></td>
-          <td><small>${absTxt}</small></td><td class="r num">${p.ot.amount ? fmtH(p.ot.h25 + p.ot.h50) : '—'}</td><td class="r">${inp('bonus', pr.bonus[e.id], 'Prime')}</td><td class="r num">${p.transport ? eur(p.transport) : '—'}</td><td class="r num">${p.trN || '—'}</td>
+          <td><small>${absTxt}</small>${p.regul && p.regul.length ? `<small class="warn-t" style="display:block">Régularisation : ${p.regul.map((r) => `${monthLabel(r.m).toLowerCase()} ${eur(r.amount)}`).join(', ')}</small>` : ''}</td><td class="r num">${p.ot.amount ? fmtH(p.ot.h25 + p.ot.h50) : '—'}</td><td class="r">${inp('bonus', pr.bonus[e.id], 'Prime')}${kindSel}</td><td class="r num">${p.transport ? eur(p.transport) : '—'}</td><td class="r num">${p.trN || '—'}</td>
           <td class="r">${inp('ndf', x.ndf, 'Notes de frais')}</td><td class="r">${inp('acompte', x.acompte, 'Acompte')}</td><td>${ok ? '<span class="pill ok">Validé</span>' : '<span class="pill warn">À valider</span>'}</td></tr>`; }).join('');
       const mgrs = payManagers(m).map((g) => { const okd = (pr.mgrOk || {})[g.id];
         return `<span class="who-chip">${avatar(g, 'sm')}${esc(fullName(g))} · ${okd ? `validé le ${fmtShort(okd)}` : 'en attente'}${!okd && edit ? `<button type="button" class="linkish" data-act="pay-remind" data-id="${g.id}">Relancer</button>` : ''}</span>`; }).join('');
@@ -958,7 +1131,9 @@
     if (step === 'controles') {
       body = `<div class="card"><div class="card-h"><h3>Contrôles avant envoi</h3><span class="pill ${open.length ? 'warn' : 'ok'}">${open.length ? plural(open.length, 'point à lever', 'points à lever') : 'Tout est vérifié'}</span></div><div class="card-b">
         ${checks.length ? checks.map((c) => `<div class="todo ${c.ack ? 'acked' : ''}"><span class="chk-dot ${c.ack ? 'ok' : c.level}"></span><div class="t"><b>${esc(c.text)}</b><small>${esc(c.sub)}${c.ack ? ` · vérifié par ${esc(fullName(emp(c.ack.by)))} le ${fmtShort(c.ack.date)}` : ''}</small></div>
-          ${!c.ack && edit ? `${c.link === 'leaves' ? '<button type="button" class="btn ghost sm" data-act="go" data-v="absences">Ouvrir les absences</button>' : c.link === 'remind' ? `<button type="button" class="btn ghost sm" data-act="pay-remind" data-id="${c.id.slice(4)}">Relancer</button>` : c.link === 'open-dossier' ? `<button type="button" class="btn ghost sm" data-act="open-dossier" data-id="${c.id.split('-')[1]}">Ouvrir le dossier</button>` : ''}<button type="button" class="btn ghost sm" data-act="pay-ack" data-id="${c.id}">${ic('check')}Vérifié</button>` : ''}</div>`).join('')
+          ${c.link === 'block' && edit ? '<span class="pill bad">Bloquant : à corriger dans les variables</span><button type="button" class="btn ghost sm" data-act="pay-step" data-s="variables">Ouvrir les variables</button>' : ''}
+          ${!c.ack && edit && c.link !== 'block' ? `${c.link === 'leaves'
+ ? '<button type="button" class="btn ghost sm" data-act="go" data-v="absences">Ouvrir les absences</button>' : c.link === 'remind' ? `<button type="button" class="btn ghost sm" data-act="pay-remind" data-id="${c.id.slice(4)}">Relancer</button>` : c.link === 'open-dossier' ? `<button type="button" class="btn ghost sm" data-act="open-dossier" data-id="${c.id.split('-')[1]}">Ouvrir le dossier</button>` : ''}<button type="button" class="btn ghost sm" data-act="pay-ack" data-id="${c.id}">${ic('check')}Vérifié</button>` : ''}</div>`).join('')
           : '<p class="muted" style="margin:0">Aucune anomalie détectée.</p>'}
         <p class="hint" style="margin:12px 0 0">Corrige l’anomalie à la source (absence, heures, dossier) ou marque-la comme vérifiée si elle est justifiée. L’envoi est possible quand tous les points sont levés.</p></div></div>
         ${edit ? `<div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn primary" data-act="pay-step" data-s="envoi" ${open.length ? 'disabled' : ''}>Passer à l’envoi${ic('arrow')}</button></div>` : ''}`;
@@ -985,12 +1160,20 @@
     }
     return `${head}${body}<p class="hint">Simulation : taux et plafonds de démonstration (plafond mensuel de la Sécurité sociale ${eur0(PSS)}, SMIC ${eur(SMIC_M)}). Le calcul officiel est réalisé par le prestataire de paie.</p>`;
   }
+  const BONUS_KINDS = ['Prime exceptionnelle', 'Prime sur objectifs', 'Prime de vacances', 'Prime de cooptation', 'Prime d’ancienneté'];
+  // Absences du mois en clair. Secret médical : sans le droit « motif des arrêts », le manager ne voit qu'un total de jours d'absence (art. L1110-4 CSP).
+  function absText(a, full) {
+    const by = (t) => a.sick.filter((x) => x.l.type === t).reduce((s, x) => s + x.work + (x.accDay && isWork(x.accDay) ? 1 : 0), 0), sickAll = a.sick.reduce((s, x) => s + x.work, 0);
+    const show = full || (db.settings && db.settings.droits.motifAbsence);
+    const arr = show ? [by('Maladie') ? `${by('Maladie')} j maladie` : '', by('Accident du travail') ? `${by('Accident du travail')} j accident du travail` : '', by('Maternité') + by('Paternité et accueil de l’enfant') ? `${by('Maternité') + by('Paternité et accueil de l’enfant')} j congé de naissance` : ''] : [sickAll ? `${sickAll} j d’absence` : ''];
+    return [a.cp ? `${a.cp} j CP` : '', a.rtt ? `${a.rtt} j RTT` : '', ...arr, a.unpaid ? `${a.unpaid} j sans solde` : '', a.tt ? `${a.tt} j télétravail` : ''].filter(Boolean).join(' · ') || '—';
+  }
   // Manager : validation des variables de son équipe avant la clôture.
   function mgrPayCard() {
     const m = payCurrent(), pr = payrollOf(m), team = teamOf(me(), m), okd = (pr.mgrOk || {})[me().id];
     if (!team.length || payStatus(m) !== 'Préparation') return '';
     return card(`Variables de paie de l’équipe · ${monthLabel(m).toLowerCase()}`, okd ? `<span class="pill ok">Validées le ${fmtShort(okd)}</span>` : `<span class="pill warn">À valider avant le ${fmtShort(pr.cutoff || `${m}-${String(PAY_CUTOFF).padStart(2, '0')}`)}</span>`, `<div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Absences</th><th class="r">Heures sup.</th><th class="r">Prime</th></tr></thead><tbody>
-      ${team.map((e) => { const p = calcPay(e, m), a = p.abs, sick = a.sick.reduce((s, x) => s + x.work, 0); return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small></div></div></td><td><small>${[a.cp ? `${a.cp} j CP` : '', a.rtt ? `${a.rtt} j RTT` : '', sick ? `${sick} j maladie` : '', a.tt ? `${a.tt} j télétravail` : ''].filter(Boolean).join(' · ') || '—'}</small></td><td class="r num">${p.ot.amount ? fmtH(p.ot.h25 + p.ot.h50) : '—'}</td><td class="r num">${p.bonus ? eur(p.bonus) : '—'}</td></tr>`; }).join('')}</tbody></table></div>
+      ${team.map((e) => { const p = calcPay(e, m), a = p.abs; return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small></div></div></td><td><small>${absText(Object.assign({}, a, { unpaid: 0 }), false)}</small></td><td class="r num">${p.ot.amount ? fmtH(p.ot.h25 + p.ot.h50) : '—'}</td><td class="r num">${p.bonus ? eur(p.bonus) : '—'}</td></tr>`; }).join('')}</tbody></table></div>
       <div class="card-b"><div class="toolbar"><span class="hint">Vérifie les absences, heures et primes de ton équipe : une erreur signalée après la clôture se corrige le mois suivant.</span>${okd ? '' : `<button type="button" class="btn primary" data-act="pay-mgr-ok" style="margin-left:auto">${ic('check')}Valider les variables</button>`}</div></div>`);
   }
   // Bulletin de paie clarifié (arrêté du 25 février 2016, montant net social depuis juillet 2023), présenté comme un bulletin papier.
@@ -999,7 +1182,7 @@
     const num = (v, dec = 2) => (v === null || v === undefined || v === '' ? '' : typeof v === 'string' ? v : v.toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec }));
     const pct = (v) => (v ? num(v * 100, v * 100 < 1 ? 3 : 2) : '');
     const ytd = payMonths().filter((x) => x.slice(0, 4) === y && x <= m && (payStatus(x) !== 'Préparation' || x === m) && inPayroll(e, x)).reduce((s, x) => { const q = calcPay(e, x);
-      s.h += cad ? 0 : HOURS_M; s.hs += q.ot.h25 + q.ot.h50; s.g += q.gross; s.pss += PSS; s.ni += q.netImposable; s.cp += q.empTot; s.cost += q.cost; s.rg += q.rg; return s; }, { h: 0, hs: 0, g: 0, pss: 0, ni: 0, cp: 0, cost: 0, rg: 0 });
+      s.h += cad ? 0 : HOURS_M; s.hs += q.ot.h25 + q.ot.h50; s.g += q.gross; s.pss += PSS; s.ni += q.netImposable; s.cp += q.empTot; s.cost += q.cost; s.rg += q.rg + (q.otDed || 0); return s; }, { h: 0, hs: 0, g: 0, pss: 0, ni: 0, cp: 0, cost: 0, rg: 0 });
     // Ligne : libellé · base · taux · à déduire · à payer · base patronale · taux patronal · montant patronal
     const L = (l, b, t, ded, pay, pb, pt, pm, cls = '') => `<tr class="${cls}"><td>${l}</td><td class="r">${num(b)}</td><td class="r">${t || ''}</td><td class="r">${ded ? num(ded) : ''}</td><td class="r">${pay ? num(pay) : ''}</td><td class="r pat">${num(pb)}</td><td class="r pat">${pt || ''}</td><td class="r pat">${pm ? num(pm) : ''}</td></tr>`;
     const hourly = salaryAt(e, m) / 12 / HOURS_M, daily = salaryAt(e, m) / 12 / Math.max(1, workDays(m + '-01', monthEnd(m)));
@@ -1023,13 +1206,13 @@
     // Congés : période de référence du 1er juin au 31 mai.
     const refStart = `${m.slice(5) >= '06' ? y : y - 1}-06-01`, monthsN = Math.max(0, (Number(m.slice(0, 4)) - Number(refStart.slice(0, 4))) * 12 + Number(m.slice(5)) - 5);
     const takenN1 = db.leaves.filter((l) => l.empId === e.id && l.type === 'Congés payés' && l.status === 'Approuvée' && l.start >= refStart && l.start <= monthEnd(m)).reduce((s, l) => s + l.days, 0);
-    const acqN = Math.min(25, monthsN * 2.08), paid = COMPANY_PAY.paidOn(m), [mm, yy] = [m.slice(5), y];
+    const acqN = cpAcquired(e, monthEnd(m)).acquired, paid = COMPANY_PAY.paidOn(m), [mm, yy] = [m.slice(5), y];
     const statut = e.contract === 'Stage' ? 'Stagiaire' : e.contract === 'Alternance' ? 'Apprenti' : cad ? 'Cadre' : 'Employé (ETAM)';
     const cls = classification(e).split('·').map((s) => s.trim()), niveau = (cls[1] || '').replace('position ', ''), coef = (cls[2] || '').replace('coefficient ', '');
     const kv = (k, v) => `<div><span>${k}</span><b>${v || '—'}</b></div>`;
     return `<div class="bs"><div class="bs-top"><div class="bs-emp"><b class="bs-co">${COMPANY.entreprise}</b><span>${COMPANY.entreprise_adresse.replace(', ', '<br>')}</span>
         <div class="bs-kv">${kv('Siret', COMPANY.siret)}${kv('Code NAF', COMPANY_PAY.naf.split(' ·')[0])}${kv('Urssaf', COMPANY_PAY.urssaf)}${kv('Matricule', String(e.id.slice(1)).padStart(5, '0'))}
-          ${kv('N° SS', `${e.sex === 'H' ? '1' : '2'} ${(e.birthDate || '1990-01-01').slice(2, 7).replace('-', ' ')} •• ••• ••• ••`)}${kv('IBAN', esc(e.iban))}${kv('Emploi', esc(e.title))}${kv('Statut professionnel', statut)}
+          ${kv('N° SS', `${e.sex === 'H' ? '1' : '2'} ${(e.birthDate || '1990-01-01').slice(2, 7).replace('-', ' ')} •• ••• ••• ••`)}${kv('IBAN', esc(maskIban(e.iban)))}${kv('Emploi', esc(e.title))}${kv('Statut professionnel', statut)}
           ${kv('Niveau', niveau)}${kv('Coefficient', coef)}${kv('Entrée', fmtDate(e.startDate))}${kv('Ancienneté', seniority(e.startDate).toLowerCase())}${kv('Convention collective', COMPANY_PAY.idcc)}</div></div>
       <div class="bs-right"><h2>BULLETIN DE SALAIRE</h2><p>Période : <b>${mm} / ${yy}</b> · du ${fmtDate(m + '-01')} au ${fmtDate(monthEnd(m))}</p>
         <div class="bs-addr"><b>${e.sex === 'H' ? 'Monsieur' : 'Madame'} ${esc(e.firstName)} ${esc(e.lastName.toUpperCase())}</b><span>${esc(e.address || 'Adresse non renseignée').replace(/, /g, '<br>')}</span></div></div></div>
@@ -1038,17 +1221,18 @@
         <tbody>${earn}${L('<b>Salaire brut</b>', '', '', '', p.gross, '', '', '', 'strong')}
           <tr class="gap"><td colspan="8"></td></tr>${contrib}
           ${p.rg ? L('Réduction générale des cotisations patronales', '', '', '', '', '', '', -p.rg, 'sub') : ''}
+          ${p.otDed ? L('Déduction forfaitaire patronale sur heures supplémentaires (moins de 20 salariés)', p.ot.h25 + p.ot.h50, '1,50', '', '', '', '', -p.otDed, 'sub') : ''}
           ${L('<b>Total des cotisations et contributions</b>', '', '', p.salTot, '', '', '', p.empTot, 'strong')}
           ${below ? `<tr class="gap"><td colspan="8"></td></tr>${below}` : ''}
           <tr class="gap"><td colspan="8"></td></tr>
           <tr class="big"><td>Net à payer avant impôt sur le revenu</td><td></td><td></td><td></td><td class="r">${num(p.netBefore)}</td><td colspan="3"></td></tr>
-          ${L('Impôt sur le revenu prélevé à la source · PAS<br><small>Taux personnalisé</small>', p.netImposable, pct(p.rate) || '0,00', p.tax, '')}
+          ${L(`Impôt sur le revenu prélevé à la source · PAS<br><small>Taux personnalisé${p.otExo ? ` · heures supplémentaires exonérées : ${num(p.otExo)} €` : ''}${e.contract === 'Alternance' || isIntern(e) ? ` · ${isIntern(e) ? 'gratification' : 'salaire d’apprenti'} exonéré dans la limite du SMIC` : ''}</small>`, p.netImposable, pct(p.rate) || '0,00', p.tax, '')}
           ${L('<b>Net payé</b>', '', '', '', p.net, '', '', '', 'strong')}</tbody></table>
       <table class="bs-sum"><thead><tr><th></th><th>Heures</th><th>Heures suppl.</th><th>Brut</th><th>Plafond S.S.</th><th>Net imposable</th><th>Ch. patronales</th><th>Coût global</th><th>Allègements</th></tr></thead>
-        <tbody><tr><th>Mensuel</th><td>${cad ? 'forfait' : num(HOURS_M)}</td><td>${num(p.ot.h25 + p.ot.h50)}</td><td>${num(p.gross)}</td><td>${num(PSS)}</td><td>${num(p.netImposable)}</td><td>${num(p.empTot)}</td><td>${num(p.cost)}</td><td>${num(p.rg)}</td></tr>
+        <tbody><tr><th>Mensuel</th><td>${cad ? 'forfait' : num(HOURS_M)}</td><td>${num(p.ot.h25 + p.ot.h50)}</td><td>${num(p.gross)}</td><td>${num(PSS)}</td><td>${num(p.netImposable)}</td><td>${num(p.empTot)}</td><td>${num(p.cost)}</td><td>${num(p.rg + (p.otDed || 0))}</td></tr>
           <tr><th>Annuel</th><td>${cad ? 'forfait' : num(ytd.h)}</td><td>${num(ytd.hs)}</td><td>${num(ytd.g)}</td><td>${num(ytd.pss)}</td><td>${num(ytd.ni)}</td><td>${num(ytd.cp)}</td><td>${num(ytd.cost)}</td><td>${num(ytd.rg)}</td></tr></tbody></table>
-      <div class="bs-bottom"><table class="bs-cp"><thead><tr><th></th><th>Congés N-1</th><th>Congés N</th></tr></thead><tbody>
-          <tr><th>Acquis</th><td>${num(e.cp + takenN1)}</td><td>${num(acqN)}</td></tr><tr><th>Pris</th><td>${num(takenN1)}</td><td>${num(0)}</td></tr><tr><th>Solde</th><td>${num(e.cp)}</td><td>${num(acqN)}</td></tr></tbody></table>
+      <div class="bs-bottom">${isIntern(e) ? '<p class="bs-cp" style="margin:0">Stagiaire : congés et autorisations d’absence prévus par la convention de stage.</p>' : `<table class="bs-cp"><thead><tr><th></th><th>Congés N-1</th><th>Congés N</th></tr></thead><tbody>
+          <tr><th>Acquis</th><td>${num(e.cp + takenN1)}</td><td>${num(acqN)}</td></tr><tr><th>Pris</th><td>${num(takenN1)}</td><td>${num(0)}</td></tr><tr><th>Solde</th><td>${num(e.cp)}</td><td>${num(acqN)}</td></tr></tbody></table>`}
         <div class="bs-social"><span>Montant net social</span><b>${num(p.netSocial)} €</b><small>À déclarer pour la prime d’activité et le RSA</small></div>
         <div class="bs-net"><div><span>Net payé :</span><b>${num(p.net)} €</b></div><small>Paiement le ${fmtDate(paid)} par virement</small></div></div>
       <p class="bs-legal">Dans votre intérêt et pour vous aider à faire valoir vos droits, conservez ce bulletin de paie sans limitation de durée. Rubrique dédiée au bulletin de paie sur le portail www.service-public.fr.${d.mutuelle === 'Dispense' ? ' Dispense d’adhésion à la complémentaire santé.' : ''}${pr.closed ? '' : ' Aperçu : bulletin pas encore diffusé.'} Bulletin de démonstration, taux indicatifs.</p></div>`;
@@ -1092,10 +1276,10 @@
     return `<div class="card"><div class="drawer-h" style="padding:22px 24px">${avatar(e, 'lg')}<div><h2>${esc(fullName(e))}</h2><p>${esc(e.title)} · ${esc(e.dept)} · ${statusPill(e)}</p></div></div>
       <div class="card-b" style="border-top:1px solid var(--line)"><div class="info-grid"><div><span>E-mail professionnel</span>${esc(e.email)}</div><div><span>Manager</span>${mgr ? esc(fullName(mgr)) : '—'}</div><div><span>Contrat</span>${esc(e.contract)}</div>
         <div><span>Date d’entrée</span>${fmtDate(e.startDate)} · ${seniority(e.startDate)}</div><div><span>Salaire annuel brut</span><span class="num">${eur0(e.salary)}</span></div>
-        <div><span>Adresse postale</span>${esc(e.address) || '—'}</div><div><span>Coordonnées bancaires</span><span class="num">${esc(e.iban)}</span></div><div><span>Situation familiale</span>${esc(e.family || '—')}</div></div></div></div>
+        <div><span>Adresse postale</span>${esc(e.address) || '—'}</div><div><span>Coordonnées bancaires</span><span class="num">${esc(maskIban(e.iban))}</span></div><div><span>Situation familiale</span>${esc(e.family || '—')}</div><div><span>Lieu de travail</span>${esc(e.location || '—')}</div></div></div></div>
       <form class="card" data-form="profile" novalidate><div class="card-h"><h3>Mes informations personnelles</h3><span class="muted" style="font-size:13px">Les RH sont prévenus de chaque modification</span></div><div class="card-b"><div class="form-grid">
         <div class="field"><label for="p-phone">Téléphone</label><input id="p-phone" name="phone" type="tel" inputmode="tel" class="input" value="${esc(e.phone)}" autocomplete="tel"></div>
-        <div class="field"><label for="p-loc">Lieu de travail</label><select id="p-loc" name="location" class="select">${SITES().concat(['Télétravail majoritaire']).map((l) => `<option ${l === e.location ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
+        <div class="field"><span class="lbl">Lieu de travail</span><p class="hint" style="margin:6px 0 0">${esc(e.location || '—')} · il touche au contrat, aux frais de transport et au suivi médical : demande à faire ci-dessous, validée par les RH.</p></div>
         <div class="field full"><label for="p-emerg">Contact d’urgence</label><input id="p-emerg" name="emergency" class="input" value="${esc(e.emergency)}" placeholder="Nom · téléphone"></div></div>
         <div class="toolbar" style="margin-top:16px"><span class="err" id="p-err"></span><button class="btn primary" style="margin-left:auto">Enregistrer</button></div></div></form>
       ${myChangesHTML(e)}
@@ -1328,7 +1512,7 @@
       convention: '1486', convRules: null, directionId: 'e5',
       sites: [{ id: 's1', nom: 'Paris', adresse: '12 rue de la Paix, 75002 Paris', transport: 88.8 }, { id: 's2', nom: 'Lyon', adresse: '24 quai Saint-Antoine, 69002 Lyon', transport: 74.7 }],
       services: [['Direction', 'e5'], ['RH', 'e1'], ['Design', 'e2'], ['Tech', 'e6'], ['Marketing', 'e7'], ['Sales', 'e8'], ['Finance', 'e9']].map(([nom, head]) => ({ nom, head })),
-      temps: { heures: 35, forfait: 218, ttMax: 2 }, conges: { decompte: 'ouvrés', off: [], backup: true },
+      temps: { heures: 35, forfait: 218, ttMax: 2, contingent: 220 }, conges: { decompte: 'ouvrés', off: [], backup: true },
       paie: { prestataire: 'Silae (cabinet Expert & Paie)', cloture: 20, trValeur: 10, trEmployeur: 6, mutSal: 30, mutEmp: 45, ttJour: 2.7, vmTaux: 3.2 },
       recrutement: { conservation: 2, relance: 7 }, droits: { motifAbsence: false, orgSalarie: true }, setupDone: true,
       // V3 : effectifs moyens des années passées (règle des 5 ans) et résultats (partage de la valeur).
@@ -1347,7 +1531,7 @@
     DEPTS.splice(0, DEPTS.length, ...s.services.map((x) => x.nom)); Object.keys(DEPT_HEAD).forEach((k) => delete DEPT_HEAD[k]); s.services.forEach((x) => { DEPT_HEAD[x.nom] = x.head || DIR_ID(); });
     Object.keys(TRANSPORT).forEach((k) => delete TRANSPORT[k]); s.sites.forEach((x) => { TRANSPORT[x.nom] = Number(x.transport) || 0; });
     ({ trValeur: TR_VALUE, trEmployeur: TR_EMPLOYER, mutSal: MUT_S, mutEmp: MUT_P, ttJour: TT_DAY, cloture: PAY_CUTOFF } = s.paie); PROVIDER = s.paie.prestataire || 'prestataire de paie'; TT_ALLOW_MAX = Math.round(TT_DAY * 22 * 100) / 100;
-    TT_MAX = s.temps.ttMax; FORFAIT_DAYS = s.temps.forfait; RETENTION_YEARS = s.recrutement.conservation; ANSWER_DAYS = s.recrutement.relance;
+    TT_MAX = s.temps.ttMax; FORFAIT_DAYS = s.temps.forfait; HS_QUOTA = Number(s.temps.contingent) || 220; RETENTION_YEARS = s.recrutement.conservation; ANSWER_DAYS = s.recrutement.relance;
     SIGN = `\n\nL’équipe RH de ${COMPANY.nom}`;
     RGPD_NOTE = `Vos données sont utilisées uniquement pour nos recrutements. Elles sont supprimées automatiquement ${plural(RETENTION_YEARS, 'an', 'ans')} après notre dernier échange. Vous pouvez à tout moment demander leur suppression ou vous opposer à leur conservation en écrivant à rh@${COMPANY.domaine}.`;
   }
@@ -1409,7 +1593,8 @@
         <small class="field-hint">${CONV_LIST().length} conventions (liste Légifrance). Le numéro IDCC figure sur les bulletins de paie ; en production, il sera proposé à partir du SIRET.</small></div>
         <div id="conv-info">${convInfo(cv)}</div>
       <div class="form-grid">${fld('st-h', 'Durée hebdomadaire collective (heures)', inp('st-h', 'heures', s.temps.heures, 'type="number" min="1" max="48" step="0.5"'), false, 'Durée légale : 35 h ; maximum absolu : 48 h')}${fld('st-fj', 'Forfait annuel en jours (cadres)', inp('st-fj', 'forfait', s.temps.forfait, 'type="number" min="100" max="218"'), false, 'Au plus 218 jours (art. L3121-64)')}
-          ${fld('st-tt', 'Télétravail : jours maximum par semaine', inp('st-tt', 'ttMax', s.temps.ttMax, 'type="number" min="0" max="5"'), false, 'Selon la charte ou l’accord télétravail')}</div>`; }
+          ${fld('st-tt', 'Télétravail : jours maximum par semaine', inp('st-tt', 'ttMax', s.temps.ttMax, 'type="number" min="0" max="5"'), false, 'Selon la charte ou l’accord télétravail')}
+          ${fld('st-hs', 'Contingent annuel d’heures supplémentaires', inp('st-hs', 'contingent', s.temps.contingent || 220, 'type="number" min="0" max="1000"'), false, 'Fixé par accord d’entreprise ou de branche ; 220 h à défaut (art. L3121-39). À vérifier pour votre convention.')}</div>`; }
     if (k === 'sites') return `<div class="set-list">${s.sites.map((x, i) => `<div class="set-row"><div class="form-grid">${fld(`st-sn${i}`, 'Nom du site', inp(`st-sn${i}`, `nom_${i}`, x.nom, 'maxlength="40"'))}${fld(`st-sa${i}`, 'Adresse', inp(`st-sa${i}`, `adresse_${i}`, x.adresse, 'maxlength="120"'))}
         ${fld(`st-st${i}`, 'Abonnement transport mensuel (€)', inp(`st-st${i}`, `transport_${i}`, x.transport, 'type="number" min="0" step="0.1"'), false, 'L’employeur en rembourse 50 %')}</div><input type="hidden" name="id_${i}" value="${x.id}">
         <button type="button" class="icon-btn" data-act="set-del" data-k="sites" data-i="${i}" aria-label="Supprimer le site ${esc(x.nom)}" title="Supprimer">${ic('x')}</button></div>`).join('') || '<p class="muted" style="margin:0">Aucun site pour l’instant.</p>'}</div>
@@ -1428,7 +1613,7 @@
         <p class="hint" style="margin:2px 0 10px 26px">Décoché (recommandé) : le manager voit seulement « Absence », sans le motif médical.</p>
         <label class="agree"><input type="checkbox" name="orgSalarie" ${s.droits.orgSalarie ? 'checked' : ''}> Les salariés voient l’organigramme complet de l’entreprise</label>`; }
     if (k === 'absences') { const off = s.conges.off;
-      return `<div class="form-grid">${fld('st-dec', 'Décompte des congés payés', `<select id="st-dec" name="decompte" class="select">${['ouvrés', 'ouvrables'].map((x) => `<option ${x === s.conges.decompte ? 'selected' : ''}>${x}</option>`).join('')}</select>`, false, 'Ouvrés : 25 jours par an ; ouvrables : 30 jours (même durée)')}</div>
+      return `<div class="form-grid">${fld('st-dec', 'Décompte des congés payés', `<select id="st-dec" name="decompte" class="select">${['ouvrés', 'ouvrables'].map((x) => `<option ${x === s.conges.decompte ? 'selected' : ''}>${x}</option>`).join('')}</select>`, false, 'Ouvrés : 25 jours par an, 2,08 par mois, lundi au vendredi ; ouvrables : 30 jours, 2,5 par mois, samedi décompté (même durée de repos). Les soldes sont convertis au changement.')}</div>
         <h4 class="sub" style="margin-top:14px">Types d’absence proposés</h4><div class="type-grid">${LEAVE_TYPES.map((t) => { const opt = LEAVE_OPTIONAL.includes(t);
           return `<label class="agree ${opt ? '' : 'locked'}"><input type="checkbox" name="type_${t}" ${opt ? (off.includes(t) ? '' : 'checked') : 'checked disabled'}> ${esc(t)}${opt ? '' : ' <small>· droit légal, toujours proposé</small>'}</label>`; }).join('')}</div>
         <label class="agree" style="margin-top:12px"><input type="checkbox" name="backup" ${s.conges.backup ? 'checked' : ''}> Quand un manager est absent, son propre manager peut valider à sa place</label>`; }
@@ -1509,7 +1694,8 @@
       if (v.domaine && !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(v.domaine.trim())) errs.push('Le domaine e-mail a la forme entreprise.fr.');
       if (!errs.length) Object.assign(s.company, { nom: v.nom.trim(), raison: v.raison.trim(), adresse: v.adresse.trim(), cp: v.cp.trim(), ville: v.ville.trim(), siret: v.siret.trim(), naf: v.naf.trim().toUpperCase(), urssaf: v.urssaf.trim(), domaine: v.domaine.trim().toLowerCase() }, v.signataire ? { signataire: v.signataire } : {});
     }
-    if (k === 'convention') { const h = num(v.heures), f = num(v.forfait), t = num(v.ttMax);
+    if (k === 'convention') { const h = num(v.heures), f = num(v.forfait), t = num(v.ttMax), hq = v.contingent === undefined ? (s.temps.contingent || 220) : num(v.contingent);
+      if (!(hq >= 0 && hq <= 1000)) errs.push('Le contingent d’heures supplémentaires est un nombre d’heures entre 0 et 1 000.');
       if (!(h >= 1 && h <= 48)) errs.push('La durée hebdomadaire doit être comprise entre 1 et 48 heures (maximum légal).'); else if (h > 35) warns.push(`Au-delà de 35 h, les ${h - 35} h par semaine sont des heures supplémentaires majorées.`);
       if (!(f >= 100 && f <= 218)) errs.push('Le forfait annuel ne peut pas dépasser 218 jours (art. L3121-64).'); if (!(t >= 0 && t <= 5)) errs.push('Le télétravail est compris entre 0 et 5 jours par semaine.');
       const key = v.convention === undefined ? s.convention : (v.convention || 'code'), rules = {};
@@ -1518,7 +1704,7 @@
         if (rules.maintien > 12) errs.push('Le maintien de salaire ne peut pas exiger plus d’un an d’ancienneté (art. L1226-1).');
         [['essaiE', 2, 'employés'], ['essaiAM', 3, 'agents de maîtrise'], ['essaiC', 4, 'cadres']].forEach(([x, m, l]) => { if (rules[x] > m) warns.push(`Essai ${l} au-delà de ${m} mois : possible seulement si la convention date d’avant le 26 juin 2008 (à vérifier).`); });
         Object.assign(rules, { idcc: key, renouv: !!v.renouv, ok: !!v.convOk }); }
-      if (!errs.length) Object.assign(s, { convention: key, temps: { heures: h, forfait: f, ttMax: t } }, rules.idcc ? { convRules: rules } : {}); }
+      if (!errs.length) Object.assign(s, { convention: key, temps: { heures: h, forfait: f, ttMax: t, contingent: hq } }, rules.idcc ? { convRules: rules } : {}); }
     if (k === 'sites') { const list = []; Object.keys(v).filter((x) => x.startsWith('nom_')).forEach((x) => { const i = x.slice(4); list.push({ id: v[`id_${i}`] || uid('s'), nom: v[x].trim(), adresse: (v[`adresse_${i}`] || '').trim(), transport: num(v[`transport_${i}`]) || 0 }); });
       if (!list.length) errs.push('Il faut au moins un site.'); if (list.some((x) => !x.nom)) errs.push('Chaque site a un nom.'); if (new Set(list.map((x) => x.nom.toLowerCase())).size < list.length) errs.push('Deux sites portent le même nom.');
       if (list.some((x) => x.transport < 0)) errs.push('Le prix d’un abonnement ne peut pas être négatif.');
@@ -1529,6 +1715,8 @@
         if (list.some((x) => !x.head)) warns.push('Un service sans responsable : ses demandes remonteront à la Direction.'); } }
     if (k === 'services' && !errs.length) { applySettings(); const n = orgIssues().length; if (n) warns.push(`${plural(n, 'incohérence', 'incohérences')} avec l’organigramme : voir « Cohérence avec l’organigramme » ci-dessous.`); }
     if (k === 'utilisateurs') Object.assign(s.droits, { motifAbsence: !!v.motifAbsence, orgSalarie: !!v.orgSalarie });
+    // Passage ouvrés ↔ ouvrables : les soldes de congés payés sont convertis (6 jours ouvrables pour 5 jours ouvrés, arrondi au demi-jour supérieur).
+    if (k === 'absences' && v.decompte && v.decompte !== s.conges.decompte) { const f = v.decompte === 'ouvrables' ? 6 / 5 : 5 / 6; db.employees.forEach((e) => { if (e.cp) e.cp = Math.ceil(e.cp * f * 2) / 2; }); warns.push(`Soldes de congés payés convertis en jours ${v.decompte} (${v.decompte === 'ouvrables' ? '30' : '25'} jours par an, ${v.decompte === 'ouvrables' ? '2,5' : '2,08'} par mois).`); }
     if (k === 'absences') Object.assign(s.conges, { decompte: v.decompte, backup: !!v.backup, off: LEAVE_OPTIONAL.filter((t) => !v[`type_${t}`]) });
     if (k === 'paie') { const p = { vmTaux: Math.max(0, num(v.vmTaux) || 0), prestataire: (v.prestataire || '').trim(), cloture: Math.round(num(v.cloture)), trValeur: num(v.trValeur), trEmployeur: num(v.trEmployeur), mutSal: num(v.mutSal), mutEmp: num(v.mutEmp), ttJour: num(v.ttJour) };
       if (!(p.cloture >= 1 && p.cloture <= 28)) errs.push('Le jour de clôture est compris entre 1 et 28.'); if ([p.trValeur, p.trEmployeur, p.mutSal, p.mutEmp, p.ttJour].some((x) => !(x >= 0))) errs.push('Les montants sont des nombres positifs.');
@@ -1799,8 +1987,10 @@
     const due = Math.floor(st.avg12 * 0.06), have = rqthActive().length, miss = Math.max(0, due - have), rate = st.avg12 >= 750 ? 600 : st.avg12 >= 250 ? 500 : 400;
     return { due, have, miss, contrib: Math.round(miss * rate * SMIC_M / HOURS_M), rate };
   }
-  const payroll = () => db.employees.filter((e) => isEmployed(e)).reduce((s, e) => s + e.salary * (e.quotite || 100) / 100, 0);
-  const altShare = () => { const all = db.employees.filter(isEmployed); return all.length ? all.filter((e) => e.contract === 'Alternance').length / all.length : 0; };
+  // Simulation d'effectif : la masse salariale est extrapolée à l'effectif simulé (salaire moyen réel) et la part d'alternants rapportée à cet effectif.
+  const simScale = () => { const sim = db.compliance && db.compliance.sim, n = Number(sim && sim.n) || 0, real = db.employees.filter((e) => isEmployed(e) && countsInEff(e)).length; return sim && n && real ? Math.max(1, n / real) : 1; };
+  const payroll = () => db.employees.filter((e) => isEmployed(e)).reduce((s, e) => s + e.salary * (e.quotite || 100) / 100, 0) * simScale();
+  const altShare = () => { const all = db.employees.filter(isEmployed), sim = db.compliance && db.compliance.sim, n = Number(sim && sim.n) || 0, den = sim && n ? Math.max(all.length, n) : all.length; return den ? all.filter((e) => e.contract === 'Alternance').length / den : 0; };
   // Index de l'égalité professionnelle (calcul indicatif, à vérifier sur Egapro) : barèmes officiels simplifiés.
   function indexState(st = effState()) {
     const big = st.avg12 >= 250, pop = db.employees.filter((e) => isEmployed(e) && countsInEff(e) && (e.sex === 'F' || e.sex === 'H') && dayDiff(e.startDate, TODAY) >= 183);
@@ -2450,11 +2640,17 @@
     'pay-mgr-ok'() { const m = payCurrent(), pr = payrollOf(m); pr.mgrOk = Object.assign({}, pr.mgrOk, { [me().id]: TODAY }); notify('e1', `${fullName(me())} a validé les variables de paie de son équipe (${monthLabel(m).toLowerCase()}).`); toast('Variables validées · les RH sont prévenus'); commit(); },
     'pay-send'() { const m = ui.payMonth, pr = payrollOf(m); if (openChecks(m).length) { toast('Des points de contrôle restent à lever.', 'info'); return; } Object.assign(pr, { status: 'Envoyée', sentAt: TODAY, sentBy: me().id }); ui.payStep = 'envoi'; toast(`Variables envoyées à ${PROVIDER}`); commit(); },
     'pay-receive'() { const pr = payrollOf(ui.payMonth); Object.assign(pr, { status: 'Reçue', receivedAt: TODAY }); ui.payStep = 'bulletins'; toast('Bulletins reçus · DSN déposée par le prestataire'); commit(); },
-    'pay-publish'() { const m = ui.payMonth, pr = payrollOf(m), people = payPeople(m); Object.assign(pr, { status: 'Diffusée', closed: true, publishedAt: TODAY }); people.forEach((e) => notify(e.id, `Ton bulletin de paie de ${monthLabel(m).toLowerCase()} est disponible.`)); toast(`${plural(people.length, 'bulletin diffusé', 'bulletins diffusés')}`); commit(); },
+    'pay-publish'() { const m = ui.payMonth, pr = payrollOf(m), people = payPeople(m);
+      const neg = people.filter((e) => calcPay(e, m).net < 0); if (neg.length) { toast(`Net à payer négatif pour ${neg.map(fullName).join(', ')} : diffusion impossible.`, 'info'); return; }
+      Object.assign(pr, { status: 'Diffusée', closed: true, publishedAt: TODAY }); freezePayroll(); people.forEach((e) => notify(e.id, `Ton bulletin de paie de ${monthLabel(m).toLowerCase()} est disponible.`)); toast(`${plural(people.length, 'bulletin diffusé', 'bulletins diffusés')}`); commit(); },
     'pay-csv'(d) { const blob = new Blob(['﻿' + payCsv(d.m)], { type: 'text/csv;charset=utf-8' }), a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `variables-paie-${d.m}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast('Export téléchargé'); },
   });
   Object.assign(MOD_CHG, {
-    'pay-var'(v, d) { const pr = payrollOf(ui.payMonth), n = Math.max(0, Number(v) || 0); if (d.k === 'bonus') pr.bonus[d.id] = n; else { pr.extra = pr.extra || {}; pr.extra[d.id] = Object.assign({}, pr.extra[d.id], { [d.k]: n }); } commit(); },
+    'pay-var'(v, d) { const pr = payrollOf(ui.payMonth), n = Math.max(0, Number(v) || 0); if (d.k === 'bonus') pr.bonus[d.id] = n; else { pr.extra = pr.extra || {}; pr.extra[d.id] = Object.assign({}, pr.extra[d.id], { [d.k]: n }); }
+      const p = calcPay(emp(d.id), ui.payMonth); if (d.k === 'acompte' && p.net < 0) toast(`Acompte supérieur au net (${eur(p.net + p.acompte)}) : l’envoi sera bloqué tant qu’il n’est pas réduit.`, 'info');
+      commit(); },
+    'pay-bonus-kind'(v, d) { const pr = payrollOf(ui.payMonth); pr.bonusKind = Object.assign({}, pr.bonusKind, { [d.id]: v || undefined }); commit(); },
+
     'paper-slip'(v, d, t) { const e = me(); e.paperSlip = t.checked; notify('e1', `${fullName(e)} ${t.checked ? 'demande des bulletins papier' : 'accepte les bulletins électroniques'}.`); toast(t.checked ? 'Les RH t’enverront tes bulletins en version papier' : 'Bulletins électroniques'); commit(); },
   });
   const tabsBar = (key, list) => `<div class="tabs" role="tablist">${list.map(([k, l, n]) => `<button type="button" role="tab" aria-selected="${ui[key] === k}" data-act="tab" data-k="${key}" data-t="${k}">${l}${n ? `<span class="count num">${n}</span>` : ''}</button>`).join('')}</div>`;
@@ -2483,6 +2679,10 @@
   const reviewPill = (r) => `<span class="pill ${REVIEW_PILL[r.status]}">${r.status}</span>`;
   const proDue = (e) => addYears(e.lastPro || e.startDate, 4);
   function proState(e) { const due = proDue(e); if (due < TODAY) return ['En retard', 'bad']; if (due < addDays(TODAY, 90)) return ['À prévoir', 'warn']; return ['À jour', 'ok']; }
+  // Entretiens de parcours professionnel : salariés présents seulement (ni stagiaires, ni salariés déjà partis).
+  const proPeople = () => employed().filter((e) => !isIntern(e) && !(e.exit && e.exit.lastDay && e.exit.lastDay < TODAY));
+  // À VÉRIFIER (juriste) : la loi du 24 octobre 2025 prévoit-elle un premier entretien dans l'année qui suit l'embauche ? Simple alerte, l'échéance de 4 ans reste affichée.
+  const firstProHint = (e) => (!e.lastPro && !db.reviews.some((r) => r.empId === e.id && r.kind === 'Entretien professionnel') && addYears(e.startDate, 1) <= addDays(TODAY, 60) && addYears(e.startDate, 1) >= addDays(TODAY, -365) ? `1er entretien conseillé avant le ${fmtDateY(addYears(e.startDate, 1))} (à vérifier)` : '');
   const stepper = (r) => { const k = REVIEW_FLOW.indexOf(r.status); return `<ol class="stepper">${REVIEW_FLOW.map((s, i) => `<li class="${i < k ? 'done' : i === k ? 'now' : ''}">${s}</li>`).join('')}</ol>`; };
   const annualOf = (empId) => db.reviews.find((r) => r.empId === empId && r.kind === 'Entretien annuel' && r.year === CAMPAIGN);
   function objectivesList(list, editable) {
@@ -2541,7 +2741,7 @@
     // RH
     const annual = db.reviews.filter((r) => r.kind === 'Entretien annuel' && r.year === CAMPAIGN);
     const missing = employed().filter((e) => e.stage >= 5 && e.stage < 13 && !annualOf(e.id));
-    const late = employed().filter((e) => proState(e)[0] !== 'À jour').length;
+    const late = proPeople().filter((e) => proState(e)[0] !== 'À jour').length;
     const tabs = [['campagne', `Campagne ${CAMPAIGN}`], ['pro', 'Entretiens de parcours professionnel', late], ['objectifs', 'Objectifs']]; pickTab('revTab', tabs);
     let body;
     if (ui.revTab === 'campagne') {
@@ -2550,12 +2750,12 @@
         ['En cours', annual.filter((r) => !['Signé', 'À planifier'].includes(r.status)).length, 'Auto-évaluation ou signature'], ['À planifier', annual.filter((r) => r.status === 'À planifier').length, 'Date à fixer par le manager']].map(([l, v, s]) => `<div class="card kpi"><span class="l">${l}</span><span class="v num">${v}</span><span class="s">${s}</span></div>`).join('')}</div>
         ${missing.length ? `<div class="card card-b toolbar"><span>${missing.length} collaborateur(s) n’ont pas encore d’entretien annuel ${CAMPAIGN}.</span><button type="button" class="btn primary" style="margin-left:auto" data-act="campaign">${ic('plus')}Lancer la campagne pour eux</button></div>` : ''}
         ${card('Suivi de la campagne', '', `<div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Manager</th><th>Date</th><th>Statut</th><th></th></tr></thead><tbody>${annual.map((r) => { const e = emp(r.empId);
-          return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div></td><td>${esc(fullName(emp(e.managerId)))}</td><td>${r.date ? fmtDate(r.date) : '—'}</td><td>${reviewPill(r)}${e.category === 'Cadre' ? (r.workload ? ' <span class="pill ok">Charge de travail abordée</span>' : ` <button type="button" class="btn ghost sm" data-act="workload" data-id="${r.id}" title="Obligatoire chaque année pour les salariés au forfait jours (art. L3121-65)">Volet forfait jours fait</button>`) : ''}</td><td class="r"><button type="button" class="btn ghost sm" data-act="review" data-id="${r.id}">Ouvrir</button></td></tr>`; }).join('') || '<tr><td colspan="5" class="empty">Aucun entretien.</td></tr>'}</tbody></table></div>`)}`;
+          return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div></td><td>${esc(fullName(emp(e.managerId)))}</td><td>${r.date ? fmtDate(r.date) : '—'}</td><td>${reviewPill(r)}${isForfait(e) ? (r.workload ? ` <button type="button" class="btn ghost sm" data-act="workload" data-id="${r.id}">Volet forfait jours : rempli le ${fmtShort(r.workload.date || r.workload)}</button>` : ` <button type="button" class="btn ghost sm" data-act="workload" data-id="${r.id}" title="Obligatoire chaque année pour les salariés au forfait jours (art. L3121-65)">${ic('edit')}Remplir le volet forfait jours</button> <span class="pill warn">Volet forfait à faire</span>`) : ''}</td><td class="r"><button type="button" class="btn ghost sm" data-act="review" data-id="${r.id}">Ouvrir</button></td></tr>`; }).join('') || '<tr><td colspan="5" class="empty">Aucun entretien.</td></tr>'}</tbody></table></div>`)}`;
     } else if (ui.revTab === 'pro') {
-      const list = employed().map((e) => [e, proState(e)]).sort((a, b) => proDue(a[0]).localeCompare(proDue(b[0])));
+      const list = proPeople().map((e) => [e, proState(e)]).sort((a, b) => proDue(a[0]).localeCompare(proDue(b[0])));
       body = `<p class="hint" style="margin:0">Depuis la loi du 24 octobre 2025, l’entretien de parcours professionnel a lieu tous les 4 ans, avec un état des lieux récapitulatif tous les 8 ans. Deux rendez-vous s’ajoutent : à mi-carrière (vers 45 ans) et en fin de carrière (avant 60 ans).</p>
         ${card('Échéances', '', `<div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Dernier entretien</th><th>À réaliser avant le</th><th>Statut</th><th></th></tr></thead><tbody>${list.map(([e, [st, cls]]) => { const open = db.reviews.find((r) => r.empId === e.id && r.kind === 'Entretien professionnel' && r.status !== 'Signé');
-          return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}${careerMeeting(e) ? ` · <b class="warn-t">${careerMeeting(e)}</b>` : ''}</small></div></div></td><td>${e.lastPro ? fmtDate(e.lastPro) : 'Aucun'}</td><td class="num">${fmtDate(proDue(e))}</td><td><span class="pill ${cls}">${st}</span></td>
+          return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}${careerMeeting(e) ? ` · <b class="warn-t">${careerMeeting(e)}</b>` : ''}${firstProHint(e) ? ` · <span class="warn-t">${firstProHint(e)}</span>` : ''}</small></div></div></td><td>${e.lastPro ? fmtDate(e.lastPro) : 'Aucun'}</td><td class="num">${fmtDate(proDue(e))}</td><td><span class="pill ${cls}">${st}</span></td>
           <td class="r">${open ? `<button type="button" class="btn ghost sm" data-act="review" data-id="${open.id}">${open.status}</button>` : `<button type="button" class="btn ghost sm" data-act="pro-new" data-id="${e.id}">Programmer</button>`}</td></tr>`; }).join('')}</tbody></table></div>`)}`;
     } else {
       body = `<div class="toolbar"><button type="button" class="btn primary" data-act="objective-new">${ic('plus')}Fixer un objectif</button></div>${employed().filter((e) => db.objectives.some((o) => o.empId === e.id)).map((e) => card(`${avatar(e, 'sm')} ${esc(fullName(e))}`, `<span class="muted">${esc(e.title)} · manager : ${esc(fullName(emp(e.managerId)))}</span>`, `<div class="card-b">${objectivesList(db.objectives.filter((o) => o.empId === e.id), false)}</div>`)).join('')}`;
@@ -2575,8 +2775,10 @@
       ${wi ? `<span class="pill ok">Souhait de mobilité noté : ${esc(wi.target)}</span>` : `<button type="button" class="btn ${prop === 'Mobilité' || prop === 'Promotion' ? 'primary' : 'ghost'} sm" data-act="review-wish" data-id="${r.id}">${ic('plus')}Noter un souhait d’évolution</button>`}</div>
       <p class="hint" style="margin:8px 0 0">La formation part directement aux RH (déjà validée par le manager) ; le souhait apparaît dans Mobilité.</p></div>`;
   }
+  // Formation déjà suivie ou en cours pour ce salarié : signalée dans la liste.
+  const trainedOn = (e, t) => db.enrollments.filter((x) => x.empId === e.id && x.trainingId === t.id && !['Refusée'].includes(x.status)).sort((a, b) => b.session.localeCompare(a.session))[0];
   MODALS['review-train'] = (m, shell, formShell, opt, f) => { const r = db.reviews.find((x) => x.id === m.id), e = emp(r.empId), list = db.trainings.filter((t) => t.sessions.some((s) => s >= TODAY));
-    return formShell(`Proposer une formation à ${esc(fullName(e))}`, 'review-train', `<div class="form-grid">${f('rt-t', 'Formation', `<select id="rt-t" name="t" class="select">${list.map((t) => `<option value="${t.id}">${esc(t.title)} · ${t.hours} h</option>`).join('')}</select>`, true)}
+    return formShell(`Proposer une formation à ${esc(fullName(e))}`, 'review-train', `<div class="form-grid">${f('rt-t', 'Formation', `<select id="rt-t" name="t" class="select">${list.map((t) => { const o = trainedOn(e, t); return `<option value="${t.id}">${esc(t.title)} · ${t.hours} h${o ? ` · ${o.status === 'Terminée' ? 'déjà suivie' : 'déjà demandée'} (session du ${fmtShort(o.session)})` : ''}</option>`; }).join('')}</select>`, true)}
       ${f('rt-why', 'Besoin identifié', `<input id="rt-why" name="why" class="input" maxlength="200" value="Besoin identifié lors de l’${esc(r.kind.toLowerCase())} ${r.year}">`, true)}</div>`, 'Proposer'); };
   MODALS['review-wish'] = (m, shell, formShell, opt, f) => { const r = db.reviews.find((x) => x.id === m.id), e = emp(r.empId);
     return formShell(`Souhait d’évolution de ${esc(fullName(e))}`, 'review-wish', `<div class="form-grid">${f('rw-k', 'Type', `<select id="rw-k" name="kind" class="select">${opt(['Évolution de poste', 'Changement de service', 'Mobilité géographique', 'Reconversion'], r.mgr.proposal === 'Promotion' ? 'Évolution de poste' : 'Changement de service')}</select>`)}
@@ -2590,6 +2792,9 @@
   Object.assign(MOD_FORMS, {
     'review-train'(v) { const r = db.reviews.find((x) => x.id === ui.modal.id), e = emp(r.empId), t = training(v.t);
       if (!t) return formError('Choisis une formation.');
+      const prev = trainedOn(e, t);
+      if (prev && prev.status !== 'Terminée') return formError(`« ${t.title} » est déjà demandée ou prévue pour ${e.firstName} (session du ${fmtDateY(prev.session)}).`);
+      if (prev && !ui.modal.dupOk) { ui.modal.dupOk = true; return formError(`${e.firstName} a déjà suivi « ${t.title} » (session du ${fmtDateY(prev.session)}). Clique à nouveau sur « Proposer » pour confirmer.`); }
       const en = { id: uid('f'), empId: e.id, trainingId: t.id, session: t.sessions.find((s) => s >= TODAY), status: 'Validée manager', reason: (v.why || '').trim(), createdAt: TODAY, fromReview: r.id };
       db.enrollments.push(en); r.follow = Object.assign({}, r.follow, { train: en.id });
       notify('e1', `Formation « ${t.title} » proposée à ${fullName(e)} lors de son entretien : à valider.`); notify(e.id, `Ton manager te propose la formation « ${t.title} ».`);
@@ -2611,18 +2816,45 @@
       ? `<form data-form="review-self" novalidate><div class="form-grid"><div class="field"><label for="rs-rating">Mon appréciation globale</label>${ratingSelect('rs-rating', 'rating', 3)}</div>
         <div class="field full"><label for="rs-comment">Mes réussites, mes difficultés, mes envies</label><textarea id="rs-comment" name="comment" class="input" maxlength="800"></textarea></div></div><div class="toolbar" style="margin-top:10px"><span class="err" id="m-err"></span><button class="btn primary" style="margin-left:auto">Envoyer mon auto-évaluation</button></div></form>`
       : r.self ? `<p style="margin:0"><b>${r.self.rating} · ${RATING[r.self.rating]}</b></p><p class="muted" style="margin:4px 0 0">${esc(r.self.comment) || '—'}</p>` : `<p class="muted" style="margin:0">En attente de l’auto-évaluation de ${esc(e.firstName)}.</p>`;
-    const mgrBlock = isMgr && r.status === 'Auto-évaluation faite'
+    // L'évaluation du manager et les signatures se font à l'issue de l'entretien, pas avant sa date.
+    const before = !r.date || r.date > TODAY;
+    const mgrBlock = isMgr && r.status === 'Auto-évaluation faite' && before ? `<p class="muted" style="margin:0">L’évaluation se rédige à l’issue de l’entretien${r.date ? `, prévu le ${fmtDateY(r.date)}` : ' (date à fixer)'}. Prépare-la à partir de l’auto-évaluation.</p>`
+      : isMgr && r.status === 'Auto-évaluation faite'
       ? `<form data-form="review-mgr" novalidate><div class="form-grid"><div class="field"><label for="rm-rating">Appréciation du manager</label>${ratingSelect('rm-rating', 'rating', r.self ? r.self.rating : 3)}</div>
         <div class="field"><label for="rm-prop">Proposition</label><select id="rm-prop" name="proposal" class="select">${['Aucune', 'Augmentation', 'Promotion', 'Formation', 'Mobilité'].map((x) => `<option>${x}</option>`).join('')}</select></div>
         <div class="field full"><label for="rm-comment">Synthèse et objectifs pour l’an prochain</label><textarea id="rm-comment" name="comment" class="input" maxlength="800"></textarea></div></div><div class="toolbar" style="margin-top:10px"><span class="err" id="m-err"></span><button class="btn primary" style="margin-left:auto">Envoyer pour signature</button></div></form>`
       : r.mgr ? `<p style="margin:0"><b>${r.mgr.rating} · ${RATING[r.mgr.rating]}</b>${r.mgr.proposal && r.mgr.proposal !== 'Aucune' ? ` · <span class="pill accent">Proposition : ${esc(r.mgr.proposal)}</span>` : ''}</p><p class="muted" style="margin:4px 0 0">${esc(r.mgr.comment) || '—'}</p>`
         : `<p class="muted" style="margin:0">${r.status === 'Auto-évaluation faite' ? `À compléter par ${esc(fullName(mgr))}.` : 'Après l’auto-évaluation.'}</p>`;
-    const sign = signed ? `<span class="pill ok">Signé le ${fmtDate(r.signedAt)}</span>` : isEmp && r.status === 'À signer' ? `<button type="button" class="btn primary" data-act="review-sign" data-id="${r.id}">${ic('check')}Signer l’entretien</button>` : '';
+    // Double signature (salarié et manager), commentaire final du salarié ; la signature du salarié vaut prise de connaissance, pas accord.
+    const sg = r.sign || {}, canSign = r.status === 'À signer' && !before;
+    const sign = signed ? `<span class="pill ok">Signé le ${fmtDate(r.signedAt)}</span>` : r.status !== 'À signer' ? '' : before ? `<span class="hint">Signatures possibles à partir du ${r.date ? fmtDateY(r.date) : 'jour de l’entretien'}</span>`
+      : [isEmp && !sg.emp ? `<button type="button" class="btn primary" data-act="review-sign" data-id="${r.id}" data-w="emp">${ic('check')}Signer l’entretien</button>` : '', isMgr && !sg.mgr ? `<button type="button" class="btn primary" data-act="review-sign" data-id="${r.id}" data-w="mgr">${ic('check')}Signer en tant que manager</button>` : ''].join('');
+    const sigBlock = r.status === 'À signer' || signed ? `<div class="card card-b"><h3 style="font-size:15px;margin-bottom:8px">Signatures</h3>
+      <p style="margin:0">Salarié : ${sg.emp ? `signé le ${fmtDateY(sg.emp.date)}` : signed ? `signé le ${fmtDateY(r.signedAt)}` : 'en attente'} · Manager : ${sg.mgr ? `signé le ${fmtDateY(sg.mgr.date)}` : signed ? '—' : 'en attente'}</p>
+      ${sg.emp && sg.emp.comment ? `<p style="margin:6px 0 0"><b>Commentaires du salarié :</b> ${esc(sg.emp.comment)}</p>` : ''}
+      <p class="hint" style="margin:6px 0 0">La signature du salarié vaut prise de connaissance du compte rendu, non accord sur son contenu.${canSign || signed ? '' : ' Les signatures sont possibles à l’issue de l’entretien.'}</p></div>` : '';
     return shell(`${r.kind} ${r.year} · ${esc(fullName(e))}`, `<div class="modal-b">${stepper(r)}${dateBlock}
       <div class="card card-b"><h3 style="font-size:15px;margin-bottom:8px">Auto-évaluation</h3>${selfBlock}</div>
-      <div class="card card-b"><h3 style="font-size:15px;margin-bottom:8px">Évaluation du manager</h3>${mgrBlock}</div>
+      <div class="card card-b"><h3 style="font-size:15px;margin-bottom:8px">Évaluation du manager</h3>${mgrBlock}</div>${sigBlock}
       ${r.kind === 'Entretien annuel' ? `<div class="card card-b"><h3 style="font-size:15px;margin-bottom:8px">Objectifs de l’année</h3>${objectivesList(db.objectives.filter((o) => o.empId === e.id), false)}</div>` : ''}${reviewFollow(r, e, isMgr || rh)}</div>`,
     `<div class="modal-f">${sign}<button type="button" class="btn ghost" data-act="modal-close">Fermer</button></div>`, true);
+  };
+  // Volet forfait jours de l'entretien annuel : charge de travail, organisation, articulation avec la vie personnelle, rémunération (art. L3121-65).
+  MODALS.workload = (m, shell, formShell, opt, f) => {
+    const r = db.reviews.find((x) => x.id === m.id), e = emp(r.empId), w = typeof r.workload === 'object' ? r.workload : {}, ta = (id, name, label, ph) => f(id, label, `<textarea id="${id}" name="${name}" class="input" maxlength="600" placeholder="${ph}">${esc(w[name] || '')}</textarea>`, true);
+    return formShell(`Volet forfait jours · ${esc(fullName(e))}`, 'workload', `<p class="hint" style="margin:0 0 10px">Entretien annuel obligatoire pour les salariés au forfait en jours (art. L3121-65). ${e.forfait ? `Convention signée le ${fmtDateY(e.forfait.date)}.` : ''} Projection de l’année : ${forfaitDays(e).projected} jours sur ${FORFAIT_DAYS}.</p><div class="form-grid">
+      ${f('wl-date', 'Date de l’échange', `<input id="wl-date" name="date" type="date" class="input" value="${w.date || (r.date && r.date <= TODAY ? r.date : TODAY)}">`)}${f('wl-load', 'Charge de travail', `<select id="wl-load" name="load" class="select">${opt(['Adaptée', 'Élevée mais soutenable', 'Excessive'], w.load || 'Adaptée')}</select>`)}
+      ${ta('wl-org', 'org', 'Organisation du travail', 'Amplitude, repos quotidien et hebdomadaire, réunions…')}${ta('wl-life', 'life', 'Articulation avec la vie personnelle', 'Déconnexion, déplacements, charge en fin de journée…')}
+      ${ta('wl-pay', 'pay', 'Rémunération', 'Rémunération au regard de la charge de travail')}${ta('wl-act', 'actions', 'Mesures décidées', 'Ex. redistribution d’un dossier, jours de repos à poser')}</div>`, 'Enregistrer le volet', true);
+  };
+  MOD_FORMS.workload = (v) => {
+    const r = db.reviews.find((x) => x.id === ui.modal.id), e = emp(r.empId);
+    const g = dateGuard(v.date, { notAfter: { date: TODAY, label: 'aujourd’hui' }, label: 'La date de l’échange' }); if (g) return formError(g);
+    if (![v.org, v.life, v.pay].every((x) => (x || '').trim())) return formError('Renseignez l’organisation du travail, l’articulation avec la vie personnelle et la rémunération : ce sont les points obligatoires.');
+    r.workload = { date: v.date, by: me().id, load: v.load, org: v.org.trim(), life: v.life.trim(), pay: v.pay.trim(), actions: (v.actions || '').trim() };
+    journalAdd(e.id, 'Volet forfait jours de l’entretien annuel', 'workload', `Charge : ${v.load}`);
+    if (v.load === 'Excessive') notify(e.managerId, `Volet forfait jours de ${fullName(e)} : charge de travail jugée excessive, mesures à suivre.`);
+    ui.modal = null; toast('Volet forfait jours enregistré'); commit();
   };
   MODALS.objective = (m, shell, formShell, opt, f) => {
     const list = ui.profile === 'rh' ? employed() : scopeEmployees().filter(isEmployed);
@@ -2643,12 +2875,22 @@
       ui.modal = { type: 'review', id: r.id }; toast('Entretien professionnel programmé'); commit();
     },
     'review-sign'(d) {
-      const r = db.reviews.find((x) => x.id === d.id), e = emp(r.empId);
-      r.status = 'Signé'; r.signedAt = TODAY;
-      if (r.kind === 'Entretien professionnel') { e.lastPro = r.date || TODAY; tickJourney(e.id, 8, 3); } else tickJourney(e.id, 8, 2);
-      notify(e.managerId, `${fullName(e)} a signé son ${r.kind.toLowerCase()}.`);
-      if (r.mgr && r.mgr.proposal && r.mgr.proposal !== 'Aucune') notify('e1', `${r.kind} de ${fullName(e)} signé · proposition : ${r.mgr.proposal}.`);
-      toast('Entretien signé'); commit();
+      const r = db.reviews.find((x) => x.id === d.id), e = emp(r.empId), w = d.w === 'mgr' ? 'mgr' : 'emp', back = { type: 'review', id: r.id };
+      if (r.date && r.date > TODAY) { toast(`L’entretien est prévu le ${fmtDateY(r.date)} : la signature viendra après.`, 'info'); return; }
+      const finish = (v) => {
+        r.sign = Object.assign({}, r.sign, { [w]: Object.assign({ date: TODAY, by: me().id }, w === 'emp' ? { comment: (v.comment || '').trim() } : {}) });
+        if (r.sign.emp && r.sign.mgr) {
+          r.status = 'Signé'; r.signedAt = TODAY;
+          if (r.kind === 'Entretien professionnel') { e.lastPro = r.date || TODAY; tickJourney(e.id, 8, 3); } else tickJourney(e.id, 8, 2);
+          if (r.mgr && r.mgr.proposal && r.mgr.proposal !== 'Aucune') notify('e1', `${r.kind} de ${fullName(e)} signé · proposition : ${r.mgr.proposal}.`);
+        }
+        if (w === 'emp') notify(e.managerId, `${fullName(e)} a signé son ${r.kind.toLowerCase()}${r.sign.emp.comment ? ' et ajouté des commentaires' : ''}.`); else notify(e.id, `${fullName(me())} a signé ton ${r.kind.toLowerCase()}.`);
+        ui.modal = back; toast(r.status === 'Signé' ? 'Entretien signé par les deux parties' : 'Signature enregistrée · en attente de l’autre signature'); commit();
+      };
+      if (w === 'mgr') { confirmAct({ title: 'Signer le compte rendu en tant que manager ?', act: 'review-sign', empId: e.id, trace: `${r.kind} ${r.year} signé par le manager`, text: '<p>Le compte rendu ne sera plus modifiable.</p>', confirm: 'Signer', fields: [] }, finish); return; }
+      confirmAct({ title: 'Signer ton entretien', act: 'review-sign', empId: e.id, trace: `${r.kind} ${r.year} signé par le salarié`, confirm: 'Signer',
+        text: '<p>Ta signature vaut <b>prise de connaissance</b> du compte rendu, pas accord sur son contenu. Tu peux ajouter tes commentaires : ils seront joints au compte rendu.</p>',
+        fields: [{ name: 'comment', label: 'Mes commentaires (facultatif)', type: 'textarea' }, { name: 'ok', label: 'J’ai lu le compte rendu de mon entretien', type: 'check', required: true }] }, finish);
     },
   });
   Object.assign(MOD_CHG, {
@@ -2669,6 +2911,7 @@
     },
     'review-mgr'(v) {
       const r = db.reviews.find((x) => x.id === ui.modal.id), e = emp(r.empId);
+      if (!r.date || r.date > TODAY) return formError('L’évaluation se rédige à l’issue de l’entretien.');
       if (!v.comment.trim()) return formError('Rédigez une synthèse pour le collaborateur.');
       r.mgr = { rating: Number(v.rating), comment: v.comment.trim(), proposal: v.proposal }; r.status = 'À signer';
       notify(e.id, `Votre ${r.kind.toLowerCase()} est prêt : relisez-le et signez-le.`); toast('Évaluation envoyée pour signature'); commit();
@@ -2700,9 +2943,10 @@
     return `<div class="req"><div class="who-cell">${avatar(e)}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small></div></div><div class="what"><b>${esc(t.title)}</b><small>Session du ${fmtDate(x.session)} · ${t.hours} h · ${eur0(t.cost)}${x.reason ? ` · « ${esc(x.reason)} »` : ''}</small></div>${trPill(x)}${actions || ''}</div>`;
   }
   function catalogue() {
-    const showCost = ui.profile !== 'salarie';
-    return `${ui.profile === 'rh' ? `<div class="toolbar"><button type="button" class="btn primary" data-act="training-new">${ic('plus')}Ajouter une formation au catalogue</button></div>` : ''}
-      <div class="cat-grid">${db.trainings.map((t) => { const next = t.sessions.filter((s) => s >= TODAY);
+    // Le prix est visible de tous : il aide le salarié à choisir et à mobiliser, s'il le souhaite, son CPF.
+    const showCost = true;
+    return `${ui.profile === 'rh' ? `<div class="toolbar"><button type="button" class="btn primary" data-act="training-new">${ic('plus')}Ajouter une formation au catalogue</button></div>` : `<div class="toolbar"><button type="button" class="btn ghost" data-act="training-free">${ic('plus')}Demander une formation hors catalogue</button><span class="hint">Organisme, coût et dates à indiquer : elle suit le même circuit de validation.</span></div>`}
+      <div class="cat-grid">${db.trainings.filter((t) => !t.free).map((t) => { const next = t.sessions.filter((s) => s >= TODAY);
         return `<div class="card cat"><span class="pill neutral">${esc(t.category)}</span><h3>${esc(t.title)}</h3><p class="muted">${esc(t.provider)} · ${esc(t.mode)} · ${t.hours} h${showCost ? ` · ${eur0(t.cost)}` : ''}</p>
         <p class="muted" style="font-size:13px">${next.length ? `Prochaines sessions : ${next.map((s) => fmtShort(s)).join(', ')}` : 'Pas de session programmée'}</p>
         <button type="button" class="btn ghost" data-act="enroll" data-id="${t.id}" ${next.length ? '' : 'disabled'}>Demander cette formation</button></div>`; }).join('')}</div>`;
@@ -2754,11 +2998,18 @@
     ${f('tn-mode', 'Modalité', `<select id="tn-mode" name="mode" class="select">${opt(['Présentiel', 'Distanciel', 'Mixte'])}</select>`)}${f('tn-hours', 'Durée (heures)', '<input id="tn-hours" name="hours" type="number" min="1" class="input num" value="7">')}
     ${f('tn-cost', 'Coût par participant (€)', '<input id="tn-cost" name="cost" type="number" min="0" step="10" class="input num" value="500">')}${f('tn-s1', 'Session 1', `<input id="tn-s1" name="s1" type="date" class="input" value="${nextMonday(TODAY, 4)}">`)}
     ${f('tn-s2', 'Session 2 (facultatif)', '<input id="tn-s2" name="s2" type="date" class="input">')}</div>`, 'Ajouter au catalogue');
+  // Demande hors catalogue : la formation est créée (marquée « hors catalogue ») et la demande suit le circuit manager puis RH.
+  MODALS['training-free'] = (m, shell, formShell, opt, f) => formShell('Demander une formation hors catalogue', 'training-free', `<div class="form-grid">${f('tf-title', 'Intitulé', '<input id="tf-title" name="title" class="input" maxlength="120">', true)}
+    ${f('tf-prov', 'Organisme', '<input id="tf-prov" name="provider" class="input" maxlength="80">')}${f('tf-cost', 'Coût estimé (€)', '<input id="tf-cost" name="cost" type="number" min="0" step="10" class="input num">')}
+    ${f('tf-hours', 'Durée (heures)', '<input id="tf-hours" name="hours" type="number" min="1" class="input num" value="7">')}${f('tf-date', 'Date de la session', `<input id="tf-date" name="session" type="date" class="input" value="${nextMonday(TODAY, 4)}">`)}
+    ${f('tf-why', 'Pourquoi cette formation ?', '<textarea id="tf-why" name="reason" class="input" maxlength="300"></textarea>', true)}</div>`, 'Envoyer la demande');
   Object.assign(MOD_ACT, {
+    'training-free'() { ui.modal = { type: 'training-free' }; render(); },
     enroll(d) { ui.modal = { type: 'enroll', id: d.id }; render(); },
     'training-new'() { ui.modal = { type: 'training' }; render(); },
     'train-ok'(d) {
       const x = db.enrollments.find((y) => y.id === d.id), e = emp(x.empId), t = training(x.trainingId);
+      if (x.session < TODAY) { toast(`La session du ${fmtDateY(x.session)} est passée : demandez une autre session au collaborateur ou refusez la demande.`, 'info'); return; }
       if (ui.profile === 'rh') {
         if (budgetState().left < t.cost) { toast(`Budget insuffisant : il reste ${eur0(budgetState().left)}.`, 'info'); return; }
         x.status = 'Validée'; tickJourney(e.id, 9, 1);
@@ -2781,8 +3032,19 @@
       notify(approverOf(e).id, `${fullName(e)} demande la formation « ${t.title} » (${fmtShort(v.session)}).`); tickJourney(e.id, 9, 0);
       ui.modal = null; ui.trTab = 'mes'; toast(`Demande envoyée à ${fullName(approverOf(e))}`); commit();
     },
+    'training-free'(v) {
+      const e = me();
+      if (!v.title.trim() || !v.provider.trim()) return formError('Indique l’intitulé et l’organisme.');
+      if (!(Number(v.cost) >= 0) || v.cost === '') return formError('Indique le coût estimé (0 si gratuite).');
+      const g = dateGuard(v.session, { notPastOf: TODAY, label: 'La date de la session' }); if (g) return formError(g);
+      const t = { id: uid('t'), title: v.title.trim(), provider: v.provider.trim(), category: 'Hors catalogue', hours: Number(v.hours) || 7, cost: Number(v.cost) || 0, mode: 'À préciser', sessions: [v.session], free: true, by: e.id };
+      db.trainings.push(t); db.enrollments.push({ id: uid('f'), empId: e.id, trainingId: t.id, session: v.session, status: 'Demandée', reason: (v.reason || '').trim(), createdAt: TODAY });
+      notify(approverOf(e).id, `${fullName(e)} demande une formation hors catalogue : « ${t.title} » (${fmtShort(v.session)}).`); tickJourney(e.id, 9, 0);
+      ui.modal = null; ui.trTab = 'mes'; toast(`Demande envoyée à ${fullName(approverOf(e))}`); commit();
+    },
     training(v) {
       if (!v.title.trim()) return formError('Indiquez l’intitulé.');
+
       if (!v.s1) return formError('Indiquez au moins une session.');
       db.trainings.push({ id: uid('t'), title: v.title.trim(), provider: v.provider.trim() || 'Interne', category: v.category, hours: Number(v.hours) || 7, cost: Number(v.cost) || 0, mode: v.mode, sessions: [v.s1, v.s2].filter(Boolean).sort() });
       ui.modal = null; toast('Formation ajoutée au catalogue'); commit();
@@ -2856,20 +3118,42 @@
     db.history.push({ id: uid('h'), empId: e.id, date, label: label || 'Changement de situation', detail: parts.join(' · ') });
     if (oldMgr !== ch.managerId) { if (oldMgr) notify(oldMgr, `${fullName(e)} quitte ton équipe le ${fmtDate(date)}.`); if (ch.managerId) notify(ch.managerId, `${fullName(e)} rejoint ton équipe le ${fmtDate(date)}.`); }
   }
-  function applyDueChanges() { db.employees.forEach((e) => { const c = e.changeNext; if (c && c.from <= TODAY) applySituation(e, c, c.from, c.label); }); }
+  // Un changement du contrat attend la signature de l'avenant (pendingSig) avant de s'appliquer.
+  function applyDueChanges() { db.employees.forEach((e) => { const c = e.changeNext; if (c && !c.pendingSig && c.from <= TODAY) applySituation(e, c, c.from, c.label); }); }
+  const PT_DEROG = ['Demande écrite et motivée du salarié (contraintes personnelles ou cumul d’activités)', 'Étudiant de moins de 26 ans', 'Accord de branche étendu prévoyant une durée inférieure', 'Temps partiel thérapeutique (prescription médicale)'];
+  const weekHours = (q) => Math.round(((db.settings && db.settings.temps.heures) || 35) * q) / 100;
   MODALS.move = (m, shell, formShell, opt, f) => {
-    const e = m.empId ? emp(m.empId) : employed()[0], w = m.wishId ? db.wishes.find((x) => x.id === m.wishId) : null;
+    // Le collaborateur choisi dans la liste recharge son poste, son service, son manager, son salaire et son temps de travail.
+    const e = m.empId ? emp(m.empId) : (m.pick && emp(m.pick)) || employed()[0], w = m.wishId ? db.wishes.find((x) => x.id === m.wishId) : null;
     const q = e.quotite || 100;
-    return formShell('Changement de situation', 'move', `<p class="hint" style="margin:0 0 12px">Un seul formulaire pour tout ce qui change dans la situation du collaborateur. Les éléments du contrat (poste, salaire, temps de travail) donnent lieu à un avenant ; une date future programme le changement.</p><div class="form-grid">
-      ${f('mv-emp', 'Collaborateur', m.empId ? `<input class="input" value="${esc(fullName(e))}" readonly><input type="hidden" name="empId" value="${e.id}">` : `<select id="mv-emp" name="empId" class="select">${empOptions(employed(), e.id)}</select>`)}
+    return formShell('Changement de situation', 'move', `<p class="hint" style="margin:0 0 12px">Un seul formulaire pour tout ce qui change dans la situation du collaborateur. Les éléments du contrat (poste, salaire, temps de travail) donnent lieu à un avenant, qui ne s’applique qu’une fois signé par le salarié ; une date future programme le changement.</p><div class="form-grid">
+      ${f('mv-emp', 'Collaborateur', m.empId ? `<input class="input" value="${esc(fullName(e))}" readonly><input type="hidden" name="empId" value="${e.id}">` : `<select id="mv-emp" name="empId" class="select" data-change="mv-emp">${empOptions(employed(), e.id)}</select>`)}
       ${f('mv-label', 'Type', `<select id="mv-label" name="label" class="select">${opt(['Promotion', 'Mobilité interne', 'Changement de service', 'Changement de manager', 'Augmentation', 'Passage à temps partiel', 'Retour à temps plein', 'Temps partiel thérapeutique', 'Réorganisation'], m.label || (w && w.kind === 'Changement de service' ? 'Changement de service' : 'Promotion'))}</select>`)}
       ${f('mv-title', 'Nouveau poste', `<input id="mv-title" name="title" class="input" value="${esc(w && w.kind === 'Évolution de poste' ? w.target : e.title)}">`)}${f('mv-dept', 'Service', `<select id="mv-dept" name="dept" class="select">${opt(DEPTS, e.dept)}</select>`)}
       ${f('mv-mgr', 'Manager', `<select id="mv-mgr" name="managerId" class="select"><option value="">Aucun</option>${empOptions(employed(), e.managerId)}</select>`)}${f('mv-salary', 'Salaire annuel brut (€)', `<input id="mv-salary" name="salary" type="number" min="0" step="100" class="input num" value="${e.salary}">`)}
-      ${f('mv-q', 'Temps de travail', `<select id="mv-q" name="quotite" class="select">${[100, 90, 80, 70, 60, 50].map((x) => `<option value="${x}" ${x === q ? 'selected' : ''}>${x === 100 ? 'Temps plein' : `Temps partiel ${x} %`}</option>`).join('')}</select>`)}
-      <p class="hint full" style="margin:0">Le salaire est exprimé sur la base d’un temps plein ; la paie applique la quotité.</p>
-      ${f('mv-date', 'Date d’effet', `<input id="mv-date" name="date" type="date" class="input" value="${shiftMonth(monthKey(TODAY), 1)}-01">`, true)}
-      <p class="hint full" style="margin:0">Date future : le changement est programmé ; la fiche et l’organigramme se mettent à jour à cette date. Date du jour ou passée : effet immédiat.</p></div>`, 'Enregistrer et générer l’avenant');
+      ${f('mv-q', 'Temps de travail', `<select id="mv-q" name="quotite" class="select">${[100, 90, 80, 70, 60, 50, 40, 30].map((x) => `<option value="${x}" ${x === q ? 'selected' : ''}>${x === 100 ? 'Temps plein' : `Temps partiel ${x} % · ${String(weekHours(x)).replace('.', ',')} h par semaine${weekHours(x) < 24 ? ' (moins de 24 h)' : ''}`}</option>`).join('')}</select>`)}
+      <p class="hint full" style="margin:0">Le salaire est exprimé sur la base d’un temps plein ; la paie et l’avenant appliquent la quotité.</p>
+      ${f('mv-rep', 'Temps partiel : répartition de la durée du travail (obligatoire)', `<textarea id="mv-rep" name="repartition" class="input" maxlength="300" placeholder="Ex. lundi, mardi et jeudi, 9 h - 12 h 30 et 13 h 30 - 17 h">${esc(e.repartition || '')}</textarea>`, true)}
+      ${f('mv-derog', 'Moins de 24 h par semaine : dérogation (art. L3123-7)', `<select id="mv-derog" name="derog" class="select"><option value="">Aucune</option>${opt(PT_DEROG)}</select>`, true)}
+      ${f('mv-date', 'Date d’effet', `<input id="mv-date" name="date" type="date" class="input" value="${m.date || `${shiftMonth(monthKey(TODAY), 1)}-01`}">`, true)}
+      <p class="hint full" style="margin:0">Changement du contrat : appliqué à la date d’effet une fois l’avenant signé. Autre changement (service, manager) : date future programmée, date du jour ou passée immédiate.</p></div>`, 'Enregistrer et générer l’avenant');
   };
+  MOD_CHG['mv-emp'] = (v) => { const f = document.querySelector('form[data-form="move"]'); Object.assign(ui.modal, { pick: v, label: f && f.elements.label.value, date: f && f.elements.date.value }); render(); };
+  // Clause de temps partiel de l'avenant (art. L3123-6) : durée, répartition, heures complémentaires, modification de la répartition, rémunération au prorata.
+  function partTimeClause(e, ch, v) {
+    const h = weekHours(ch.quotite), full = (db.settings && db.settings.temps.heures) || 35, forf = isForfait(e);
+    return `<p><b>Article 2 bis. Temps partiel.</b> À compter du ${esc(longDate(v.date))}, ${forf ? `le forfait annuel de ${esc(fullName(e))} est réduit à ${Math.round(FORFAIT_DAYS * ch.quotite / 100)} jours travaillés par an (${ch.quotite} % du forfait de ${FORFAIT_DAYS} jours)` : `la durée du travail de ${esc(fullName(e))} est fixée à ${String(h).replace('.', ',')} heures par semaine, soit ${String(Math.round(h * 52 / 12 * 100) / 100).replace('.', ',')} heures par mois (${ch.quotite} % de la durée collective de ${full} heures)`}.
+      Répartition entre les jours de la semaine : ${esc(v.repartition.trim())}.${v.derog ? ` Durée inférieure à 24 heures par semaine au titre de la dérogation suivante : ${esc(v.derog.toLowerCase())}.` : ''}</p>
+      <p>Cette répartition peut être modifiée en cas de surcroît temporaire d’activité ou d’absence d’un collègue, avec un délai de prévenance de 7 jours ouvrés. Les heures complémentaires sont limitées à un dixième de la durée prévue et majorées conformément aux articles L3123-8 et suivants du Code du travail.</p>
+      <p>La rémunération annuelle brute est réduite au prorata : ${eur0(ch.salary * ch.quotite / 100)}, pour ${eur0(ch.salary)} sur la base d’un temps plein.</p>`;
+  }
+  // Signature de l'avenant : par le salarié dans son espace, ou sur papier (RH). Le changement s'applique alors à sa date d'effet.
+  function signAvenant(d, how) {
+    const e = emp(d.empId), c = e.changeNext;
+    Object.assign(d, { status: 'Signé', signedAt: TODAY, signedHow: how });
+    if (c && c.pendingSig === d.id) { delete c.pendingSig; if (c.from <= TODAY) applySituation(e, c, c.from, c.label); else if (c.salary !== e.salary) e.salaryNext = { amount: c.salary, from: c.from }; }
+    notify('e1', `${fullName(e)} : avenant signé${how === 'papier' ? ' (exemplaire papier)' : ''}.`);
+  }
   Object.assign(MOD_ACT, {
     'apply-internal'(d) {
       const j = db.jobs.find((x) => x.id === d.id), e = me();
@@ -2896,16 +3180,25 @@
       const ch = { title: v.title.trim(), dept: v.dept, managerId: v.managerId || null, salary, quotite: Number(v.quotite) || 100 }, parts = situationDiff(e, ch);
       if (!parts.length) return formError('Rien ne change : modifie au moins un élément.');
       if (ch.managerId && (ch.managerId === e.id || isUnder(ch.managerId, e.id))) return formError('Ce rattachement créerait une boucle dans l’organigramme.');
-      const contractual = ch.title !== e.title || ch.salary !== e.salary || ch.quotite !== (e.quotite || 100);
-      // Date future : tout le changement est programmé (et plus seulement le salaire) ; il s'applique à sa date.
-      if (v.date > TODAY) { e.changeNext = Object.assign({ from: v.date, label: v.label }, ch); if (ch.salary !== e.salary) e.salaryNext = { amount: ch.salary, from: v.date }; }
-      else applySituation(e, ch, v.date, v.label);
-      if (!contractual) { if (ui.modal.wishId) db.wishes.find((x) => x.id === ui.modal.wishId).status = 'Réalisé'; ui.modal = null; toast(v.date > TODAY ? `Changement programmé au ${fmtDate(v.date)} : la fiche et l’organigramme seront mis à jour à cette date` : 'Changement enregistré'); commit(); return; }
-      const av = addDoc(e.id, 'avenant', { title: `Avenant · ${ch.title}`, data: { title: ch.title, dept: ch.dept, salary, effective: v.date } }); av.html = fillTpl(tplOf('avenant').body, docCtx(e, av), tplOf('avenant').fields);
+      const contractual = ch.title !== e.title || ch.salary !== e.salary || ch.quotite !== (e.quotite || 100), pt = ch.quotite < 100 && ch.quotite !== (e.quotite || 100);
+      // Temps partiel : répartition obligatoire dans l'avenant ; sous 24 h par semaine, une dérogation légale doit être indiquée (art. L3123-27 et L3123-7).
+      if (pt && !(v.repartition || '').trim()) return formError('Temps partiel : indiquez la répartition de la durée du travail entre les jours de la semaine (mention obligatoire, art. L3123-6).');
+      if (pt && !isForfait(e) && weekHours(ch.quotite) < 24 && !v.derog) return formError(`${String(weekHours(ch.quotite)).replace('.', ',')} h par semaine : sous le minimum de 24 h (art. L3123-27), choisissez la dérogation qui s’applique.`);
+      if (contractual && e.changeNext && e.changeNext.pendingSig) return formError('Un avenant attend déjà la signature du salarié : faites-le signer ou supprimez-le avant d’en préparer un autre.');
+      if (!contractual) {
+        // Date future : tout le changement est programmé ; il s'applique à sa date.
+        if (v.date > TODAY) e.changeNext = Object.assign({ from: v.date, label: v.label }, ch); else applySituation(e, ch, v.date, v.label);
+        if (ui.modal.wishId) db.wishes.find((x) => x.id === ui.modal.wishId).status = 'Réalisé'; ui.modal = null; toast(v.date > TODAY ? `Changement programmé au ${fmtDate(v.date)} : la fiche et l’organigramme seront mis à jour à cette date` : 'Changement enregistré'); commit(); return; }
+      const paid = ch.quotite < 100 ? Math.round(salary * ch.quotite / 100) : salary;
+      const av = addDoc(e.id, 'avenant', { title: `Avenant · ${ch.title}${ch.quotite < 100 ? ` · temps partiel ${ch.quotite} %` : ''}`, data: { title: ch.title, dept: ch.dept, salary: paid, effective: v.date } }); av.html = fillTpl(tplOf('avenant').body, docCtx(e, av), tplOf('avenant').fields);
+      if (pt) { const cl = partTimeClause(e, ch, v); av.html = av.html.includes('<b>Article 3.</b>') ? av.html.replace(/<p>(\s*)<b>Article 3\.<\/b>/, `${cl}<p>$1<b>Article 3.</b>`) : av.html + cl; e.repartition = v.repartition.trim(); }
+      // Modification du contrat : elle exige l'accord écrit du salarié ; elle ne s'applique qu'après la signature de l'avenant.
+      e.changeNext = Object.assign({ from: v.date, label: v.label, pendingSig: av.id }, ch); av.change = true;
       if (ui.modal.wishId) db.wishes.find((x) => x.id === ui.modal.wishId).status = 'Réalisé';
       tickJourney(e.id, 10, 2); tickJourney(e.id, 5, 0);
-      notify(e.id, `${v.label} à compter du ${fmtDate(v.date)} : votre avenant vous sera remis par les RH.`); if (e.managerId) notify(e.managerId, `${v.label} de ${fullName(e)} au ${fmtDate(v.date)}.`);
-      ui.modal = { type: 'doc-edit', id: av.id }; toast(v.date > TODAY ? `Changement programmé au ${fmtDate(v.date)} · relisez l’avenant avant de le remettre` : 'Changement enregistré · relisez l’avenant avant de le remettre'); commit();
+      notify(e.id, `${v.label} proposé à compter du ${fmtDate(v.date)} : un avenant te sera envoyé pour signature.`); if (e.managerId) notify(e.managerId, `${v.label} de ${fullName(e)} au ${fmtDate(v.date)} (sous réserve de la signature de l’avenant).`);
+      ui.modal = { type: 'doc-edit', id: av.id }; toast('Avenant préparé · relisez-le puis envoyez-le au salarié pour signature : le changement s’appliquera après sa signature'); commit();
+
     },
   });
 
@@ -2925,35 +3218,43 @@
     });
     return out.sort((a, b) => a.deadline.localeCompare(b.deadline));
   }
-  // Déclaration d'accident du travail à la CPAM : 48 h, dimanches et jours fériés non compris.
+  // Déclaration d'accident du travail à la CPAM : 48 h à compter du jour où l'employeur en a connaissance, dimanches et jours fériés non compris (art. R441-3 CSS).
   const cpamDeadline = (d) => addOuvrables(d, 2);
+  const incKnown = (x) => x.knownAt || x.createdAt || x.date;
+  const incLate = (x) => ['Accident du travail', 'Accident de trajet'].includes(x.kind) && x.status === 'Déclaré' && cpamDeadline(incKnown(x)) < TODAY;
+  // Baromètre : réponses enregistrées sans nom (service et manager seulement) ; résultats publiés une fois le mois clos, et seulement à partir de 5 réponses,
+  // pour qu'une réponse individuelle ne puisse pas se déduire d'une moyenne à l'autre.
+  const QVT_MIN = 5;
+  const surveyMatch = (r, f) => !f || (r.empId ? (f.ids ? f.ids.has(r.empId) : f.dept ? (emp(r.empId) || {}).dept === f.dept : (emp(r.empId) || {}).managerId === f.mgr) : f.dept ? r.dept === f.dept : f.mgr ? r.mgr === f.mgr : false);
   function qvtStats(month, ids) {
-    const rs = db.survey.filter((s) => s.month === month && (!ids || ids.has(s.empId)));
+    const rs = db.survey.filter((s) => s.month === month && surveyMatch(s, ids));
     const avg = QVT_Q.map((_, k) => (rs.length ? rs.reduce((s, r) => s + r.answers[k], 0) / rs.length : 0));
     return { n: rs.length, avg, overall: rs.length ? avg.reduce((a, b) => a + b, 0) / avg.length : 0 };
   }
   function qvtResults(ids, label) {
-    const months = [...new Set(db.survey.map((s) => s.month).concat(monthKey(TODAY)))].sort();
-    const m = ui.qvtMonth && months.includes(ui.qvtMonth) ? ui.qvtMonth : months[months.length - 1]; ui.qvtMonth = m;
+    const filt = ids ? { mgr: me().id } : null, curM = monthKey(TODAY);
+    const months = [...new Set(db.survey.map((s) => s.month).concat(curM))].sort();
+    const m = ui.qvtMonth && months.includes(ui.qvtMonth) ? ui.qvtMonth : months.filter((x) => x < curM).pop() || curM; ui.qvtMonth = m;
     const prev = months[months.indexOf(m) - 1];
-    const cur = qvtStats(m, ids), before = prev ? qvtStats(prev, ids) : null;
+    const cur = qvtStats(m, filt), before = prev ? qvtStats(prev, filt) : null;
     const pop = (ids ? scopeEmployees() : employed()).filter(isEmployed).length;
     const nav = `<div class="toolbar"><button type="button" class="icon-btn" data-act="qvt-month" data-m="${prev || ''}" ${prev ? '' : 'disabled'} aria-label="Mois précédent">${ic('left')}</button><h3 style="min-width:150px;text-align:center">${monthLabel(m)}</h3><button type="button" class="icon-btn" data-act="qvt-month" data-m="${months[months.indexOf(m) + 1] || ''}" ${months.indexOf(m) < months.length - 1 ? '' : 'disabled'} aria-label="Mois suivant">${ic('right')}</button></div>`;
-    if (cur.n < 3) return card(`Baromètre QVT · ${label}`, nav, `<div class="empty">Résultats masqués : moins de 3 réponses (${cur.n}) ce mois-ci, pour préserver l’anonymat.</div>`);
-    const delta = (k) => { if (!before || before.n < 3) return ''; const dd = cur.avg[k] - before.avg[k]; return `<small class="${dd >= 0 ? 'up' : 'down'} num">${dd >= 0 ? '+' : ''}${dd.toFixed(1).replace('.', ',')}</small>`; };
+    if (m >= curM) return card(`Baromètre QVT · ${label}`, nav, `<div class="empty">Baromètre en cours : les résultats de ${monthLabel(m).toLowerCase()} seront publiés à la clôture du mois, le ${fmtDateY(shiftMonth(m, 1) + '-01')}, pour préserver l’anonymat.</div>`);
+    if (cur.n < QVT_MIN) return card(`Baromètre QVT · ${label}`, nav, `<div class="empty">Résultats masqués : moins de ${QVT_MIN} réponses ce mois-ci, pour préserver l’anonymat.</div>`);
+    const delta = (k) => { if (!before || before.n < QVT_MIN) return ''; const dd = cur.avg[k] - before.avg[k]; return `<small class="${dd >= 0 ? 'up' : 'down'} num">${dd >= 0 ? '+' : ''}${dd.toFixed(1).replace('.', ',')}</small>`; };
     let depts = '';
-    if (!ids) depts = card('Par service', '<span class="muted" style="font-size:13px">Services de moins de 3 répondants masqués</span>', `<div class="table-wrap"><table><thead><tr><th>Service</th><th class="r">Réponses</th><th>Note moyenne</th></tr></thead><tbody>${DEPTS.map((dpt) => { const s = qvtStats(m, new Set(db.employees.filter((e) => e.dept === dpt).map((e) => e.id)));
-      return `<tr><td>${dpt}</td><td class="r num">${s.n}</td><td>${s.n >= 3 ? `<span class="qv">${hbar(s.overall)}<b class="num">${s.overall.toFixed(1).replace('.', ',')}</b></span>` : '<span class="muted">Masqué</span>'}</td></tr>`; }).join('')}</tbody></table></div>`);
+    if (!ids) depts = card('Par service', `<span class="muted" style="font-size:13px">Services de moins de ${QVT_MIN} répondants masqués</span>`, `<div class="table-wrap"><table><thead><tr><th>Service</th><th class="r">Réponses</th><th>Note moyenne</th></tr></thead><tbody>${DEPTS.map((dpt) => { const s = qvtStats(m, { dept: dpt }), ok = s.n >= QVT_MIN;
+      return `<tr><td>${dpt}</td><td class="r num">${ok ? s.n : `moins de ${QVT_MIN}`}</td><td>${ok ? `<span class="qv">${hbar(s.overall)}<b class="num">${s.overall.toFixed(1).replace('.', ',')}</b></span>` : '<span class="muted">Masqué</span>'}</td></tr>`; }).join('')}</tbody></table></div>`);
     return card(`Baromètre QVT · ${label}`, nav, `<div class="card-b"><p class="muted" style="margin:0 0 12px">Participation : <b class="num">${cur.n} / ${pop}</b> (${Math.round((cur.n / Math.max(1, pop)) * 100)} %) · note globale <b class="num">${cur.overall.toFixed(1).replace('.', ',')} / 5</b></p>
       ${QVT_Q.map((q, k) => `<div class="qrow"><span>${q}</span><span class="qv">${hbar(cur.avg[k], 5, cur.avg[k] < 3 ? 'var(--bad)' : cur.avg[k] < 3.6 ? 'var(--warn)' : 'var(--ok)')}<b class="num">${cur.avg[k].toFixed(1).replace('.', ',')}</b>${delta(k)}</span></div>`).join('')}</div>`) + depts;
   }
   function viewHealth() {
     const p = ui.profile, m = me();
     let tabs;
-    const answered = db.survey.some((s) => s.empId === m.id && s.month === monthKey(TODAY));
+    const answered = (db.surveyDone || []).includes(`${monthKey(TODAY)}:${m.id}`) || db.survey.some((s) => s.empId === m.id && s.month === monthKey(TODAY));
     if (p === 'salarie') tabs = [['qvt', 'Baromètre du mois', answered ? 0 : 1], ['visites', 'Mes visites médicales'], ['accidents', 'Accidents et incidents'], ...(mobSal() ? [] : [['amenagements', 'Aménagement de poste']])];
     else if (p === 'manager') tabs = [['qvt', 'Baromètre de l’équipe'], ['accidents', 'Accidents et incidents'], ['amenagements', 'Aménagements de poste']];
-    else tabs = [['visites', 'Visites médicales', visitsDue(db.employees).filter((x) => x.deadline < TODAY).length], ['accidents', 'Accidents et incidents', db.incidents.filter((x) => x.status === 'Déclaré').length], ['risques', 'Document unique (DUERP)'], ['qvt', 'Baromètre QVT'], ['amenagements', 'Aménagements de poste', db.adjustments.filter((x) => x.status === 'Demandé').length], ['retours', 'Retours d’absence', longAbsences().filter((a) => a.need && !db.visits.some((x) => x.empId === a.e.id && x.kind === 'Visite de reprise' && x.date >= a.start)).length]];
+    else tabs = [['visites', 'Visites médicales', visitsDue(db.employees).filter((x) => x.deadline < TODAY).length + (db.visits || []).filter((v) => v.inapt && !v.inapt.done).length], ['accidents', 'Accidents et incidents', db.incidents.filter((x) => x.status === 'Déclaré').length], ['risques', 'Document unique (DUERP)'], ['qvt', 'Baromètre QVT'], ['amenagements', 'Aménagements de poste', db.adjustments.filter((x) => x.status === 'Demandé').length], ['retours', 'Retours d’absence', longAbsences().filter((a) => a.need && !db.visits.some((x) => x.empId === a.e.id && x.kind === 'Visite de reprise' && x.date >= a.start)).length]];
     pickTab('healthTab', tabs);
     const ids = p === 'rh' ? null : p === 'manager' ? scopeSet() : new Set([m.id]);
     const inScope = (id) => !ids || ids.has(id) || (p === 'manager' && id === m.id);
@@ -2961,7 +3262,7 @@
     if (ui.healthTab === 'retours') body = returnsView();
     else if (ui.healthTab === 'qvt') {
       if (p === 'salarie') {
-        body = answered ? `<div class="card card-b"><b>Merci, votre réponse de ${monthLabel(monthKey(TODAY)).toLowerCase()} est enregistrée.</b><p class="muted" style="margin:4px 0 0">Les réponses sont anonymes : les RH ne voient que des moyennes, jamais en dessous de 3 répondants.</p></div>${qvtResults(null, 'toute l’entreprise')}`
+        body = answered ? `<div class="card card-b"><b>Merci, ta réponse de ${monthLabel(monthKey(TODAY)).toLowerCase()} est enregistrée.</b><p class="muted" style="margin:4px 0 0">Ta réponse est enregistrée sans ton nom : les RH ne voient que des moyennes, publiées à la clôture du mois et jamais en dessous de ${QVT_MIN} répondants.</p></div>${qvtResults(null, 'toute l’entreprise')}`
           : `<form class="card" data-form="survey" novalidate><div class="card-h"><h3>Baromètre de ${monthLabel(monthKey(TODAY)).toLowerCase()}</h3><span class="muted" style="font-size:13px">Anonyme · 1 minute</span></div><div class="card-b">${QVT_Q.map((q, k) => `<fieldset class="likert"><legend>${q}</legend><div>${[1, 2, 3, 4, 5].map((v) => `<label><input type="radio" name="q${k}" value="${v}" ${v === 4 ? 'checked' : ''}><span>${v}</span></label>`).join('')}</div><small class="muted">1 = pas du tout d’accord · 5 = tout à fait d’accord</small></fieldset>`).join('')}
             <div class="toolbar" style="margin-top:8px"><button class="btn primary" style="margin-left:auto">Envoyer mes réponses</button></div></div></form>`;
       } else body = qvtResults(ids, p === 'manager' ? `équipe ${m.dept}` : 'toute l’entreprise');
@@ -2971,15 +3272,18 @@
       const due = visitsDue(p === 'rh' ? db.employees : [m]);
       body = `${card('À organiser', `<span class="pill ${due.some((x) => x.deadline < TODAY) ? 'bad' : 'warn'} num">${due.length}</span>`, `<div class="req-list">${due.map((x) => `<div class="req"><div class="who-cell">${avatar(x.e)}<div><b>${esc(fullName(x.e))}</b><small>${esc(x.why)}</small></div></div><div class="what"><b>${esc(x.kind)}</b><small>Avant le ${fmtDate(x.deadline)}</small></div>${x.deadline < TODAY ? '<span class="pill bad">En retard</span>' : '<span class="pill warn">À planifier</span>'}${p === 'rh' ? `<button type="button" class="btn primary sm" data-act="visit-new" data-id="${x.e.id}" data-k="${esc(x.kind)}">Planifier</button>` : ''}</div>`).join('') || '<div class="empty">Toutes les visites sont à jour.</div>'}</div>`)}
         ${card('Visites planifiées', '', `<div class="req-list">${planned.map((v) => { const e = emp(v.empId); return `<div class="req"><div class="who-cell">${avatar(e)}<b>${esc(fullName(e))}</b></div><div class="what"><b>${esc(v.kind)}</b><small>${fmtDate(v.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</small></div>
-          ${p === 'rh' ? `<label class="sr" for="vr-${v.id}">Résultat</label><select id="vr-${v.id}" class="select" data-change="visit-result" data-id="${v.id}"><option value="">Saisir le résultat</option><option>Apte</option><option>Apte avec aménagement</option></select>` : '<span class="pill info">Planifiée</span>'}</div>`; }).join('') || '<div class="empty">Aucune visite planifiée.</div>'}</div>`)}
-        ${card('Historique', '', `<div class="req-list">${done.slice(0, 8).map((v) => { const e = emp(v.empId); return `<div class="req"><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div><div class="what"><b>${esc(v.kind)}</b><small>${fmtDate(v.date)}</small></div><span class="pill ${v.result === 'Apte' ? 'ok' : 'info'}">${esc(v.result)}</span></div>`; }).join('') || '<div class="empty">Aucune visite réalisée.</div>'}</div>`)}`;
+          ${p === 'rh' ? `<label class="sr" for="vr-${v.id}">Résultat</label><select id="vr-${v.id}" class="select" data-change="visit-result" data-id="${v.id}"><option value="">Saisir le résultat</option>${visitResults(v).map((x) => `<option>${x}</option>`).join('')}</select>` : '<span class="pill info">Planifiée</span>'}</div>`; }).join('') || '<div class="empty">Aucune visite planifiée.</div>'}</div>`)}
+        ${p === 'rh' ? inaptCard() : ''}
+        ${card('Historique', '', `<div class="req-list">${done.slice(0, 8).map((v) => { const e = emp(v.empId); return `<div class="req"><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div><div class="what"><b>${esc(v.kind)}</b><small>${fmtDate(v.date)}</small></div><span class="pill ${v.result === 'Apte' || v.result === 'Attestation de suivi' ? 'ok' : v.result === 'Inapte' ? 'bad' : 'info'}">${esc(v.result)}</span></div>`; }).join('') || '<div class="empty">Aucune visite réalisée.</div>'}</div>`)}`;
     } else if (ui.healthTab === 'accidents') {
       const list = db.incidents.filter((x) => inScope(x.empId)).sort((a, b) => b.date.localeCompare(a.date));
       body = `<div class="toolbar"><button type="button" class="btn primary" data-act="incident-new">${ic('plus')}Déclarer un accident ou un incident</button>${p === 'rh' ? '<span class="hint">Un accident du travail ou de trajet se déclare à la CPAM sous 48 h (dimanches et jours fériés non compris).</span>' : ''}</div>
         ${card('Déclarations', '', `<div class="req-list">${list.map((x) => { const e = emp(x.empId), needCpam = ['Accident du travail', 'Accident de trajet'].includes(x.kind);
-          const acts = p !== 'rh' ? '' : x.status === 'Déclaré' ? `<div class="acts">${needCpam ? `<button type="button" class="btn primary sm" data-act="incident-step" data-id="${x.id}" data-s="Transmis CPAM">Déclaration CPAM envoyée</button>` : ''}<button type="button" class="btn ghost sm" data-act="incident-step" data-id="${x.id}" data-s="Clos">Clore</button></div>` : x.status === 'Transmis CPAM' ? `<button type="button" class="btn ghost sm" data-act="incident-step" data-id="${x.id}" data-s="Clos">Clore</button>` : '';
-          return `<div class="req"><div class="who-cell">${avatar(e)}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small></div></div><div class="what"><b>${esc(x.kind)} · ${fmtDate(x.date)}</b><small>${esc(x.description)}${x.stopDays ? ` · arrêt de ${plural(x.stopDays, 'jour', 'jours')}` : ' · sans arrêt'}</small>
-            ${needCpam && x.status === 'Déclaré' ? `<small class="${cpamDeadline(x.date) < TODAY ? 'err' : ''}">Déclaration CPAM avant le ${fmtDate(cpamDeadline(x.date))}</small>` : ''}</div><span class="pill ${INC_PILL[x.status]}">${x.status}</span>${acts}</div>`; }).join('') || '<div class="empty">Aucune déclaration.</div>'}</div>`)}`;
+          const acts = p !== 'rh' ? '' : x.status === 'Déclaré' ? `<div class="acts">${needCpam ? `<button type="button" class="btn primary sm" data-act="incident-step" data-id="${x.id}" data-s="Transmis CPAM">Déclaration CPAM envoyée</button>${x.reserves ? '' : `<button type="button" class="btn ghost sm" data-act="incident-reserve" data-id="${x.id}">Émettre des réserves</button>`}` : ''}<button type="button" class="btn ghost sm" data-act="incident-step" data-id="${x.id}" data-s="Clos">Clore</button></div>` : x.status === 'Transmis CPAM' ? `<button type="button" class="btn ghost sm" data-act="incident-step" data-id="${x.id}" data-s="Clos">Clore</button>` : '';
+          const lk = x.leaveId && db.leaves.find((l) => l.id === x.leaveId);
+          return `<div class="req"><div class="who-cell">${avatar(e)}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small></div></div><div class="what"><b>${esc(x.kind)} · ${fmtDate(x.date)}</b><small>${esc(x.description)}${x.stopDays ? ` · arrêt de ${plural(x.stopDays, 'jour', 'jours')}` : ' · sans arrêt'}${lk ? ` · arrêt enregistré du ${fmtShort(lk.start)} au ${fmtShort(lk.end)} (absences et paie)` : ''}</small>
+            ${needCpam && x.status === 'Déclaré' ? `<small class="${incLate(x) ? 'err' : ''}">Connu de l’employeur le ${fmtDate(incKnown(x))} · déclaration CPAM avant le ${fmtDate(cpamDeadline(incKnown(x)))}${incLate(x) ? ' : délai dépassé, déclarer sans attendre' : ''}</small>` : ''}
+            ${x.reserves ? `<small>Réserves motivées émises le ${fmtDate(x.reserves.date)} : « ${esc(x.reserves.text)} »</small>` : ''}</div>${incLate(x) ? '<span class="pill bad">En retard</span>' : ''}<span class="pill ${INC_PILL[x.status]}">${x.status}</span>${acts}</div>`; }).join('') || '<div class="empty">Aucune déclaration.</div>'}</div>`)}`;
     } else if (ui.healthTab === 'risques') {
       const score = (r) => r.g * r.p, lvl = (s) => (s >= 9 ? ['bad', 'Prioritaire'] : s >= 5 ? ['warn', 'À surveiller'] : ['ok', 'Maîtrisé']);
       const list = db.risks.slice().sort((a, b) => score(b) - score(a));
@@ -2997,12 +3301,24 @@
     if (ui.healthTab === 'risques') body = duerpCard() + body;
     return tabsBar('healthTab', tabs) + body;
   }
+  // Résultats possibles : la visite d'information et de prévention donne une attestation de suivi (R4624-14), pas un avis d'aptitude.
+  const visitResults = (v) => (v.kind === "Visite d'information et de prévention" ? ['Attestation de suivi', 'Orientation vers le médecin du travail'] : v.kind === 'Visite de pré-reprise' ? ['Recommandations transmises'] : ['Apte', 'Apte avec aménagement', 'Inapte']);
+  function inaptCard() {
+    const list = db.visits.filter((v) => v.inapt);
+    if (!list.length) return '';
+    return card('Inaptitudes', `<span class="pill bad num">${list.filter((v) => !v.inapt.done).length}</span>`, `<div class="req-list">${list.map((v) => { const e = emp(v.empId), late = !v.inapt.done && v.inapt.deadline < TODAY;
+      return `<div class="req"><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div><div class="what"><b>Avis d’inaptitude du ${fmtDateY(v.inapt.date)} · ${esc(v.inapt.origin || '')}</b><small>Reclassement à rechercher ; sans reclassement ni licenciement, reprise du paiement du salaire au plus tard le ${fmtDateY(v.inapt.deadline)}${v.inapt.reco ? ` · préconisations : ${esc(v.inapt.reco)}` : ''}</small></div>
+        ${v.inapt.done ? '<span class="pill ok">Traitée</span>' : `<span class="pill ${late ? 'bad' : 'warn'}">${late ? 'Délai d’un mois dépassé : salaire dû' : 'Reclassement en cours'}</span><button type="button" class="btn ghost sm" data-act="inapt-done" data-id="${v.id}">Marquer comme traitée</button>`}</div>`; }).join('')}</div>`);
+  }
   MODALS.visit = (m, shell, formShell, opt, f) => formShell(`Planifier une visite · ${esc(fullName(emp(m.id)))}`, 'visit', `<div class="form-grid">${f('vi-kind', 'Type de visite', `<select id="vi-kind" name="kind" class="select">${opt(VISIT_KINDS, m.kind)}</select>`, true)}
-    ${f('vi-date', 'Date', `<input id="vi-date" name="date" type="date" class="input" value="${nextMonday(TODAY, 1)}">`)}${f('vi-time', 'Heure', '<input id="vi-time" name="time" type="time" class="input" value="09:30">')}</div><p class="hint" style="margin:0">Le collaborateur reçoit une notification avec la date de convocation.</p>`, 'Planifier la visite');
+    ${m.due ? `<p class="${m.due < TODAY ? 'lint bad' : 'hint'} full" style="margin:0">Reprise le ${fmtDateY(m.ret)} : visite de reprise à organiser au plus tard le ${fmtDateY(m.due)} (8 jours, art. R4624-31)${m.due < TODAY ? ' : délai déjà dépassé, à organiser au plus vite' : ''}.</p>` : ''}
+    ${f('vi-date', 'Date', `<input id="vi-date" name="date" type="date" class="input" value="${m.date || nextMonday(TODAY, 1)}">`)}${f('vi-time', 'Heure', '<input id="vi-time" name="time" type="time" class="input" value="09:30">')}</div><p class="hint" style="margin:0">Le collaborateur reçoit une notification avec la date de convocation.</p>`, 'Planifier la visite');
   MODALS.incident = (m, shell, formShell, opt, f) => {
     const list = ui.profile === 'rh' ? db.employees.filter((e) => e.stage >= 3 && e.stage < 15) : ui.profile === 'manager' ? [me()].concat(scopeEmployees().filter(isEmployed)) : [me()];
     return formShell('Déclarer un accident ou un incident', 'incident', `<div class="form-grid">${f('in-emp', 'Personne concernée', `<select id="in-emp" name="empId" class="select">${empOptions(list, me().id)}</select>`)}${f('in-date', 'Date', `<input id="in-date" name="date" type="date" class="input" value="${TODAY}">`)}
       ${f('in-kind', 'Type', `<select id="in-kind" name="kind" class="select">${opt(['Accident du travail', 'Accident de trajet', 'Incident sans arrêt', 'Presque-accident'])}</select>`)}${f('in-stop', 'Jours d’arrêt prescrits', '<input id="in-stop" name="stopDays" type="number" min="0" class="input num" value="0">')}
+      ${ui.profile === 'rh' ? f('in-known', 'Connu de l’employeur le (départ du délai de 48 h)', `<input id="in-known" name="knownAt" type="date" class="input" value="${TODAY}">`) : ''}
+      <p class="hint full" style="margin:0">Un arrêt prescrit est enregistré dans les absences à partir du lendemain de l’accident (la journée de l’accident est payée par l’employeur) et remonte en paie.</p>
       ${f('in-desc', 'Circonstances', '<textarea id="in-desc" name="description" class="input" maxlength="400" placeholder="Lieu, heure, ce qui s’est passé, témoins…"></textarea>', true)}</div>`, 'Envoyer la déclaration');
   };
   MODALS.risk = (m, shell, formShell, opt, f) => formShell('Ajouter un risque', 'risk', `<div class="form-grid">${f('rk-unit', 'Unité de travail', '<input id="rk-unit" name="unit" class="input" placeholder="Ex. Bureaux · Paris">')}${f('rk-risk', 'Risque', '<input id="rk-risk" name="risk" class="input" placeholder="Ex. Port de charges">')}
@@ -3016,27 +3332,53 @@
     'qvt-month'(d) { if (d.m) { ui.qvtMonth = d.m; render(); } },
     'visit-new'(d) { ui.modal = { type: 'visit', id: d.id, kind: d.k }; render(); },
     'incident-new'() { ui.modal = { type: 'incident' }; render(); },
-    'incident-step'(d) { const x = db.incidents.find((y) => y.id === d.id); x.status = d.s; toast(d.s === 'Clos' ? 'Déclaration close' : 'Transmission à la CPAM enregistrée'); commit(); },
+    'incident-step'(d) { const x = db.incidents.find((y) => y.id === d.id); x.status = d.s; if (d.s === 'Transmis CPAM') x.sentAt = TODAY; toast(d.s === 'Clos' ? 'Déclaration close' : 'Transmission à la CPAM enregistrée (la déclaration se fait sur net-entreprises.fr)'); commit(); },
+    // Réserves motivées de l'employeur sur le caractère professionnel de l'accident (art. R441-6 CSS).
+    'incident-reserve'(d) { const x = db.incidents.find((y) => y.id === d.id);
+      confirmAct({ title: 'Émettre des réserves motivées', act: 'incident-reserve', empId: x.empId, trace: 'Réserves sur un accident du travail', confirm: 'Enregistrer les réserves',
+        text: '<p>Les réserves portent sur les circonstances de temps et de lieu ou sur une cause totalement étrangère au travail ; elles sont jointes à la déclaration ou envoyées à la CPAM dans les 10 jours francs (art. R441-6 CSS).</p>',
+        fields: [{ name: 'text', label: 'Motifs des réserves', type: 'textarea', required: true }] },
+      (v) => { x.reserves = { date: TODAY, text: v.text, by: me().id }; toast('Réserves enregistrées'); commit(); }); },
     'risk-new'() { ui.modal = { type: 'risk' }; render(); },
     'adjust-new'() { ui.modal = { type: 'adjust' }; render(); },
     'adjust-step'(d) { const x = db.adjustments.find((y) => y.id === d.id); x.status = d.s; if (d.s === 'Accordé') tickJourney(x.empId, 11, 3); notify(x.empId, `Votre demande d’aménagement (${x.kind}) est ${d.s.toLowerCase()}e.`); toast(`Demande ${d.s.toLowerCase()}e`); commit(); },
   });
   Object.assign(MOD_CHG, {
-    'visit-result'(v, d) { if (!v) return; const x = db.visits.find((y) => y.id === d.id); x.status = 'Réalisée'; x.result = v; tickJourney(x.empId, 11, 0); notify(x.empId, `Résultat de votre visite médicale : ${v}.`); toast('Résultat enregistré'); commit(); },
+    'visit-result'(v, d, t) { if (!v) return; const x = db.visits.find((y) => y.id === d.id), e = emp(x.empId);
+      // Avis d'inaptitude : reclassement à rechercher, et reprise du salaire si ni reclassement ni licenciement dans le mois (art. L1226-2, L1226-4, L1226-10 et L1226-11).
+      if (v === 'Inapte') { if (t) t.value = '';
+        confirmAct({ title: `Avis d’inaptitude · ${esc(fullName(e))}`, act: 'visit-result', empId: e.id, trace: 'Avis d’inaptitude du médecin du travail', danger: true, confirm: 'Enregistrer l’inaptitude',
+          text: '<p>L’employeur doit rechercher un reclassement adapté aux préconisations du médecin du travail, en consultant le CSE s’il existe. Sans reclassement ni licenciement dans le délai d’un mois, le salaire est à nouveau versé.</p>',
+          fields: [{ name: 'date', label: 'Date de l’avis', type: 'date', required: true, value: x.date, guard: { notAfter: { date: TODAY, label: 'aujourd’hui' } } }, { name: 'origin', label: 'Origine', type: 'select', options: ['Non professionnelle', 'Professionnelle (accident du travail ou maladie professionnelle)'] }, { name: 'reco', label: 'Préconisations du médecin', type: 'textarea' }] },
+        (vals) => { Object.assign(x, { status: 'Réalisée', result: 'Inapte', inapt: { date: vals.date, origin: vals.origin, reco: vals.reco, deadline: addMonths(vals.date, 1) } }); tickJourney(x.empId, 11, 0); notify(x.empId, 'Résultat de ta visite médicale : avis d’inaptitude. Les RH te contactent pour rechercher un reclassement.'); toast('Inaptitude enregistrée · recherche de reclassement à mener'); commit(); });
+        return; }
+      x.status = 'Réalisée'; x.result = v; tickJourney(x.empId, 11, 0); notify(x.empId, `Résultat de ta visite médicale : ${v}.`); toast('Résultat enregistré'); commit(); },
     'risk-status'(v, d) { db.risks.find((y) => y.id === d.id).status = v; save(); toast('Statut du risque mis à jour'); },
   });
   Object.assign(MOD_FORMS, {
     visit(v) {
       if (!v.date) return formError('Choisissez une date.');
-      const e = emp(ui.modal.id); db.visits.push({ id: uid('v'), empId: e.id, kind: v.kind, date: v.date, status: 'Planifiée', result: null });
+      const g = dateGuard(v.date, { notPastOf: TODAY, label: 'La date de la visite' }); if (g) return formError(g);
+      if (ui.modal.due && v.date > ui.modal.due && !ui.modal.lateOk) { ui.modal.lateOk = true; return formError(`Le ${fmtDateY(v.date)} est après la date limite du ${fmtDateY(ui.modal.due)}. Cliquez à nouveau pour confirmer cette date tardive.`); }
+      const e = emp(ui.modal.id); db.visits.push({ id: uid('v'), empId: e.id, kind: v.kind, date: v.date, status: 'Planifiée', result: null, late: ui.modal.due && v.date > ui.modal.due ? true : undefined });
+
       notify(e.id, `Convocation : ${v.kind.toLowerCase()} le ${fmtDate(v.date)} à ${v.time || '09:30'}.`); ui.modal = null; toast('Visite planifiée, convocation envoyée'); commit();
     },
-    incident(v) {
+    async incident(v) {
       if (!v.description.trim()) return formError('Décrivez les circonstances.');
       if (!v.date || v.date > TODAY) return formError('La date ne peut pas être dans le futur.');
-      db.incidents.push({ id: uid('i'), empId: v.empId, date: v.date, kind: v.kind, description: v.description.trim(), stopDays: Number(v.stopDays) || 0, status: 'Déclaré', createdAt: TODAY });
+      const known = v.knownAt || TODAY; if (known < v.date || known > TODAY) return formError('La date de connaissance est comprise entre la date de l’accident et aujourd’hui.');
+      const x = { id: uid('i'), empId: v.empId, date: v.date, kind: v.kind, description: v.description.trim(), stopDays: Number(v.stopDays) || 0, status: 'Déclaré', createdAt: TODAY, knownAt: known };
+      db.incidents.push(x);
+      // Un seul événement : l'arrêt prescrit devient l'absence (à partir du lendemain), qui alimente l'attestation de salaire et la paie.
+      let msg = '';
+      if (x.stopDays > 0 && ['Accident du travail', 'Accident de trajet'].includes(x.kind)) {
+        const e = emp(v.empId), s = addDays(v.date, 1); let err = '';
+        const r = await recordLeave(e, { type: 'Accident du travail', start: s, end: addDays(s, x.stopDays - 1), comment: x.kind === 'Accident de trajet' ? 'Accident de trajet' : '' }, (m) => { err = m; }, { rh: ui.profile === 'rh', incident: x.id, accidentDate: v.date });
+        if (r) { x.leaveId = r.l.id; msg = ' · arrêt enregistré dans les absences'; } else msg = ` · arrêt à enregistrer dans les absences (${err})`;
+      }
       notify('e1', `${v.kind} déclaré pour ${fullName(emp(v.empId))} le ${fmtDate(v.date)}.`); tickJourney(v.empId, 11, 2);
-      ui.modal = null; toast('Déclaration transmise aux RH'); commit();
+      ui.modal = null; toast(`Déclaration transmise aux RH${msg}`); commit();
     },
     risk(v) {
       if (!v.unit.trim() || !v.risk.trim()) return formError('Indiquez l’unité de travail et le risque.');
@@ -3050,15 +3392,20 @@
       ui.modal = null; toast(ui.profile === 'rh' ? 'Aménagement enregistré' : 'Demande envoyée aux RH'); commit();
     },
     survey(v) {
-      db.survey.push({ id: uid('q'), empId: me().id, month: monthKey(TODAY), answers: QVT_Q.map((_, k) => Number(v['q' + k]) || 3) });
-      tickJourney(me().id, 11, 4); toast('Merci ! Vos réponses sont anonymes.'); commit();
+      const e = me(), m = monthKey(TODAY); db.surveyDone = db.surveyDone || [];
+      if (db.surveyDone.includes(`${m}:${e.id}`)) return;
+      // Réponse sans nom : seuls le service et le manager servent aux moyennes ; la participation est notée à part.
+      db.survey.push({ id: uid('q'), dept: e.dept, mgr: e.managerId, month: m, answers: QVT_Q.map((_, k) => Number(v['q' + k]) || 3) }); db.surveyDone.push(`${m}:${e.id}`);
+      tickJourney(e.id, 11, 4); toast('Merci ! Ta réponse est enregistrée sans ton nom.'); commit();
     },
   });
 
   // ---------------------------------------------------------------- Relations individuelles
   const CASE_PILL = { Ouvert: 'warn', 'En cours': 'info', Clos: 'ok' };
   const CASE_KINDS = ['Situation individuelle', 'Procédure disciplinaire', 'Médiation', 'Demande d’échange', 'Signalement manager'];
-  const MEASURES = ['Aucune', 'Avertissement', 'Blâme', 'Mise à pied disciplinaire', 'Mutation disciplinaire', 'Licenciement'];
+  // Le licenciement n'est pas une « mesure » de ce menu : il suit sa propre procédure (Départs). Les sanctions lourdes exigent un entretien préalable.
+  const MEASURES = ['Aucune', 'Avertissement', 'Blâme', 'Mise à pied disciplinaire', 'Mutation disciplinaire', 'Rétrogradation'];
+  const HEAVY = ['Mise à pied disciplinaire', 'Mutation disciplinaire', 'Rétrogradation'];
   function viewRelations() {
     const p = ui.profile, m = me();
     if (p === 'salarie') {
@@ -3092,7 +3439,9 @@
     const dl = disc ? `<div class="card card-b"><h3 style="font-size:15px">Repères de procédure</h3><div class="info-grid" style="margin-top:8px">
       <div><span>Faits connus le</span>${c.facts ? fmtDate(c.facts) : '—'}</div><div><span>Engager la procédure avant le</span>${c.facts ? `<b class="${addMonths(c.facts, 2) < TODAY ? 'err' : ''}">${fmtDate(addMonths(c.facts, 2))}</b>` : '—'}</div>
       <div><span>Convocation présentée le</span><input type="date" class="input" value="${c.convocAt || ''}" data-change="case-convoc" data-id="${c.id}" aria-label="Date de présentation de la convocation"></div>
-      <div><span>Entretien préalable</span>${c.interview ? fmtDate(c.interview) : 'À fixer'}${c.convocAt && c.interview && c.interview < addOuvrables(c.convocAt, 5) ? `<small class="warn-t" style="display:block">Pour un licenciement, au moins 5 jours ouvrables après la présentation de la convocation (au plus tôt le ${fmtDate(addOuvrables(c.convocAt, 5))})</small>` : ''}</div><div><span>Sanction notifiable</span>${c.interview ? `du ${fmtDate(addOuvrables(c.interview, 2))} au ${fmtDate(addMonths(c.interview, 1))}` : '—'}</div></div>
+      <div><span>Entretien préalable</span>${c.interview ? fmtDateY(c.interview) : 'À fixer'}${c.convocAt && c.interview && c.interview < c.convocAt ? '<small class="err" style="display:block">Entretien fixé avant la présentation de la convocation : procédure irrégulière</small>' : c.convocAt && c.interview && c.interview < addOuvrables(c.convocAt, 5) ? `<small class="err" style="display:block">Délai court : le salarié doit disposer d’un délai suffisant pour préparer sa défense ; pour un licenciement, 5 jours ouvrables au moins (au plus tôt le ${fmtDateY(addOuvrables(c.convocAt, 5))}), sinon la procédure est irrégulière</small>` : ''}</div><div><span>Sanction notifiable</span>${c.interview ? `du ${fmtDateY(addOuvrables(c.interview, 2))} au ${fmtDateY(addMonths(c.interview, 1))}` : '—'}</div></div>
+      <div class="toolbar" style="margin-top:10px"><button type="button" class="btn ghost sm" data-act="disc-doc" data-id="${c.id}" data-k="convoc-disc">${ic('file')}Préparer la convocation</button><button type="button" class="btn ghost sm" data-act="disc-doc" data-id="${c.id}" data-k="notif-sanction" ${c.interview && c.interview <= TODAY ? '' : 'disabled title="Après l’entretien préalable"'}>${ic('file')}Préparer la notification de sanction</button></div>
+      <p class="hint" style="margin:8px 0 0">Mise à pied conservatoire : à noter dans la chronologie (type « Mise à pied conservatoire ») ; elle doit être suivie sans délai de l’engagement de la procédure. Licenciement envisagé : lancer un départ (Départs) pour suivre la procédure de licenciement.</p>
       <form data-form="case-interview" class="toolbar" style="margin-top:12px" novalidate><div class="field" style="flex:1"><label for="ci-date">Date de l’entretien préalable</label><input id="ci-date" name="interview" type="date" class="input" value="${c.interview || addOuvrables(TODAY, 6)}"></div><button class="btn ghost" style="align-self:flex-end">Enregistrer</button></form>
       <p class="hint" style="margin:10px 0 0">Repères indicatifs (Code du travail, art. L1332-2 et L1332-4) : prescription de 2 mois, sanction au plus tôt 2 jours ouvrables et au plus tard 1 mois après l’entretien. À valider avec votre conseil juridique.</p></div>` : '';
     return `<div class="drawer-h">${avatar(e, 'lg')}<div style="min-width:0"><h2>${esc(c.title)}</h2><p>${esc(fullName(e))} · ${esc(e.title)}</p><div class="toolbar" style="margin-top:6px"><span class="pill neutral">${esc(c.kind)}</span><span class="pill ${CASE_PILL[c.status]}">${c.status}</span></div></div>
@@ -3101,7 +3450,7 @@
         ${disc ? `<label for="cs-me" class="muted">Mesure</label><select id="cs-me" class="select" data-change="case-measure" data-id="${c.id}">${MEASURES.map((s) => `<option ${s === (c.measure || 'Aucune') ? 'selected' : ''}>${s}</option>`).join('')}</select>` : ''}</div>
       ${dl}
       <div class="card"><div class="card-h"><h3>Chronologie</h3></div><div class="card-b"><ol class="timeline">${c.events.slice().sort((a, b) => a.date.localeCompare(b.date)).map((ev) => `<li><small>${fmtDate(ev.date)} · ${esc(ev.type)} · ${esc(fullName(emp(ev.by)))}${ev.visible ? ' · <span class="pill info">Visible par le collaborateur</span>' : ''}</small><p>${esc(ev.note)}</p></li>`).join('')}</ol>
-        <form data-form="case-event" style="margin-top:14px" novalidate><div class="form-grid"><div class="field"><label for="ce-type">Type</label><select id="ce-type" name="type" class="select">${['Note interne', 'Entretien', 'Convocation envoyée', 'Échange', 'Réponse au collaborateur'].map((x) => `<option>${x}</option>`).join('')}</select></div>
+        <form data-form="case-event" style="margin-top:14px" novalidate><div class="form-grid"><div class="field"><label for="ce-type">Type</label><select id="ce-type" name="type" class="select">${['Note interne', 'Entretien', 'Convocation envoyée', 'Mise à pied conservatoire', 'Échange', 'Réponse au collaborateur'].map((x) => `<option>${x}</option>`).join('')}</select></div>
         <div class="field"><label for="ce-date">Date</label><input id="ce-date" name="date" type="date" class="input" value="${TODAY}"></div>
         <div class="field full"><label for="ce-note">Contenu</label><textarea id="ce-note" name="note" class="input" maxlength="800"></textarea></div></div>
         <div class="toolbar" style="margin-top:10px"><span class="hint">« Réponse au collaborateur » est visible par ${esc(e.firstName)} ; les autres entrées restent internes.</span><span class="err" id="ce-err"></span><button class="btn primary" style="margin-left:auto">Ajouter</button></div></form></div></div></div>`;
@@ -3111,11 +3460,16 @@
     ${f('cn-facts', 'Date des faits (procédure disciplinaire)', `<input id="cn-facts" name="facts" type="date" class="input" value="${TODAY}">`)}${f('cn-note', 'Premiers éléments', '<textarea id="cn-note" name="note" class="input" maxlength="800"></textarea>', true)}</div>`, 'Ouvrir le dossier');
   Object.assign(MOD_ACT, {
     'case-new'() { ui.modal = { type: 'case-new' }; render(); },
+    'disc-doc'(d) { const c = db.cases.find((x) => x.id === d.id), doc = addDoc(c.empId, d.k, { title: tplOf(d.k).title }); c.events.push({ date: TODAY, type: 'Note interne', note: `${doc.title} préparée (brouillon).`, by: me().id, visible: false }); ui.modal = { type: 'doc-edit', id: doc.id }; toast('Brouillon créé : complétez-le puis remettez-le au salarié'); commit(); },
+
     'case-open'(d) { ui.drawer = { type: 'case', id: d.id }; drawerAnim = true; render(); },
   });
   MOD_CHG.caseStatus = (v) => { ui.caseStatus = v; render(); };
   MOD_CHG['case-status'] = (v, d) => { const c = db.cases.find((x) => x.id === d.id); c.status = v; if (v === 'Clos') tickJourney(c.empId, 12, 3); toast(`Dossier : ${v}`); commit(); };
-  MOD_CHG['case-measure'] = (v, d) => { const c = db.cases.find((x) => x.id === d.id); c.measure = v === 'Aucune' ? null : v; c.events.push({ date: TODAY, type: 'Mesure', note: v === 'Aucune' ? 'Aucune sanction retenue.' : `Mesure retenue : ${v}.`, by: me().id, visible: false }); tickJourney(c.empId, 12, 2); toast('Mesure enregistrée'); commit(); };
+  MOD_CHG['case-measure'] = (v, d, t) => { const c = db.cases.find((x) => x.id === d.id);
+    if (HEAVY.includes(v) && !(c.interview && c.interview <= TODAY)) { if (t) t.value = c.measure || 'Aucune'; toast(`${v} : sanction possible seulement après l’entretien préalable (art. L1332-2).`, 'info'); return; }
+    if (v !== 'Aucune' && c.interview && TODAY < addOuvrables(c.interview, 2)) { if (t) t.value = c.measure || 'Aucune'; toast(`Sanction notifiable au plus tôt le ${fmtDateY(addOuvrables(c.interview, 2))} (2 jours ouvrables après l’entretien).`, 'info'); return; }
+    c.measure = v === 'Aucune' ? null : v; c.events.push({ date: TODAY, type: 'Mesure', note: v === 'Aucune' ? 'Aucune sanction retenue.' : `Mesure retenue : ${v}.`, by: me().id, visible: false }); tickJourney(c.empId, 12, 2); toast('Mesure enregistrée'); commit(); };
   Object.assign(MOD_FORMS, {
     'case-new'(v) {
       if (!v.title.trim()) return formError('Indiquez l’objet du dossier.');
@@ -4412,7 +4766,12 @@
       <div class="form-grid">${f('tb-day', 'Dernier jour travaillé', `<input id="tb-day" name="lastDay" type="date" class="input" value="${min > t.end ? t.end : min}">`)}${f('tb-c', 'Commentaire interne (facultatif)', '<input id="tb-c" name="comment" class="input" maxlength="140">')}</div>`, 'Confirmer la rupture'); };
 
   // ================================================================ Vie administrative (étape 6)
-  const CHANGE_FIELDS = { address: ['Adresse postale', 'Justificatif de domicile de moins de 3 mois'], iban: ['Coordonnées bancaires (RIB)', 'RIB au nom du salarié'], family: ['Situation familiale', 'Acte ou attestation (mariage, PACS, naissance…)'], lastName: ['Nom d’usage', 'Pièce justificative'] };
+  const CHANGE_FIELDS = { address: ['Adresse postale', 'Justificatif de domicile de moins de 3 mois'], iban: ['Coordonnées bancaires (RIB)', 'RIB au nom du salarié'], family: ['Situation familiale', 'Acte ou attestation (mariage, PACS, naissance…)'], lastName: ['Nom d’usage', 'Pièce justificative'],
+    location: ['Lieu de travail', null] };
+  // IBAN : conservé en entier pour la paie et les RH (chiffré en production ; en clair dans cette démo), masqué partout à l'affichage.
+  const maskIban = (s) => { const c = String(s || '').replace(/\s/g, ''); return !c || c === '—' ? '—' : c.includes('•') ? s : `${c.slice(0, 4)} •••• •••• •••• ${c.slice(-4)}`; };
+  const ibanOk = (s) => /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(String(s || '').replace(/\s/g, '').toUpperCase());
+  const showReq = (r, v) => (r.field === 'iban' ? maskIban(v) : v);
   const FAMILY = ['Célibataire', 'Marié·e', 'Pacsé·e', 'Divorcé·e', 'Veuf·ve'];
   const pendingChanges = () => (db.changeReqs || []).filter((r) => r.status === 'En attente' && (ui.profile === 'rh' || r.empId === me().id));
   // Échéancier : tout ce qui arrive à expiration dans les 120 prochains jours (ou déjà dépassé).
@@ -4439,7 +4798,8 @@
     else if (ui.adminTab === 'demandes') {
       const all = (db.changeReqs || []).slice().sort((a, b) => (a.status === 'En attente' ? 0 : 1) - (b.status === 'En attente' ? 0 : 1) || b.createdAt.localeCompare(a.createdAt));
       body = card('Demandes de modification des salariés', '', `<div class="card-b">${all.length ? all.map((r) => { const e = emp(r.empId);
-        return `<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(fullName(e))} · ${esc(r.label)}</b><small>${esc(r.from || '—')} → <b>${esc(r.to)}</b> · justificatif : ${esc(r.proof || 'aucun')} · demandé le ${fmtShort(r.createdAt)}</small>${r.reason ? `<small>Motif du refus : ${esc(r.reason)}</small>` : ''}</div>
+        return `<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(fullName(e))} · ${esc(r.label)}</b><small>${esc(showReq(r, r.from) || '—')} → <b>${esc(showReq(r, r.to))}</b> · justificatif : ${esc((r.proofFile && r.proofFile.name) || r.proof || 'aucun')} · demandé le ${fmtShort(r.createdAt)}</small>${r.reason ? `<small>Motif du refus : ${esc(r.reason)}</small>` : ''}</div>
+          ${r.proof || r.proofFile ? `<button type="button" class="btn ghost sm" data-act="chg-proof" data-id="${r.id}">${ic('file')}Voir le justificatif</button>` : ''}
           ${r.status === 'En attente' ? `<button type="button" class="btn ok sm" data-act="chg-ok" data-id="${r.id}">${ic('check')}Valider</button><button type="button" class="btn bad sm" data-act="chg-ko" data-id="${r.id}">Refuser</button>` : `<span class="pill ${r.status === 'Validée' ? 'ok' : 'bad'}">${r.status}</span>`}</div>`; }).join('') : '<p class="muted" style="margin:0">Aucune demande.</p>'}
         <p class="hint" style="margin:12px 0 0">Les modifications validées mettent à jour la fiche et sont transmises à la paie. Dossier conservé 5 ans après le départ du salarié.</p></div>`);
     } else {
@@ -4451,17 +4811,40 @@
     const mine = (db.changeReqs || []).filter((r) => r.empId === e.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return `<form class="card" data-form="chg-req" novalidate><div class="card-h"><h3>Demander une modification</h3><span class="muted" style="font-size:13px">Validée par les RH avec un justificatif</span></div><div class="card-b"><div class="form-grid">
         <div class="field"><label for="cr-field">Information</label><select id="cr-field" name="field" class="select">${Object.entries(CHANGE_FIELDS).map(([k, [l]]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
-        <div class="field"><label for="cr-to">Nouvelle valeur</label><input id="cr-to" name="to" class="input" placeholder="Ex. nouvelle adresse, nouvel IBAN, Marié·e…"></div>
-        <div class="field full"><label for="cr-proof">Justificatif</label><input id="cr-proof" name="proof" type="file" class="input" accept=".pdf,.jpg,.png"></div></div>
+        <div class="field"><label for="cr-to">Nouvelle valeur</label><input id="cr-to" name="to" class="input" placeholder="Ex. nouvelle adresse, nouvel IBAN, Marié·e, Lyon…"></div>
+        <div class="field full"><label for="cr-proof">Justificatif (facultatif pour le lieu de travail)</label><input id="cr-proof" name="proof" type="file" class="input" accept=".pdf,.jpg,.png"></div></div>
         <div class="toolbar" style="margin-top:14px"><span class="err" id="cr-err"></span><button class="btn primary" style="margin-left:auto">Envoyer</button></div>
-        ${mine.length ? `<div style="margin-top:14px">${mine.map((r) => `<div class="todo"><div class="t"><b>${esc(r.label)} → ${esc(r.to)}</b><small>Demandé le ${fmtShort(r.createdAt)}${r.reason ? ` · ${esc(r.reason)}` : ''}</small></div><span class="pill ${r.status === 'Validée' ? 'ok' : r.status === 'Refusée' ? 'bad' : 'warn'}">${r.status}</span></div>`).join('')}</div>` : ''}</div></form>`;
+        ${mine.length ? `<div style="margin-top:14px">${mine.map((r) => `<div class="todo"><div class="t"><b>${esc(r.label)} → ${esc(showReq(r, r.to))}</b><small>Demandé le ${fmtShort(r.createdAt)}${r.reason ? ` · ${esc(r.reason)}` : ''}</small></div><span class="pill ${r.status === 'Validée' ? 'ok' : r.status === 'Refusée' ? 'bad' : 'warn'}">${r.status}</span></div>`).join('')}</div>` : ''}</div></form>`;
   }
 
+  // RH : saisie d'une absence pour un collaborateur (elle est enregistrée validée ; un arrêt est daté de la réception de l'avis).
+  MODALS['leave-rh'] = (m, shell, formShell, opt, f) => {
+    const people = db.employees.filter((e) => isEmployed(e) && e.stage < 15), e0 = people.find((e) => e.id === m.empId) || people[0], start = TODAY;
+    return formShell('Enregistrer une absence pour un collaborateur', 'leave-rh', `<div class="form-grid">
+      ${f('lr-emp', 'Collaborateur', `<select id="lr-emp" name="empId" class="select" data-live="leave-rh">${empOptions(people, e0.id)}</select>`)}
+      ${f('lr-type', 'Type', `<select id="lr-type" name="type" class="select" data-live="leave-rh">${LEAVE_GROUPS.map(([g, l]) => [g, l.filter(leaveTypeOn)]).filter(([, l]) => l.length).map(([g, l]) => `<optgroup label="${g}">${l.map((t) => `<option ${t === 'Maladie' ? 'selected' : ''}>${t}</option>`).join('')}</optgroup>`).join('')}</select>`)}
+      <div class="field" id="lr-event-f" hidden><label for="lr-event">Événement</label><select id="lr-event" name="event" class="select" data-live="leave-rh">${FAMILY_EVENTS.map(([t, n]) => `<option value="${esc(t)}">${t} · ${plural(n, 'jour', 'jours')}</option>`).join('')}</select></div>
+      ${f('lr-start', 'Du', `<input id="lr-start" name="start" type="date" class="input" value="${start}" data-live="leave-rh">`)}${f('lr-end', 'Au (inclus)', `<input id="lr-end" name="end" type="date" class="input" value="${addDays(start, 2)}" data-live="leave-rh">`)}
+      ${leaveExtraFields('lr', 'leave-rh', true)}
+      ${f('lr-comment', 'Commentaire (facultatif)', '<input id="lr-comment" name="comment" class="input" maxlength="120">', true)}</div>
+      <p class="hint" id="lr-preview" aria-live="polite" style="margin:10px 0 0">${leavePreview('Maladie', start, addDays(start, 2), e0)}</p>
+      <p class="hint" style="margin:6px 0 0">L’absence est enregistrée validée et le collaborateur en est informé. Un accident du travail crée aussi la déclaration à faire à la CPAM.</p>`, 'Enregistrer l’absence', true);
+  };
+  MOD_LIVE['leave-rh'] = (form) => { const fd = new FormData(form); leaveFormSync(form, 'lr'); const e = emp(fd.get('empId')); document.getElementById('lr-preview').innerHTML = e ? leavePreview(fd.get('type'), fd.get('start'), fd.get('end'), e, fd.get('event'), !!fd.get('young')) : ''; };
+  MOD_FORMS['leave-rh'] = async (v) => {
+    const e = emp(v.empId); if (!e) return formError('Choisissez un collaborateur.');
+    const r = await recordLeave(e, v, formError, { rh: true }); if (!r) return;
+    journalAdd(e.id, 'Absence enregistrée par les RH', 'leave-rh', `${v.type} du ${fmtDateY(v.start)} au ${fmtDateY(v.end)}`);
+    ui.modal = null; toast(`${v.type} enregistré${['Maladie', 'Accident du travail', 'Congé parental'].includes(v.type) ? '' : 'e'} pour ${fullName(e)}${r.back ? ` · ${r.back} j de congés recrédités` : ''}`); commit();
+  };
   // ================================================================ Temps de travail et absences (étape 7)
-  const DAYS_FR = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  const DAYS_FR = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   const fmtH = (h) => `${String(Math.round(h * 100) / 100).replace('.', ',')} h`;
   const mondayOf = (s) => { let d = s; while (parse(d).getDay() !== 1) d = addDays(d, -1); return d; };
-  const isForfait = (e) => e.category === 'Cadre';
+  // Forfait annuel en jours : cadre autonome ayant signé une convention individuelle de forfait (art. L3121-55 et L3121-63), e.forfait = { date }.
+  const isForfait = (e) => e.category === 'Cadre' && !!e.forfait;
+  // Contingent annuel d'heures supplémentaires : paramétrable (Paramètres > Convention et temps de travail), 220 h à défaut d'accord (art. L3121-39).
+  // À VÉRIFIER (juriste) : contingent prévu par la convention Syntec.
   let TT_MAX = 2, FORFAIT_DAYS = 218, HS_QUOTA = 220;
   function weekStats(ts) {
     const total = ts.hours.reduce((s, h) => s + (Number(h) || 0), 0), hs = Math.max(0, total - 35), h25 = Math.min(hs, 8), h50 = Math.max(0, hs - 8), alerts = [];
@@ -4471,7 +4854,10 @@
   }
   const tsOf = (e) => (db.timesheets || []).filter((t) => t.empId === e.id);
   function yearHS(e, y = TODAY.slice(0, 4)) { return tsOf(e).filter((t) => t.status === 'Validée' && t.week.slice(0, 4) === y).reduce((s, t) => s + weekStats(t).hs, 0); }
-  function avg12(e) { const from = addDays(mondayOf(TODAY), -84), list = tsOf(e).filter((t) => t.week >= from && t.status !== 'Brouillon'); return list.length ? list.reduce((s, t) => s + weekStats(t).total, 0) / 12 : 0; }
+  // Moyenne sur 12 semaines (art. L3121-22) : divisée par le nombre de semaines réellement déclarées.
+  function avg12(e) { const from = addDays(mondayOf(TODAY), -84), list = tsOf(e).filter((t) => t.week >= from && t.status !== 'Brouillon'); return list.length ? list.reduce((s, t) => s + weekStats(t).total, 0) / list.length : 0; }
+  // Contrepartie obligatoire en repos au-delà du contingent : 50 % des heures sous 20 salariés, 100 % au-delà (art. L3121-38 et D3121-23).
+  const corHours = (e) => { const over = Math.max(0, yearHS(e) - HS_QUOTA); return over * (effState().avg12 < 20 ? 0.5 : 1); };
   function overtimePay(e, m) {
     const hourly = e.salary / 12 / 151.67;
     return tsOf(e).filter((t) => t.status === 'Validée' && t.week.slice(0, 7) === m).reduce((o, t) => { const w = weekStats(t); o.h25 += w.h25; o.h50 += w.h50; o.amount += (w.h25 * 1.25 + w.h50 * 1.5) * hourly; return o; }, { h25: 0, h50: 0, amount: 0 });
@@ -4483,11 +4869,24 @@
     const remainingWork = workDays(addDays(TODAY, 1), yearEnd), plannedOff = db.leaves.filter((l) => l.empId === e.id && l.status !== 'Refusée' && l.type !== 'Télétravail' && l.start > TODAY && l.start <= yearEnd).reduce((s, l) => s + l.days, 0);
     return { worked, projected: worked + Math.max(0, remainingWork - plannedOff - e.cp - e.rtt) };
   }
-  // Congés : solde N-1 (e.cp) à poser avant le 31 mai, et acquisition en cours depuis le 1er juin (2,08 jours ouvrés par mois).
+  // Congés : solde N-1 (e.cp) à poser avant le 31 mai, et acquisition en cours depuis le 1er juin (2,08 j ouvrés ou 2,5 j ouvrables par mois).
+  // Un seul calcul pour l'écran et le bulletin (cpAcquired). Périodes assimilées (art. L3141-5 et L3141-5-1) : congés, accident du travail, maternité et paternité acquièrent pleinement ;
+  // la maladie non professionnelle acquiert 2 jours ouvrables par mois (loi du 22 avril 2024) ; sans solde, congé parental et enfant malade n'acquièrent pas.
+  // Le stagiaire n'est pas salarié : pas de congés payés (ses congés relèvent de la convention de stage).
+  function cpAcquired(e, upTo) {
+    const y = upTo.slice(5) >= '06-01' ? Number(upTo.slice(0, 4)) : Number(upTo.slice(0, 4)) - 1, from = `${y}-06-01` > e.startDate ? `${y}-06-01` : e.startDate, end = addDays(upTo, 1);
+    if (isIntern(e) || from > upTo) return { acquired: 0, months: 0, lost: 0, from, y };
+    let months = (parse(end).getFullYear() - parse(from).getFullYear()) * 12 + parse(end).getMonth() - parse(from).getMonth(); if (parse(end).getDate() < parse(from).getDate()) months--;
+    months = Math.max(0, months);
+    const rate = CP_RATE(), perDay = rate / 21.67, sickRate = cpOuvrables() ? 2 : 2 * 5 / 6;
+    const lost = db.leaves.filter((l) => l.empId === e.id && l.status === 'Approuvée' && overlaps(l, from, upTo) && ['Sans solde', 'Congé parental', 'Enfant malade', 'Maladie'].includes(l.type))
+      .reduce((s, l) => { const n = workDays(l.start < from ? from : l.start, l.end > upTo ? upTo : l.end); return s + n * (l.type === 'Maladie' ? Math.max(0, rate - sickRate) / 21.67 : perDay); }, 0);
+    const cap = cpOuvrables() ? 30 : 25;
+    return { acquired: Math.round(Math.min(cap, Math.max(0, months * rate - lost)) * 100) / 100, months, lost: Math.round(lost * 100) / 100, from, y };
+  }
   function cpAcquiring(e) {
-    const y = TODAY.slice(5) >= '06-01' ? Number(TODAY.slice(0, 4)) : Number(TODAY.slice(0, 4)) - 1, from = `${y}-06-01` > e.startDate ? `${y}-06-01` : e.startDate;
-    const months = Math.max(0, (parse(TODAY).getFullYear() - parse(from).getFullYear()) * 12 + parse(TODAY).getMonth() - parse(from).getMonth());
-    return { acquiring: Math.round(months * 2.08 * 2) / 2, deadline: `${y + 1}-05-31`, period: `${y}-${y + 1}` };
+    const a = cpAcquired(e, TODAY);
+    return { acquiring: a.acquired, lost: a.lost, deadline: `${a.y + 1}-05-31`, period: `${a.y}-${a.y + 1}` };
   }
   function mainLeaveMissing(e) {
     const y = TODAY.slice(0, 4); if (e.startDate > `${y}-05-01` || !isEmployed(e)) return false;
@@ -4502,27 +4901,32 @@
   }
   function myTimeHTML(e) {
     const a = cpAcquiring(e), bal = (l, v, s) => `<div class="card bal"><span class="l">${l}</span><div class="v num">${v}</div>${s ? `<small class="hint">${s}</small>` : ''}</div>`;
-    let html = `<div class="balances four">${bal('Congés à poser', `${e.cp} <small>j</small>`, `avant le ${fmtDate(a.deadline)}`)}${bal('En cours d’acquisition', `${String(a.acquiring).replace('.', ',')} <small>j</small>`, `période ${a.period} · 2,08 j par mois`)}${bal('RTT', `${e.rtt} <small>j</small>`, 'année ' + TODAY.slice(0, 4))}
-      ${isForfait(e) ? (() => { const f = forfaitDays(e); return bal('Forfait jours', `${f.worked} <small>/ ${FORFAIT_DAYS}</small>`, `projection fin d’année : ${f.projected} j`); })() : bal('Heures sup. ' + TODAY.slice(0, 4), `${String(yearHS(e)).replace('.', ',')} <small>h</small>`, `contingent annuel : ${HS_QUOTA} h`)}</div>`;
-    if (mainLeaveMissing(e)) html += '<p class="lint bad" style="margin:0">Vous n’avez pas encore pris votre congé principal : au moins 12 jours ouvrables continus entre le 1er mai et le 31 octobre.</p>';
+    const intern = isIntern(e);
+    let html = `<div class="balances four">${intern ? bal('Congés', '—', 'stagiaire : congés prévus par la convention de stage') : bal('Congés à poser', `${e.cp} <small>j</small>`, `${pendingDays(e, 'cp') ? `dont ${pendingDays(e, 'cp')} j demandés · ` : ''}avant le ${fmtDate(a.deadline)}`)}${intern ? '' : bal('En cours d’acquisition', `${String(a.acquiring).replace('.', ',')} <small>j</small>`, `période ${a.period} · ${String(CP_RATE()).replace('.', ',')} j ${cpOuvrables() ? 'ouvrables' : 'ouvrés'} par mois complet${a.lost ? ` · ${String(a.lost).replace('.', ',')} j non acquis (absences)` : ''}`)}${intern ? '' : bal('RTT', `${e.rtt} <small>j</small>`, 'année ' + TODAY.slice(0, 4))}
+      ${isForfait(e) ? (() => { const f = forfaitDays(e); return bal('Forfait jours', `${f.worked} <small>/ ${FORFAIT_DAYS}</small>`, `projection fin d’année : ${f.projected} j`); })() : intern ? '' : bal('Heures sup. ' + TODAY.slice(0, 4), `${String(yearHS(e)).replace('.', ',')} <small>h</small>`, `contingent annuel : ${HS_QUOTA} h${corHours(e) ? ` · ${fmtH(corHours(e))} de repos dus` : ''}`)}</div>`;
+    if (!intern && mainLeaveMissing(e)) html += '<p class="lint bad" style="margin:0">Tu n’as pas encore pris ton congé principal : au moins 12 jours ouvrables continus entre le 1er mai et le 31 octobre.</p>';
     if (!isForfait(e)) {
-      const wk = ui.tsWeek || mondayOf(TODAY), t = tsOf(e).find((x) => x.week === wk) || { hours: [0, 0, 0, 0, 0, 0], status: 'Brouillon' }, w = weekStats(t), locked = ['Soumise', 'Validée'].includes(t.status);
+      const wk = ui.tsWeek || mondayOf(TODAY), t = tsOf(e).find((x) => x.week === wk) || { hours: [0, 0, 0, 0, 0, 0, 0], status: 'Brouillon' }, w = weekStats(t), locked = ['Soumise', 'Validée'].includes(t.status);
       const weeks = [0, 1, 2, 3].map((k) => addDays(mondayOf(TODAY), -7 * k));
+      // Pas d'heures déclarées pour un jour pas encore travaillé.
       html += `<form class="card" data-form="ts" novalidate><div class="card-h"><h3>Mes heures</h3><div class="toolbar"><label class="sr" for="ts-week">Semaine</label><select id="ts-week" class="select" data-change="ts-week">${weeks.map((x) => `<option value="${x}" ${x === wk ? 'selected' : ''}>Semaine du ${fmtShort(x)}</option>`).join('')}</select><span class="pill ${{ Validée: 'ok', Soumise: 'warn', Refusée: 'bad', Brouillon: 'neutral' }[t.status]}">${t.status}</span></div></div>
-        <div class="card-b"><div class="ts-grid">${DAYS_FR.map((d, k) => `<div class="field"><label for="ts-${k}">${d.slice(0, 3)}. ${parse(addDays(wk, k)).getDate()}</label><input id="ts-${k}" name="h${k}" type="number" inputmode="decimal" min="0" max="24" step="0.25" class="input num" value="${t.hours[k] || ''}" placeholder="0" ${locked ? 'disabled' : ''} data-live="ts"></div>`).join('')}</div>
+        <div class="card-b"><div class="ts-grid seven">${DAYS_FR.map((d, k) => { const day = addDays(wk, k), fut = day > TODAY; return `<div class="field"><label for="ts-${k}">${d.slice(0, 3)}. ${parse(day).getDate()}</label><input id="ts-${k}" name="h${k}" type="number" inputmode="decimal" min="0" max="24" step="0.25" class="input num" value="${t.hours[k] || ''}" placeholder="${fut ? '—' : '0'}" ${locked || fut ? 'disabled' : ''} ${fut ? 'title="Jour pas encore travaillé"' : ''} data-live="ts"></div>`; }).join('')}</div>
         <div id="ts-sum" style="margin-top:12px">${tsSummary(w)}</div>
-        ${locked ? '' : `<div class="toolbar" style="margin-top:12px"><span class="hint">Durée légale 35 h · max. 10 h par jour et 48 h par semaine · repos de 11 h entre deux journées.</span><button class="btn primary" style="margin-left:auto">Soumettre à ${esc(fullName(approverOf(e)))}</button></div>`}</div></form>`;
+        ${locked ? '' : `<div class="toolbar" style="margin-top:12px"><span class="hint">Durée légale 35 h · max. 10 h par jour et 48 h par semaine · repos quotidien de 11 h et repos hebdomadaire de 35 h (à respecter : la grille ne saisit pas les horaires).</span><button class="btn primary" style="margin-left:auto">Soumettre à ${esc(fullName(approverOf(e)))}</button></div>`}</div></form>`;
     }
     return html;
   }
   const tsSummary = (w) => `<b class="num">${fmtH(w.total)}</b>${w.hs ? ` · <span class="num">${fmtH(w.hs)}</span> supplémentaires (${fmtH(w.h25)} à 25 %${w.h50 ? `, ${fmtH(w.h50)} à 50 %` : ''})` : ''}${w.alerts.map((a) => `<p class="lint bad" style="margin:8px 0 0">${esc(a)}</p>`).join('')}`;
   function sickRows() {
     const list = db.leaves.filter((l) => IJ_TYPES.includes(l.type)).sort((a, b) => b.start.localeCompare(a.start));
-    return card('Arrêts de travail', '', `<div class="card-b">${list.length ? list.map((l) => { const e = emp(l.empId), late = l.receivedAt && dayDiff(l.start, l.receivedAt) > 2, dsnDue = addDays(l.receivedAt || l.start, 5), seniorYear = dayDiff(e.startDate, l.start) >= 365;
-      const ij = l.days > 3 ? `IJSS à partir du ${fmtShort(addDays(l.start, 3))} (3 jours de carence)` : 'Arrêt de 3 jours ou moins : pas d’IJSS (carence)';
-      const mt = seniorYear ? (l.days > 7 ? `maintien de salaire employeur à partir du ${fmtShort(addDays(l.start, 7))}` : 'pas de maintien légal avant le 8e jour') : 'moins d’un an d’ancienneté : pas de maintien légal';
-      return `<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(fullName(e))} · ${fmtShort(l.start)} → ${fmtShort(l.end)} (${plural(l.days, 'jour', 'jours')})</b><small>Avis d’arrêt reçu le ${fmtShort(l.receivedAt || l.start)}${late ? ' · <span class="warn-t">au-delà de 48 h</span>' : ''} · ${ij} · ${mt}</small>
-        <small>Acquisition de congés pendant l’arrêt : 2 jours ouvrables par mois (loi du 22 avril 2024)</small></div>
+    return card('Arrêts de travail', '', `<div class="card-b">${list.length ? list.map((l) => { const e = emp(l.empId), late = l.receivedAt && dayDiff(l.start, l.receivedAt) > 2, dsnDue = addDays(l.receivedAt || l.start, 5), cal = dayDiff(l.start, l.end) + 1;
+      const seniorYear = l.start >= addMonths(e.startDate, CONV().rules.maintien), at = l.type === 'Accident du travail', tiers = maintienTiers(e, l);
+      // Durées en jours calendaires (indemnités journalières et maintien se comptent ainsi).
+      const ij = at ? `accident du travail : pas de carence, IJSS dès le lendemain${l.accidentDate ? ` du ${fmtShort(l.accidentDate)}` : ''} ; journée de l’accident payée par l’employeur` : l.type !== 'Maladie' ? 'pas de carence' : cal > 3 ? `IJSS à partir du ${fmtShort(addDays(l.start, 3))} (3 jours de carence)` : 'Arrêt de 3 jours ou moins : pas d’IJSS (carence)';
+      const span = tiers.tiers.map(([n, r]) => `${n} j à ${Math.round(r * 100)} %`).join(' puis ');
+      const mt = !seniorYear ? `moins de ${plural(CONV().rules.maintien, 'mois', 'mois')} d’ancienneté : pas de maintien de salaire` : tiers.wait && cal <= tiers.wait ? `pas de maintien avant le ${tiers.wait + 1}e jour` : `maintien employeur ${tiers.wait ? `à partir du ${fmtShort(addDays(l.start, tiers.wait))}` : 'dès le 1er jour'} (${span}${CONV().kind === 'syntec' ? ', barème Syntec à vérifier' : ''})`;
+      return `<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(fullName(e))} · ${esc(l.type)} · ${fmtShort(l.start)} → ${fmtShort(l.end)} (${plural(cal, 'jour calendaire', 'jours calendaires')})</b><small>Avis d’arrêt reçu le ${fmtShort(l.receivedAt || l.start)}${late ? ' · <span class="warn-t">au-delà de 48 h</span>' : ''}${l.enteredBy ? ' · saisi par les RH' : ''} · ${ij} · ${mt}</small>
+        <small>Congés pendant l’arrêt : ${at || l.type !== 'Maladie' ? 'acquis normalement (période assimilée)' : `${cpOuvrables() ? '2 jours ouvrables' : '1,67 jour ouvré'} par mois (loi du 22 avril 2024), déjà déduit du compteur`}${l.incidentId ? ' · déclaration d’accident liée (Santé)' : ''}${l.proof ? ` · justificatif : ${esc(l.proof.name)}` : ''}</small></div>
         ${l.dsnAt ? `<span class="pill ok">Attestation DSN · ${fmtShort(l.dsnAt)}</span>` : `<button type="button" class="btn ${TODAY > dsnDue ? 'bad' : 'primary'} sm" data-act="sick-dsn" data-id="${l.id}">Attestation de salaire (avant le ${fmtShort(dsnDue)})</button>`}
         <label class="sub-tog"><input type="checkbox" data-change="sick-sub" data-id="${l.id}" ${l.subrogation ? 'checked' : ''}> Subrogation</label></div>`; }).join('') : '<p class="muted" style="margin:0">Aucun arrêt enregistré.</p>'}
       <p class="hint" style="margin:12px 0 0">Le salarié transmet son avis d’arrêt sous 48 h. L’employeur envoie l’attestation de salaire via la DSN pour le calcul des indemnités journalières. Avec la subrogation, l’employeur maintient le salaire et perçoit les IJSS.</p></div>`);
@@ -4530,19 +4934,23 @@
   function countersTable() {
     const people = scopeEmployees().filter(isEmployed).sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr'));
     return `<div class="card"><div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th class="r">CP à poser</th><th class="r">CP en cours</th><th class="r">RTT</th><th>Temps de travail</th><th>Alertes</th></tr></thead><tbody>
-      ${people.map((e) => { const a = cpAcquiring(e), al = [];
-        if (mainLeaveMissing(e)) al.push('Congé principal non pris'); if (e.cp > 20) al.push('Solde de congés élevé');
+      ${people.map((e) => { const a = cpAcquiring(e), al = [], intern = isIntern(e);
+        if (!intern && mainLeaveMissing(e)) al.push('Congé principal non pris'); if (e.cp > 20) al.push('Solde de congés élevé');
         let tw;
-        if (isForfait(e)) { const f = forfaitDays(e); tw = `Forfait jours : ${f.worked} j · projection ${f.projected} / ${FORFAIT_DAYS}`; if (f.projected > FORFAIT_DAYS) al.push('Dépassement du forfait prévu'); }
-        else { const hs = yearHS(e), av = avg12(e); tw = `${String(hs).replace('.', ',')} h sup. / ${HS_QUOTA} h${av ? ` · moyenne 12 sem. ${fmtH(av)}` : ''}`; if (hs > HS_QUOTA * 0.8) al.push('Contingent bientôt atteint'); if (av > 44) al.push('Moyenne au-delà de 44 h'); }
-        return `<tr class="click" data-act="open-emp" data-id="${e.id}"><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.category || '')}</small></div></div></td><td class="r num">${e.cp} j</td><td class="r num">${String(a.acquiring).replace('.', ',')} j</td><td class="r num">${e.rtt} j</td><td>${tw}</td><td>${al.map((x) => `<span class="pill warn">${x}</span>`).join(' ') || '—'}</td></tr>`; }).join('')}</tbody></table></div></div>
-      <p class="hint">Congés acquis : 2,08 jours ouvrés par mois du 1er juin au 31 mai. Les cadres sont au forfait de ${FORFAIT_DAYS} jours, avec un suivi de leur charge de travail ; les autres salariés déclarent leurs heures chaque semaine.</p>`;
+        if (intern) tw = 'Stagiaire : ni congés payés ni heures supplémentaires (convention de stage)';
+        else if (isForfait(e)) { const f = forfaitDays(e); tw = `Forfait jours (convention du ${fmtDateY(e.forfait.date)}) : ${f.worked} j · projection ${f.projected} / ${FORFAIT_DAYS}`; if (f.projected > FORFAIT_DAYS) al.push('Dépassement du forfait prévu'); }
+        else { const hs = yearHS(e), av = avg12(e), cor = corHours(e); tw = `${String(hs).replace('.', ',')} h sup. / ${HS_QUOTA} h${av ? ` · moyenne 12 sem. ${fmtH(av)}` : ''}${cor ? ` · contrepartie en repos ${fmtH(cor)}` : ''}`; if (hs > HS_QUOTA) al.push('Contingent dépassé : contrepartie obligatoire en repos'); else if (hs > HS_QUOTA * 0.8) al.push('Contingent bientôt atteint'); if (av > 44) al.push('Moyenne au-delà de 44 h'); }
+        const fBtn = ui.profile === 'rh' && e.category === 'Cadre' ? `<button type="button" class="btn ghost sm" data-act="forfait-set" data-id="${e.id}">${e.forfait ? 'Convention de forfait' : 'Enregistrer une convention de forfait'}</button>` : '';
+        return `<tr class="click" data-act="open-emp" data-id="${e.id}"><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(intern ? 'Stagiaire' : e.category || '')}${isForfait(e) ? ' · forfait jours' : e.category === 'Cadre' ? ' · heures' : ''}</small></div></div></td><td class="r num">${intern ? '—' : `${e.cp} j`}</td><td class="r num">${intern ? '—' : `${String(a.acquiring).replace('.', ',')} j`}</td><td class="r num">${intern ? '—' : `${e.rtt} j`}</td><td>${tw}</td><td>${al.map((x) => `<span class="pill warn">${x}</span>`).join(' ') || '—'}${fBtn}</td></tr>`; }).join('')}</tbody></table></div></div>
+      <p class="hint">Congés acquis : ${String(CP_RATE()).replace('.', ',')} jours ${cpOuvrables() ? 'ouvrables' : 'ouvrés'} par mois complet du 1er juin au 31 mai, moins les absences non assimilées. Forfait de ${FORFAIT_DAYS} jours : seulement pour les cadres qui ont signé une convention individuelle de forfait, avec un entretien annuel sur leur charge de travail ; les autres salariés, cadres compris, déclarent leurs heures chaque semaine.</p>`;
+
   }
 
   // ================================================================ Rémunération (étape 8)
   const median = (arr) => { const a = arr.slice().sort((x, y) => x - y), n = a.length; return n ? (n % 2 ? a[(n - 1) / 2] : (a[n / 2 - 1] + a[n / 2]) / 2) : 0; };
   const RAISE_REASONS = ['Performance', 'Évolution du poste', 'Marché', 'Rattrapage égalité', 'Ancienneté'];
-  const raiseEligible = (e) => isEmployed(e) && e.stage < 13 && !e.exit;
+  // Révision salariale : salariés seulement (un stagiaire perçoit une gratification, pas un salaire).
+  const raiseEligible = (e) => isEmployed(e) && e.stage < 13 && !e.exit && !isIntern(e);
   function payGap(list) {
     const cats = {}; list.filter(isEmployed).forEach((e) => { const c = cats[e.category] = cats[e.category] || { F: [], H: [] }; if (e.sex === 'F' || e.sex === 'H') c[e.sex].push(e.salary); });
     return Object.entries(cats).map(([cat, c]) => { const avg = (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : 0), f = avg(c.F), h = avg(c.H);
@@ -4617,7 +5025,8 @@
   function viewMyPay() {
     const e = me(), closed = payMonths().filter((m) => db.payroll[m] && db.payroll[m].closed && inPayroll(e, m)).slice(-12);
     const t = closed.reduce((o, m) => { const p = calcPay(e, m); o.base += p.base; o.bonus += p.bonus; o.ot += p.ot.amount; o.ppv += p.ppv; return o; }, { base: 0, bonus: 0, ot: 0, ppv: 0 });
-    const ratio = closed.length / 12, ben = BENEFITS.filter(([l]) => l !== 'Prévoyance' || e.category === 'Cadre').map(([l, , v]) => [l, v * ratio]);
+    // Seuls les avantages réellement versés figurent dans la rémunération globale (le forfait mobilités durables n'est pas encore versé : il n'apparaît sur aucun bulletin).
+    const ratio = closed.length / 12, ben = BENEFITS.filter(([l]) => (l !== 'Prévoyance' || e.category === 'Cadre') && l !== 'Forfait mobilités durables' && !(l === 'Titres-restaurant' && isIntern(e))).map(([l, , v]) => [l, v * ratio]);
     const total = t.base + t.bonus + t.ot + t.ppv + ben.reduce((s, [, v]) => s + v, 0);
     const req = (db.payInfoReqs || []).filter((r) => r.empId === e.id).slice(-1)[0], row = req && payGap(db.employees).find((r) => r.cat === e.category);
     if (mobSal()) return `${viewPayslips()}${desktopHint('Le détail de ta rémunération, la transparence salariale et le choix du bulletin papier sont')}`;
@@ -4634,11 +5043,12 @@
   Object.assign(MOD_ACT, {
     'chg-ok'(d) {
       const r = db.changeReqs.find((x) => x.id === d.id), e = emp(r.empId);
-      if (r.field === 'iban') e.iban = `FR76 •••• •••• •••• ${r.to.replace(/\s/g, '').slice(-4)}`; else if (r.field === 'lastName') e.lastName = r.to; else e[r.field] = r.to;
-      Object.assign(r, { status: 'Validée', decidedAt: TODAY }); tickJourney(e.id, 5, 1); tickJourney(e.id, 5, 3);
+      if (r.field === 'iban') e.iban = r.to.replace(/\s/g, '').toUpperCase().replace(/(.{4})/g, '$1 ').trim(); else if (r.field === 'lastName') e.lastName = r.to; else e[r.field] = r.to;
+      Object.assign(r, { status: 'Validée', decidedAt: TODAY, decidedBy: me().id }); tickJourney(e.id, 5, 1); tickJourney(e.id, 5, 3); if (ui.modal && ui.modal.type === 'chg-proof') ui.modal = null;
       notify(e.id, `Votre demande (${r.label.toLowerCase()}) est validée : votre dossier est à jour.`); toast('Modification appliquée au dossier'); commit();
     },
     'chg-ko'(d) { ui.modal = { type: 'chg-ko', id: d.id }; render(); },
+    'chg-proof'(d) { ui.modal = { type: 'chg-proof', id: d.id }; render(); },
     'ts-ok'(d) { const t = db.timesheets.find((x) => x.id === d.id); Object.assign(t, { status: 'Validée', validatedAt: TODAY, by: me().id }); tickJourney(t.empId, 6, 0); notify(t.empId, `Vos heures de la semaine du ${fmtShort(t.week)} sont validées.`); toast('Heures validées · transmises à la paie'); commit(); },
     'ts-ko'(d) { const t = db.timesheets.find((x) => x.id === d.id); t.status = 'Refusée'; notify(t.empId, `Vos heures de la semaine du ${fmtShort(t.week)} sont à corriger.`); toast('Feuille de temps renvoyée au salarié'); commit(); },
     'sick-dsn'(d) { const l = db.leaves.find((x) => x.id === d.id); l.dsnAt = TODAY; tickJourney(l.empId, 6, 2); toast('Attestation de salaire transmise via la DSN'); commit(); },
@@ -4668,11 +5078,11 @@
     'ppv-rule'(v) { db.valueShare.rule = v; commit(); },
   });
   Object.assign(MOD_LIVE, {
-    ts(form) { const fd = new FormData(form), w = weekStats({ hours: [0, 1, 2, 3, 4, 5].map((k) => Number(fd.get('h' + k)) || 0) }); document.getElementById('ts-sum').innerHTML = tsSummary(w); },
+    ts(form) { const fd = new FormData(form), w = weekStats({ hours: [0, 1, 2, 3, 4, 5, 6].map((k) => Number(fd.get('h' + k)) || 0) }); document.getElementById('ts-sum').innerHTML = tsSummary(w); },
   });
   Object.assign(MOD_FORMS, {
     ts(v) {
-      const e = me(), wk = ui.tsWeek || mondayOf(TODAY), hours = [0, 1, 2, 3, 4, 5].map((k) => Number(v['h' + k]) || 0);
+      const e = me(), wk = ui.tsWeek || mondayOf(TODAY), hours = [0, 1, 2, 3, 4, 5, 6].map((k) => Number(v['h' + k]) || 0);
       if (!hours.some(Boolean)) { toast('Saisissez vos heures de la semaine.', 'info'); return; }
       let t = db.timesheets.find((x) => x.empId === e.id && x.week === wk);
       if (!t) { t = { id: uid('t'), empId: e.id, week: wk }; db.timesheets.push(t); }
@@ -4680,17 +5090,29 @@
       const w = weekStats(t), ap = approverOf(e); notify(ap.id, `${fullName(e)} a déclaré ${fmtH(w.total)} pour la semaine du ${fmtShort(wk)}${w.alerts.length ? ' (alerte de durée maximale)' : ''}.`);
       toast(`Heures envoyées à ${fullName(ap)}`); commit();
     },
-    'chg-req'(v, form) {
-      const e = me(), to = (v.to || '').trim(), [label] = CHANGE_FIELDS[v.field], file = form.querySelector('#cr-proof').files[0];
-      if (!to) { document.getElementById('cr-err').textContent = 'Indiquez la nouvelle valeur.'; return; }
-      if (!file) { document.getElementById('cr-err').textContent = 'Joignez un justificatif.'; return; }
+    async 'chg-req'(v, form) {
+      const e = me(), to = (v.to || '').trim(), [label, proofLabel] = CHANGE_FIELDS[v.field], file = form.querySelector('#cr-proof').files[0], err = (m) => { document.getElementById('cr-err').textContent = m; };
+      if (!to) return err('Indique la nouvelle valeur.');
+      if (v.field === 'iban' && !ibanOk(to)) return err('IBAN incomplet : saisis-le en entier (FR76 suivi de 23 caractères).');
+      if (!file && proofLabel) return err(`Joins un justificatif (${proofLabel.toLowerCase()}).`);
+      const proofFile = file ? await readFile(file) : null;
       db.changeReqs = db.changeReqs || [];
-      db.changeReqs.push({ id: uid('cr'), empId: e.id, field: v.field, label, from: v.field === 'iban' ? e.iban : e[v.field] || '', to: v.field === 'iban' ? `•••• ${to.replace(/\s/g, '').slice(-4)}` : to, proof: file.name, status: 'En attente', createdAt: TODAY });
-      notify('e1', `${fullName(e)} demande une modification : ${label.toLowerCase()}.`); toast('Demande envoyée aux RH'); commit();
+      // L'IBAN est gardé en entier (il servira au virement du salaire) ; seul l'affichage le masque.
+      db.changeReqs.push({ id: uid('cr'), empId: e.id, field: v.field, label, from: e[v.field] || '', to: v.field === 'iban' ? to.replace(/\s/g, '').toUpperCase() : to, proof: file ? file.name : '', proofFile, status: 'En attente', createdAt: TODAY });
+      notify('e1', `${fullName(e)} demande une modification : ${label.toLowerCase()}.`); toast('Demande envoyée aux RH'); form.reset(); commit();
     },
     'chg-ko'(v) { const r = db.changeReqs.find((x) => x.id === ui.modal.id); if (!v.reason.trim()) return formError('Indiquez le motif du refus.'); Object.assign(r, { status: 'Refusée', reason: v.reason.trim(), decidedAt: TODAY }); notify(r.empId, `Votre demande (${r.label.toLowerCase()}) est refusée : ${v.reason.trim()}`); ui.modal = null; toast('Demande refusée'); commit(); },
   });
   MODALS['chg-ko'] = (m, shell, formShell, opt, f) => formShell('Refuser la demande', 'chg-ko', f('ck-r', 'Motif communiqué au salarié', '<input id="ck-r" name="reason" class="input" maxlength="160" placeholder="Ex. justificatif illisible ou de plus de 3 mois">', true), 'Refuser');
+  // Justificatif d'une demande de modification, à ouvrir avant de valider.
+  MODALS['chg-proof'] = (m, shell) => {
+    const r = db.changeReqs.find((x) => x.id === m.id), e = emp(r.empId), x = r.proofFile || { name: r.proof, date: r.createdAt };
+    const view = x.data && /^data:image\//.test(x.data) ? `<img class="file-img" src="${x.data}" alt="${esc(x.name)}">` : x.data ? `<embed class="file-pdf" src="${x.data}" type="application/pdf">`
+      : `<div class="file-ph">${ic('file')}<b>${esc(x.name || 'Justificatif')}</b><span>Déposé le ${fmtDate(x.date || r.createdAt)} par ${esc(fullName(e))}. ${r.proofFile ? 'Fichier trop lourd pour l’aperçu de la démonstration.' : 'Pièce de démonstration sans contenu.'}</span></div>`;
+    return shell(`${esc(r.label)} · ${esc(fullName(e))}`, `<div class="modal-b"><p class="hint" style="margin:0 0 10px">Demandé : ${esc(showReq(r, r.from) || '—')} → <b>${esc(showReq(r, r.to))}</b></p>${view}</div>`,
+      `<div class="modal-f">${r.status === 'En attente' ? `<button type="button" class="btn ok" data-act="chg-ok" data-id="${r.id}">${ic('check')}Valider</button>` : ''}<button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>`, true);
+  };
+
 
   // ================================================================ Performance (étape 9) : parcours professionnel et forfait jours
   const ageAt = (e, d = TODAY) => (e.birthDate ? Math.floor(dayDiff(e.birthDate, d) / 365.25) : null);
@@ -4721,7 +5143,8 @@
     return { perf: t.perf || (rating >= 4 ? 3 : rating >= 3 ? 2 : 1), pot: t.pot || 2, risk: t.risk || 'Faible', fromReview: !!r && !t.perf };
   }
   function talentReview() {
-    const people = (ui.profile === 'rh' ? employed() : scopeEmployees().filter(isEmployed)).filter((e) => e.stage >= 4 && !e.exit);
+    const people = (ui.profile === 'rh' ? employed() : scopeEmployees().filter(isEmployed)).filter((e) => e.stage >= 4 && !e.exit && !isIntern(e));
+
     const cell = (pot, perf) => { const list = people.filter((e) => { const t = talentOf(e); return t.pot === pot && t.perf === perf; });
       return `<div class="box b${pot}${perf}"><b>${BOX[`${pot}-${perf}`]}</b>${list.map((e) => `<button type="button" class="box-p" data-act="open-emp" data-id="${e.id}" title="${esc(e.title)}">${avatar(e, 'sm')}<span>${esc(e.firstName)}</span></button>`).join('')}</div>`; };
     const sel = (e, k, list, v) => `<select class="select" data-change="talent" data-id="${e.id}" data-k="${k}" aria-label="${k}">${list.map(([x, l]) => `<option value="${x}" ${String(x) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
@@ -4752,10 +5175,13 @@
   }
   function returnsView() {
     const list = longAbsences();
-    return `<p class="hint" style="margin:0">Au-delà de 30 jours d’absence, un rendez-vous de liaison peut être proposé au salarié. La visite de reprise est obligatoire après 60 jours d’arrêt pour maladie ou 30 jours pour accident du travail, dans les 8 jours qui suivent la reprise.</p>
+    // À VÉRIFIER (juriste) : obligation d'informer le salarié de la possibilité d'un rendez-vous de liaison (art. L1226-5-1).
+    return `<p class="hint" style="margin:0">Au-delà de 30 jours d’absence, le salarié doit être informé qu’il peut bénéficier d’un rendez-vous de liaison (art. L1226-5-1, à vérifier). La visite de reprise est obligatoire après 60 jours d’arrêt pour maladie ou 30 jours pour accident du travail, dans les 8 jours qui suivent la reprise.</p>
       ${card('Retours après une longue absence', '', `<div class="card-b">${list.length ? list.map((a) => { const ret = addDays(a.end, 1), due = addDays(ret, 8), v = db.visits.find((x) => x.empId === a.e.id && x.kind === 'Visite de reprise' && x.date >= a.start);
         return `<div class="todo">${avatar(a.e, 'sm')}<div class="t"><b>${esc(fullName(a.e))} · ${a.kind}, ${a.days} jours</b><small>Du ${fmtShort(a.start)} au ${fmtShort(a.end)} · reprise le ${fmtDate(ret)}</small>
-          <small>${a.src.liaison ? `Rendez-vous de liaison proposé le ${fmtShort(a.src.liaison)}` : 'Rendez-vous de liaison : non proposé'}</small></div>
+          <small>${a.src.liaison ? `Rendez-vous de liaison proposé le ${fmtShort(a.src.liaison)}` : ret <= TODAY ? '<span class="warn-t">Rendez-vous de liaison : le salarié n’en a pas été informé pendant l’arrêt</span>' : 'Rendez-vous de liaison : information du salarié à faire'}</small>
+          ${a.need && !v && TODAY > due ? `<small class="err">Visite de reprise en retard : elle devait avoir lieu au plus tard le ${fmtDateY(due)}</small>` : ''}${v && v.date > due ? `<small class="warn-t">Visite fixée après la limite du ${fmtDateY(due)}</small>` : ''}</div>
+
           ${a.src.liaison || ret <= TODAY ? '' : `<button type="button" class="btn ghost sm" data-act="liaison" data-k="${a.src.empId && a.src.start ? 'leave' : 'incident'}" data-id="${a.src.id}">Proposer le rendez-vous</button>`}
           ${a.need ? (v ? `<span class="pill ${v.status === 'Réalisée' ? 'ok' : 'info'}">Visite de reprise · ${fmtShort(v.date)}</span>` : `<button type="button" class="btn ${TODAY > due ? 'bad' : 'primary'} sm" data-act="reprise" data-id="${a.e.id}" data-d="${ret}">Visite de reprise (avant le ${fmtShort(due)})</button>`) : '<span class="pill neutral">Visite de reprise non obligatoire</span>'}</div>`; }).join('') : '<p class="muted" style="margin:0">Aucune absence de plus de 30 jours.</p>'}</div>`)}`;
   }
@@ -4900,7 +5326,19 @@
       <div class="crit-row total"><span>eNPS des partants</span><b class="num">${Math.round(((prom - det) / list.length) * 100)}</b></div><div class="crit-row"><span>Prêts à revenir</span><b class="num">${Math.round((back / list.length) * 100)} %</b></div></div></div>`);
   }
   Object.assign(MOD_ACT, {
-    workload(d) { const r = db.reviews.find((x) => x.id === d.id); r.workload = TODAY; toast('Volet charge de travail enregistré'); commit(); },
+    // Volet forfait jours de l'entretien annuel (art. L3121-65) : un vrai formulaire, plus un simple clic.
+    workload(d) { ui.modal = { type: 'workload', id: d.id }; render(); },
+    // Convention individuelle de forfait en jours : date de signature, ou retrait (le cadre déclare alors ses heures).
+    'forfait-set'(d) {
+      const e = emp(d.id);
+      confirmAct({ title: `Convention de forfait en jours · ${esc(fullName(e))}`, act: 'forfait-set', empId: e.id, trace: 'Convention de forfait en jours',
+        text: `<p>Le forfait annuel en jours suppose un accord collectif qui le prévoit et une convention individuelle écrite signée par le salarié (art. L3121-55 et L3121-63). Sans convention, ${esc(e.firstName)} déclare ses heures et ses heures supplémentaires sont payées.</p>${e.forfait ? `<p>Convention actuelle signée le ${fmtDateY(e.forfait.date)}.</p>` : ''}`,
+        confirm: 'Enregistrer',
+        fields: [{ name: 'mode', label: 'Situation', type: 'select', options: [['oui', 'Convention de forfait signée'], ['non', 'Pas de forfait : décompte en heures']], value: e.forfait ? 'oui' : 'oui' },
+          { name: 'date', label: 'Date de signature de la convention', type: 'date', value: (e.forfait && e.forfait.date) || TODAY, guard: { notAfter: { date: TODAY, label: 'aujourd’hui' } } }] },
+      (v) => { e.forfait = v.mode === 'non' ? null : { date: v.date }; toast(e.forfait ? `Forfait jours enregistré pour ${fullName(e)}` : `${fullName(e)} déclare désormais ses heures`); commit(); });
+    },
+
     'dep-set'(d) { const e = emp(d.id);
       if (d.k === 'docsGiven') { const docs = exitDocs(e).filter(Boolean), err = docs.filter((x) => !docLocked(x)).map((x) => issueDoc(x, true)).find(Boolean); if (err) { toast(err, 'info'); commit(); return; } notify(e.id, 'Vos documents de fin de contrat sont disponibles dans vos documents.'); }
       offb(e)[d.k] = TODAY; if (d.k === 'accessOff') notify(e.managerId, `Accès de ${fullName(e)} désactivés.`); toast('Enregistré'); commit(); },
@@ -4910,13 +5348,24 @@
     'dep-return'(d) { offb(emp(d.id)).returned[d.k] = TODAY; toast('Matériel restitué'); commit(); },
     'dep-request'(d) { const e = emp(d.id), r = offb(e).requests.find((x) => x.id === d.r), doc = addDoc(e.id, r.kind, { reqId: r.id }); ui.modal = { type: 'doc-edit', id: doc.id }; toast('Brouillon créé : relisez-le puis remettez-le'); commit(); },
     liaison(d) { const x = (d.k === 'leave' ? db.leaves : db.incidents).find((y) => y.id === d.id); x.liaison = TODAY; notify(x.empId, 'Un rendez-vous de liaison vous est proposé pour préparer votre retour, avec le service de santé au travail.'); toast('Rendez-vous de liaison proposé'); commit(); },
-    reprise(d) { const date = d.d > TODAY ? addDays(d.d, 3) : addDays(TODAY, 2); db.visits.push({ id: uid('v'), empId: d.id, kind: 'Visite de reprise', date, status: 'Planifiée', result: null }); notify(d.id, `Visite de reprise prévue le ${fmtDate(date)}.`); toast('Visite de reprise planifiée'); commit(); },
+    // Visite de reprise : la RH choisit la date ; la limite des 8 jours après la reprise est rappelée et un retard signalé.
+    reprise(d) { const due = addDays(d.d, 8), sug = d.d > TODAY ? addDays(d.d, 3) : addDays(TODAY, 2); ui.modal = { type: 'visit', id: d.id, kind: 'Visite de reprise', ret: d.d, due, date: sug }; render(); },
+    'inapt-done'(d) { const v = db.visits.find((x) => x.id === d.id); confirmAct({ title: 'Inaptitude traitée', act: 'inapt-done', empId: v.empId, trace: 'Suite de l’avis d’inaptitude', confirm: 'Enregistrer',
+      fields: [{ name: 'how', label: 'Issue', type: 'select', options: ['Reclassement accepté', 'Aménagement du poste', 'Licenciement pour inaptitude (voir Départs)', 'Reprise du paiement du salaire'] }] }, (x) => { v.inapt.done = { date: TODAY, how: x.how }; toast('Suite de l’inaptitude enregistrée'); commit(); }); },
     'duerp-version'() { db.duerp = db.duerp || []; db.duerp.push({ date: TODAY, by: me().id, note: 'Mise à jour annuelle', count: db.risks.length }); toast('Nouvelle version du DUERP enregistrée'); commit(); },
   });
   Object.assign(MOD_CHG, {
     'case-convoc'(v, d) { const c = db.cases.find((x) => x.id === d.id); c.convocAt = v || null; if (v) c.events.push({ date: v, type: 'Convocation envoyée', note: 'Convocation à l’entretien préalable présentée au salarié.', by: me().id, visible: false }); commit(); },
     'train-cold'(v, d) { if (!v) return; const x = db.enrollments.find((y) => y.id === d.id); x.cold = Number(v); x.coldAt = TODAY; toast('Évaluation à froid enregistrée'); commit(); },
-    'train-fund'(v, d) { db.enrollments.find((y) => y.id === d.id).fund = v; save(); toast('Financement enregistré'); },
+    // Le CPF appartient au salarié : il ne se mobilise qu'avec son accord (art. L6323-2).
+    'train-fund'(v, d, t) { const x = db.enrollments.find((y) => y.id === d.id), e = emp(x.empId);
+      if (v === 'CPF du salarié' && !x.cpfOk) { if (t && t.value !== undefined) t.value = x.fund || FUNDS[0];
+        confirmAct({ title: `Financer par le CPF de ${esc(fullName(e))} ?`, act: 'train-fund', empId: e.id, trace: 'Accord du salarié pour mobiliser son CPF', confirm: 'Enregistrer le financement CPF',
+          text: `<p>Le compte personnel de formation appartient au salarié : il ne peut être mobilisé qu’avec son accord (art. L6323-2). La demande se fait ensuite par le salarié sur moncompteformation.gouv.fr (hors Teamora).</p>`,
+          fields: [{ name: 'date', label: 'Accord écrit du salarié reçu le', type: 'date', required: true, value: TODAY, guard: { notAfter: { date: TODAY, label: 'aujourd’hui' } } }, { name: 'ok', label: 'J’atteste avoir l’accord écrit du salarié', type: 'check', required: true }] },
+        (vals) => { Object.assign(x, { fund: v, cpfOk: vals.date }); notify(e.id, `Ta formation « ${training(x.trainingId).title} » est financée par ton CPF, avec ton accord du ${fmtShort(vals.date)}.`); toast('Financement CPF enregistré avec l’accord du salarié'); commit(); });
+        return; }
+      x.fund = v; save(); toast('Financement enregistré'); },
     talent(v, d) { db.talent = db.talent || {}; const t = db.talent[d.id] = db.talent[d.id] || {}; t[d.k] = d.k === 'risk' ? v : Number(v); commit(); },
     succ(v, d) { db.succession = db.succession || {}; const s = db.succession[d.id] = db.succession[d.id] || {}; s[d.k] = v || null; if (d.k === 'succ' && !v) s.ready = null; commit(); },
     'rc-signed'(v, d) { if (!v) return; const x = offb(emp(d.id)); x.rc.signed = v; toast('Date de signature enregistrée'); commit(); },
@@ -5091,6 +5540,16 @@
       body: paras('Entre la société {{entreprise}} et {{salarie}}, il est convenu ce qui suit.', '<b>Article 1.</b> À compter du {{date_effet}}, {{salarie}} occupe le poste de {{nouveau_poste}} au sein du service {{nouveau_service}}.',
         '<b>Article 2.</b> Sa rémunération annuelle brute est portée à {{nouveau_salaire}}, versée en douze mensualités.', '<b>Article 3.</b> Les autres clauses du contrat de travail demeurent inchangées.') + SIG + '<p class="sig">Signature du collaborateur, précédée de la mention « lu et approuvé »</p>',
       required: [['date_effet', 'Date d’effet'], ['nouveau_poste', 'Poste'], ['nouveau_salaire', 'Rémunération']] },
+    // Procédure disciplinaire (hors licenciement, qui se mène depuis Départs) : convocation et notification de la sanction (art. L1332-1 à L1332-3).
+    'convoc-disc': { label: 'Convocation à un entretien préalable à sanction', group: 'Documents salariés', kind: 'doc', title: 'Convocation à un entretien préalable à une sanction disciplinaire',
+      fields: [{ id: 'date_entretien', label: 'Date et heure de l’entretien' }, { id: 'lieu_entretien', label: 'Lieu de l’entretien' }],
+      body: paras('{{salarie}},', 'Nous envisageons de prendre à votre égard une sanction disciplinaire. Nous vous convoquons à un entretien préalable le {{saisie:date_entretien}}, à l’adresse suivante : {{saisie:lieu_entretien}}.',
+        'Au cours de cet entretien, nous vous exposerons les motifs de la sanction envisagée et recueillerons vos explications. Vous pouvez vous faire assister par une personne de votre choix appartenant au personnel de l’entreprise.', 'Lettre remise en main propre contre décharge ou envoyée en recommandé avec avis de réception.') + SIG,
+      required: [['salarie', 'Destinataire'], ['saisie:date_entretien', 'Date de l’entretien'], ['kw:assister', 'Droit à l’assistance du salarié']] },
+    'notif-sanction': { label: 'Notification d’une sanction disciplinaire', group: 'Documents salariés', kind: 'doc', title: 'Notification d’une sanction disciplinaire',
+      fields: [{ id: 'sanction', label: 'Sanction' }, { id: 'faits', label: 'Faits reprochés (datés et précis)' }],
+      body: paras('{{salarie}},', 'À la suite de notre entretien, nous vous notifions la sanction suivante : {{saisie:sanction}}.', 'Elle est motivée par les faits suivants : {{saisie:faits}}.', 'Les explications que vous nous avez données ne nous ont pas permis de modifier notre appréciation. Lettre remise en main propre contre décharge ou envoyée en recommandé avec avis de réception, au plus tôt 2 jours ouvrables et au plus tard 1 mois après l’entretien.') + SIG,
+      required: [['salarie', 'Destinataire'], ['saisie:sanction', 'Sanction'], ['saisie:faits', 'Motifs de la sanction']] },
     attestation: { label: 'Attestation employeur', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.attestation,
       body: paras('Je soussigné·e {{signataire}}, {{signataire_titre}} de la société {{entreprise}}, atteste que {{salarie}} est employé·e au sein de notre société depuis le {{date_entree}}, en qualité de {{poste}}, dans le cadre d’un contrat {{contrat}}.', 'Cette attestation est délivrée à la demande de l’intéressé·e pour servir et valoir ce que de droit.') + SIG,
       required: [['salarie', 'Salarié'], ['date_entree', 'Date d’entrée'], ['poste', 'Emploi']] },
@@ -5213,6 +5672,8 @@
     const e = emp(d.empId), x = e && db.onboarding && db.onboarding[e.id];
     d.html = unmark(d.html); d.issuedAt = TODAY; d.issuedBy = me().id;
     if (d.kind === 'contrat') { d.status = 'Envoyé'; const c = dossier(e).contract; Object.assign(c, { status: 'Envoyé', sentAt: TODAY }); notify(e.id, 'Votre contrat de travail est prêt : signez-le dans l’onglet « Contrat de travail ».'); return ''; }
+    // Avenant qui modifie le contrat : envoyé pour signature (accord écrit du salarié), pas simplement remis.
+    if (d.kind === 'avenant' && d.change) { d.status = 'Envoyé'; notify(e.id, `${d.title} : à lire et signer dans « Mon profil », rubrique « Mes documents ».`); return ''; }
     d.status = 'Remis';
     if (['info7', 'info1m'].includes(d.kind) && x) { x[d.kind] = TODAY; x[d.kind + 'Doc'] = d.id; }
     if (d.reqId) { const r = offb(e).requests.find((q) => q.id === d.reqId); if (r) Object.assign(r, { status: 'Traitée', doneAt: TODAY }); }
@@ -5223,7 +5684,8 @@
     const rh = ui.profile === 'rh', list = db.documents.filter((d) => d.empId === e.id && (rh || docVisible(d))).sort((a, b) => b.date.localeCompare(a.date));
     return `${canGenerate ? `<div class="toolbar"><button type="button" class="btn ghost sm" data-act="doc-gen" data-id="${e.id}" data-k="attestation">${ic('plus')}Attestation employeur</button>${rh && e.stage >= 13 ? `<button type="button" class="btn ghost sm" data-act="doc-gen" data-id="${e.id}" data-k="certificat">${ic('plus')}Certificat de travail</button>` : ''}</div>` : ''}
       <div class="card"><div class="req-list">${list.map((d) => `<div class="req"><span class="doc-ic">${ic('file')}</span><div class="what"><b>${esc(d.title)}</b><small>${fmtDate(d.date)}</small></div>${rh ? `<span class="pill ${DOC_STATUS_PILL[d.status || 'Remis']}">${d.status || 'Remis'}</span>` : ''}
-        ${rh && !docLocked(d) ? `<button type="button" class="btn primary sm" data-act="doc-edit" data-id="${d.id}">${ic('edit')}Relire et modifier</button>` : `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${d.id}">Consulter</button>`}</div>`).join('') || '<div class="empty">Aucun document.</div>'}</div></div>`;
+        ${rh && !docLocked(d) ? `<button type="button" class="btn primary sm" data-act="doc-edit" data-id="${d.id}">${ic('edit')}Relire et modifier</button>` : `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${d.id}">Consulter</button>`}
+        ${d.kind === 'avenant' && d.change && d.status === 'Envoyé' ? (rh ? `<button type="button" class="btn ghost sm" data-act="avenant-paper" data-id="${d.id}">Signé sur papier</button>` : d.empId === me().id ? `<button type="button" class="btn primary sm" data-act="avenant-sign" data-id="${d.id}">${ic('edit')}Lire et signer</button>` : '') : ''}</div>`).join('') || '<div class="empty">Aucun document.</div>'}</div></div>`;
   }
   const docBtn = (d, label = 'Voir') => (d ? (ui.profile === 'rh' && !docLocked(d) ? `<button type="button" class="btn ${d.status === 'Brouillon' ? 'primary' : 'ghost'} sm" data-act="doc-edit" data-id="${d.id}">${ic('edit')}${d.status === 'Brouillon' ? 'Relire et remettre' : 'Modifier'}</button>` : `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${d.id}">${label}</button>`) : '');
   MODALS.doc = (m, shell) => { const d = db.documents.find((x) => x.id === m.id);
@@ -5236,7 +5698,7 @@
     const marks = [...new Map([...div.querySelectorAll('mark.fill')].map((x) => [x.dataset.f, x])).values()];
     const fields = marks.map((x) => { const val = x.textContent.trim() === `[${x.dataset.l}]` ? '' : x.textContent.trim();
       return `<div class="field"><label for="df-${esc(x.dataset.f)}">${esc(x.dataset.l)}</label><input id="df-${esc(x.dataset.f)}" class="input" value="${esc(val)}" data-docf="${esc(x.dataset.f)}" placeholder="À compléter"></div>`; }).join('');
-    const issue = d.kind === 'contrat' ? (d.status === 'Envoyé' ? '' : 'Envoyer pour signature') : 'Valider et remettre au salarié';
+    const issue = d.kind === 'contrat' || (d.kind === 'avenant' && d.change) ? (d.status === 'Envoyé' ? '' : 'Envoyer au salarié pour signature') : 'Valider et remettre au salarié';
     return shell(`${esc(d.title)} · ${esc(fullName(e))}`, `<div class="modal-b"><p class="hint" style="margin:0 0 12px">${d.status === 'Envoyé' ? 'Envoyé pour signature : vous pouvez encore le modifier tant que le salarié ne l’a pas signé ; il sera prévenu de la mise à jour.' : 'Brouillon visible des RH seulement. Complétez les zones jaunes et retouchez le texte si besoin ; une fois remis ou signé, le document ne pourra plus être modifié.'}</p>
       ${fields ? `<div class="form-grid doc-fields">${fields}</div>` : ''}<article class="letter doc-ed"><header><b>${COMPANY.entreprise}</b><span>${COMPANY.entreprise_adresse}</span></header><h2>${esc(d.docTitle || d.title)}</h2><div id="doc-ed" contenteditable="true" spellcheck="true">${d.html || ''}</div></article><p class="err" id="m-err" aria-live="polite">${m.err ? esc(m.err) : ''}</p></div>`,
       `<div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="button" class="btn ghost" data-act="doc-save" data-id="${d.id}">Enregistrer</button>${issue ? `<button type="button" class="btn primary" data-act="doc-issue" data-id="${d.id}">${issue}</button>` : ''}</div>`, true);
@@ -5269,12 +5731,24 @@
   }
   Object.assign(MOD_ACT, {
     'doc-view'(d) { ui.modal = { type: 'doc', id: d.id }; render(); },
+    // Signature de l'avenant par le salarié (simulée : case « lu et approuvé », pas une signature électronique qualifiée).
+    'avenant-sign'(d) { const doc = db.documents.find((x) => x.id === d.id), e = emp(doc.empId);
+      confirmAct({ title: `Signer : ${esc(doc.title)}`, act: 'avenant-sign', empId: e.id, trace: `${doc.title} signé par le salarié`, confirm: 'Signer l’avenant',
+        text: `<article class="letter locked" style="max-height:340px;overflow:auto">${docBody(doc)}</article><p class="hint">Signature simulée dans la démonstration (case « lu et approuvé »).</p>`,
+        fields: [{ name: 'ok', label: 'Lu et approuvé : j’accepte les termes de cet avenant', type: 'check', required: true }] },
+      () => { signAvenant(doc, 'en ligne'); toast('Avenant signé · le changement s’appliquera à sa date d’effet'); commit(); }); },
+    'avenant-paper'(d) { const doc = db.documents.find((x) => x.id === d.id), e = emp(doc.empId);
+      confirmAct({ title: `Avenant signé sur papier · ${esc(fullName(e))}`, act: 'avenant-paper', empId: e.id, trace: `${doc.title} signé sur papier`, confirm: 'Enregistrer la signature',
+        text: '<p>Le changement du contrat s’applique à sa date d’effet une fois l’avenant signé par le salarié.</p>',
+        fields: [{ name: 'date', label: 'Signé par le salarié le', type: 'date', required: true, value: TODAY, guard: { notAfter: { date: TODAY, label: 'aujourd’hui' } } }, { name: 'ok', label: 'J’atteste détenir l’exemplaire signé par le salarié', type: 'check', required: true }] },
+      () => { signAvenant(doc, 'papier'); toast('Signature enregistrée'); commit(); }); },
+
     'doc-edit'(d) { const doc = db.documents.find((x) => x.id === d.id); if (doc && docLocked(doc)) { ui.modal = { type: 'doc', id: doc.id }; toast(doc.status === 'Signé' ? 'Document signé : il ne peut plus être modifié' : 'Document remis : il ne peut plus être modifié', 'info'); render(); return; } ui.modal = { type: 'doc-edit', id: d.id }; render(); },
     'doc-save'(d) { const doc = db.documents.find((x) => x.id === d.id); if (docLocked(doc)) { ui.modal = { type: 'doc', id: doc.id }; render(); return; } saveDocEditor(doc); if (doc.status === 'Envoyé') notify(doc.empId, `Votre ${doc.title.toLowerCase()} a été mis à jour par les RH : relisez-le avant de signer.`); ui.modal = null; toast('Document enregistré'); commit(); },
     'doc-issue'(d) {
       const doc = db.documents.find((x) => x.id === d.id); if (docLocked(doc)) { ui.modal = { type: 'doc', id: doc.id }; render(); return; } ensureDocHtml(doc); saveDocEditor(doc);
       const err = issueDoc(doc); if (err) { ui.modal = { type: 'doc-edit', id: doc.id, err }; save(); render(); return; }
-      ui.modal = null; toast(doc.kind === 'contrat' ? 'Contrat envoyé pour signature' : 'Document remis au salarié · il est désormais figé'); commit();
+      ui.modal = null; toast(doc.kind === 'contrat' ? 'Contrat envoyé pour signature' : doc.status === 'Envoyé' ? 'Avenant envoyé au salarié pour signature' : 'Document remis au salarié · il est désormais figé'); commit();
     },
     'doc-gen'(d) {
       const doc = addDoc(d.id, d.k); tickJourney(d.id, 5, 2);
@@ -5513,9 +5987,11 @@
     }
     if (m.type === 'refuse') {
       const l = db.leaves.find((x) => x.id === m.id), e = emp(l.empId);
-      return formShell('Refuser la demande', 'refuse', `<p style="margin:0">${esc(fullName(e))} · ${esc(l.type)} du ${fmtShort(l.start)} au ${fmtDate(l.end)} (${plural(l.days, 'jour', 'jours')}).</p>${f('r-why', 'Motif communiqué au collaborateur', '<input id="r-why" name="why" class="input" maxlength="140" placeholder="Ex. période de livraison, merci de décaler d’une semaine">', true)}`, 'Refuser la demande');
+      return formShell('Refuser la demande', 'refuse', `<p style="margin:0">${esc(fullName(e))} · ${esc(typeLabel(l))} du ${fmtShort(l.start)} au ${fmtDate(l.end)} (${plural(l.days, 'jour', 'jours')}).</p>${f('r-why', 'Motif communiqué au collaborateur (obligatoire)', `<input id="r-why" name="why" class="input" maxlength="160" required value="${esc(m.why || '')}" placeholder="Ex. période de livraison, merci de décaler d’une semaine">`, true)}`, 'Refuser la demande');
+
     }
-    if (m.type === 'payslip') return shell(`Bulletin de paie · ${monthLabel(m.m)}`, `<div class="modal-b">${payslipHTML(emp(m.id), m.m)}</div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', 'xl');
+    // Bulletin : impression ou enregistrement en PDF par la boîte d'impression du navigateur (seul le bulletin est imprimé).
+    if (m.type === 'payslip') return shell(`Bulletin de paie · ${monthLabel(m.m)}`, `<div class="modal-b">${payslipHTML(emp(m.id), m.m)}</div>`, `<div class="modal-f"><button type="button" class="btn ghost" data-act="slip-print">${ic('file')}Imprimer ou enregistrer en PDF</button><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>`, 'xl');
     if (m.type === 'cand') {
       return formShell('Ajouter un candidat', 'cand', `<div class="form-grid">${f('k-name', 'Prénom et nom', '<input id="k-name" name="name" class="input" required>', true)}
         ${f('k-email', 'E-mail', '<input id="k-email" name="email" type="email" class="input">')}${f('k-phone', 'Téléphone', '<input id="k-phone" name="phone" class="input">')}
@@ -5696,15 +6172,19 @@
     'leave-ok'(d) {
       const l = db.leaves.find((x) => x.id === d.id), e = emp(l.empId), k = balanceKey(l.type);
       if (e.id === me().id) { toast('Tu ne peux pas valider ta propre demande : elle part à ton responsable.', 'info'); return; }
-      if (k && e[k] < l.days) { toast(`Solde insuffisant : ${fullName(e)} n’a plus que ${e[k]} j.`, 'info'); return; }
+      // Solde insuffisant : la demande ne reste pas en suspens, le valideur la refuse avec un motif prérempli.
+      if (k && e[k] < l.days) { ui.modal = { type: 'refuse', id: l.id, why: `Solde insuffisant : il te reste ${e[k]} j de ${l.type === 'RTT' ? 'RTT' : 'congés payés'} pour ${l.days} j demandés.` }; render(); toast(`Solde insuffisant : ${fullName(e)} n’a plus que ${e[k]} j. Refusez la demande avec ce motif ou demandez-lui de la modifier.`, 'info'); return; }
       if (k) e[k] -= l.days;
       l.status = 'Approuvée'; l.decidedBy = me().id;
-      notify(e.id, `${fullName(me())} a validé votre demande : ${l.type} du ${fmtShort(l.start)} au ${fmtShort(l.end)}.`);
+      notify(e.id, `${fullName(me())} a validé ta demande : ${l.type} du ${fmtShort(l.start)} au ${fmtShort(l.end)}.`);
       toast(`Demande de ${fullName(e)} validée`); commit();
     },
     'leave-ko'(d) { ui.modal = { type: 'refuse', id: d.id }; render(); },
+    'leave-remind'(d) { const l = db.leaves.find((x) => x.id === d.id), e = emp(l.empId), ap = approverOf(e); notify(ap.id, `Relance des RH : la demande de ${fullName(e)} (${l.type}, à partir du ${fmtShort(l.start)}) attend toujours votre décision.`); l.remindedAt = TODAY; toast(`${fullName(ap)} est relancé·e`); commit(); },
+    'leave-rh'() { ui.modal = { type: 'leave-rh' }; render(); },
     'leave-cancel'(d) { db.leaves = db.leaves.filter((l) => l.id !== d.id); toast('Demande annulée'); commit(); },
     'pay-month'(d) { if (d.m) { ui.payMonth = d.m; ui.payStep = null; render(); } },
+    'slip-print'() { document.body.classList.add('print-slip'); const done = () => { document.body.classList.remove('print-slip'); window.removeEventListener('afterprint', done); }; window.addEventListener('afterprint', done); window.print(); setTimeout(done, 1500); },
     payslip(d) { ui.modal = { type: 'payslip', id: d.id, m: d.m }; render(); },
     'open-job'(d) { const j = db.jobs.find((x) => x.id === d.id); if (j && isNeed(j)) { ACT['open-need'](d); return; } Object.assign(ui, { view: 'recrutement', stage: null, recTab: 'offres', recJob: d.id, offerTab: 'cands', drawer: null }); window.scrollTo(0, 0); render(); },
     'job-close'(d) { const j = db.jobs.find((x) => x.id === d.id); j.status = 'Clôturée'; toast('Offre clôturée'); commit(); },
@@ -5727,38 +6207,23 @@
   };
   const LIVE = {
     exit(form) { const el = document.getElementById('x-info'); if (el) el.textContent = exitHint(emp(ui.modal.id), form.elements.namedItem('reason').value); },
-    leave(form) { const fd = new FormData(form), t = fd.get('type'); document.getElementById('lv-event-f').hidden = t !== 'Événement familial'; document.getElementById('lv-preview').innerHTML = leavePreview(t, fd.get('start'), fd.get('end'), me(), fd.get('event')); },
+    leave(form) { const fd = new FormData(form); leaveFormSync(form, 'lv'); document.getElementById('lv-preview').innerHTML = leavePreview(fd.get('type'), fd.get('start'), fd.get('end'), me(), fd.get('event'), !!fd.get('young')); },
   };
   const FORMS = {
-    leave(v, form) {
-      const e = me(), d = workDays(v.start, v.end), k = balanceKey(v.type);
-      const err = (msg) => { document.getElementById('lv-preview').innerHTML = `<span class="err">${esc(msg)}</span>`; };
-      if (!v.start || !v.end) return err('Choisissez les dates de début et de fin.');
-      if (v.end < v.start) return err('La date de fin doit être après la date de début.');
-      if (!d) return err('Cette période ne contient aucun jour ouvré.');
-      if (k && d > e[k]) return err(`Solde insuffisant : il vous reste ${e[k]} j.`);
-      if (db.leaves.some((l) => l.empId === e.id && l.status !== 'Refusée' && l.start <= v.end && l.end >= v.start)) return err('Vous avez déjà une absence sur cette période.');
-      if (v.type === 'Événement familial') { const max = (FAMILY_EVENTS.find(([t]) => t === v.event) || FAMILY_EVENTS[0])[1]; if (d > max) return err(`Ce congé est de ${plural(max, 'jour', 'jours')} au plus.`); }
-      if (DECLARED.includes(v.type) && v.type !== 'Maladie') {
-        db.leaves.push({ id: uid('l'), empId: e.id, type: v.type, start: v.start, end: v.end, days: d, status: 'Approuvée', comment: [v.type === 'Événement familial' ? v.event : '', (v.comment || '').trim()].filter(Boolean).join(' · '), createdAt: TODAY, receivedAt: TODAY, dsnAt: IJ_TYPES.includes(v.type) ? null : undefined, subrogation: false, declared: true });
-        notify('e1', `${fullName(e)} déclare : ${v.type.toLowerCase()} du ${fmtShort(v.start)} au ${fmtShort(v.end)}.`); if (e.managerId) notify(e.managerId, `${fullName(e)} sera absent·e du ${fmtShort(v.start)} au ${fmtShort(v.end)} (${v.type.toLowerCase()}).`);
-        toast('Absence enregistrée · les RH et ton manager sont prévenus'); form.reset(); commit(); return;
-      }
-      if (v.type === 'Maladie') {
-        db.leaves.push({ id: uid('l'), empId: e.id, type: v.type, start: v.start, end: v.end, days: d, status: 'Approuvée', comment: (v.comment || '').trim() || 'Arrêt de travail', createdAt: TODAY, receivedAt: TODAY, dsnAt: null, subrogation: false });
-        tickJourney(e.id, 6, 2); notify('e1', `Arrêt de travail de ${fullName(e)} du ${fmtShort(v.start)} au ${fmtShort(v.end)} : attestation de salaire à transmettre.`); if (e.managerId) notify(e.managerId, `${fullName(e)} est en arrêt de travail du ${fmtShort(v.start)} au ${fmtShort(v.end)}.`);
-        toast('Arrêt enregistré · les RH et votre manager sont prévenus'); form.reset(); commit(); return;
-      }
-      db.leaves.push({ id: uid('l'), empId: e.id, type: v.type, start: v.start, end: v.end, days: d, status: 'En attente', comment: (v.comment || '').trim(), createdAt: TODAY });
-      const ap = approverOf(e), bk = backupOf(e);
-      notify(ap.id, `${fullName(e)} demande ${plural(d, 'jour', 'jours')} (${v.type}) du ${fmtShort(v.start)} au ${fmtShort(v.end)}.`);
-      if (bk) notify(bk.id, `En l’absence de ${fullName(ap)} : ${fullName(e)} demande ${plural(d, 'jour', 'jours')} (${v.type}) du ${fmtShort(v.start)} au ${fmtShort(v.end)}.`);
-      toast(`Demande envoyée à ${fullName(ap)}${bk ? ` (absent·e : ${fullName(bk)} peut la valider)` : ''}`); form.reset(); commit();
+    async leave(v, form) {
+      const e = me(), err = (msg) => { document.getElementById('lv-preview').innerHTML = `<span class="err">${esc(msg)}</span>`; };
+      const r = await recordLeave(e, v, err); if (!r) return;
+      const sick = IJ_TYPES.includes(v.type);
+      toast(r.to ? `Demande envoyée à ${r.to}` : sick ? `Arrêt enregistré · les RH et ton manager sont prévenus${r.back ? ` · ${r.back} j de congés recrédités` : ''}` : 'Absence enregistrée · les RH et ton manager sont prévenus');
+      form.reset(); commit();
     },
     refuse(v) {
       const l = db.leaves.find((x) => x.id === ui.modal.id);
-      l.status = 'Refusée'; l.refusal = (v.why || '').trim(); l.decidedBy = me().id;
-      notify(l.empId, `${fullName(me())} a refusé votre demande du ${fmtShort(l.start)}${l.refusal ? ` : ${l.refusal}` : '.'}`);
+      // Le salarié doit savoir pourquoi : motif obligatoire.
+      if (!(v.why || '').trim()) return formError('Indiquez le motif du refus : il est communiqué au collaborateur.');
+      l.status = 'Refusée'; l.refusal = v.why.trim(); l.decidedBy = me().id;
+      notify(l.empId, `${fullName(me())} a refusé ta demande du ${fmtShort(l.start)} : ${l.refusal.replace(/\.+$/, '')}.`);
+
       ui.modal = null; toast('Demande refusée'); commit();
     },
     emp(v) {
@@ -5812,7 +6277,8 @@
     profile(v) {
       const e = me();
       if (!v.phone.trim()) { document.getElementById('p-err').textContent = 'Le numéro de téléphone est obligatoire.'; return; }
-      Object.assign(e, { phone: v.phone.trim(), location: v.location, emergency: v.emergency.trim() });
+      // Le lieu de travail ne se change plus ici : il passe par une demande de modification validée par les RH.
+      Object.assign(e, { phone: v.phone.trim(), emergency: v.emergency.trim() });
       db.journey[e.id] = db.journey[e.id] || {};
       if (e.stage === 5) { const arr = journeyOf(e.id, 5); arr[1] = true; db.journey[e.id][5] = arr; }
       notify('e1', `${fullName(e)} a mis à jour ses informations personnelles.`);
@@ -6136,5 +6602,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
   render(); helpInit();
   // Tests automatisés seulement : fonctions pures du socle exposées si la page de test pose window.TEAMORA_TEST avant le chargement.
   if (window.TEAMORA_TEST === true) window.__teamoraTest = { isHoliday, isOuvre, isOuvrable, addOuvres, addOuvrables, addCalendarDaysReport, countOuvres, countOuvrables, addWorkDays, subWorkDays, workDays, salaryCheck, dateGuard, fmtShort, fmtDateY, TODAY };
+  // Tests du tronçon « vie en poste » : calcul des bulletins et des compteurs.
+  if (window.TEAMORA_TEST === true) Object.assign(window.__teamoraTest, { calcPay: (id, m) => calcPay(emp(id), m), calcPayLive: (id, m) => calcPayLive(emp(id), m), cpAcquired: (id, d) => cpAcquired(emp(id), d), maintienRate: (id, lid, d) => maintienRate(emp(id), db.leaves.find((l) => l.id === lid), d), isForfait: (id) => isForfait(emp(id)), avg12: (id) => avg12(emp(id)) });
   if (DEMO) { let seen = false; try { seen = !!localStorage.getItem(TOUR_KEY); } catch (e) { /* ignore */ } if (!seen) setTimeout(tourStart, 500); }
 })();

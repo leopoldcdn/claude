@@ -461,7 +461,7 @@ details p { margin: 8px 0 0; font-size: 13.5px; }
 /* ---------- Vie administrative, temps de travail, rémunération ---------- */
 .balances.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .bal .hint { display: block; margin-top: 4px; }
-.ts-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+.ts-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; } .ts-grid.seven { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .form-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .gauge.big { display: block; width: 100%; height: 8px; margin: 14px 0 0; }
 .pct-in { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; } .pct-in .input { width: 70px; }
@@ -1280,3 +1280,16 @@ body:has(.help-panel) .avis-fab { display: none; }
 .tour-f { flex-wrap: nowrap; } .tour-f .btn { min-height: 44px; white-space: nowrap; }
 /* Socle · modale de confirmation des actions irréversibles */
 .confirm-text p { margin: 0 0 8px; line-height: 1.5; } .confirm-text p:last-child { margin-bottom: 0; }
+
+
+/* ---------------------------------------------------------------- Vie en poste · bulletin imprimable, bouton d'avis discret */
+@media print {
+  body.print-slip > *:not(#overlay) { display: none !important; }
+  body.print-slip #overlay .scrim, body.print-slip #overlay .drawer { display: none !important; }
+  body.print-slip .modal { position: static; background: none; padding: 0; }
+  body.print-slip .modal-box { box-shadow: none; max-height: none; overflow: visible; width: auto; max-width: none; }
+  body.print-slip .modal-h, body.print-slip .modal-f { display: none !important; }
+}
+/* Le bouton « Donner mon avis » ne recouvre plus les champs : réduit à son icône, il s'ouvre au survol ou au focus. */
+.avis-fab { width: 44px; padding: 0; justify-content: center; overflow: hidden; white-space: nowrap; font-size: 0; gap: 0; }
+.avis-fab:hover, .avis-fab:focus-visible { width: auto; padding: 0 16px; font-size: 14px; gap: 8px; }

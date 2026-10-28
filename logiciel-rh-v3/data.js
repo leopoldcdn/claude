@@ -44,7 +44,8 @@ window.TEAMORA_SEED = function () {
     address: extra.address || '', emergency: extra.emergency || '',
     cp: extra.cp ?? 18, rtt: extra.rtt ?? 6, status: extra.status || null, exit: extra.exit || null,
     category: extra.category || (contract === 'Alternance' ? 'Employé' : salary >= 45000 ? 'Cadre' : 'Employé'), nationality: extra.nationality || 'Française', zone: extra.zone || 'France',
-    registeredAt: stage >= 3 ? startDate : null, family: extra.family || 'Célibataire', iban: `FR76 •••• •••• •••• ${String(1000 + Number(id.slice(1)) * 37).slice(-4)}`,
+    // IBAN fictif complet (démo) : conservé en entier pour la paie, masqué à l'affichage.
+    registeredAt: stage >= 3 ? startDate : null, family: extra.family || 'Célibataire', iban: `FR76 3000 4028 ${String(1000 + Number(id.slice(1)) * 53).slice(-4)} ${String(2000 + Number(id.slice(1)) * 71).slice(-4)} 0${String(10 + Number(id.slice(1))).slice(-2)}${String(1000 + Number(id.slice(1)) * 37).slice(-4).slice(0, 1)} ${String(1000 + Number(id.slice(1)) * 37).slice(-3)}`,
     titreEnd: extra.titreEnd || null, endDate: extra.endDate || null,
   });
   const employees = [
@@ -82,6 +83,9 @@ window.TEAMORA_SEED = function () {
   Object.assign(employees.find((e) => e.id === 'e8'), { nationality: 'Irlandaise', zone: 'UE' });
   Object.assign(employees.find((e) => e.id === 'e7'), { nationality: 'Espagnole', zone: 'UE' });
   employees.find((e) => e.id === 'e18').registeredAt = null;
+  // Forfait annuel en jours : seulement pour les cadres autonomes qui ont signé une convention individuelle (art. L3121-55) ; les autres cadres déclarent leurs heures.
+  // La directrice générale, cadre dirigeante, est hors durée du travail.
+  ['e1', 'e2', 'e4', 'e6', 'e7', 'e11'].forEach((id) => { const e = employees.find((x) => x.id === id); e.forfait = { date: e.startDate }; });
   Object.assign(employees.find((e) => e.id === 'e6'), { titreEnd: '2026-12-15' });
   Object.assign(employees.find((e) => e.id === 'e12'), { titreEnd: '2027-09-30' });
   Object.assign(employees.find((e) => e.id === 'e19'), { endDate: '2028-08-31' });

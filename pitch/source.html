@@ -90,7 +90,7 @@
   /* 3 · Démonstration : vraie capture du prototype, annotée */
   .demo { display: grid; grid-template-columns: 600px 1fr; gap: 44px; margin-top: 26px; align-items: start; }
   .shot { position: relative; border-radius: 16px; overflow: visible; }
-  .browser { border-radius: 14px; overflow: hidden; box-shadow: 0 30px 70px rgba(21,25,53,.18), 0 0 0 1px var(--line); background: #fff; }
+  .browser { border-radius: 14px; overflow: hidden; isolation: isolate; box-shadow: 0 30px 70px rgba(21,25,53,.18), 0 0 0 1px var(--line); background: #fff; }
   .browser .bar { height: 30px; background: var(--soft-2); display: flex; align-items: center; gap: 6px; padding: 0 12px; }
   .browser .bar i { width: 9px; height: 9px; border-radius: 50%; background: #cfd3e6; }
   .browser .bar span { margin-left: 10px; font-size: 11.5px; color: var(--faint); }
@@ -104,7 +104,15 @@
   .browser img { display: block; width: 100%; height: auto; }
   .callout { position: absolute; display: flex; align-items: center; gap: 8px; }
   .callout .n { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font: 800 15px/1 var(--display); color: #fff; background: var(--accent); box-shadow: 0 0 0 6px rgba(79,70,229,.2); }
-  .ring { position: absolute; border: 3px solid var(--accent); border-radius: 12px; box-shadow: 0 0 0 6px rgba(79,70,229,.12); pointer-events: none; }
+  /* Projecteur : un seul élément éclairé par étape, le reste de la capture assombri, pastille = numéro de l'étape */
+  .browser { position: relative; }
+  .ring { position: absolute; z-index: 2; border: 3px solid var(--accent); border-radius: 12px; pointer-events: none; box-shadow: 0 0 0 9999px rgba(15,18,48,.5); }
+  .ring::after { content: attr(data-n); position: absolute; top: -15px; left: 14px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--accent); color: #fff; font: 800 14px/1 var(--display); box-shadow: 0 0 0 4px #fff; }
+  .ring.right::after { left: auto; right: -15px; }
+  .ring.f { transform: scale(1.04); }
+  .ring.f.in { transform: none; }
+  .ring.f.past { opacity: 0; }
   .steps { display: grid; gap: 26px; margin-top: 8px; }
   .step { display: grid; grid-template-columns: 38px 1fr; gap: 16px; }
   .step .n { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font: 800 16px/1 var(--display); color: #fff; background: var(--accent); }
@@ -246,6 +254,7 @@
     .deck { transform: none !important; width: 1280px; height: auto; }
     .slide { position: relative; opacity: 1; visibility: visible; width: 1280px; height: 720px; border-radius: 0; break-after: page; transition: none; }
     .f { opacity: 1 !important; transform: none !important; }
+    .ring { box-shadow: none !important; }
     .journey .run { width: 100% !important; } .jst::before { border-color: var(--accent) !important; } .eq .bar i { width: 35% !important; }
     .hud, .ctrl, .notes, .chrono, .help { display: none !important; }
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -312,10 +321,10 @@
         <div class="browser">
           <div class="bar"><i></i><i></i><i></i><span>Teamora · Obligations selon l'effectif</span></div>
           <div class="kpis"><div class="kpi"><span>Effectif moyen (12 mois)</span><b>52</b></div><div class="kpi hot"><span>Seuil franchi</span><b>50</b></div><div class="kpi"><span>À traiter</span><b>5</b></div>
-            <div class="ring f" data-f="1" style="left:10px;top:8px;right:10px;bottom:-2px"></div></div>
+            <div class="ring f" data-f="1" data-n="1" style="left:8px;top:6px;right:8px;bottom:-4px"></div></div>
           <div class="imgw"><img src="{{img:img/alertes.jpg}}" alt="Capture du prototype Teamora : liste des alertes, dont le CSE aux attributions élargies et l'index de l'égalité à publier avant le 1er mars 2027">
-            <div class="ring f" data-f="2" style="left:1.5%;top:53.5%;width:97%;height:27%"></div>
-            <div class="ring f" data-f="3" style="left:86.2%;top:54.8%;width:11.2%;height:9%"></div></div>
+            <div class="ring f" data-f="2" data-n="2" style="left:1.5%;top:67.6%;width:97%;height:15.2%"></div>
+            <div class="ring f right" data-f="3" data-n="3" style="left:85.6%;top:69.8%;width:12.2%;height:10.8%"></div></div>
         </div>
       </div>
       <div class="steps">

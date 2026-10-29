@@ -2696,7 +2696,7 @@
     'pay-publish'() { const m = ui.payMonth, pr = payrollOf(m), people = payPeople(m);
       const neg = people.filter((e) => calcPay(e, m).net < 0); if (neg.length) { toast(`Net à payer négatif pour ${neg.map(fullName).join(', ')} : diffusion impossible.`, 'info'); return; }
       Object.assign(pr, { status: 'Diffusée', closed: true, publishedAt: TODAY }); freezePayroll(); people.forEach((e) => notify(e.id, `Ton bulletin de paie de ${monthLabel(m).toLowerCase()} est disponible.`)); toast(`${plural(people.length, 'bulletin diffusé', 'bulletins diffusés')}`); commit(); },
-    'pay-csv'(d) { const blob = new Blob(['﻿' + payCsv(d.m)], { type: 'text/csv;charset=utf-8' }), a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `variables-paie-${d.m}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast('Export téléchargé'); },
+    'pay-csv'(d) { downloadBlob(`variables-paie-${d.m}.csv`, new Blob(['﻿' + payCsv(d.m)], { type: 'text/csv;charset=utf-8' })).then((ok) => { if (ok) toast('Export téléchargé'); }); },
   });
   Object.assign(MOD_CHG, {
     'pay-var'(v, d) { const pr = payrollOf(ui.payMonth), n = Math.max(0, Number(v) || 0); if (d.k === 'bonus') pr.bonus[d.id] = n; else { pr.extra = pr.extra || {}; pr.extra[d.id] = Object.assign({}, pr.extra[d.id], { [d.k]: n }); }
@@ -4438,7 +4438,7 @@
     'offer-back'() { ui.recJob = null; render(); },
     'offer-tab'(d) { ui.offerTab = d.t; render(); },
     'ad-copy'(d) { const j = db.jobs.find((x) => x.id === d.id), t = adText(j); try { navigator.clipboard.writeText(t).then(() => toast('Texte de l’annonce copié'), () => toast('Copie impossible : utilisez « Télécharger (.txt) ».', 'info')); } catch (e) { toast('Copie impossible : utilisez « Télécharger (.txt) ».', 'info'); } logTo(j, 'Texte de l’annonce copié pour diffusion'); save(); },
-    'ad-txt'(d) { const j = db.jobs.find((x) => x.id === d.id), a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([adText(j)], { type: 'text/plain;charset=utf-8' })); a.download = `${jobRef(j)}.txt`; a.click(); logTo(j, 'Texte de l’annonce téléchargé pour diffusion'); save(); },
+    'ad-txt'(d) { const j = db.jobs.find((x) => x.id === d.id); downloadBlob(`${jobRef(j)}.txt`, new Blob([adText(j)], { type: 'text/plain;charset=utf-8' })).then((ok) => { if (ok) { logTo(j, 'Texte de l’annonce téléchargé pour diffusion'); save(); } }); },
     'offer-sort'(d) { if (ui.oSort === d.k) ui.oDir *= -1; else { ui.oSort = d.k; ui.oDir = ['active', 'todo', 'since'].includes(d.k) ? -1 : 1; } render(); },
     'col-toggle'(d) { ui.colOpen = Object.assign({}, ui.colOpen, { [d.s]: !(ui.colOpen || {})[d.s] }); render(); },
     'cand-tab'(d) { ui.drawer.tab = d.t; render(); },
@@ -4487,8 +4487,8 @@
     // RGPD : export du dossier (accès, portabilité) et suppression à la demande (effacement), tracés.
     'cand-export'(d) {
       const c = findCand(d.id), j = candJob(c), data = { exportéLe: TODAY, responsable: COMPANY.entreprise, offre: j ? `${jobRef(j)} · ${j.title}` : '', candidature: Object.assign({}, c, { files: (c.files || []).map((f) => ({ type: f.label || FILE_KINDS[f.kind], nom: f.name })) }) };
-      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })); a.download = `donnees-candidat-${c.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]+/g, '-')}.json`; a.click();
-      logCand(c, 'Export de ses données (droit d’accès)'); toast('Données exportées (fichier JSON à transmettre au candidat)'); commit();
+      downloadBlob(`donnees-candidat-${c.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]+/g, '-')}.json`, new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })).then((ok) => {
+        if (ok) { logCand(c, 'Export de ses données (droit d’accès)'); toast('Données exportées (fichier JSON à transmettre au candidat)'); commit(); } });
     },
     'cand-erase'(d) {
       const c = findCand(d.id);
@@ -5131,7 +5131,22 @@
     return `<h4 class="sub">Salariés</h4>${tbl(REG_STAFF, staff, 'Aucun salarié inscrit.', 'staff')}<h4 class="sub" style="margin-top:16px">Stagiaires (partie spécifique)</h4>${tbl(REG_INTERNS, interns, 'Aucun stagiaire inscrit.', 'interns')}`;
   }
   // ---- Fichiers téléchargeables, produits dans la page (pas d'impression du navigateur).
-  function downloadBlob(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); }
+  // Dans un artefact claude.ai, le lien de téléchargement est bloqué : la capacité « downloads » propose le fichier au visiteur, qui confirme.
+  // Hors de claude.ai (fichier ouvert en local), lien de téléchargement classique. Résout true si le fichier est remis.
+  let DL = null;
+  const dlCap = () => DL || (DL = window.claude && typeof window.claude.use === 'function' ? Promise.resolve().then(() => window.claude.use('downloads')).catch(() => null) : Promise.resolve(null));
+  function downloadLink(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); }
+  async function downloadBlob(name, blob) {
+    const cap = await dlCap();
+    if (!cap) { downloadLink(name, blob); return true; }
+    try { await cap.save({ filename: name, data: blob }); return true; } catch (err) {
+      const code = err && err.code;
+      if (code === 'declined') toast('Téléchargement annulé.', 'info');
+      else if (code === 'rate_limited') toast('Une demande de téléchargement est déjà ouverte : répondez-y d’abord.', 'info');
+      else toast('Le téléchargement n’est pas disponible ici.', 'info');
+      return false;
+    }
+  }
   const fileSlug = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
   // Empreinte SHA-256 du texte signé (hexadécimal), calculée sans bibliothèque.
   function sha256(str) {
@@ -5218,9 +5233,9 @@
     'register-csv'() {
       const { staff, interns } = registerRows(), q = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
       const csv = [['Registre unique du personnel', COMPANY.entreprise, `extrait le ${fmtDateY(TODAY)}`], [], ['Salariés'], REG_STAFF, ...staff, [], ['Stagiaires'], REG_INTERNS, ...interns].map((r) => r.map(q).join(';')).join('\r\n');
-      downloadBlob(`registre-du-personnel-${TODAY}.csv`, new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })); toast('Registre exporté (fichier CSV)'); },
+      downloadBlob(`registre-du-personnel-${TODAY}.csv`, new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })).then((ok) => { if (ok) toast('Registre exporté (fichier CSV)'); }); },
     'doc-download'(d) { const doc = db.documents.find((x) => x.id === d.id); if (!doc) return;
-      docPDF(doc).then((blob) => { downloadBlob(`${fileSlug(doc.title)}-${fileSlug(fullName(emp(doc.empId)))}.pdf`, blob); toast('PDF téléchargé'); }).catch(() => toast('Le PDF n’a pas pu être produit.', 'info')); },
+      docPDF(doc).then((blob) => downloadBlob(`${fileSlug(doc.title)}-${fileSlug(fullName(emp(doc.empId)))}.pdf`, blob)).then((ok) => { if (ok) toast('PDF téléchargé'); }).catch(() => toast('Le PDF n’a pas pu être produit.', 'info')); },
     'arr-doc'(d) { const e = arrE(d), x = dossier(e); x.docs[d.k] = TODAY; if (x.files[d.k]) delete x.files[d.k].refused;
       // Une seule source pour la convention de stage : la pièce validée vaut convention reçue.
       if (d.k === 'convention' && !x.convention) x.convention = TODAY;

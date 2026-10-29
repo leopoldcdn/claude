@@ -22,6 +22,13 @@
   La fenêtre des nouveautés ne s'ouvre plus d'elle-même, dans aucune des deux versions. Les anciennes pages V1 et V2 ont été
   supprimées de claude.ai ; leur code reste dans `logiciel-rh/` et `logiciel-rh-v2/`.
 
+## Téléchargements dans les artefacts
+
+Dans une page publiée sur claude.ai, un lien de téléchargement classique est bloqué. Les cinq fichiers produits par Teamora
+(variables de paie et registre du personnel en CSV, contrats en PDF, texte d'annonce, données d'un candidat) passent donc par
+la capacité `downloads` : le visiteur voit le nom et la taille du fichier, et confirme. Ouverte en local, la page garde le lien
+de téléchargement habituel (`downloadBlob` dans `app.js`).
+
 ## Corrections après le test du parcours collaborateur (octobre 2026)
 
 Le test complet, du besoin de recrutement à l'après-départ, a relevé 129 constats (rapport :

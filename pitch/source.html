@@ -107,7 +107,7 @@
   /* Projecteur : un seul élément éclairé par étape, le reste de la capture assombri, pastille = numéro de l'étape */
   .browser { position: relative; }
   .ring { position: absolute; z-index: 2; border: 3px solid var(--accent); border-radius: 12px; pointer-events: none; box-shadow: 0 0 0 9999px rgba(15,18,48,.5); }
-  .ring::after { content: attr(data-n); position: absolute; top: -15px; left: 14px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  .ring::after { content: attr(data-n); position: absolute; top: -15px; left: var(--bx, 14px); width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
     background: var(--accent); color: #fff; font: 800 14px/1 var(--display); box-shadow: 0 0 0 4px #fff; }
   .ring.right::after { left: auto; right: -15px; }
   .ring.f { transform: scale(1.04); }
@@ -323,7 +323,7 @@
           <div class="kpis"><div class="kpi"><span>Effectif moyen (12 mois)</span><b>52</b></div><div class="kpi hot"><span>Seuil franchi</span><b>50</b></div><div class="kpi"><span>À traiter</span><b>5</b></div>
             <div class="ring f" data-f="1" data-n="1" style="left:8px;top:6px;right:8px;bottom:-4px"></div></div>
           <div class="imgw"><img src="{{img:img/alertes.jpg}}" alt="Capture du prototype Teamora : liste des alertes, dont le CSE aux attributions élargies et l'index de l'égalité à publier avant le 1er mars 2027">
-            <div class="ring f" data-f="2" data-n="2" style="left:1.5%;top:67.6%;width:97%;height:15.2%"></div>
+            <div class="ring f" data-f="2" data-n="2" style="left:1.5%;top:67.6%;width:97%;height:15.2%;--bx:72%"></div>
             <div class="ring f right" data-f="3" data-n="3" style="left:85.6%;top:69.8%;width:12.2%;height:10.8%"></div></div>
         </div>
       </div>

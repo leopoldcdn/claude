@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pitch Teamora</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Deck de 10 diapositives au format 16:9 (1280 × 720), mises à l'échelle de la fenêtre. */
+  :root {
+    --ink: #151935; --muted: #5f6589; --faint: #8d92b0; --line: #e0e3ef; --paper: #ffffff; --soft: #f4f5fb; --soft-2: #eef0f8;
+    --accent: #4f46e5; --accent-soft: #ebeafd; --teal: #0e8fae; --teal-soft: #e2f4f8;
+    --ok: #0c8a5f; --ok-soft: #e3f6ee; --warn: #b95a0b; --warn-soft: #fdf0e1; --bad: #c8314a;
+    --night: #0f1230; --night-2: #1b1f4b;
+    --display: 'Sora', 'Segoe UI', system-ui, sans-serif; --body: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: #090b1f; color: var(--ink); font-family: var(--body); -webkit-font-smoothing: antialiased; overflow: hidden; }
+  h1, h2, h3 { font-family: var(--display); margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+  p { margin: 0; }
+
+  .viewport { position: fixed; inset: 0; display: grid; place-items: center; }
+  .deck { position: relative; width: 1280px; height: 720px; transform-origin: center center; flex: none; }
+  .slide { position: absolute; inset: 0; background: var(--paper); border-radius: 6px; overflow: hidden; padding: 64px 80px 56px;
+    display: flex; flex-direction: column; opacity: 0; visibility: hidden; transform: translateX(24px); transition: opacity .35s ease, transform .35s ease, visibility 0s linear .35s; }
+  .slide.on { opacity: 1; visibility: visible; transform: none; transition: opacity .35s ease, transform .35s ease; }
+  .slide.before { transform: translateX(-24px); }
+  @media (prefers-reduced-motion: reduce) { .slide, .slide.on { transition: none; transform: none; } }
+
+  /* En-tête de diapositive */
+  .kicker { font: 700 14px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); display: flex; align-items: center; gap: 10px; }
+  .kicker::before { content: ''; width: 22px; height: 3px; border-radius: 2px; background: currentColor; }
+  .slide h2 { font-size: 40px; line-height: 1.12; margin-top: 16px; max-width: 1120px; }
+  .lead { font-size: 21px; line-height: 1.5; color: var(--muted); margin-top: 16px; max-width: 900px; }
+  .src { position: absolute; left: 80px; right: 180px; bottom: 22px; font-size: 11.5px; line-height: 1.4; color: var(--faint); }
+  .pg { position: absolute; right: 36px; bottom: 20px; font: 600 12px/1 var(--display); color: var(--faint); display: flex; align-items: center; gap: 8px; }
+  .pg .logo-s { width: 18px; height: 18px; }
+  .em { color: var(--accent); }
+  .grow { flex: 1; min-height: 0; }
+
+  /* Logo */
+  .logo { display: inline-flex; align-items: center; gap: 14px; font: 800 30px/1 var(--display); letter-spacing: -0.02em; }
+  .logo svg { width: 46px; height: 46px; }
+
+  /* 1. Titre */
+  .s-title { background: radial-gradient(900px 520px at 85% 15%, #3a33b8 0%, transparent 60%), radial-gradient(700px 500px at 10% 110%, #0b6f88 0%, transparent 55%), var(--night); color: #fff; justify-content: space-between; }
+  .s-title .logo { color: #fff; }
+  .s-title h1 { font-size: 66px; line-height: 1.04; max-width: 900px; }
+  .s-title h1 span { background: linear-gradient(90deg, #a5a0ff, #5fd3ec); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .s-title .lead { color: #c9cbf0; font-size: 23px; max-width: 760px; }
+  .s-title .who { display: flex; gap: 28px; align-items: center; font-size: 16px; color: #aeb2e6; }
+  .s-title .who b { color: #fff; font-weight: 600; }
+  .fill { border-bottom: 1.5px dashed #8f88ff; padding: 0 2px; }
+  .orbit { position: absolute; right: -120px; top: 90px; width: 560px; height: 560px; border-radius: 50%; border: 1px solid rgba(255,255,255,.12); }
+  .orbit::before { content: ''; position: absolute; inset: 70px; border-radius: 50%; border: 1px solid rgba(255,255,255,.10); }
+  .orbit::after { content: ''; position: absolute; inset: 150px; border-radius: 50%; border: 1px solid rgba(255,255,255,.08); }
+  .orbit i { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #5fd3ec; box-shadow: 0 0 0 6px rgba(95,211,236,.18); }
+
+  /* 2. Problème */
+  .persona { display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; margin-top: 28px; align-items: stretch; }
+  .story { background: var(--soft); border-radius: 18px; padding: 24px 28px; font-size: 18px; line-height: 1.5; position: relative; }
+  .story .tag { display: inline-block; font: 700 13px/1 var(--body); color: var(--warn); background: var(--warn-soft); padding: 7px 10px; border-radius: 999px; margin-bottom: 16px; }
+  .story b { font-weight: 700; }
+  .story .q { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); font-family: var(--display); font-weight: 600; font-size: 20px; color: var(--ink); }
+  .stats { display: grid; gap: 6px; align-content: start; }
+  .stat { display: grid; grid-template-columns: 150px 1fr; gap: 18px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .stat:last-child { border-bottom: 0; }
+  .stat .v { font: 800 46px/1 var(--display); color: var(--accent); letter-spacing: -0.03em; }
+  .stat .v small { font-size: 22px; font-weight: 700; }
+  .stat p { font-size: 17.5px; line-height: 1.45; color: var(--muted); }
+  .stat p b { color: var(--ink); font-weight: 600; }
+
+  /* 3. Pourquoi maintenant */
+  .timeline { position: relative; margin-top: 64px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+  .timeline::before { content: ''; position: absolute; left: 0; right: 0; top: 47px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, var(--accent), var(--teal)); }
+  .ev .d { font: 700 15px/1 var(--display); color: var(--accent); height: 30px; }
+  .ev .dot { width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 4px solid var(--accent); position: relative; z-index: 1; margin: 7px 0 22px; }
+  .ev.fut .dot { border-style: dashed; border-color: var(--teal); }
+  .ev.fut .d { color: var(--teal); }
+  .ev h3 { font-size: 18.5px; line-height: 1.25; }
+  .ev p { font-size: 15px; line-height: 1.45; color: var(--muted); margin-top: 8px; }
+  .ev .chip { display: inline-block; margin-top: 10px; font-size: 12.5px; font-weight: 600; color: var(--teal); background: var(--teal-soft); padding: 4px 9px; border-radius: 999px; }
+  .punch { margin-top: auto; display: flex; align-items: center; gap: 18px; background: var(--night); color: #fff; border-radius: 16px; padding: 22px 28px; font: 600 22px/1.35 var(--display); }
+  .punch .ic { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,.1); display: grid; place-items: center; flex: none; }
+  .punch .ic svg { width: 24px; height: 24px; }
+
+  /* 4. Solution */
+  .pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 30px; }
+  .pillar { border: 1px solid var(--line); border-radius: 18px; padding: 24px 26px; background: #fff; position: relative; }
+  .pillar .n { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); margin-bottom: 16px; }
+  .pillar:nth-child(2) .n { background: var(--teal-soft); color: var(--teal); }
+  .pillar:nth-child(3) .n { background: var(--ok-soft); color: var(--ok); }
+  .pillar .n svg { width: 24px; height: 24px; }
+  .pillar h3 { font-size: 23px; line-height: 1.2; }
+  .pillar p { font-size: 16.5px; line-height: 1.5; color: var(--muted); margin-top: 12px; }
+  .pillar ul { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .pillar li { font-size: 15px; line-height: 1.4; padding-left: 20px; position: relative; }
+  .pillar li::before { content: ''; position: absolute; left: 2px; top: 7px; width: 8px; height: 8px; border-radius: 2px; background: var(--accent); opacity: .55; transform: rotate(45deg); }
+  .not { margin-top: 22px; display: flex; gap: 10px; flex-wrap: nowrap; }
+  .not span { font-size: 14px; font-weight: 600; padding: 9px 14px; white-space: nowrap; border-radius: 999px; background: var(--soft); color: var(--ink); }
+  .not span b { color: var(--accent); }
+
+  /* 5. Démonstration des seuils (maquette) */
+  .demo { display: grid; grid-template-columns: 1.25fr 1fr; gap: 40px; margin-top: 24px; align-items: start; }
+  .mock { border-radius: 18px; background: var(--soft); border: 1px solid var(--line); padding: 20px 24px; box-shadow: 0 24px 60px rgba(21,25,53,.10); }
+  .mock-h { display: flex; justify-content: space-between; align-items: baseline; }
+  .mock-h b { font: 700 17px/1 var(--display); }
+  .mock-h span { font-size: 13px; color: var(--muted); }
+  .eff { margin-top: 14px; display: flex; align-items: baseline; gap: 12px; }
+  .eff .v { font: 800 44px/1 var(--display); letter-spacing: -0.03em; }
+  .eff small { font-size: 15px; color: var(--muted); }
+  .gauge { position: relative; height: 12px; border-radius: 999px; background: #dfe2f0; margin: 30px 0 34px; }
+  .gauge .bar { position: absolute; left: 0; top: 0; bottom: 0; width: 38.4%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--teal)); }
+  .gauge .mk { position: absolute; top: -8px; bottom: -8px; width: 2px; background: var(--ink); opacity: .35; }
+  .gauge .mk span { position: absolute; top: 34px; left: 50%; transform: translateX(-50%); font: 700 13px/1 var(--display); color: var(--muted); white-space: nowrap; }
+  .gauge .mk.hot { opacity: 1; background: var(--warn); }
+  .gauge .mk.hot span { color: var(--warn); }
+  .gauge .proj { position: absolute; top: -26px; font-size: 12.5px; font-weight: 600; color: var(--warn); transform: translateX(-50%); white-space: nowrap; }
+  .alert { background: #fff; border-radius: 14px; border-left: 4px solid var(--warn); padding: 11px 16px; display: grid; gap: 4px; }
+  .alert b { font-size: 16px; }
+  .alert small { font-size: 14px; color: var(--muted); line-height: 1.45; }
+  .oblist { margin-top: 10px; display: grid; gap: 6px; }
+  .ob { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: #fff; border-radius: 10px; padding: 7px 14px; font-size: 14px; }
+  .ob .pill { font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+  .ob .pill.w { color: var(--warn); background: var(--warn-soft); }
+  .ob .pill.o { color: var(--ok); background: var(--ok-soft); }
+  .steps { display: grid; gap: 22px; margin-top: 6px; }
+  .step { display: grid; grid-template-columns: 40px 1fr; gap: 16px; }
+  .step .k { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font: 700 17px/1 var(--display); color: #fff; background: var(--accent); }
+  .step h3 { font-size: 20px; line-height: 1.25; }
+  .step p { font-size: 15.5px; line-height: 1.5; color: var(--muted); margin-top: 6px; }
+
+  /* 6. Parcours complet */
+  .journey { margin-top: 34px; display: grid; grid-template-columns: repeat(11, 1fr); gap: 6px; }
+  .jst { position: relative; padding-top: 50px; }
+  .jst .b { position: absolute; top: 0; left: 0; right: 0; height: 36px; border-radius: 8px; display: grid; place-items: center; font: 700 14px/1 var(--display); color: #fff; }
+  .jst h3 { font-size: 12.5px; hyphens: auto; line-height: 1.3; font-family: var(--body); font-weight: 700; }
+  .checks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 40px; }
+  .ck { background: var(--soft); border-radius: 14px; padding: 18px 20px; }
+  .ck .t { font: 700 12.5px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+  .ck h3 { font-size: 18px; line-height: 1.3; margin-top: 10px; }
+  .ck p { font-size: 14.5px; line-height: 1.45; color: var(--muted); margin-top: 8px; }
+  .roles { margin-top: auto; display: flex; gap: 12px; align-items: center; font-size: 16px; color: var(--muted); }
+  .roles .r { display: inline-flex; align-items: center; gap: 8px; padding: 9px 15px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink); font-weight: 600; font-size: 15px; }
+  .roles .r i { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* 7. Marché */
+  .market { display: grid; grid-template-columns: 1.1fr 1fr; gap: 56px; margin-top: 36px; align-items: center; }
+  .funnel { display: grid; gap: 14px; }
+  .fl { border-radius: 16px; padding: 20px 26px; color: #fff; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+  .fl .v { font: 800 36px/1 var(--display); letter-spacing: -0.02em; white-space: nowrap; }
+  .fl p { font-size: 16px; line-height: 1.4; opacity: .9; }
+  .fl p b { display: block; font-size: 18px; opacity: 1; font-weight: 700; }
+  .fl.a { background: var(--night); margin-right: 0; }
+  .fl.b { background: var(--night-2); margin: 0 36px 0 0; background: #2c2a8c; }
+  .fl.c { background: var(--accent); margin: 0 72px 0 0; }
+  .facts { display: grid; gap: 24px; }
+  .fact .v { font: 800 44px/1 var(--display); letter-spacing: -0.03em; color: var(--accent); }
+  .fact p { font-size: 17px; line-height: 1.45; color: var(--muted); margin-top: 8px; }
+  .fact p b { color: var(--ink); font-weight: 600; }
+  .bar35 { margin-top: 12px; height: 10px; border-radius: 999px; background: var(--soft-2); overflow: hidden; }
+  .bar35 i { display: block; height: 100%; width: 35%; background: var(--teal); border-radius: 999px; }
+
+  /* 8. Concurrence */
+  .comp { display: grid; grid-template-columns: 584px 1fr; gap: 44px; margin-top: 30px; align-items: start; }
+  .matrix { position: relative; width: 560px; height: 360px; margin-left: 24px; border-left: 2px solid var(--ink); border-bottom: 2px solid var(--ink); background:
+      linear-gradient(var(--line), var(--line)) 50% 0 / 1px 100% no-repeat, linear-gradient(var(--line), var(--line)) 0 50% / 100% 1px no-repeat; }
+  .matrix .zone { position: absolute; left: 0; top: 0; width: 50%; height: 50%; background: var(--ok-soft); opacity: .7; }
+  .matrix .ax { position: absolute; font-size: 13.5px; font-weight: 700; color: var(--muted); }
+  .matrix .ax.x { bottom: -26px; right: 0; }
+  .matrix .ax.y { top: 0; left: -26px; transform: rotate(-90deg) translateX(-100%); transform-origin: top left; }
+  .co { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 600; white-space: nowrap; }
+  .co i { width: 14px; height: 14px; border-radius: 50%; background: #9aa0c2; flex: none; }
+  .co.me { font: 800 18px/1 var(--display); color: var(--accent); }
+  .co.me i { width: 22px; height: 22px; background: var(--accent); box-shadow: 0 0 0 8px rgba(79,70,229,.16); }
+  .diff { display: grid; gap: 18px; }
+  .diff .it { display: grid; grid-template-columns: 34px 1fr; gap: 14px; }
+  .diff .it .c { width: 34px; height: 34px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+  .diff .it .c svg { width: 18px; height: 18px; }
+  .diff h3 { font-size: 19px; line-height: 1.3; }
+  .diff p { font-size: 15.5px; line-height: 1.45; color: var(--muted); margin-top: 4px; }
+  .caveat { margin-top: 6px; font-size: 14px; color: var(--warn); background: var(--warn-soft); border-radius: 10px; padding: 10px 14px; line-height: 1.4; }
+
+  /* 9. Modèle */
+  .biz { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 38px; }
+  .card { border-radius: 18px; padding: 26px; background: var(--soft); display: flex; flex-direction: column; }
+  .card .t { font: 700 13px/1 var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+  .card h3 { font-size: 24px; line-height: 1.2; margin-top: 14px; }
+  .card p { font-size: 16px; line-height: 1.5; color: var(--muted); margin-top: 12px; }
+  .card .big { font: 800 40px/1 var(--display); letter-spacing: -0.02em; margin-top: 18px; color: var(--ink); }
+  .card .big small { font-size: 16px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+  .card .hyp { margin-top: auto; padding-top: 16px; font-size: 13px; font-weight: 600; color: var(--warn); }
+  .flow { display: flex; align-items: center; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .flow span { background: #fff; border-radius: 10px; padding: 8px 12px; font-size: 14px; font-weight: 600; }
+  .flow svg { width: 16px; height: 16px; color: var(--faint); }
+
+  /* 10. Où en est Teamora et demande */
+  .s-end { background: radial-gradient(800px 500px at 90% 0%, #2f2a9c 0%, transparent 60%), var(--night); color: #fff; }
+  .s-end .kicker { color: #a5a0ff; }
+  .s-end h2 { color: #fff; }
+  .s-end .src, .s-end .pg { color: #7f84b8; }
+  .proof { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 24px; }
+  .pf { border: 1px solid rgba(255,255,255,.14); border-radius: 16px; padding: 14px 18px; }
+  .pf .v { font: 800 32px/1 var(--display); letter-spacing: -0.02em; }
+  .pf p { font-size: 13.5px; line-height: 1.4; color: #b8bbe8; margin-top: 6px; }
+  .ask { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 18px; }
+  .road, .need { border-radius: 18px; padding: 18px 24px; }
+  .road { background: rgba(255,255,255,.06); }
+  .need { background: #fff; color: var(--ink); }
+  .road h3, .need h3 { font-size: 19px; }
+  .road ol { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .road li { display: grid; grid-template-columns: 96px 1fr; gap: 12px; font-size: 15px; line-height: 1.4; color: #d9dbf7; }
+  .road li b { color: #5fd3ec; font: 700 14px/1.4 var(--display); }
+  .need ul { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 9px; }
+  .need li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; font-size: 15px; line-height: 1.4; align-items: start; }
+  .need li i { width: 26px; height: 26px; border-radius: 8px; background: var(--accent); color: #fff; display: grid; place-items: center; font: 700 13px/1 var(--display); font-style: normal; }
+  .contact { margin-top: auto; padding-right: 110px; display: flex; justify-content: space-between; align-items: center; font-size: 16px; color: #c9cbf0; }
+  .contact .logo { font-size: 22px; color: #fff; gap: 10px; }
+  .contact .logo svg { width: 32px; height: 32px; }
+
+  /* Interface de présentation (hors diapositives) */
+  .hud { position: fixed; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255,255,255,.08); z-index: 5; }
+  .hud i { display: block; height: 100%; background: linear-gradient(90deg, #8f88ff, #5fd3ec); transition: width .3s ease; }
+  .ctrl { position: fixed; right: 16px; bottom: 16px; display: flex; gap: 8px; z-index: 6; opacity: 0; transition: opacity .2s; }
+  body:hover .ctrl, .ctrl:focus-within { opacity: 1; }
+  .ctrl button { font: 600 13px/1 var(--body); color: #e6e7fb; background: rgba(20,24,60,.82); border: 1px solid rgba(255,255,255,.14); border-radius: 10px; padding: 9px 12px; cursor: pointer; backdrop-filter: blur(6px); }
+  .ctrl button:hover { background: rgba(40,46,110,.9); }
+  .ctrl button:focus-visible { outline: 2px solid #8f88ff; outline-offset: 2px; }
+  .notes { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(920px, calc(100vw - 32px)); max-height: 34vh; overflow: auto; background: rgba(12,15,40,.94); color: #e8e9fb; border: 1px solid rgba(255,255,255,.14);
+    border-radius: 16px; padding: 18px 22px; font-size: 16px; line-height: 1.55; z-index: 7; display: none; backdrop-filter: blur(8px); }
+  .notes.on { display: block; }
+  .notes .nh { display: flex; justify-content: space-between; gap: 16px; font: 600 13px/1 var(--display); color: #a5a0ff; margin-bottom: 10px; }
+  .notes .nh .late { color: #ffb36b; }
+  .chrono { position: fixed; left: 16px; bottom: 16px; z-index: 6; font: 700 15px/1 var(--display); color: #e6e7fb; background: rgba(20,24,60,.82); border: 1px solid rgba(255,255,255,.14); border-radius: 10px; padding: 9px 12px; display: none; }
+  .chrono.on { display: block; }
+  .chrono.late { color: #ffb36b; }
+  .help { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 8; background: rgba(12,15,40,.94); color: #e8e9fb; border: 1px solid rgba(255,255,255,.14); border-radius: 12px; padding: 10px 16px; font-size: 13.5px; transition: opacity .4s; }
+  .help kbd { font: 700 12px/1 var(--display); background: rgba(255,255,255,.12); border-radius: 5px; padding: 3px 6px; margin: 0 2px; }
+  .help.off { opacity: 0; pointer-events: none; }
+  .notes-src { display: none; }
+
+  /* Impression / PDF : une diapositive par page */
+  @page { size: 1280px 720px; margin: 0; }
+  @media print {
+    html, body { overflow: visible; height: auto; background: #fff; }
+    .viewport { position: static; display: block; }
+    .deck { transform: none !important; width: 1280px; height: auto; }
+    .slide { position: relative; opacity: 1; visibility: visible; transform: none; width: 1280px; height: 720px; border-radius: 0; break-after: page; transition: none; }
+    .hud, .ctrl, .notes, .chrono, .help { display: none !important; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6d65ff"/><stop offset="1" stop-color="#18b3d3"/></linearGradient>
+    <symbol id="logo" viewBox="0 0 48 48"><rect width="48" height="48" rx="14" fill="url(#lg)"/><circle cx="24" cy="24" r="12.5" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="2.4"/><path d="M15 18h18M24 18v16" stroke="#fff" stroke-width="3.6" stroke-linecap="round"/><circle cx="35.5" cy="15" r="3" fill="#fff"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4 18a8 8 0 1 1 16 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 18l4-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4h10a4 4 0 0 1 4 4v12H9a4 4 0 0 1-4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 9h6M9 13h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-path" viewBox="0 0 24 24"><circle cx="5" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="19" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7.5 6H15a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 21h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.6 0l3-3a4 4 0 0 0-5.6-5.6l-1 1M14 10a4 4 0 0 0-5.6 0l-3 3a4 4 0 0 0 5.6 5.6l1-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h13M13 7l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+
+<div class="viewport">
+<main class="deck" id="deck" aria-live="polite">
+
+  <!-- 1 · Titre -->
+  <section class="slide s-title" data-time="15" aria-label="Titre">
+    <div class="orbit" aria-hidden="true"><i style="left:76px;top:120px"></i><i style="right:150px;bottom:60px;background:#a5a0ff;box-shadow:0 0 0 6px rgba(165,160,255,.18)"></i></div>
+    <span class="logo"><svg aria-hidden="true"><use href="#logo"/></svg>Teamora</span>
+    <div>
+      <h1>Le logiciel RH qui sait <span>quand la loi change pour votre PME</span></h1>
+      <p class="lead" style="margin-top:24px">Teamora traduit l'effectif et la convention collective en obligations datées, et guide chaque étape de la vie du salarié, du recrutement à l'après-départ.</p>
+    </div>
+    <div class="who"><span><b class="fill">Ton prénom et nom</b> · fondateur</span><span>Projet étudiant-entrepreneur · 2026</span></div>
+    <aside class="notes-src">Bonjour. Je suis [prénom], et je développe Teamora, un logiciel RH pour les PME françaises. Une phrase pour le résumer : Teamora sait quand la loi change pour votre entreprise, et vous guide pour faire ce qu'il faut, au bon moment.</aside>
+  </section>
+
+  <!-- 2 · Problème -->
+  <section class="slide" data-time="30" aria-label="Le problème">
+    <div class="kicker">Le problème</div>
+    <h2>Une PME qui grandit change de règles sans que personne ne la prévienne</h2>
+    <div class="persona">
+      <div class="story">
+        <span class="tag">Cas type</span>
+        <p><b>Claire dirige une agence de 46 salariés.</b> Pas de service RH : elle, une assistante et l'expert-comptable pour la paie. Elle recrute 6 personnes cette année.</p>
+        <p style="margin-top:12px">Au-delà de 50 salariés pendant 12 mois, elle doit notamment calculer et publier l'index égalité, ouvrir la BDESE et consulter un CSE aux attributions élargies.</p>
+        <p class="q">« Qui me dit quand ça commence, et ce que je dois préparer ? »</p>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="v">1 à 5<small> h</small></div><p>par semaine de <b>tâches administratives</b> pour plus de la moitié des dirigeants interrogés.</p></div>
+        <div class="stat"><div class="v">66<small> %</small></div><p>des professionnels RH trouvent que <b>leur métier se complexifie</b>, sans moyens supplémentaires.</p></div>
+        <div class="stat"><div class="v">65<small> %</small></div><p>des RH interrogés n'ont <b>toujours pas de SIRH complet</b> en 2026 : tableurs, outils épars, paie à part.</p></div>
+      </div>
+    </div>
+    <p class="src">Sources : enquête CJD auprès de 536 dirigeants (avril 2025) ; baromètre Tissot « Les RH au quotidien » 2025 ; baromètre Tissot/PayFit 2026 (35 % équipés d'un SIRH complet). Cas type fictif.</p>
+    <aside class="notes-src">Prenez Claire. Elle dirige une agence de 46 salariés, sans service RH. Elle recrute cette année : elle va passer 50 salariés. À ce moment-là, de nouvelles obligations s'appliquent : index égalité, base de données économiques et sociales, CSE aux attributions élargies. Personne ne la prévient. Et elle n'est pas seule : la moitié des dirigeants passent 1 à 5 heures par semaine sur l'administratif, et deux tiers des RH n'ont pas d'outil complet.</aside>
+  </section>
+
+  <!-- 3 · Pourquoi maintenant -->
+  <section class="slide" data-time="25" aria-label="Pourquoi maintenant">
+    <div class="kicker">Pourquoi maintenant</div>
+    <h2>Chaque année ajoute des règles, des délais et des preuves à conserver</h2>
+    <div class="timeline">
+      <div class="ev"><div class="d">2019</div><div class="dot"></div><h3>Loi PACTE</h3><p>Effectif moyen sur 12 mois et gel de 5 ans après un franchissement de seuil.</p></div>
+      <div class="ev"><div class="d">Nov. 2023</div><div class="dot"></div><h3>Information à l'embauche</h3><p>Une liste d'informations à remettre sous 7 jours, puis sous un mois.</p></div>
+      <div class="ev"><div class="d">Oct. 2025</div><div class="dot"></div><h3>Entretien de parcours</h3><p>Remplace l'entretien professionnel ; abondement du CPF dès 50 salariés.</p></div>
+      <div class="ev"><div class="d">Avr. 2026</div><div class="dot"></div><h3>Référentiel CNIL</h3><p>Durées de conservation des données RH, des candidats au registre du personnel.</p></div>
+      <div class="ev fut"><div class="d">Déc. 2027</div><div class="dot"></div><h3>AI Act</h3><p>L'IA de recrutement et d'évaluation devient « à haut risque ».</p><span class="chip">report envisagé</span></div>
+      <div class="ev fut"><div class="d">2028</div><div class="dot"></div><h3>Transparence salariale</h3><p>Directive européenne 2023/970, en cours de transposition.</p><span class="chip">date envisagée</span></div>
+    </div>
+    <div class="punch"><span class="ic"><svg aria-hidden="true"><use href="#i-bell"/></svg></span>La conformité RH n'est plus un classeur : c'est un calendrier qui bouge avec l'effectif.</div>
+    <p class="src">Sources : loi PACTE (2019) ; décret 2023-1004 ; loi 2025-989 (entretien de parcours) ; référentiel CNIL du 2 avril 2026 ; règlement (UE) 2024/1689 ; directive (UE) 2023/970. Dates 2027 et 2028 à confirmer.</p>
+    <aside class="notes-src">Pourquoi maintenant ? Parce que les règles s'empilent : le décompte d'effectif de la loi PACTE, l'information obligatoire à l'embauche depuis 2023, le nouvel entretien de parcours depuis 2025, le référentiel CNIL de 2026. Et deux chantiers arrivent : l'AI Act et la transparence salariale. Un tableur ne suit pas ça. Il faut un outil qui connaît le calendrier.</aside>
+  </section>
+
+  <!-- 4 · Solution -->
+  <section class="slide" data-time="35" aria-label="La solution">
+    <div class="kicker">La solution</div>
+    <h2>Teamora rend la conformité <span class="em">exécutable</span>, pas seulement consultable</h2>
+    <div class="pillars">
+      <div class="pillar"><div class="n"><svg aria-hidden="true"><use href="#i-gauge"/></svg></div><h3>L'effectif, calculé en continu</h3><p>Moyenne sur 12 mois selon les règles PACTE, historique sur 5 ans, projection avec les embauches prévues.</p>
+        <ul><li>Alerte avant chaque seuil (11, 20, 50, 250…)</li><li>Obligations activées au bon moment</li></ul></div>
+      <div class="pillar"><div class="n"><svg aria-hidden="true"><use href="#i-book"/></svg></div><h3>La convention, appliquée au dossier</h3><p>Période d'essai, préavis, salaire minimum, forfait jours : la règle est calculée dans le dossier, pas à chercher.</p>
+        <ul><li>673 conventions collectives référencées</li><li>Contrôles bloquants (SMIC) ou alertes</li></ul></div>
+      <div class="pillar"><div class="n"><svg aria-hidden="true"><use href="#i-path"/></svg></div><h3>Toute la vie du salarié</h3><p>Du besoin de recrutement à l'après-départ, chaque étape a ses documents, ses délais et ses preuves.</p>
+        <ul><li>Un circuit par rôle : RH, manager, salarié, direction</li><li>Espace salarié sur téléphone</li></ul></div>
+    </div>
+    <div class="not"><span><b>Ne remplace pas</b> la paie : s'y branche</span><span><b>Ne décide pas</b> à la place de l'humain</span><span><b>Teamo</b>, assistant IA sur données agrégées (à venir)</span></div>
+    <aside class="notes-src">Teamora fait trois choses. Un : il calcule l'effectif en continu, selon les règles légales, et prévient avant chaque seuil. Deux : il applique la convention collective directement dans le dossier : la fin d'essai, le préavis, le salaire minimum sont calculés, pas cherchés. Trois : il couvre toute la vie du salarié, avec un circuit pour chaque rôle. Et il ne remplace pas la paie : il s'y branche.</aside>
+  </section>
+
+  <!-- 5 · Comment ça marche -->
+  <section class="slide" data-time="35" aria-label="Comment ça marche">
+    <div class="kicker">Comment ça marche</div>
+    <h2>Claire voit venir le seuil de 50, six mois avant</h2>
+    <div class="demo">
+      <div class="mock" role="img" aria-label="Maquette de l'écran Obligations de Teamora : effectif de 48 salariés, seuil de 50 dépassé dans la projection">
+        <div class="mock-h"><b>Obligations selon l'effectif</b><span>Agence Claire · octobre 2026</span></div>
+        <div class="eff"><span class="v">48</span><small>salariés en moyenne sur 12 mois · projection : 52 en avril</small></div>
+        <div class="gauge" title="Échelle non linéaire">
+          <div class="bar"></div>
+          <div class="mk" style="left:8%"><span>11</span></div>
+          <div class="mk" style="left:16%"><span>20</span></div>
+          <div class="mk hot" style="left:40%"><span>50</span></div>
+          <div class="mk" style="left:100%"><span>250</span></div>
+          <span class="proj" style="left:41.6%">▼ 52 en avril 2027</span>
+        </div>
+        <div class="alert"><b>Seuil de 50 salariés en vue</b><small>Les obligations s'appliqueront après 12 mois consécutifs au-delà de 50. Voici ce qu'il faut préparer.</small></div>
+        <div class="oblist">
+          <div class="ob">Index de l'égalité professionnelle<span class="pill w">à préparer</span></div>
+          <div class="ob">BDESE et consultations du CSE<span class="pill w">à préparer</span></div>
+          <div class="ob">Abondement CPF (entretiens de parcours)<span class="pill w">à vérifier</span></div>
+          <div class="ob">Emploi des travailleurs handicapés (dès 20)<span class="pill o">en place</span></div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step"><span class="k">1</span><div><h3>Les dossiers alimentent l'effectif</h3><p>Chaque arrivée, départ ou temps partiel met à jour le décompte. Aucune double saisie.</p></div></div>
+        <div class="step"><span class="k">2</span><div><h3>Teamora prévient avant le seuil</h3><p>L'alerte arrive dans « À traiter » des RH et de la direction, avec la date d'effet.</p></div></div>
+        <div class="step"><span class="k">3</span><div><h3>Chaque obligation a son écran</h3><p>Index, CSE, entretiens : on agit depuis l'alerte, pas depuis un article de loi.</p></div></div>
+      </div>
+    </div>
+    <p class="src">Maquette tirée du prototype Teamora V3 (données fictives). Liste d'obligations simplifiée, à valider par un juriste avant tout usage commercial.</p>
+    <aside class="notes-src">Concrètement, voici l'écran de Claire. Elle a 48 salariés en moyenne. Avec les embauches prévues, Teamora voit qu'elle passera 50 en avril. Il la prévient, lui dit quand les obligations s'appliqueront, et ce qu'elle doit préparer : index égalité, BDESE, CSE. Chaque ligne ouvre l'écran où elle agit. Elle n'a rien saisi de plus : ce sont les dossiers du quotidien qui alimentent le calcul.</aside>
+  </section>
+
+  <!-- 6 · Tout le parcours -->
+  <section class="slide" data-time="25" aria-label="Tout le parcours du salarié">
+    <div class="kicker">Au quotidien</div>
+    <h2>Chaque étape de la vie du salarié, avec ses règles intégrées</h2>
+    <div class="journey" aria-label="Les 11 étapes du parcours">
+      <div class="jst"><span class="b" style="background:#4f46e5">1</span><h3>Besoin et recrutement</h3></div>
+      <div class="jst"><span class="b" style="background:#4a4ed9">2</span><h3>Pré-embauche</h3></div>
+      <div class="jst"><span class="b" style="background:#4457cd">3</span><h3>Intégration</h3></div>
+      <div class="jst"><span class="b" style="background:#3e60c1">4</span><h3>Temps et absences</h3></div>
+      <div class="jst"><span class="b" style="background:#3869b5">5</span><h3>Rémunération</h3></div>
+      <div class="jst"><span class="b" style="background:#3272a9">6</span><h3>Développement</h3></div>
+      <div class="jst"><span class="b" style="background:#2c7b9d">7</span><h3>Santé et QVT</h3></div>
+      <div class="jst"><span class="b" style="background:#268491">8</span><h3>Changement de situation</h3></div>
+      <div class="jst"><span class="b" style="background:#1f8d85">9</span><h3>Relations et dialogue</h3></div>
+      <div class="jst"><span class="b" style="background:#18967a">10</span><h3>Départ</h3></div>
+      <div class="jst"><span class="b" style="background:#0c8a5f">11</span><h3>Après le départ</h3></div>
+    </div>
+    <div class="checks">
+      <div class="ck"><span class="t">Recrutement</span><h3>Un CDD sans motif est refusé</h3><p>Cas de recours, motif et personne remplacée exigés dès le besoin.</p></div>
+      <div class="ck"><span class="t">Arrivée</span><h3>Essai borné par la convention</h3><p>DPAE contrôlée, contrat signé en ligne, informations remises dans les délais.</p></div>
+      <div class="ck"><span class="t">Vie en poste</span><h3>Jours fériés et délais exacts</h3><p>Absences, heures supplémentaires, avenants à signer, entretiens planifiés.</p></div>
+      <div class="ck"><span class="t">Départ</span><h3>Solde de tout compte juste</h3><p>Préavis et indemnités selon le motif, puis purge des données à 5 ans.</p></div>
+    </div>
+    <div class="roles"><span>Un circuit par rôle :</span><span class="r"><i style="background:#4f46e5"></i>RH</span><span class="r"><i style="background:#0e8fae"></i>Manager</span><span class="r"><i style="background:#0c8a5f"></i>Salarié (aussi sur téléphone)</span><span class="r"><i style="background:#b95a0b"></i>Direction</span></div>
+    <aside class="notes-src">Au-delà des seuils, Teamora accompagne tout le parcours, en onze étapes. Quelques exemples : impossible de créer un CDD sans motif ; la période d'essai est bornée par la convention ; le solde de tout compte est calculé selon le motif de départ ; et les données sont purgées au bout de cinq ans, comme le demande la CNIL. Chacun a son circuit : RH, manager, salarié, direction.</aside>
+  </section>
+
+  <!-- 7 · Marché -->
+  <section class="slide" data-time="30" aria-label="Le marché">
+    <div class="kicker">Le marché</div>
+    <h2>Un marché en croissance, et des PME encore peu équipées</h2>
+    <div class="market">
+      <div class="funnel">
+        <div class="fl a"><p><b>Logiciels et services RH en France</b>2025, périmètre large</p><span class="v">4 à 5,5 Md€</span></div>
+        <div class="fl b"><p><b>PME de 10 à 249 salariés</b>4,6 millions d'équivalents temps plein</p><span class="v">175 000</span></div>
+        <div class="fl c"><p><b>Potentiel d'abonnements</b>core HR, hors paie, hors TPE et ETI</p><span class="v">165 à 500 M€</span></div>
+      </div>
+      <div class="facts">
+        <div class="fact"><div class="v">+10 à 12 %</div><p>de croissance par an, portée par la <b>réglementation</b> et le passage au SaaS.</p></div>
+        <div class="fact"><div class="v">35 %</div><p>seulement des RH interrogés ont un <b>SIRH complet</b> en 2026.</p><div class="bar35"><i></i></div></div>
+        <div class="fact"><div class="v">2 %</div><p>des TPE et PME : la part de marché que s'attribue PayFit. <b>Le segment reste très fragmenté.</b></p></div>
+      </div>
+    </div>
+    <p class="src">Sources : Xerfi (logiciels, plus de 4 Md€) et Exaegis Markess (logiciels et services, 5,5 Md€ en 2025, TCAC 10,5 %) ; INSEE Focus 372 ; baromètre Tissot/PayFit 2026 ; JDN (PayFit). Potentiel : notre estimation, 4,6 M d'ETP × 3 à 9 € par mois.</p>
+    <aside class="notes-src">Le marché des logiciels et services RH en France pèse entre 4 et 5,5 milliards d'euros, et croît de 10 à 12 % par an. Notre cible : 175 000 PME de 10 à 249 salariés. Rien que sur le cœur RH, hors paie, c'est un potentiel de 165 à 500 millions d'euros par an. Et elles sont peu équipées : seulement un tiers des RH ont un outil complet, et le leader de la paie revendique à peine 2 % des TPE et PME.</aside>
+  </section>
+
+  <!-- 8 · Concurrence -->
+  <section class="slide" data-time="35" aria-label="Concurrence">
+    <div class="kicker">La concurrence</div>
+    <h2>Les suites RH vont en largeur, Teamora va en profondeur réglementaire</h2>
+    <div class="comp">
+      <div class="matrix" role="img" aria-label="Positionnement qualitatif : Teamora seul dans le quadrant conformité forte, largeur moyenne">
+        <div class="zone"></div>
+        <span class="ax y">Conformité exécutable →</span>
+        <span class="ax x">Largeur fonctionnelle →</span>
+        <span class="co me" style="left:30%;top:16%"><i></i>Teamora</span>
+        <span class="co" style="left:80%;top:56%"><i style="background:#7d8ac7"></i>Lucca</span>
+        <span class="co" style="left:58%;top:44%"><i style="background:#7d8ac7"></i>PayFit</span>
+        <span class="co" style="left:84%;top:76%"><i style="background:#7d8ac7"></i>Factorial</span>
+        <span class="co" style="left:76%;top:86%"><i style="background:#7d8ac7"></i>Personio</span>
+        <span class="co" style="left:86%;top:36%"><i style="background:#7d8ac7"></i>Cegid-Silae</span>
+        <span class="co" style="left:52%;top:70%"><i style="background:#7d8ac7"></i>Eurécia</span>
+      </div>
+      <div class="diff">
+        <div class="it"><span class="c"><svg aria-hidden="true"><use href="#i-gauge"/></svg></span><div><h3>Seuils d'effectif suivis</h3><p>Aucun éditeur grand public consulté ne calcule l'effectif PACTE et ne déclenche les obligations par seuil.</p></div></div>
+        <div class="it"><span class="c"><svg aria-hidden="true"><use href="#i-link"/></svg></span><div><h3>Allié de la paie</h3><p>Teamora exporte vers Silae, Sage ou le cabinet. Les cabinets gardent la paie de leurs clients.</p></div></div>
+        <div class="it"><span class="c"><svg aria-hidden="true"><use href="#i-shield"/></svg></span><div><h3>IA prudente</h3><p>Pas de tri de CV ni d'évaluation : un assistant sur données agrégées, hors du « haut risque » de l'AI Act.</p></div></div>
+        <p class="caveat">Positionnement qualitatif, à confirmer par une revue produit des concurrents.</p>
+      </div>
+    </div>
+    <p class="src">Sources : étude de marché Teamora (octobre 2026) ; Maddyness et JDN (PayFit), Yapluqua (Lucca), communiqué Cegid (fusion Cegid-Silae, septembre 2026). AI Act : article 6(3), lecture à faire valider.</p>
+    <aside class="notes-src">Face à nous : Lucca, PayFit, Factorial, Personio, Cegid-Silae. Ils vont en largeur : plus de modules, plus d'IA. Aucun de ceux que nous avons étudiés ne suit les seuils d'effectif. C'est notre angle. Deuxième différence : nous ne faisons pas la paie, nous nous y branchons, ce qui fait de nous un allié des experts-comptables. Troisième : une IA prudente, qui ne trie pas de CV. Je le dis franchement : ce positionnement doit encore être confirmé par une revue détaillée des concurrents.</aside>
+  </section>
+
+  <!-- 9 · Modèle économique -->
+  <section class="slide" data-time="25" aria-label="Modèle économique">
+    <div class="kicker">Modèle économique</div>
+    <h2>Un abonnement simple, vendu avec les experts-comptables</h2>
+    <div class="biz">
+      <div class="card"><span class="t">Prix</span><h3>Par salarié et par mois</h3><p>Dans la fourchette du marché du core HR, avec la conformité incluse.</p><div class="big">4 à 6 €<small> / salarié / mois</small></div><p>Exemple : 40 salariés, environ 200 € par mois. Bien moins qu'une paie externalisée (20 à 30 € par bulletin).</p><span class="hyp">Hypothèse à tester auprès des PME pilotes</span></div>
+      <div class="card"><span class="t">Distribution</span><h3>Le canal des experts-comptables</h3><p>Environ 19 000 cabinets en France, déjà présents chez nos clients pour la paie. Teamora leur apporte la RH sans leur prendre la paie.</p>
+        <div class="flow"><span>Cabinet</span><svg aria-hidden="true"><use href="#i-arrow"/></svg><span>PME cliente</span><svg aria-hidden="true"><use href="#i-arrow"/></svg><span>Teamora</span></div><span class="hyp">Commission ou offre cabinet, à définir</span></div>
+      <div class="card"><span class="t">Intégration</span><h3>Branché sur la paie existante</h3><p>Export des variables de paie vers les logiciels du marché (Silae, Sage, fulll). Pas de DSN à maintenir : c'est la barrière la plus lourde du secteur.</p>
+        <div class="flow"><span>Teamora</span><svg aria-hidden="true"><use href="#i-arrow"/></svg><span>Variables</span><svg aria-hidden="true"><use href="#i-arrow"/></svg><span>Logiciel de paie</span></div><span class="hyp">Connecteurs à construire</span></div>
+    </div>
+    <p class="src">Sources : Quel-SIRH, Hayot Expertise (prix du core HR : 3 à 9 € par salarié et par mois) ; Keobiz (paie externalisée) ; Xerfi (environ 19 000 cabinets d'expertise comptable).</p>
+    <aside class="notes-src">Le modèle : un abonnement de 4 à 6 euros par salarié et par mois, dans les prix du marché, avec la conformité incluse. Pour 40 salariés, environ 200 euros par mois. La distribution passe par les experts-comptables : ils tiennent déjà la paie de nos clients, et Teamora leur apporte la RH sans leur prendre la paie. Ce prix est une hypothèse : je vais la tester avec les PME pilotes.</aside>
+  </section>
+
+  <!-- 10 · Où en est Teamora / demande -->
+  <section class="slide s-end" data-time="35" aria-label="Où en est Teamora et ce que je demande">
+    <div class="kicker">Où en est Teamora</div>
+    <h2>Un prototype complet, testé de bout en bout. Prochaine étape : le terrain.</h2>
+    <div class="proof">
+      <div class="pf"><div class="v">11</div><p>étapes de la vie du salarié couvertes, du recrutement à l'après-départ</p></div>
+      <div class="pf"><div class="v">4</div><p>profils : RH, manager, salarié (aussi sur téléphone), direction</p></div>
+      <div class="pf"><div class="v">673</div><p>conventions collectives référencées, Syntec déjà appliquée</p></div>
+      <div class="pf"><div class="v">114</div><p>corrections sur 129 points relevés par un test critique complet</p></div>
+    </div>
+    <div class="ask">
+      <div class="road"><h3>Les 6 prochains mois</h3><ol>
+        <li><b>Novembre</b>Démo en ligne testée par 5 PME, retours collectés</li>
+        <li><b>Décembre</b>Règles validées par un juriste en droit social</li>
+        <li><b>T1 2027</b>Première version réelle : comptes, hébergement en Europe</li>
+        <li><b>T2 2027</b>3 clients pilotes, un cabinet comptable partenaire</li></ol></div>
+      <div class="need"><h3>Ce que je cherche aujourd'hui</h3><ul>
+        <li><i>1</i><span>Des <b>PME de 20 à 100 salariés</b> pour tester la démo</span></li>
+        <li><i>2</i><span>Un <b>cabinet d'expertise comptable</b> partenaire</span></li>
+        <li><i>3</i><span>Un <b>accompagnement</b> : statut étudiant-entrepreneur, incubateur, conseil juridique</span></li></ul></div>
+    </div>
+    <div class="contact"><span class="logo"><svg aria-hidden="true"><use href="#logo"/></svg>Teamora</span><span><span class="fill">ton.email@exemple.fr</span> · démo sur demande</span></div>
+    <aside class="notes-src">Où en est Teamora ? Le prototype couvre déjà les onze étapes, quatre profils, et 673 conventions collectives. Je l'ai fait tester de bout en bout de façon critique : 129 points relevés, 114 corrigés. Maintenant, place au terrain : cinq PME testent la démo en novembre, un juriste valide les règles en décembre, et je vise trois clients pilotes au printemps. Ce que je cherche : des PME testeuses, un cabinet comptable partenaire, et un accompagnement. Merci.</aside>
+  </section>
+
+</main>
+</div>
+
+<div class="hud" aria-hidden="true"><i id="bar"></i></div>
+<div class="chrono" id="chrono" aria-live="off"></div>
+<div class="notes" id="notes" aria-live="polite"></div>
+<div class="help" id="help"><kbd>←</kbd><kbd>→</kbd> naviguer · <kbd>N</kbd> notes · <kbd>T</kbd> chrono · <kbd>F</kbd> plein écran · <kbd>P</kbd> PDF</div>
+<div class="ctrl">
+  <button type="button" id="b-prev" aria-label="Diapositive précédente">←</button>
+  <button type="button" id="b-notes">Notes</button>
+  <button type="button" id="b-chrono">Chrono</button>
+  <button type="button" id="b-full">Plein écran</button>
+  <button type="button" id="b-next" aria-label="Diapositive suivante">→</button>
+</div>
+
+<script>
+(() => {
+  const deck = document.getElementById('deck'), slides = [...deck.querySelectorAll('.slide')], N = slides.length;
+  const bar = document.getElementById('bar'), notes = document.getElementById('notes'), chrono = document.getElementById('chrono'), help = document.getElementById('help');
+  const total = slides.reduce((s, x) => s + Number(x.dataset.time || 30), 0);
+  let i = Math.min(N - 1, Math.max(0, (parseInt(location.hash.slice(1), 10) || 1) - 1)), t0 = null, tick = null;
+
+  // Numéro de page sur chaque diapositive (sauf la première)
+  slides.forEach((s, k) => { if (k) s.insertAdjacentHTML('beforeend', `<span class="pg"><svg class="logo-s" aria-hidden="true"><use href="#logo"/></svg>${k + 1} / ${N}</span>`); });
+
+  const fit = () => { const k = Math.min(innerWidth / 1280, innerHeight / 720) * 0.98; deck.style.transform = `scale(${k})`; };
+  const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  const budget = (k) => slides.slice(0, k + 1).reduce((s, x) => s + Number(x.dataset.time || 30), 0);
+
+  function show(n) {
+    i = Math.min(N - 1, Math.max(0, n));
+    slides.forEach((s, k) => { s.classList.toggle('on', k === i); s.classList.toggle('before', k < i); s.setAttribute('aria-hidden', k === i ? 'false' : 'true'); });
+    bar.style.width = `${((i + 1) / N) * 100}%`;
+    history.replaceState(null, '', `#${i + 1}`);
+    renderNotes();
+  }
+  function renderNotes() {
+    const s = slides[i], src = s.querySelector('.notes-src'), el = t0 ? (Date.now() - t0) / 1000 : null, late = el !== null && el > budget(i);
+    notes.innerHTML = `<div class="nh"><span>Diapositive ${i + 1} / ${N} · ${s.dataset.time} s · fin prévue à ${fmt(budget(i))}</span>${el !== null ? `<span class="${late ? 'late' : ''}">${fmt(el)} écoulées</span>` : ''}</div>${src ? src.innerHTML : ''}`;
+  }
+  function toggleChrono() {
+    if (t0) { clearInterval(tick); t0 = null; chrono.classList.remove('on', 'late'); renderNotes(); return; }
+    t0 = Date.now(); chrono.classList.add('on');
+    const up = () => { const el = (Date.now() - t0) / 1000; chrono.textContent = `${fmt(el)} / ${fmt(total)}`; chrono.classList.toggle('late', el > budget(i)); if (notes.classList.contains('on')) renderNotes(); };
+    up(); tick = setInterval(up, 500);
+  }
+  const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); };
+
+  addEventListener('resize', fit);
+  addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key;
+    if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(k)) { e.preventDefault(); show(i + 1); }
+    else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(k)) { e.preventDefault(); show(i - 1); }
+    else if (k === 'Home') show(0);
+    else if (k === 'End') show(N - 1);
+    else if (k === 'n' || k === 'N') notes.classList.toggle('on');
+    else if (k === 't' || k === 'T') toggleChrono();
+    else if (k === 'f' || k === 'F') full();
+    else if (k === 'p' || k === 'P') print();
+    else if (/^[1-9]$/.test(k)) show(Number(k) - 1);
+    else if (k === '0') show(9);
+  });
+  let x0 = null;
+  addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+  addEventListener('touchend', (e) => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) show(i + (dx < 0 ? 1 : -1)); x0 = null; });
+  deck.addEventListener('click', (e) => { if (e.target.closest('a, button')) return; show(i + (e.clientX > innerWidth / 3 ? 1 : -1)); });
+  document.getElementById('b-prev').onclick = () => show(i - 1);
+  document.getElementById('b-next').onclick = () => show(i + 1);
+  document.getElementById('b-notes').onclick = () => notes.classList.toggle('on');
+  document.getElementById('b-chrono').onclick = toggleChrono;
+  document.getElementById('b-full').onclick = full;
+  setTimeout(() => help.classList.add('off'), 4500);
+
+  fit(); show(i);
+})();
+</script>
+</body>
+</html>

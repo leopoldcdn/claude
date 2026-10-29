@@ -48,7 +48,8 @@
   };
   const ic = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
   const STAR = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg>';
-  const LOGO = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + P.users + '</svg>';
+  // Logo « T humain » : le T devient une personne aux bras ouverts (dessiné dans la tuile .brand-mark).
+  const LOGO = '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="15" r="6" fill="#ffd166"/><path d="M14 28h36M32 28v22" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/></svg>';
 
   // ---------------------------------------------------------------- Storage
   // V2 : deux entreprises coexistent dans le navigateur — la démo Nova Studio et une « nouvelle entreprise » à installer de zéro.

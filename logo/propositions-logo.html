@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logos Teamora</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #151935; --muted: #5f6589; --faint: #8d92b0; --line: #e0e3ef; --paper: #ffffff; --soft: #f4f5fb; --soft-2: #eef0f8;
+    --accent: #4f46e5; --teal: #0ea5c6; --night: #0f1230; --ok: #0c8a5f; --warn: #b95a0b;
+    --display: 'Sora', 'Segoe UI', system-ui, sans-serif; --body: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--soft); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: var(--display); letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+  p { margin: 0; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 56px 24px 80px; }
+  header h1 { font-size: 44px; line-height: 1.1; }
+  header .lead { font-size: 19px; color: var(--muted); margin-top: 14px; max-width: 760px; }
+  .kicker { font: 700 13px/1 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  section { margin-top: 56px; }
+  section > h2 { font-size: 28px; }
+  section > .sub { color: var(--muted); margin-top: 8px; max-width: 760px; }
+
+  /* Principes */
+  .rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 22px; }
+  .rule { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; }
+  .rule b { font-family: var(--display); font-size: 17px; display: block; }
+  .rule p { color: var(--muted); font-size: 15px; margin-top: 6px; }
+  .rule .n { font: 800 13px/1 var(--display); color: var(--accent); }
+
+  /* Cartes de logos */
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 24px; }
+  .card { background: var(--paper); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; }
+  .card.current { border-style: dashed; }
+  .hero { display: grid; grid-template-columns: 1fr 1fr; }
+  .hero > div { display: grid; place-items: center; padding: 30px 10px; min-height: 200px; }
+  .hero .light { background: linear-gradient(180deg, #fbfbfe, var(--soft)); }
+  .hero .dark { background: var(--night); }
+  .lockup { display: inline-flex; align-items: center; gap: 12px; font: 800 30px/1 var(--display); letter-spacing: -0.03em; }
+  .dark .lockup { color: #fff; }
+  .card-b { padding: 20px 22px 22px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  .card-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .card-h h3 { font-size: 21px; }
+  .card-h span { font: 700 12px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); white-space: nowrap; }
+  .card p.idea { color: var(--muted); font-size: 15.5px; }
+  .tests { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 14px; border-radius: 12px; background: var(--soft); }
+  .tests .sz { display: flex; align-items: flex-end; gap: 12px; }
+  .tests .sz figure { margin: 0; display: grid; justify-items: center; gap: 4px; }
+  .tests figcaption { font-size: 11px; color: var(--faint); }
+  .tests .sep { width: 1px; align-self: stretch; background: var(--line); }
+  .tests .mono { display: flex; gap: 10px; }
+  .chip-dark { background: var(--night); border-radius: 8px; padding: 6px; display: grid; }
+  .pros { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; }
+  .pros div { border-radius: 10px; padding: 10px 12px; }
+  .pros .plus { background: #e3f6ee; } .pros .minus { background: #fdf0e1; }
+  .pros b { display: block; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 3px; }
+  .pros .plus b { color: var(--ok); } .pros .minus b { color: var(--warn); }
+
+  /* Mise en situation */
+  .stage { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; margin-top: 24px; }
+  .picker { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+  .picker button { font: 600 14px/1 var(--body); padding: 10px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
+  .picker button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .picker button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .browser { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 50px rgba(21,25,53,.08); }
+  .tabs { display: flex; gap: 6px; background: var(--soft-2); padding: 10px 12px 0; }
+  .tab { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 10px 10px 0 0; font-size: 13px; color: var(--muted); background: transparent; }
+  .tab.on { background: var(--paper); color: var(--ink); font-weight: 600; }
+  .tab i { width: 16px; height: 16px; border-radius: 4px; background: #cfd3e6; display: block; }
+  .appbar { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .appbar .t small { display: block; font-size: 12px; color: var(--faint); }
+  .appbar .t b { font: 700 19px/1.1 var(--display); }
+  .appbar .pills { margin-left: auto; display: flex; gap: 8px; }
+  .appbar .pills span { font-size: 13px; font-weight: 600; padding: 7px 12px; border-radius: 999px; background: var(--soft); }
+  .appbar .pills span:first-child { background: var(--accent); color: #fff; }
+  .page { padding: 22px 20px 28px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .page div { height: 70px; border-radius: 12px; background: var(--soft); }
+  .phone { background: #1d2140; border-radius: 30px; padding: 22px 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px 10px; align-content: start; min-height: 300px; }
+  .phone figure { margin: 0; display: grid; justify-items: center; gap: 6px; }
+  .phone figcaption { font-size: 11px; color: #d9dbf7; }
+  .phone .ph { width: 56px; height: 56px; border-radius: 14px; background: rgba(255,255,255,.12); }
+
+  /* Tableau d'évaluation */
+  table { width: 100%; border-collapse: collapse; margin-top: 22px; background: var(--paper); border-radius: 16px; overflow: hidden; border: 1px solid var(--line); font-size: 14.5px; }
+  th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--soft-2); }
+  td.c { text-align: center; }
+  td .lg { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; }
+  .dots { letter-spacing: 2px; color: var(--accent); white-space: nowrap; }
+  .dots .off { color: #d4d7e8; }
+  tr.best td { background: #f5f4ff; }
+  .reco { margin-top: 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .reco > div { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; }
+  .reco h3 { font-size: 19px; margin-bottom: 8px; }
+  .reco ol, .reco ul { margin: 6px 0 0; padding-left: 20px; color: var(--muted); }
+  .reco li { margin-top: 6px; }
+  .reco li b { color: var(--ink); }
+  .srcs { margin-top: 40px; font-size: 13.5px; color: var(--muted); }
+  .srcs a { color: var(--accent); }
+  .srcs li { margin-top: 4px; }
+
+  @media (max-width: 900px) {
+    .rules, .grid, .stage, .reco { grid-template-columns: 1fr; }
+    header h1 { font-size: 34px; }
+    table { display: block; overflow-x: auto; }
+  }
+  @media (max-width: 560px) {
+    .hero { grid-template-columns: 1fr; }
+    .pros { grid-template-columns: 1fr; }
+    .lockup { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Teamora · identité visuelle</div>
+    <h1>Sept pistes de logo, testées comme elles seront vues</h1>
+    <p class="lead">Chaque piste est montrée en grand, puis à la taille d'un onglet de navigateur (16 px), sur fond sombre et en une seule couleur. Un logo qui ne tient pas à 16 px ou en noir ne tiendra pas dans la vraie vie.</p>
+  </header>
+
+  <section>
+    <div class="kicker">Ce qui fonctionne</div>
+    <h2>Six règles tirées des recherches</h2>
+    <div class="rules">
+      <div class="rule"><span class="n">01</span><b>Une seule idée claire</b><p>Simple ne veut pas dire vide : une idée lisible, sans détail inutile. Test : pouvoir le redessiner de mémoire en quelques secondes.</p></div>
+      <div class="rule"><span class="n">02</span><b>Moyennement élaboré, plutôt « naturel »</b><p>L'étude de Henderson et Cote (1998) relie l'image professionnelle forte aux logos ni trop simples ni trop chargés, aux formes familières.</p></div>
+      <div class="rule"><span class="n">03</span><b>Pensé pour la plus petite taille</b><p>Concevoir d'abord pour l'icône d'onglet (16 à 32 px) et l'icône d'application, puis vérifier en grand.</p></div>
+      <div class="rule"><span class="n">04</span><b>Un système, pas une image figée</b><p>Symbole seul, symbole et nom, version sombre, version une couleur : chaque support a sa déclinaison.</p></div>
+      <div class="rule"><span class="n">05</span><b>Distinct des concurrents</b><p>Le secteur RH abuse des silhouettes, des mains et des cœurs. Se démarquer compte plus que suivre la mode.</p></div>
+      <div class="rule"><span class="n">06</span><b>Relié à la promesse</b><p>Pour Teamora : savoir au bon moment, franchir les seuils, accompagner tout le parcours. La lettre T aide à la reconnaissance.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker">Les propositions</div>
+    <h2>Huit logos côte à côte</h2>
+    <p class="sub">Les sept pistes, et le logo actuel du prototype pour comparer. Les couleurs reprennent celles de l'application (indigo et bleu-vert).</p>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section>
+    <div class="kicker">Mise en situation</div>
+    <h2>Dans l'application, l'onglet et l'écran du téléphone</h2>
+    <div class="picker" id="picker" role="group" aria-label="Choisir le logo à prévisualiser"></div>
+    <div class="stage">
+      <div class="browser">
+        <div class="tabs"><span class="tab on" id="tab-fav"></span><span class="tab"><i></i>Messagerie</span><span class="tab"><i></i>Agenda</span></div>
+        <div class="appbar"><span id="app-logo"></span><div class="t"><small>Nova Studio · Olivia Bennett</small><b>Obligations selon l'effectif</b></div><div class="pills"><span>RH</span><span>Manager</span><span>Salarié</span></div></div>
+        <div class="page"><div></div><div></div><div></div></div>
+      </div>
+      <div class="phone" id="phone"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker">Évaluation</div>
+    <h2>Grille de comparaison</h2>
+    <p class="sub">Notes de 1 à 5 attribuées à l'œil, à valider par un test auprès de vraies personnes (voir plus bas).</p>
+    <div id="table"></div>
+    <div class="reco">
+      <div><h3>Ma recommandation</h3><ul>
+        <li><b>« Le seuil »</b> en premier choix : il raconte la promesse (franchir un seuil, au bon moment), forme un T reconnaissable et reste net à 16 px.</li>
+        <li><b>« L'heure juste »</b> en alternative : plus douce, elle parle du bon moment. Mais une horloge est une image plus courante.</li>
+        <li>À éviter : <b>« Le T humain »</b>. C'est la plus parlante, mais le personnage est le cliché du secteur RH.</li></ul></div>
+      <div><h3>Avant de choisir</h3><ol>
+        <li><b>Test des 5 secondes</b> : montrer 2 ou 3 pistes à 5 personnes de PME, les cacher, leur demander de les redessiner et de dire ce qu'elles évoquent.</li>
+        <li><b>Vérifier la marque</b> : rechercher « Teamora » et des logos proches dans la base des marques de l'INPI, puis déposer la marque (nom et logo) avant de communiquer largement.</li>
+        <li><b>Finaliser avec un graphiste</b> : redessiner le nom (lettrage et espacements), produire les fichiers (SVG, icône 16, 32 et 180 px) et une page de règles d'usage.</li></ol></div>
+    </div>
+  </section>
+
+  <section class="srcs">
+    <div class="kicker">Sources</div>
+    <ul>
+      <li><a href="https://msi.org/working-papers/designing-positively-evaluated-logos">Henderson et Cote, « Guidelines for Selecting or Modifying Logos », Journal of Marketing (1998), document de travail du MSI</a></li>
+      <li><a href="https://repositorio.uchile.cl/handle/2250/140229">Friedmann et Olavarrieta, validation de ces règles au Chili (2007)</a></li>
+      <li><a href="https://designwiz.com/blog/what-makes-a-good-logo/">DesignWiz : ce qui fait un bon logo (simplicité, test de mémoire, petite taille)</a></li>
+      <li><a href="https://inkbotdesign.com/logo-design-trends/">Inkbot Design : tendances 2026 (logo en système, favicon, mode sombre)</a></li>
+      <li><a href="https://inkbotdesign.com/logo-design-principles/">Inkbot Design : principes de conception</a></li>
+      <li><a href="https://piktochart.com/blog/elements-of-a-good-logo/">Piktochart : éléments d'un bon logo</a></li>
+      <li><a href="https://www.leptidigital.fr/marketing/tendances-conception-de-logos-25951/">Leptidigital : tendances des logos 2026 (monogrammes)</a></li>
+    </ul>
+    <p style="margin-top:10px">Ce sont surtout des guides de praticiens ; seule l'étude de Henderson et Cote est une recherche publiée, que j'ai lue à travers son résumé.</p>
+  </section>
+</div>
+
+<script>
+(() => {
+  // Chaque logo est une fonction qui reçoit ses couleurs : a (principale), b (secondaire), g (couleur du glyphe sur la tuile), tile (fond de tuile ou null).
+  // La tuile arrondie sert d'icône d'application ; « mono » = une seule couleur.
+  let gid = 0;
+  const grad = () => { const id = `g${++gid}`; return { id, def: `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6d65ff"/><stop offset="1" stop-color="#16b1d1"/></linearGradient>` }; };
+  const tileSvg = (inner, c, size) => { const g = grad(), fill = c.tile === 'grad' ? `url(#${g.id})` : c.tile;
+    return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><defs>${g.def}</defs>${c.tile ? `<rect width="64" height="64" rx="16" fill="${fill}"/>` : ''}${inner(c, g.id)}</svg>`; };
+
+  const LOGOS = [
+    { id: 'seuil', name: 'Le seuil', tag: 'Monogramme', reco: true,
+      idea: 'Un T dont la barre fait une marche : le seuil que l\'entreprise franchit. Un point signale l\'alerte qui arrive avant.',
+      plus: 'Raconte la promesse ; T reconnaissable ; tient à 16 px.', minus: 'Demande une phrase d\'explication la première fois.',
+      draw: (c) => `<path d="M13 27h17v-7h21" fill="none" stroke="${c.g}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 24v26" stroke="${c.g}" stroke-width="7" stroke-linecap="round"/><circle cx="48" cy="38" r="5" fill="${c.b}"/>`,
+      score: [5, 5, 5, 4, 5] },
+    { id: 'heure', name: 'L\'heure juste', tag: 'Symbole',
+      idea: '« Ora » veut dire l\'heure en italien : un cadran dont les aiguilles forment un T. Teamora prévient au bon moment.',
+      plus: 'Idée chaleureuse et simple ; jeu sur le nom.', minus: 'L\'horloge est une image courante, moins distinctive.',
+      draw: (c) => `<circle cx="32" cy="32" r="19" fill="none" stroke="${c.g}" stroke-width="6"/><path d="M24 22h16M32 22v14" stroke="${c.g}" stroke-width="5.5" stroke-linecap="round"/><circle cx="32" cy="10.5" r="0" /><circle cx="45" cy="19" r="4.2" fill="${c.b}"/>`,
+      score: [5, 4, 4, 3, 4] },
+    { id: 'parcours', name: 'Le parcours', tag: 'Symbole',
+      idea: 'Le pied du T s\'arrondit et repart vers la droite, jusqu\'à un point d\'arrivée : la vie du salarié, du recrutement à l\'après-départ.',
+      plus: 'Évoque tout le parcours ; élégant en grand.', minus: 'Le trait fin s\'abîme à 16 px.',
+      draw: (c) => `<path d="M14 18h36" stroke="${c.g}" stroke-width="6.5" stroke-linecap="round"/><path d="M32 18v17c0 8 5 13 13 13h1" fill="none" stroke="${c.g}" stroke-width="6.5" stroke-linecap="round"/><circle cx="51" cy="48" r="5" fill="${c.b}"/>`,
+      score: [4, 3, 4, 4, 4] },
+    { id: 'coche', name: 'La coche', tag: 'Monogramme',
+      idea: 'Un t minuscule dont la barre devient une coche : la conformité vérifiée, sans effort.',
+      plus: 'Message « conforme » immédiat ; très lisible.', minus: 'Coche très répandue ; l\'ensemble peut se lire comme un k.',
+      draw: (c) => `<path d="M25 11v30c0 6 3 10 10 10h3" fill="none" stroke="${c.g}" stroke-width="7" stroke-linecap="round"/><path d="M14 28l11 10 22-21" fill="none" stroke="${c.b}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>`,
+      score: [5, 5, 4, 3, 4] },
+    { id: 'signal', name: 'Le o qui signale', tag: 'Logotype',
+      idea: 'Le nom seul, en minuscules ; le o devient un anneau avec un point, comme une notification. Le symbole seul est cet anneau.',
+      plus: 'Le nom est mémorisé avec le logo ; sobre.', minus: 'L\'anneau seul dit peu de Teamora.',
+      draw: (c) => `<circle cx="30" cy="34" r="15" fill="none" stroke="${c.g}" stroke-width="8"/><circle cx="46" cy="17" r="6" fill="${c.b}"/>`,
+      word: true, score: [5, 4, 3, 3, 3] },
+    { id: 'roue', name: 'La roue', tag: 'Symbole',
+      idea: 'La roue de l\'accueil de Teamora : les étapes du parcours en arcs, une étape éclairée. Fait le lien direct avec l\'application.',
+      plus: 'Cohérent avec l\'écran d\'accueil ; dynamique.', minus: 'Les arcs se confondent en petit ; proche d\'autres logos tech.',
+      draw: (c) => { const r = 18, C = 2 * Math.PI * r, n = 6, seg = C / n; return `<g transform="rotate(-90 32 32)">${Array.from({ length: n }, (_, k) => `<circle cx="32" cy="32" r="${r}" fill="none" stroke="${k === 0 ? c.b : c.g}" stroke-width="8" stroke-dasharray="${seg - 5} ${C - seg + 5}" stroke-dashoffset="${-k * seg}"/>`).join('')}</g>`; },
+      score: [3, 3, 3, 4, 4] },
+    { id: 'humain', name: 'Le T humain', tag: 'Symbole',
+      idea: 'Le T devient une personne, bras ouverts : l\'humain au cœur de la RH.',
+      plus: 'Compris immédiatement ; chaleureux.', minus: 'Cliché du secteur RH, peu distinctif.',
+      draw: (c) => `<circle cx="32" cy="15" r="6" fill="${c.b}"/><path d="M14 28h36M32 28v22" fill="none" stroke="${c.g}" stroke-width="7" stroke-linecap="round"/>`,
+      score: [5, 5, 4, 2, 3] },
+    { id: 'actuel', name: 'Logo actuel', tag: 'Repère', current: true,
+      idea: 'Le logo du prototype : un T dans un cercle, un point en haut à droite. Gardé ici pour comparer.',
+      plus: 'Déjà en place.', minus: 'Le cercle fin disparaît en petit ; idée peu lisible.',
+      draw: (c) => `<circle cx="32" cy="32" r="16.5" fill="none" stroke="${c.g}" stroke-opacity=".5" stroke-width="3.2"/><path d="M20 24h24M32 24v21" stroke="${c.g}" stroke-width="4.8" stroke-linecap="round"/><circle cx="47" cy="20" r="4" fill="${c.g}"/>`,
+      score: [3, 3, 3, 3, 3] },
+  ];
+
+  // Variantes de couleur
+  const V = {
+    brand: { tile: 'grad', g: '#ffffff', b: '#ffd166' },
+    onDark: { tile: 'grad', g: '#ffffff', b: '#ffd166' },
+    bare: { tile: null, g: '#4f46e5', b: '#0ea5c6' },
+    bareDark: { tile: null, g: '#ffffff', b: '#5fd3ec' },
+    monoBlack: { tile: '#151935', g: '#ffffff', b: '#ffffff' },
+    monoLine: { tile: null, g: '#151935', b: '#151935' },
+  };
+  const sym = (L, v, size) => tileSvg(L.draw, V[v], size);
+  const word = (L, dark) => L.word
+    ? `<span style="font:800 44px/1 var(--display);letter-spacing:-.04em;color:${dark ? '#fff' : '#151935'};white-space:nowrap">team<svg width="27" height="27" viewBox="11 11 42 42" aria-hidden="true" style="vertical-align:-1px;margin:0 1px 0 2px">${L.draw(dark ? V.bareDark : V.bare)}</svg>ra</span>`
+    : `<span class="lockup">${sym(L, dark ? 'onDark' : 'brand', 52)}Teamora</span>`;
+
+  document.getElementById('grid').innerHTML = LOGOS.map((L) => `
+    <article class="card${L.current ? ' current' : ''}">
+      <div class="hero"><div class="light">${word(L, false)}</div><div class="dark">${word(L, true)}</div></div>
+      <div class="card-b">
+        <div class="card-h"><h3>${L.name}${L.reco ? ' <span style="color:var(--accent);letter-spacing:0;text-transform:none;font-size:13px">· recommandé</span>' : ''}</h3><span>${L.tag}</span></div>
+        <p class="idea">${L.idea}</p>
+        <div class="tests" aria-label="Tests de taille et de couleur">
+          <div class="sz">${[64, 32, 24, 16].map((s) => `<figure>${sym(L, 'brand', s)}<figcaption>${s} px</figcaption></figure>`).join('')}</div>
+          <span class="sep"></span>
+          <div class="mono"><figure style="margin:0;display:grid;justify-items:center;gap:4px">${sym(L, 'monoBlack', 32)}<figcaption>noir</figcaption></figure><figure style="margin:0;display:grid;justify-items:center;gap:4px">${sym(L, 'monoLine', 32)}<figcaption>trait seul</figcaption></figure><figure style="margin:0;display:grid;justify-items:center;gap:4px"><span class="chip-dark">${sym(L, 'bareDark', 20)}</span><figcaption>sombre</figcaption></figure></div>
+        </div>
+        <div class="pros"><div class="plus"><b>Atout</b>${L.plus}</div><div class="minus"><b>Limite</b>${L.minus}</div></div>
+      </div>
+    </article>`).join('');
+
+  // Mise en situation
+  let cur = 'seuil';
+  const picker = document.getElementById('picker');
+  picker.innerHTML = LOGOS.map((L) => `<button type="button" data-id="${L.id}" aria-pressed="${L.id === cur}">${L.name}</button>`).join('');
+  const show = () => { const L = LOGOS.find((x) => x.id === cur);
+    document.getElementById('tab-fav').innerHTML = `${sym(L, 'brand', 16)}Teamora · Obligations`;
+    document.getElementById('app-logo').innerHTML = sym(L, 'brand', 44);
+    document.getElementById('phone').innerHTML = ['Teamora', 'Agenda', 'Photos', 'Messages', 'Météo', 'Banque', 'Notes', 'Plans'].map((n, k) => `<figure>${k === 0 ? sym(L, 'brand', 56) : '<span class="ph"></span>'}<figcaption>${n}</figcaption></figure>`).join('');
+    picker.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === cur))); };
+  picker.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; cur = b.dataset.id; show(); });
+  show();
+
+  // Grille d'évaluation
+  const CRIT = ['Simple, redessinable de mémoire', 'Lisible à 16 px', 'Tient en une couleur', 'Distinct dans le secteur RH', 'Lié à la promesse'];
+  const dots = (n) => `<span class="dots" aria-label="${n} sur 5">${'●'.repeat(n)}<span class="off">${'●'.repeat(5 - n)}</span></span>`;
+  const rows = LOGOS.map((L) => ({ L, tot: L.score.reduce((a, b) => a + b, 0) })).sort((a, b) => b.tot - a.tot);
+  document.getElementById('table').innerHTML = `<table><thead><tr><th>Piste</th>${CRIT.map((c) => `<th>${c}</th>`).join('')}<th>Total</th></tr></thead><tbody>${rows.map(({ L, tot }) =>
+    `<tr class="${L.reco ? 'best' : ''}"><td><span class="lg">${sym(L, 'brand', 28)}${L.name}</span></td>${L.score.map((s) => `<td class="c">${dots(s)}</td>`).join('')}<td class="c"><b>${tot}</b> / 25</td></tr>`).join('')}</tbody></table>`;
+})();
+</script>
+</body>
+</html>

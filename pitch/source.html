@@ -120,6 +120,32 @@
   .step p { font-size: 16px; line-height: 1.5; color: var(--muted); margin-top: 6px; }
 
   /* 4 · Parcours : la frise se remplit, la règle s'applique */
+.daily { display: grid; grid-template-columns: 470px 1fr 180px; gap: 30px; margin-top: 10px; align-items: center; flex: 1; min-height: 0; }
+  .pwheel { position: relative; width: 500px; height: 450px; margin-left: -44px; }
+  .phub { position: absolute; left: 250px; top: 225px; width: 152px; height: 152px; margin: -76px 0 0 -76px; border-radius: 50%; display: grid; place-content: center; text-align: center; gap: 4px; color: #fff; z-index: 2;
+    background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.22), transparent 55%), linear-gradient(140deg, #4f46e5, #0ea5c6); box-shadow: 0 0 0 10px rgba(79,70,229,.1), 0 24px 50px rgba(79,70,229,.3); }
+  .phub small { font: 700 9.5px/1 var(--body); letter-spacing: .18em; opacity: .8; }
+  .phub b { font: 800 16px/1.1 var(--display); letter-spacing: -0.01em; }
+  .phub span { justify-self: center; font-size: 11px; font-weight: 700; background: rgba(255,255,255,.18); padding: 4px 9px; border-radius: 999px; }
+  .pn { position: absolute; left: 250px; top: 225px; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; display: grid; place-items: center; color: #fff; z-index: 1;
+    box-shadow: 0 8px 18px rgba(21,25,53,.18), inset 0 0 0 3px rgba(255,255,255,.18); opacity: 0; transform: translate(0, 0) scale(.3);
+    transition: transform .7s cubic-bezier(.34,1.4,.5,1) calc(var(--k) * 45ms), opacity .4s ease calc(var(--k) * 45ms); }
+  .pn svg { width: 23px; height: 23px; }
+  .pl { position: absolute; max-width: 104px; font: 700 12.5px/1.25 var(--body); color: var(--ink); opacity: 0; transition: opacity .4s ease calc(300ms + var(--k) * 45ms); }
+  .pwheel.open .pn { opacity: 1; transform: translate(var(--x), var(--y)); }
+  .pwheel.open .pl { opacity: 1; }
+  .pwheel.focus .pn:not(.hl) { opacity: .22; transition-delay: 0s; }
+  .pwheel.focus .pl:not(.hl) { opacity: .3; transition-delay: 0s; }
+  .pwheel.focus .pn.hl { box-shadow: 0 0 0 6px rgba(79,70,229,.16), 0 10px 22px rgba(21,25,53,.22); }
+  .rules2 { display: grid; gap: 12px; }
+  .rules2 .rule { padding: 15px 18px; }
+  .rules2 .rule h3 { font-size: 17.5px; margin-top: 8px; }
+  .rules2 .rule p { font-size: 14px; margin-top: 5px; }
+  .rules2 .rule .chk { margin-top: 8px; }
+  .rules2 .rule .t { display: inline-flex; align-items: center; gap: 7px; }
+  .rules2 .rule .t i { width: 9px; height: 9px; border-radius: 50%; }
+  .phonecol .phone { width: 172px; margin-top: 0; }
+  .phonecol .phone img { height: 340px; }
   .journey { position: relative; margin-top: 34px; display: grid; grid-template-columns: repeat(11, 1fr); gap: 0; }
   .journey::before { content: ''; position: absolute; left: 0; right: 0; top: 15px; height: 4px; border-radius: 2px; background: var(--soft-2); }
   .journey .run { position: absolute; left: 0; top: 15px; height: 4px; border-radius: 2px; width: 0; background: linear-gradient(90deg, var(--accent), var(--teal), var(--ok)); transition: width 1.6s var(--ease); }
@@ -244,7 +270,7 @@
   .notes-src { display: none; }
 
   @media (prefers-reduced-motion: reduce) {
-    .slide, .f, .journey .run, .eq .bar i, .track .fill { transition: none !important; }
+    .slide, .f, .pn, .pl, .journey .run, .eq .bar i, .track .fill { transition: none !important; }
   }
   /* Impression / PDF : une diapositive par page, tout est affiché */
   @page { size: 1280px 720px; margin: 0; }
@@ -255,7 +281,7 @@
     .slide { position: relative; opacity: 1; visibility: visible; width: 1280px; height: 720px; border-radius: 0; break-after: page; transition: none; }
     .f { opacity: 1 !important; transform: none !important; }
     .ring { box-shadow: none !important; }
-    .journey .run { width: 100% !important; } .jst::before { border-color: var(--accent) !important; } .eq .bar i { width: 35% !important; }
+    .pn { opacity: 1 !important; transform: translate(var(--x), var(--y)) !important; } .pl { opacity: 1 !important; } .journey .run { width: 100% !important; } .jst::before { border-color: var(--accent) !important; } .eq .bar i { width: 35% !important; }
     .hud, .ctrl, .notes, .chrono, .help { display: none !important; }
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
@@ -341,19 +367,19 @@
   <section class="slide" data-time="35" data-steps="2" data-label="Parcours">
     <div class="kicker">Au quotidien</div>
     <h2>Du recrutement à l'après-départ, la règle est appliquée dans le dossier</h2>
-    <div class="journey" id="journey">
-      <div class="run"></div>
-      <div class="jst"><h3>Recrutement</h3></div><div class="jst"><h3>Pré-embauche</h3></div><div class="jst"><h3>Intégration</h3></div><div class="jst"><h3>Temps et absences</h3></div>
-      <div class="jst"><h3>Rémunération</h3></div><div class="jst"><h3>Développement</h3></div><div class="jst"><h3>Santé et QVT</h3></div><div class="jst"><h3>Changement de situation</h3></div>
-      <div class="jst"><h3>Relations et dialogue</h3></div><div class="jst"><h3>Départ</h3></div><div class="jst"><h3>Après le départ</h3></div>
+    <div class="daily">
+      <div class="pwheel" role="img" aria-label="La roue de l'accueil de Teamora : Besoin RH, Recrutement, Arrivées, Vie administrative, Temps & absences, Rémunération, Performance, Formation, Mobilité, Santé & QVT, Relations indiv., Départs">
+        <span class="pl" style="left:250.0px;top:41.0px;transform:translate(-50%,-100%);text-align:center;--k:0">Besoin RH</span><span class="pl hl" style="left:342.0px;top:65.7px;transform:translate(0,-50%);text-align:left;--k:1">Recrutement</span><span class="pl hl" style="left:409.3px;top:133.0px;transform:translate(0,-50%);text-align:left;--k:2">Arrivées</span><span class="pl" style="left:434.0px;top:225.0px;transform:translate(0,-50%);text-align:left;--k:3">Vie administrative</span><span class="pl" style="left:409.3px;top:317.0px;transform:translate(0,-50%);text-align:left;--k:4">Temps & absences</span><span class="pl" style="left:342.0px;top:384.3px;transform:translate(0,-50%);text-align:left;--k:5">Rémunération</span><span class="pl" style="left:250.0px;top:409.0px;transform:translate(-50%,0);text-align:center;--k:6">Performance</span><span class="pl" style="left:158.0px;top:384.3px;transform:translate(-100%,-50%);text-align:right;--k:7">Formation</span><span class="pl" style="left:90.7px;top:317.0px;transform:translate(-100%,-50%);text-align:right;--k:8">Mobilité</span><span class="pl" style="left:66.0px;top:225.0px;transform:translate(-100%,-50%);text-align:right;--k:9">Santé & QVT</span><span class="pl" style="left:90.7px;top:133.0px;transform:translate(-100%,-50%);text-align:right;--k:10">Relations indiv.</span><span class="pl hl" style="left:158.0px;top:65.7px;transform:translate(-100%,-50%);text-align:right;--k:11">Départs</span>
+        <span class="pn" style="--x:0.0px;--y:-138.0px;--k:0;background:rgb(99, 102, 241)" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><circle cx="12" cy="12" r="1.5"></circle></svg></span><span class="pn hl" style="--x:69.0px;--y:-119.5px;--k:1;background:rgb(124, 58, 237)" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg></span><span class="pn hl" style="--x:119.5px;--y:-69.0px;--k:2;background:rgb(168, 85, 247)" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><path d="M14 3v6h6M8 16l2.5 2 5-5"></path></svg></span><span class="pn" style="--x:138.0px;--y:0.0px;--k:3;background:rgb(225, 29, 72)" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></span><span class="pn" style="--x:119.5px;--y:69.0px;--k:4;background:rgb(234, 88, 12)" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span><span class="pn" style="--x:69.0px;--y:119.5px;--k:5;background:rgb(217, 119, 6)" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6.5A6.5 6.5 0 1 0 17 17.5"></path><path d="M4 10.5h9M4 13.5h9"></path></svg></span><span class="pn" style="--x:0.0px;--y:138.0px;--k:6;background:rgb(202, 138, 4)" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path></svg></span><span class="pn" style="--x:-69.0px;--y:119.5px;--k:7;background:rgb(101, 163, 13)" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9l10-5 10 5-10 5z"></path><path d="M6 11v5c3 2 9 2 12 0v-5"></path></svg></span><span class="pn" style="--x:-119.5px;--y:69.0px;--k:8;background:rgb(22, 163, 74)" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg></span><span class="pn" style="--x:-138.0px;--y:0.0px;--k:9;background:rgb(5, 150, 105)" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.6-9 9-9 9z"></path></svg></span><span class="pn" style="--x:-119.5px;--y:-69.0px;--k:10;background:rgb(13, 148, 136)" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"></path></svg></span><span class="pn hl" style="--x:-69.0px;--y:-119.5px;--k:11;background:rgb(8, 145, 178)" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h8"></path><path d="M14 3l6 2v16l-6-2z"></path><path d="M10 12h.01"></path></svg></span>
+        <span class="phub"><small>TEAMORA</small><b>Collaborateurs</b><span>12 rubriques</span></span></div>
+      <div class="rules2">
+          <div class="rule f" data-f="1"><span class="t" style="color:rgb(124, 58, 237)"><i style="background:rgb(124, 58, 237)"></i>Recrutement</span><h3>Un CDD sans motif ne passe pas</h3><p>Cas de recours, motif et personne remplacée sont exigés dès le besoin.</p><span class="chk no">✕ bloqué</span></div>
+          <div class="rule f" data-f="1" style="transition-delay:.12s"><span class="t" style="color:rgb(168, 85, 247)"><i style="background:rgb(168, 85, 247)"></i>Arrivée</span><h3>L'essai suit la convention</h3><p>Durée bornée, DPAE contrôlée, contrat signé en ligne.</p><span class="chk">✓ calculé</span></div>
+          <div class="rule f" data-f="1" style="transition-delay:.24s"><span class="t" style="color:rgb(8, 145, 178)"><i style="background:rgb(8, 145, 178)"></i>Départ</span><h3>Le solde de tout compte est juste</h3><p>Préavis et indemnités selon le motif, données purgées à 5 ans.</p><span class="chk">✓ calculé</span></div>
+      </div>
+  <div class="f phonecol" data-f="2"><div class="phone"><img src="{{img:img/mobile.jpg}}" alt="Capture du prototype : accueil de l'espace salarié sur téléphone"></div><p>Et le salarié, sur son téléphone</p></div>
     </div>
-    <div class="rules">
-      <div class="rule f" data-f="1"><span class="t">Recrutement</span><h3>Un CDD sans motif ne passe pas</h3><p>Cas de recours, motif et personne remplacée sont exigés dès le besoin.</p><span class="chk no">✕ bloqué</span></div>
-      <div class="rule f" data-f="1" style="transition-delay:.12s"><span class="t">Arrivée</span><h3>L'essai suit la convention</h3><p>Durée bornée, DPAE contrôlée, contrat signé en ligne.</p><span class="chk">✓ calculé</span></div>
-      <div class="rule f" data-f="1" style="transition-delay:.24s"><span class="t">Départ</span><h3>Le solde de tout compte est juste</h3><p>Préavis et indemnités selon le motif, données purgées à 5 ans.</p><span class="chk">✓ calculé</span></div>
-      <div class="f" data-f="2"><div class="phone"><img src="{{img:img/mobile.jpg}}" alt="Capture du prototype : accueil de l'espace salarié sur téléphone"></div><p>Et le salarié, sur son téléphone</p></div>
-    </div>
-    <aside class="notes-src">Les seuils, c'est l'angle. Mais Teamora couvre toute la vie du salarié, en onze étapes. <em>[clic]</em> À chaque étape, la règle est appliquée dans le dossier : impossible de créer un CDD sans motif ; la période d'essai suit la convention collective ; le solde de tout compte est calculé selon le motif de départ. <em>[clic]</em> Et chacun a son espace : RH, manager, direction, et le salarié sur son téléphone.</aside>
+    <aside class="notes-src">Les seuils, c'est l'angle. Mais Teamora couvre toute la vie du salarié : voici la roue de l'accueil, avec ses douze rubriques, du besoin de recrutement au départ. <em>[clic]</em> À chaque étape, la règle est appliquée dans le dossier : impossible de créer un CDD sans motif ; la période d'essai suit la convention collective ; le solde de tout compte est calculé selon le motif de départ. <em>[clic]</em> Et chacun a son espace : RH, manager, direction, et le salarié sur son téléphone.</aside>
   </section>
 
   <!-- 5 · Marché et concurrence (50 s) -->
@@ -404,7 +430,7 @@
       <div class="panel f" data-f="2">
         <span class="t">Où en est Teamora</span>
         <div class="proof">
-          <div class="pf"><div class="v" data-count="11">0</div><p>étapes de la vie du salarié</p></div>
+          <div class="pf"><div class="v" data-count="12">0</div><p>rubriques du parcours salarié</p></div>
           <div class="pf"><div class="v" data-count="4">0</div><p>espaces : RH, manager, salarié, direction</p></div>
           <div class="pf"><div class="v" data-count="673">0</div><p>conventions collectives référencées</p></div>
           <div class="pf"><div class="v"><span data-count="114">0</span><small> / 129</small></div><p>points corrigés après un test complet</p></div>
@@ -412,7 +438,7 @@
       </div>
     </div>
     <p class="src">Sources : Quel-SIRH et Hayot Expertise (logiciel RH : 3 à 9 € par salarié et par mois) ; Keobiz (paie externalisée) ; Xerfi (environ 19 000 cabinets).</p>
-    <aside class="notes-src"><em>[clic]</em> Le modèle : un abonnement de 4 à 6 euros par salarié et par mois. Pour 40 salariés, environ 200 euros, quand une paie externalisée coûte 20 à 30 euros par bulletin. On vend avec les experts-comptables : ils tiennent déjà la paie des PME, et Teamora leur apporte la RH sans leur prendre la paie. <em>[clic]</em> Et le produit existe : un prototype qui couvre onze étapes, quatre espaces, 673 conventions. Je l'ai soumis à un test critique complet : 129 points relevés, 114 corrigés.</aside>
+    <aside class="notes-src"><em>[clic]</em> Le modèle : un abonnement de 4 à 6 euros par salarié et par mois. Pour 40 salariés, environ 200 euros, quand une paie externalisée coûte 20 à 30 euros par bulletin. On vend avec les experts-comptables : ils tiennent déjà la paie des PME, et Teamora leur apporte la RH sans leur prendre la paie. <em>[clic]</em> Et le produit existe : un prototype qui couvre douze rubriques du parcours, quatre espaces, 673 conventions. Je l'ai soumis à un test critique complet : 129 points relevés, 114 corrigés.</aside>
   </section>
 
   <!-- 7 · Demande et vision (40 s) -->
@@ -529,6 +555,9 @@ e12;Cohen;CDD;2 416,67;1;0;4;0
     s.querySelectorAll('.f').forEach((el) => { const n = Number(el.dataset.f); el.classList.toggle('in', n <= step); el.classList.toggle('past', n < step); });
     // Accroche : le compteur grimpe à l'étape 1
     if (i === 0) { if (step >= 1 && (prevI !== 0 || prevStep < 1)) counter(46, 52, 1600); else if (step >= 1) counter(52, 52, 0); else counter(46, 46, 0); }
+    const wh = s.querySelector('.pwheel');
+    if (wh) { if (prevI !== i) { wh.classList.remove('open'); requestAnimationFrame(() => requestAnimationFrame(() => wh.classList.add('open'))); } wh.classList.toggle('focus', step === 1); }
+    slides.forEach((x, k) => { const w2 = x.querySelector('.pwheel'); if (k !== i && w2) w2.classList.remove('open', 'focus'); });
     if (s.querySelector('.journey')) journey(s, true);
     slides.forEach((x, k) => { if (k !== i && x.querySelector('.journey')) journey(x, false); });
     const pf = s.querySelector('[data-count]'); if (pf && step >= 2 && !(prevI === i && prevStep >= 2)) countUp(s);

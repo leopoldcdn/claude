@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vinted achat à l'heure H
 // @namespace    local
-// @version      1.7
+// @version      1.8
 // @match        https://www.vinted.fr/*
 // @grant        none
 // @run-at       document-idle
@@ -35,18 +35,28 @@
   const findPay = () => PAY.map((s) => document.querySelector(s)).find((b) => b && !b.disabled) || byText(/^\s*payer/i);
 
   // Recherche d'un élément visible par son texte (le plus court = le plus précis)
-  const visible = (e) => e.offsetParent !== null || e.getClientRects().length > 0;
+  const visible = (e) => {
+    const r = e.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return false;
+    const cs = getComputedStyle(e);
+    return cs.visibility !== 'hidden' && cs.display !== 'none' && cs.opacity !== '0';
+  };
   const findByText = (re, sel = 'button,[role="button"],[role="radio"],label,li,div,span,p,a') =>
     [...document.querySelectorAll(sel)]
       .filter((e) => visible(e) && re.test(e.textContent || ''))
       .sort((a, b) => a.textContent.length - b.textContent.length)[0];
   const log = (...a) => console.log('[Vinted bot]', ...a);
   const realClick = (el) => {
-    el.scrollIntoView({ block: 'nearest' });
-    for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
+    el.scrollIntoView({ block: 'center' });
+    const r = el.getBoundingClientRect();
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const target = document.elementFromPoint(x, y) || el;
+    const base = { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, button: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true };
+    for (const [type, buttons] of [['pointerdown', 1], ['mousedown', 1], ['pointerup', 0], ['mouseup', 0], ['click', 0]]) {
       const Ev = type.startsWith('pointer') ? PointerEvent : MouseEvent;
-      el.dispatchEvent(new Ev(type, { bubbles: true, cancelable: true, view: window }));
+      target.dispatchEvent(new Ev(type, { ...base, buttons }));
     }
+    log('clic envoyé sur', target.tagName, Math.round(x), Math.round(y));
   };
   const waitFor = async (fn, ms) => {
     const t = Date.now();
@@ -127,7 +137,7 @@
       realClick(item);
       await sleep(500);
     }
-    const closed = await clickUntil(() => findByText(CONFIRM_RE), () => !modalOpen(), 2500, 0);
+    const closed = await clickUntil(() => findByText(CONFIRM_RE), () => !modalOpen(), 4000, 0);
     log('Confirmer cliqué, fenêtre fermée :', closed);
   }
 
@@ -145,7 +155,7 @@
         log('état après clic option :', state);
       }
       if (state === 'choose') {
-        const opened = await clickUntil(() => findByText(CHOOSE_RE), modalOpen, 3000, 2);
+        const opened = modalOpen() || await clickUntil(() => findByText(CHOOSE_RE), modalOpen, 6000, 1);
         if (!opened) throw new Error('fenêtre point relais introuvable');
         log('fenêtre ouverte');
         await pickInModal();

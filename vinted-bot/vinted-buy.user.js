@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vinted achat à l'heure H
 // @namespace    local
-// @version      1.5
+// @version      1.6
 // @match        https://www.vinted.fr/*
 // @grant        none
 // @run-at       document-idle
@@ -42,11 +42,10 @@
       .sort((a, b) => a.textContent.length - b.textContent.length)[0];
   const log = (...a) => console.log('[Vinted bot]', ...a);
   const realClick = (el) => {
-    const target = el.closest('button,[role="button"],a,label,[role="radio"]') || el;
-    target.scrollIntoView({ block: 'center' });
+    el.scrollIntoView({ block: 'nearest' });
     for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
       const Ev = type.startsWith('pointer') ? PointerEvent : MouseEvent;
-      target.dispatchEvent(new Ev(type, { bubbles: true, cancelable: true, view: window }));
+      el.dispatchEvent(new Ev(type, { bubbles: true, cancelable: true, view: window }));
     }
   };
   const waitFor = async (fn, ms) => {
@@ -54,6 +53,20 @@
     while (Date.now() - t < ms) { const r = fn(); if (r) return r; await sleep(100); }
     return null;
   };
+  // Clique sur un élément jusqu'à ce que `done()` soit vrai ; remonte aux parents si besoin
+  async function clickUntil(getEl, done, ms = 1500, maxUp = 0) {
+    let el = getEl();
+    for (let i = 0; i <= maxUp && el; i++) {
+      log('clic niveau', i, el.tagName);
+      el.click();
+      if (await waitFor(done, ms)) return true;
+      realClick(el);
+      if (await waitFor(done, ms)) return true;
+      el = el.parentElement;
+      if (el && (el.textContent || '').length > 150) break;
+    }
+    return false;
+  }
   const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   let ac;
@@ -101,9 +114,6 @@
   const deliveryState = () => (findByText(CHOOSE_RE) ? 'choose' : findByText(CHOSEN_RE) ? 'chosen' : null);
 
   async function pickInModal() {
-    const confirm = await waitFor(() => findByText(CONFIRM_RE, 'button'), 6000);
-    if (!confirm) throw new Error('fenêtre point relais introuvable');
-    log('fenêtre ouverte');
     await sleep(800); // laisse la liste se charger
     if (RELAY_KEYWORD) {
       const item = findByText(new RegExp(escapeRe(RELAY_KEYWORD), 'i'), 'div,li,button,span,p');
@@ -111,9 +121,8 @@
       realClick(item);
       await sleep(500);
     }
-    realClick(findByText(CONFIRM_RE, 'button') || confirm);
-    log('Confirmer cliqué');
-    await waitFor(() => !findByText(CONFIRM_RE, 'button'), 4000);
+    const closed = await clickUntil(() => findByText(CONFIRM_RE), () => !findByText(CONFIRM_RE), 2000, 0);
+    log('Confirmer cliqué, fenêtre fermée :', closed);
   }
 
   async function chooseDelivery() {
@@ -130,8 +139,9 @@
         log('état après clic option :', state);
       }
       if (state === 'choose') {
-        realClick(findByText(CHOOSE_RE));
-        log('ligne "Choisir" cliquée');
+        const opened = await clickUntil(() => findByText(CHOOSE_RE), () => findByText(CONFIRM_RE), 1500, 5);
+        if (!opened) throw new Error('fenêtre point relais introuvable');
+        log('fenêtre ouverte');
         await pickInModal();
         const gone = await waitFor(() => !findByText(CHOOSE_RE), 4000);
         if (!gone) throw new Error('le point relais n\'a pas été enregistré');

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vinted achat à l'heure H
 // @namespace    local
-// @version      1.0
+// @version      1.2
 // @match        https://www.vinted.fr/*
 // @grant        none
 // @run-at       document-idle
@@ -9,8 +9,8 @@
 (() => {
   'use strict';
   // ======== CONFIG ========
-  const SALE_TIME   = '2026-11-04T18:00:00+01:00';
-  const ITEM_ID     = '1234567890';  // numéro dans l'URL de l'annonce: /items/1234567890-...
+  const SALE_TIME   = '2026-11-02T14:40:00+01:00';
+  const ITEM_ID     = '10635215266';
   const AUTO_PAY    = false;         // true = clique aussi sur "Payer"
   const INTERVAL_MS = 2000;          // délai entre deux rechargements (ne pas descendre)
   const MAX_RELOADS = 15;
@@ -84,6 +84,13 @@
 
     if (!onItem()) return;
 
+    if (st.phase === 'buying') {
+      if (Date.now() - st.clickedAt < 20000) { say('Chargement du paiement...'); return setTimeout(tick, 200); }
+      st.phase = 'live'; st.attempts = 0; save(st);
+      say('Pas de page de paiement après 20 s : nouvel essai');
+      return setTimeout(() => location.reload(), 500);
+    }
+
     if (st.phase === 'waiting') {
       const left = (saleAt - now()) / 1000;
       if (left > 0) {
@@ -97,7 +104,12 @@
 
     if (st.phase === 'live') {
       const b = findBuy();
-      if (b) { say('Achat !'); beep(1000, 0.3); b.click(); return setTimeout(tick, 100); }
+      if (b) {
+        say('Achat !'); beep(1000, 0.3);
+        st.phase = 'buying'; st.clickedAt = Date.now(); save(st);
+        b.click();
+        return setTimeout(tick, 200);
+      }
       if (Date.now() - pageStart < 1500) return setTimeout(tick, 50); // laisse la page s'afficher
       if (st.attempts >= MAX_RELOADS) return disarm('Bouton jamais actif : arrêt.');
       st.attempts++; save(st);

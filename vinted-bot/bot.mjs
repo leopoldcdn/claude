@@ -1,21 +1,14 @@
-// Bot d'achat Vinted : prépare la page, attend l'heure H, recharge en boucle
-// jusqu'à ce que le bouton "Acheter" soit actif, puis enchaîne jusqu'au paiement.
-//
-// Usage :
-//   npm run login   -> ouvre un navigateur, tu te connectes à Vinted à la main (une seule fois)
-//   npm run buy     -> lance l'attente + l'achat selon config.json
 import { chromium } from 'playwright';
+import { exec } from 'node:child_process';
 import fs from 'node:fs';
 
-const PROFILE_DIR = './.profile'; // session Vinted conservée ici (ne jamais commiter)
+const PROFILE_DIR = './.profile';
 const mode = process.argv[2];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = (...a) => console.log(new Date().toISOString(), ...a);
+const beep = () => exec('afplay /System/Library/Sounds/Glass.aiff'); // macOS
 
-const BUY_BUTTON = [
-  '[data-testid="item-buy-button"]',
-  'button:has-text("Acheter")',
-];
+const BUY_BUTTON = ['[data-testid="item-buy-button"]', 'button:has-text("Acheter")'];
 const PAY_BUTTON = [
   '[data-testid="single-checkout-order-summary-purchase-button"]',
   'button:has-text("Payer")',
@@ -27,6 +20,24 @@ async function firstEnabled(page, selectors) {
     if ((await loc.count()) && (await loc.isVisible()) && (await loc.isEnabled())) return loc;
   }
   return null;
+}
+
+async function isBlocked(page) {
+  const txt = (await page.locator('body').innerText().catch(() => '')) || '';
+  return /session a été bloquée|activité inhabituelle|automatisée/i.test(txt);
+}
+
+// Écart entre l'horloge du Mac et celle de Vinted (en ms), via l'en-tête HTTP Date.
+async function clockOffset(ctx) {
+  try {
+    const t0 = Date.now();
+    const res = await ctx.request.head('https://www.vinted.fr/');
+    const t1 = Date.now();
+    const server = new Date(res.headers()['date']).getTime();
+    return server - (t0 + t1) / 2;
+  } catch {
+    return 0;
+  }
 }
 
 async function launch() {
@@ -41,70 +52,78 @@ async function login() {
   const ctx = await launch();
   const page = ctx.pages()[0] ?? (await ctx.newPage());
   await page.goto('https://www.vinted.fr/');
-  log('Connecte-toi à Vinted dans la fenêtre (et enregistre ta carte / adresse de livraison).');
-  log('Ferme la fenêtre quand c’est fait.');
+  log('Connecte-toi à Vinted (carte + adresse enregistrées), puis ferme la fenêtre.');
   await new Promise((r) => ctx.on('close', r));
 }
 
 async function buy() {
   const cfg = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
   const saleAt = new Date(cfg.saleTime).getTime();
-  if (Number.isNaN(saleAt)) throw new Error('saleTime invalide (format ISO avec fuseau, ex: 2026-11-05T19:00:00+01:00)');
+  if (Number.isNaN(saleAt)) throw new Error('saleTime invalide, ex: 2026-11-04T18:00:00+01:00');
+  const interval = Math.max(2000, cfg.pollIntervalMs ?? 2000); // jamais plus rapide que 2 s
+  const maxReloads = Math.min(15, cfg.maxReloads ?? 15);
 
   const ctx = await launch();
   const page = ctx.pages()[0] ?? (await ctx.newPage());
   await page.goto(cfg.itemUrl, { waitUntil: 'domcontentloaded' });
-  log('Page annonce chargée. Vente prévue à', new Date(saleAt).toISOString());
-
-  // Attente passive jusqu'à (H - leadSeconds), en gardant la session vivante.
-  const startPolling = saleAt - cfg.leadSeconds * 1000;
-  while (Date.now() < startPolling - 60_000) {
-    log(`Attente... T-${Math.round((saleAt - Date.now()) / 1000)}s`);
-    await sleep(30_000);
+  if (await isBlocked(page)) {
+    log('Vinted affiche la page de blocage. Arrêt : change de réseau ou réessaie plus tard.');
+    beep();
+    return;
   }
-  while (Date.now() < startPolling) await sleep(5); // attente fine
 
-  // Boucle de rechargement jusqu'à ce que "Acheter" soit cliquable.
-  const deadline = saleAt + cfg.giveUpAfterSeconds * 1000;
+  const offset = await clockOffset(ctx);
+  log(`Écart d'horloge Mac/Vinted : ${Math.round(offset)} ms (corrigé automatiquement)`);
+  const now = () => Date.now() + offset;
+
+  while (now() < saleAt - 10_000) {
+    log(`Attente... T-${Math.round((saleAt - now()) / 1000)}s`);
+    await sleep(Math.min(30_000, saleAt - now() - 10_000));
+  }
+  beep();
+  log('T-10s : prépare-toi.');
+  while (now() < saleAt) await sleep(5);
+
   let btn = null;
-  while (Date.now() < deadline) {
-    btn = await firstEnabled(page, BUY_BUTTON);
-    if (btn) break;
+  for (let i = 0; i <= maxReloads && !btn; i++) {
     await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
-    await sleep(cfg.pollIntervalMs);
+    if (await isBlocked(page)) {
+      log('Page de blocage détectée : arrêt immédiat pour ne pas aggraver.');
+      beep();
+      return;
+    }
+    btn = await firstEnabled(page, BUY_BUTTON);
+    if (!btn) await sleep(interval);
   }
   if (!btn) {
-    log('Bouton "Acheter" jamais devenu actif. Abandon.');
+    log('Bouton "Acheter" non actif après toutes les tentatives.');
     await page.screenshot({ path: 'failure.png' });
+    beep();
+    await new Promise((r) => ctx.on('close', r));
     return;
   }
 
   log('Bouton Acheter actif -> clic');
   await btn.click();
-
-  // Page de paiement : on attend le bouton final.
   await page.waitForURL(/checkout/, { timeout: 15_000 }).catch(() => {});
+
   let pay = null;
   for (let i = 0; i < 100 && !pay; i++) {
     pay = await firstEnabled(page, PAY_BUTTON);
     if (!pay) await sleep(100);
   }
+  beep();
   if (!pay) {
-    log('Bouton de paiement introuvable : termine manuellement dans la fenêtre.');
+    log('Bouton de paiement introuvable : termine à la main dans la fenêtre.');
     await page.screenshot({ path: 'checkout.png' });
-    await new Promise((r) => ctx.on('close', r));
-    return;
-  }
-
-  if (cfg.autoPay) {
+  } else if (cfg.autoPay) {
     log('autoPay=true -> paiement');
     await pay.click();
   } else {
-    log('Page de paiement prête. Clique toi-même sur "Payer" (autoPay=false).');
+    log('Page de paiement prête : clique sur "Payer".');
   }
   await sleep(2000);
   await page.screenshot({ path: 'result.png' });
-  log('Terminé. Ferme la fenêtre une fois la commande vérifiée.');
   await new Promise((r) => ctx.on('close', r));
 }
 

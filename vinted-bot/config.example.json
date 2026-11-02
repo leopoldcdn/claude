@@ -1,0 +1,8 @@
+{
+  "itemUrl": "https://www.vinted.fr/items/1234567890-nom-de-l-annonce",
+  "saleTime": "2026-11-05T19:00:00+01:00",
+  "leadSeconds": 2,
+  "pollIntervalMs": 150,
+  "giveUpAfterSeconds": 120,
+  "autoPay": false
+}

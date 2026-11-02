@@ -1,0 +1,13 @@
+{
+  "name": "vinted-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "login": "node bot.mjs login",
+    "buy": "node bot.mjs buy"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

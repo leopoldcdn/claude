@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vinted achat à l'heure H
 // @namespace    local
-// @version      1.4
+// @version      1.5
 // @match        https://www.vinted.fr/*
 // @grant        none
 // @run-at       document-idle
@@ -40,6 +40,15 @@
     [...document.querySelectorAll(sel)]
       .filter((e) => visible(e) && re.test(e.textContent || ''))
       .sort((a, b) => a.textContent.length - b.textContent.length)[0];
+  const log = (...a) => console.log('[Vinted bot]', ...a);
+  const realClick = (el) => {
+    const target = el.closest('button,[role="button"],a,label,[role="radio"]') || el;
+    target.scrollIntoView({ block: 'center' });
+    for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
+      const Ev = type.startsWith('pointer') ? PointerEvent : MouseEvent;
+      target.dispatchEvent(new Ev(type, { bubbles: true, cancelable: true, view: window }));
+    }
+  };
   const waitFor = async (fn, ms) => {
     const t = Date.now();
     while (Date.now() - t < ms) { const r = fn(); if (r) return r; await sleep(100); }
@@ -84,46 +93,56 @@
   }
 
   // Livraison : point relais + confirmation
-  const delivery = { started: false, done: false };
-  const CHOSEN_RE = /Disponible au point relais sous/i;               // un point est déjà choisi
-  const CHOOSE_RE = /(Choisir|Sélectionner|Selectionner)\s+(un\s+|le\s+)?point/i; // bouton pour en choisir un
+  const delivery = { started: false, done: false, ok: false };
+  const CHOSEN_RE = /Disponible au point relais sous/i;
+  const CHOOSE_RE = /(Choisir|Sélectionner|Selectionner)\s+(un\s+|le\s+)?point/i;
   const CONFIRM_RE = /^\s*Confirmer\s*$/i;
-  const deliveryState = () => (findByText(CHOSEN_RE) ? 'chosen' : findByText(CHOOSE_RE) ? 'choose' : null);
+  // "choose" prioritaire : tant que la ligne "Choisir un point relais" est visible, aucun point n'est choisi
+  const deliveryState = () => (findByText(CHOOSE_RE) ? 'choose' : findByText(CHOSEN_RE) ? 'chosen' : null);
 
   async function pickInModal() {
-    const confirm = await waitFor(() => findByText(CONFIRM_RE, 'button'), 5000);
+    const confirm = await waitFor(() => findByText(CONFIRM_RE, 'button'), 6000);
     if (!confirm) throw new Error('fenêtre point relais introuvable');
-    await sleep(700); // laisse la liste se charger
+    log('fenêtre ouverte');
+    await sleep(800); // laisse la liste se charger
     if (RELAY_KEYWORD) {
       const item = findByText(new RegExp(escapeRe(RELAY_KEYWORD), 'i'), 'div,li,button,span,p');
       if (!item) throw new Error(`point relais "${RELAY_KEYWORD}" introuvable`);
-      item.click();
+      realClick(item);
       await sleep(500);
     }
-    (findByText(CONFIRM_RE, 'button') || confirm).click();
+    realClick(findByText(CONFIRM_RE, 'button') || confirm);
+    log('Confirmer cliqué');
     await waitFor(() => !findByText(CONFIRM_RE, 'button'), 4000);
   }
 
   async function chooseDelivery() {
     try {
       say('Réglage de la livraison...');
-      await sleep(600);
+      await waitFor(() => findByText(/Détails de la livraison/i), 5000);
+      await sleep(500);
       let state = await waitFor(deliveryState, 3000);
+      log('état livraison :', state);
       if (!state) {
         const opt = findByText(/Envoi au point relais/i);
-        if (opt) opt.click();
+        if (opt) realClick(opt);
         state = await waitFor(deliveryState, 4000);
+        log('état après clic option :', state);
       }
-      if (state === 'chosen') return true;
       if (state === 'choose') {
-        findByText(CHOOSE_RE).click();
+        realClick(findByText(CHOOSE_RE));
+        log('ligne "Choisir" cliquée');
         await pickInModal();
+        const gone = await waitFor(() => !findByText(CHOOSE_RE), 4000);
+        if (!gone) throw new Error('le point relais n\'a pas été enregistré');
         return true;
       }
+      if (state === 'chosen') return true;
       throw new Error('option point relais introuvable');
     } catch (e) {
+      log('ERREUR', e.message);
       say('Livraison à régler à la main : ' + e.message);
-      beep(300, 0.4);
+      beep(300, 0.6);
       return false;
     }
   }
@@ -137,10 +156,11 @@
       if (!p) return setTimeout(tick, 100);
       if (!delivery.started) {
         delivery.started = true;
-        chooseDelivery().then(() => { delivery.done = true; tick(); });
+        chooseDelivery().then((ok) => { delivery.ok = ok; delivery.done = true; tick(); });
         return;
       }
       if (!delivery.done) return;
+      if (!delivery.ok) { st.armed = false; save(st); return; } // on garde le message d'erreur, aucun paiement
       const pay = findPay() || p;
       beep(1200, 0.5);
       if (AUTO_PAY) { say('Paiement...'); pay.click(); disarm('Paiement envoyé.'); }

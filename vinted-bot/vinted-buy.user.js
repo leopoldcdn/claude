@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vinted achat à l'heure H
 // @namespace    local
-// @version      2.0
+// @version      2.1
 // @match        https://www.vinted.fr/*
 // @grant        none
 // @run-at       document-start
@@ -44,7 +44,7 @@
   };
   const findByText = (re, sel = 'button,[role="button"],[role="radio"],label,li,div,span,p,a') =>
     [...document.querySelectorAll(sel)]
-      .filter((e) => visible(e) && re.test(e.textContent || ''))
+      .filter((e) => re.test(e.textContent || '') && visible(e))
       .sort((a, b) => a.textContent.length - b.textContent.length)[0];
   const realClick = (el) => {
     el.scrollIntoView({ block: 'center' });
@@ -63,20 +63,35 @@
     while (Date.now() - t < ms) { const r = fn(); if (r) return r; await sleep(30); }
     return null;
   };
-  // Clique jusqu'à ce que done() soit vrai ; remonte aux parents si besoin
-  async function clickUntil(getEl, done, ms = 1500, maxUp = 0) {
-    let el = getEl();
-    for (let i = 0; i <= maxUp && el; i++) {
-      log('clic niveau', i, el.tagName);
-      el.click();
-      if (await waitFor(done, ms)) return true;
-      realClick(el);
-      if (await waitFor(done, ms)) return true;
-      el = el.parentElement;
-      if (el && (el.textContent || '').length > 150) break;
+  // Recherche rapide par nœud de texte (aucun calcul de mise en page sur toute la page)
+  function findText(re) {
+    const root = document.body || document.documentElement;
+    if (!root) return null;
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = w.nextNode())) {
+      if (re.test(n.nodeValue)) {
+        const el = n.parentElement;
+        if (el && visible(el)) return el;
+      }
     }
-    return false;
+    return null;
   }
+  const matchAny = (res) => {
+    for (const re of res) { const el = findText(re); if (el) return { el, re }; }
+    return null;
+  };
+  // Attend qu'une condition devienne vraie : réagit à chaque changement de la page (+ filet 40 ms)
+  const until = (fn, ms) => new Promise((resolve) => {
+    let fin = false;
+    const done = (v) => { if (fin) return; fin = true; mo.disconnect(); clearInterval(iv); clearTimeout(to); resolve(v); };
+    const check = () => { if (fin) return; try { const r = fn(); if (r) done(r); } catch {} };
+    const mo = new MutationObserver(check);
+    mo.observe(document.documentElement || document, { childList: true, subtree: true, characterData: true, attributes: true });
+    const iv = setInterval(check, 40);
+    const to = setTimeout(() => done(null), ms);
+    check();
+  });
   const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   let ac;
@@ -127,7 +142,7 @@
       const b = findBuy();
       if (b) { lastClick = t; b.click(); log('reclic Acheter'); }
     }
-    setTimeout(waitCheckout, 50);
+    setTimeout(waitCheckout, 20);
   };
 
   function liveWatch() {
@@ -165,48 +180,67 @@
   const CHOOSE_RE = /(Choisir|Sélectionner|Selectionner)\s+(un\s+|le\s+)?point/i;
   const CONFIRM_RE = /^\s*Confirmer\s*$/i;
   const MODAL_RE = /^\s*Point de retrait et de dépôt\s*$/i;
-  const modalOpen = () => findByText(MODAL_RE) || findByText(CONFIRM_RE);
-  const deliveryState = () => (findByText(CHOOSE_RE) ? 'choose' : findByText(CHOSEN_RE) ? 'chosen' : null);
+  const modalOpen = () => matchAny([MODAL_RE, CONFIRM_RE]);
+  const timed = (label, t0) => log(`${label} (${Date.now() - t0} ms)`);
 
-  async function pickInModal() {
-    // le bouton Confirmer n'apparaît qu'une fois la carte et la liste chargées
-    const confirm = await waitFor(() => findByText(CONFIRM_RE), 12000);
-    if (!confirm) throw new Error('bouton Confirmer introuvable (fenêtre ouverte)');
-    log('Confirmer visible');
-    await sleep(250);
+  // Ouvre la fenêtre : clic souris d'abord (celui qui fonctionne), clic natif en secours
+  async function openModal() {
+    for (let i = 0; i < 3; i++) {
+      const row = findText(CHOOSE_RE);
+      if (!row) return !!modalOpen();
+      const t0 = Date.now();
+      realClick(row);
+      if (await until(modalOpen, 2500)) { timed('fenêtre ouverte (clic souris)', t0); return true; }
+      row.click();
+      if (await until(modalOpen, 2500)) { timed('fenêtre ouverte (clic natif)', t0); return true; }
+    }
+    return false;
+  }
+
+  // Clique sur Confirmer à l'instant où il apparaît
+  async function confirmPoint() {
+    const t0 = Date.now();
+    if (!(await until(() => findText(CONFIRM_RE), 15000))) throw new Error('bouton Confirmer introuvable (fenêtre ouverte)');
+    timed('Confirmer apparu', t0);
     if (RELAY_KEYWORD) {
       const item = findByText(new RegExp(escapeRe(RELAY_KEYWORD), 'i'), 'div,li,button,span,p');
       if (!item) throw new Error(`point relais "${RELAY_KEYWORD}" introuvable`);
       realClick(item);
       await sleep(300);
     }
-    const closed = await clickUntil(() => findByText(CONFIRM_RE), () => !modalOpen(), 4000, 0);
-    log('Confirmer cliqué, fenêtre fermée :', closed);
+    for (let i = 0; i < 4; i++) {
+      const b = findText(CONFIRM_RE);
+      if (!b) return;
+      const t1 = Date.now();
+      realClick(b);
+      if (await until(() => !modalOpen(), 1500)) { timed('fenêtre fermée (clic souris)', t1); return; }
+      const b2 = findText(CONFIRM_RE);
+      if (!b2) return;
+      b2.click();
+      if (await until(() => !modalOpen(), 1500)) { timed('fenêtre fermée (clic natif)', t1); return; }
+    }
+    throw new Error('Confirmer sans effet');
   }
 
   async function chooseDelivery() {
     try {
       say('Réglage de la livraison...');
-      await waitFor(() => findByText(/Détails de la livraison/i), 5000);
-      let state = await waitFor(deliveryState, 3000);
-      log('état livraison :', state);
-      if (!state) {
-        const opt = findByText(/Envoi au point relais/i);
+      const t0 = Date.now();
+      // clique dès que la ligne "Choisir un point relais" (ou un point déjà choisi) apparaît
+      let first = await until(() => matchAny([CHOOSE_RE, CHOSEN_RE]), 8000);
+      if (!first) {
+        const opt = findText(/Envoi au point relais/i);
         if (opt) realClick(opt);
-        state = await waitFor(deliveryState, 4000);
-        log('état après clic option :', state);
+        first = await until(() => matchAny([CHOOSE_RE, CHOSEN_RE]), 5000);
       }
-      if (state === 'choose') {
-        const opened = modalOpen() || await clickUntil(() => findByText(CHOOSE_RE), modalOpen, 6000, 1);
-        if (!opened) throw new Error('fenêtre point relais introuvable');
-        log('fenêtre ouverte');
-        await pickInModal();
-        const gone = await waitFor(() => !findByText(CHOOSE_RE), 4000);
-        if (!gone) throw new Error('le point relais n\'a pas été enregistré');
-        return true;
-      }
-      if (state === 'chosen') return true;
-      throw new Error('option point relais introuvable');
+      if (!first) throw new Error('option point relais introuvable');
+      timed(first.re === CHOOSE_RE ? 'ligne "Choisir" apparue' : 'point déjà choisi', t0);
+      if (first.re === CHOSEN_RE) return true;
+      if (!(await openModal())) throw new Error('fenêtre point relais introuvable');
+      await confirmPoint();
+      const saved = await until(() => !findText(CHOOSE_RE), 4000);
+      if (!saved) throw new Error('le point relais n\'a pas été enregistré');
+      return true;
     } catch (e) {
       log('ERREUR', e.message);
       say('Livraison à régler à la main : ' + e.message);

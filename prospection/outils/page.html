@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PME bordelaises à contacter</title>
+<style>
+  :root { --ink: #151935; --muted: #5f6589; --faint: #8d92b0; --line: #e0e3ef; --paper: #fff; --soft: #f4f5fb; --soft-2: #eef0f8; --accent: #4f46e5; --ok: #0c8a5f; --ok-soft: #e3f6ee; --warn: #b95a0b; --warn-soft: #fdf0e1; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--soft); color: var(--ink); font: 15px/1.5 system-ui, 'Segoe UI', sans-serif; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 36px 20px 60px; }
+  h1 { font-size: 30px; line-height: 1.15; margin: 0; letter-spacing: -0.02em; }
+  .lead { color: var(--muted); margin-top: 10px; max-width: 860px; }
+  .kpis { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+  .kpi { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; min-width: 150px; }
+  .kpi b { display: block; font-size: 24px; }
+  .kpi span { font-size: 13px; color: var(--muted); }
+  .how { margin-top: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .how div { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; font-size: 14px; color: var(--muted); }
+  .how b { color: var(--ink); display: block; margin-bottom: 4px; }
+  .bar { position: sticky; top: 0; z-index: 2; background: var(--soft); padding: 14px 0; margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid var(--line); }
+  input[type=search], select { font: inherit; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); }
+  input[type=search] { flex: 1; min-width: 200px; }
+  label.chk { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; color: var(--muted); }
+  button { font: 600 14px/1 system-ui, sans-serif; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+  button.ghost { background: var(--paper); color: var(--ink); border-color: var(--line); }
+  .count { font-size: 14px; color: var(--muted); margin-left: auto; }
+  .tbl { overflow-x: auto; margin-top: 12px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--soft-2); position: sticky; top: 0; }
+  td.n { white-space: nowrap; }
+  td .sub { display: block; font-size: 12.5px; color: var(--faint); }
+  .p { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; font-weight: 800; font-size: 13px; }
+  .p.A { background: #ebeafd; color: var(--accent); } .p.B { background: var(--ok-soft); color: var(--ok); } .p.C { background: var(--soft-2); color: var(--faint); }
+  tr.done td { opacity: .45; }
+  a { color: var(--accent); }
+  .tag { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: #ebeafd; color: var(--accent); margin-top: 4px; }
+  .foot { margin-top: 26px; font-size: 13px; color: var(--muted); }
+  @media (max-width: 800px) { .how { grid-template-columns: 1fr; } h1 { font-size: 24px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>PME de Bordeaux et de la métropole à contacter</h1>
+  <p class="lead">Sociétés en activité, avec un siège à Bordeaux ou dans Bordeaux Métropole et 20 à 49 salariés, dans le numérique, le conseil et les services aux entreprises pour l'essentiel, selon les données publiques de l'État (Annuaire des entreprises, source INSEE et registre national des entreprises), extraites le {{DATE}}. Première sélection, partielle : environ la moitié des entreprises de cette tranche ont été parcourues. La fiche publique de chaque entreprise donne son site, ses dirigeants et ses coordonnées.</p>
+  <div class="kpis" id="kpis"></div>
+  <div class="how">
+    <div><b>Priorité A</b>20 à 49 salariés, dans le numérique, le conseil ou les services aux entreprises : elles approchent du seuil de 50 et sont à l'aise avec un logiciel.</div>
+    <div><b>Priorité B</b>Les autres PME de 20 à 49 salariés, et celles de 50 à 99 dans le numérique, le conseil ou les services : elles viennent de passer le seuil.</div>
+    <div><b>Priorité C</b>Les autres (commerce, restauration, BTP… de 50 à 99) : intéressantes, mais souvent déjà outillées ou très terrain.</div>
+  </div>
+  <div class="bar">
+    <input type="search" id="q" placeholder="Rechercher un nom, une activité, une rue…" aria-label="Rechercher">
+    <select id="prio" aria-label="Priorité"><option value="">Toutes priorités</option><option>A</option><option>B</option><option>C</option></select>
+    <select id="tranche" aria-label="Salariés"><option value="">20 à 99 salariés</option><option>20 à 49</option><option>50 à 99</option></select>
+    <select id="secteur" aria-label="Secteur"><option value="">Tous secteurs</option></select>
+    <label class="chk"><input type="checkbox" id="syntec"> Convention Syntec</label><label class="chk"><input type="checkbox" id="cab"> Cabinets comptables</label>
+    <label class="chk"><input type="checkbox" id="hide"> Masquer les contactées</label>
+    <button type="button" class="ghost" id="csv">Exporter la sélection (CSV)</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="tbl"><table><thead><tr><th>Contactée</th><th>Prio.</th><th>Entreprise</th><th>Salariés</th><th>Activité</th><th>Convention collective</th><th>Adresse</th><th>Fiche</th></tr></thead><tbody id="tb"></tbody></table></div>
+  <p class="foot">La tranche d'effectif est celle déclarée à l'INSEE (année indiquée sous la tranche) : elle peut avoir changé depuis. Prospection par e-mail entre entreprises : le RGPD l'autorise si le message concerne l'activité de la personne, qu'elle est informée et qu'elle peut refuser simplement (lien ou mention de désinscription). Les cases « contactée » restent dans ce navigateur.</p>
+</div>
+<script>
+(() => {
+  const ROWS = /*DATA*/[];
+  const KEY = 'pme-bdx-contactees';
+  let done = {}; try { done = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { done = {}; }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) { /* navigation privée */ } };
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const by = (k) => ROWS.reduce((m, r) => (m[r[k]] = (m[r[k]] || 0) + 1, m), {});
+  const sect = by('secteur');
+  Object.keys(sect).sort((a, b) => sect[b] - sect[a]).forEach((s) => $('secteur').insertAdjacentHTML('beforeend', `<option value="${esc(s)}">${esc(s)} (${sect[s]})</option>`));
+  const pr = by('prio'), tr = by('tranche');
+  $('kpis').innerHTML = [[ROWS.length, 'entreprises'], [pr.A || 0, 'priorité A'], [tr['20 à 49'] || 0, 'de 20 à 49 salariés'], [tr['50 à 99'] || 0, 'de 50 à 99 salariés'], [ROWS.filter((r) => r.syntec).length, 'sous convention Syntec']].filter(([v]) => v > 0).map(([v, l]) => `<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join('');
+  let view = [];
+  function render() {
+    const q = $('q').value.trim().toLowerCase(), p = $('prio').value, t = $('tranche').value, s = $('secteur').value, sy = $('syntec').checked, hd = $('hide').checked;
+    view = ROWS.filter((r) => (!p || r.prio === p) && (!t || r.tranche === t) && (!s || r.secteur === s) && (!sy || r.syntec) && (!$('cab').checked || r.cabinet) && (!hd || !done[r.siren])
+      && (!q || `${r.nom} ${r.activite} ${r.adresse} ${r.convention}`.toLowerCase().includes(q)));
+    $('count').textContent = `${view.length} affichées`;
+    $('tb').innerHTML = view.map((r) => `<tr class="${done[r.siren] ? 'done' : ''}"><td><input type="checkbox" data-s="${r.siren}" ${done[r.siren] ? 'checked' : ''} aria-label="Marquer ${esc(r.nom)} comme contactée"></td>
+      <td><span class="p ${r.prio}">${r.prio}</span></td><td><b>${esc(r.nom)}</b><span class="sub">créée en ${esc(r.creation)}${r.ca ? ` · CA ${Math.round(r.ca / 1e5) / 10} M€ (${esc(r.ca_annee)})` : ''}</span></td>
+      <td class="n">${esc(r.tranche)}<span class="sub">en ${esc(r.annee_eff)}</span></td><td>${esc(r.activite)}<span class="sub">${esc(r.secteur)} · NAF ${esc(r.naf)}</span></td>
+      <td>${esc(r.convention) || '<span class="sub">non renseignée</span>'}${r.syntec ? '<br><span class="tag">Syntec</span>' : ''}${r.cabinet ? '<br><span class="tag" style="background:#e3f6ee;color:#0c8a5f">Cabinet comptable : partenaire possible</span>' : ''}</td><td>${esc(r.adresse)}<span class="sub">${esc(r.ville)}</span></td><td><a href="${r.fiche}" target="_blank" rel="noopener">Ouvrir</a></td></tr>`).join('');
+  }
+  ['q', 'prio', 'tranche', 'secteur', 'syntec', 'cab', 'hide'].forEach((id) => $(id).addEventListener('input', render));
+  $('tb').addEventListener('change', (e) => { const s = e.target.dataset.s; if (!s) return; if (e.target.checked) done[s] = new Date().toISOString().slice(0, 10); else delete done[s]; save(); render(); });
+  $('csv').addEventListener('click', () => {
+    const head = ['Priorité', 'Entreprise', 'SIREN', 'Salariés', 'Secteur', 'Activité', 'Convention collective', 'Adresse', 'Fiche publique', 'Contactée le'];
+    const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const csv = [head].concat(view.map((r) => [r.prio, r.nom, r.siren, r.tranche, r.secteur, r.activite, r.convention, r.adresse, r.fiche, done[r.siren] || ''])).map((l) => l.map(q).join(';')).join('\r\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })); a.download = 'pme-bordeaux-selection.csv'; document.body.appendChild(a); a.click(); a.remove();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

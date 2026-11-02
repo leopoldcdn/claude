@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vinted achat à l'heure H
 // @namespace    local
-// @version      1.3
+// @version      1.4
 // @match        https://www.vinted.fr/*
 // @grant        none
 // @run-at       document-idle
@@ -85,28 +85,42 @@
 
   // Livraison : point relais + confirmation
   const delivery = { started: false, done: false };
+  const CHOSEN_RE = /Disponible au point relais sous/i;               // un point est déjà choisi
+  const CHOOSE_RE = /(Choisir|Sélectionner|Selectionner)\s+(un\s+|le\s+)?point/i; // bouton pour en choisir un
+  const CONFIRM_RE = /^\s*Confirmer\s*$/i;
+  const deliveryState = () => (findByText(CHOSEN_RE) ? 'chosen' : findByText(CHOOSE_RE) ? 'choose' : null);
+
+  async function pickInModal() {
+    const confirm = await waitFor(() => findByText(CONFIRM_RE, 'button'), 5000);
+    if (!confirm) throw new Error('fenêtre point relais introuvable');
+    await sleep(700); // laisse la liste se charger
+    if (RELAY_KEYWORD) {
+      const item = findByText(new RegExp(escapeRe(RELAY_KEYWORD), 'i'), 'div,li,button,span,p');
+      if (!item) throw new Error(`point relais "${RELAY_KEYWORD}" introuvable`);
+      item.click();
+      await sleep(500);
+    }
+    (findByText(CONFIRM_RE, 'button') || confirm).click();
+    await waitFor(() => !findByText(CONFIRM_RE, 'button'), 4000);
+  }
+
   async function chooseDelivery() {
     try {
       say('Réglage de la livraison...');
-      const opt = await waitFor(() => findByText(/Envoi au point relais/i), 4000);
-      if (opt) { opt.click(); await sleep(400); }
-
-      const choose = await waitFor(() => findByText(/Choisir un point relais/i), 2500);
-      if (choose) {
-        choose.click();
-        const confirmRe = /^\s*Confirmer\s*$/i;
-        const confirm = await waitFor(() => findByText(confirmRe, 'button'), 5000);
-        if (!confirm) throw new Error('fenêtre point relais introuvable');
-        if (RELAY_KEYWORD) {
-          const item = findByText(new RegExp(escapeRe(RELAY_KEYWORD), 'i'), 'div,li,button,span,p');
-          if (!item) throw new Error(`point relais "${RELAY_KEYWORD}" introuvable`);
-          item.click();
-          await sleep(500);
-        }
-        (findByText(confirmRe, 'button') || confirm).click();
-        await waitFor(() => !findByText(confirmRe, 'button'), 4000);
+      await sleep(600);
+      let state = await waitFor(deliveryState, 3000);
+      if (!state) {
+        const opt = findByText(/Envoi au point relais/i);
+        if (opt) opt.click();
+        state = await waitFor(deliveryState, 4000);
       }
-      return true;
+      if (state === 'chosen') return true;
+      if (state === 'choose') {
+        findByText(CHOOSE_RE).click();
+        await pickInModal();
+        return true;
+      }
+      throw new Error('option point relais introuvable');
     } catch (e) {
       say('Livraison à régler à la main : ' + e.message);
       beep(300, 0.4);

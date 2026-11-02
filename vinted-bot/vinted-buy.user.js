@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vinted achat à l'heure H
 // @namespace    local
-// @version      1.6
+// @version      1.7
 // @match        https://www.vinted.fr/*
 // @grant        none
 // @run-at       document-idle
@@ -110,18 +110,24 @@
   const CHOSEN_RE = /Disponible au point relais sous/i;
   const CHOOSE_RE = /(Choisir|Sélectionner|Selectionner)\s+(un\s+|le\s+)?point/i;
   const CONFIRM_RE = /^\s*Confirmer\s*$/i;
+  const MODAL_RE = /^\s*Point de retrait et de dépôt\s*$/i;
+  const modalOpen = () => findByText(MODAL_RE) || findByText(CONFIRM_RE);
   // "choose" prioritaire : tant que la ligne "Choisir un point relais" est visible, aucun point n'est choisi
   const deliveryState = () => (findByText(CHOOSE_RE) ? 'choose' : findByText(CHOSEN_RE) ? 'chosen' : null);
 
   async function pickInModal() {
-    await sleep(800); // laisse la liste se charger
+    // le bouton Confirmer n'apparaît qu'une fois la carte et la liste chargées
+    const confirm = await waitFor(() => findByText(CONFIRM_RE), 12000);
+    if (!confirm) throw new Error('bouton Confirmer introuvable (fenêtre ouverte)');
+    log('Confirmer visible');
+    await sleep(800);
     if (RELAY_KEYWORD) {
       const item = findByText(new RegExp(escapeRe(RELAY_KEYWORD), 'i'), 'div,li,button,span,p');
       if (!item) throw new Error(`point relais "${RELAY_KEYWORD}" introuvable`);
       realClick(item);
       await sleep(500);
     }
-    const closed = await clickUntil(() => findByText(CONFIRM_RE), () => !findByText(CONFIRM_RE), 2000, 0);
+    const closed = await clickUntil(() => findByText(CONFIRM_RE), () => !modalOpen(), 2500, 0);
     log('Confirmer cliqué, fenêtre fermée :', closed);
   }
 
@@ -139,7 +145,7 @@
         log('état après clic option :', state);
       }
       if (state === 'choose') {
-        const opened = await clickUntil(() => findByText(CHOOSE_RE), () => findByText(CONFIRM_RE), 1500, 5);
+        const opened = await clickUntil(() => findByText(CHOOSE_RE), modalOpen, 3000, 2);
         if (!opened) throw new Error('fenêtre point relais introuvable');
         log('fenêtre ouverte');
         await pickInModal();

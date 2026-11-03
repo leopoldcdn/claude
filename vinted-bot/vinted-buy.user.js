@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vinted achat à l'heure H
 // @namespace    local
-// @version      2.2
+// @version      2.3
 // @match        https://www.vinted.fr/*
 // @grant        none
 // @run-at       document-start
@@ -205,6 +205,12 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && armed()) disarm('Arrêté manuellement (Échap).'); });
 
   function arm() {
+    // Garde-fous : on dit clairement pourquoi on n'arme pas (au lieu de ne rien faire en silence)
+    if (Number.isNaN(saleAt)) { say('SALE_TIME invalide. Format : 2026-11-03T09:32:00+01:00'); return; }
+    if (now() > saleAt + ARM_TTL_MIN * 60000) {
+      say(`Heure H dépassée depuis plus de ${ARM_TTL_MIN} min (${new Date(saleAt).toLocaleString('fr-FR')}). Vérifiez SALE_TIME (jour/mois).`);
+      return;
+    }
     st = { armed: true, tab: TAB, phase: 'waiting', attempts: 0, offset, skew: st.skew };
     save(st);
     try { localStorage.removeItem(LOGKEY); } catch {}
@@ -214,6 +220,7 @@
     try { if (Notification.permission === 'default') Notification.requestPermission(); } catch {}
     beep();
     note('armé', `H=${SALE_TIME}`);
+    say(now() >= saleAt ? 'Heure H déjà passée : lancement immédiat.' : `Armé pour ${new Date(saleAt).toLocaleString('fr-FR')}`);
     tick();
   }
 
@@ -416,8 +423,8 @@
     await checkClock();
     if (!onItem() && !onCheckout()) say('Script actif, mais ITEM_ID absent de cette URL');
     if (onItem() && !armed()) {
-      say(`Prêt.${skewTxt}`);
-      addBtn(`Armer pour ${new Date(saleAt).toLocaleTimeString('fr-FR')}`, '#09b1ba', arm);
+      say(`Prêt. H = ${new Date(saleAt).toLocaleString('fr-FR')}${skewTxt}`);
+      addBtn(`Armer pour ${new Date(saleAt).toLocaleString('fr-FR')}`, '#09b1ba', arm);
     } else {
       if (armed()) { clearBtns(); addBtn('Stop', '#c0392b', () => disarm('Arrêté manuellement.')); }
       tick();

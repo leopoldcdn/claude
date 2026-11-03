@@ -1,0 +1,4 @@
+data/*.csv
+state.json
+journal.csv
+__pycache__/

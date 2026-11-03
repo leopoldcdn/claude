@@ -35,6 +35,9 @@ def update(pair):
         for t in sorted(rows): w.writerow([rows[t][k] for k in ('ts', 'open', 'high', 'low', 'close', 'volume')])
 
 def load(pair, include_today=False):
+    if not os.path.exists(_path(pair)):
+        print(f'Premier lancement : téléchargement de l\'historique {pair} (environ 1 minute)...', flush=True)
+        update(pair)
     df = pd.read_csv(_path(pair))
     df['date'] = pd.to_datetime(df.ts, unit='s').dt.normalize()
     df = df.set_index('date')[['open', 'high', 'low', 'close', 'volume']].astype(float)

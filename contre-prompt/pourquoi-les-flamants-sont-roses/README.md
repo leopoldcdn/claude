@@ -7,5 +7,6 @@
 | Légende Instagram avec sources | [`legende-instagram.md`](legende-instagram.md) |
 | Fiche de sources | [`fiche-sources.md`](fiche-sources.md) |
 | Image de couverture 1080×1920 | `couverture.png` |
+| **Rendu final avec ta voix** (1080×1920, 58 s, −16 LUFS) | `pourquoi-les-flamants-sont-roses_rendu-final.mp4` |
 
 Même moteur que « Pourquoi la mer est salée ? » (papier découpé en stop-motion), avec une palette de lagune rose et turquoise, deux vraies photos NASA collées dans l'animation, et des flamants dessinés en papier. Régénération : voir `../PROCEDURE.md` et `source/` (`node render.js video 4`, `./build.sh`).

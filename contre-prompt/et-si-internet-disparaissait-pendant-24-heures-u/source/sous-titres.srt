@@ -1,0 +1,228 @@
+1
+00:00:00,250 --> 00:00:02,207
+Et si Internet disparaissait
+
+2
+00:00:02,207 --> 00:00:03,293
+pendant vingt-quatre heures
+
+3
+00:00:03,293 --> 00:00:04,011
+?
+
+4
+00:00:04,011 --> 00:00:05,983
+Impossible à simuler.
+
+5
+00:00:05,983 --> 00:00:06,852
+Mais de vraies pannes
+
+6
+00:00:06,852 --> 00:00:08,757
+montrent ce qui s'arrête.
+
+7
+00:00:08,757 --> 00:00:09,589
+D'abord,
+
+8
+00:00:09,589 --> 00:00:10,893
+personne ne peut éteindre
+
+9
+00:00:10,893 --> 00:00:12,415
+tout Internet d'un coup
+
+10
+00:00:12,415 --> 00:00:14,019
+: ce sont des dizaines
+
+11
+00:00:14,019 --> 00:00:15,503
+de milliers de réseaux,
+
+12
+00:00:15,503 --> 00:00:16,808
+et personne n'en est
+
+13
+00:00:16,808 --> 00:00:18,060
+le patron.
+
+14
+00:00:18,060 --> 00:00:19,147
+Mais un morceau peut
+
+15
+00:00:19,147 --> 00:00:20,249
+disparaître.
+
+16
+00:00:20,249 --> 00:00:21,336
+En octobre deux mille
+
+17
+00:00:21,336 --> 00:00:22,168
+vingt et un,
+
+18
+00:00:22,168 --> 00:00:23,000
+Facebook,
+
+19
+00:00:23,000 --> 00:00:24,522
+Instagram et WhatsApp sortent
+
+20
+00:00:24,522 --> 00:00:26,261
+d'Internet pendant plus de
+
+21
+00:00:26,261 --> 00:00:27,146
+cinq heures.
+
+22
+00:00:27,146 --> 00:00:28,098
+La cause :
+
+23
+00:00:28,098 --> 00:00:29,365
+un mauvais réglage,
+
+24
+00:00:29,365 --> 00:00:31,052
+pas une attaque.
+
+25
+00:00:31,052 --> 00:00:32,319
+En deux mille dix-huit,
+
+26
+00:00:32,319 --> 00:00:33,841
+ce n'est pas Internet
+
+27
+00:00:33,841 --> 00:00:35,145
+mais le réseau Visa
+
+28
+00:00:35,145 --> 00:00:36,097
+qui tombe :
+
+29
+00:00:36,097 --> 00:00:37,582
+sur une dizaine d'heures,
+
+30
+00:00:37,582 --> 00:00:38,669
+plus de cinq millions
+
+31
+00:00:38,669 --> 00:00:39,756
+de paiements échouent en
+
+32
+00:00:39,756 --> 00:00:40,790
+Europe.
+
+33
+00:00:40,790 --> 00:00:41,877
+En juillet deux mille
+
+34
+00:00:41,877 --> 00:00:42,492
+vingt-quatre,
+
+35
+00:00:42,492 --> 00:00:43,362
+une mise à jour
+
+36
+00:00:43,362 --> 00:00:44,883
+défectueuse plante huit millions
+
+37
+00:00:44,883 --> 00:00:47,140
+et demi d'ordinateurs :
+
+38
+00:00:47,140 --> 00:00:48,227
+des milliers de vols
+
+39
+00:00:48,227 --> 00:00:49,697
+sont annulés.
+
+40
+00:00:49,697 --> 00:00:51,218
+Et les coupures volontaires
+
+41
+00:00:51,218 --> 00:00:51,936
+?
+
+42
+00:00:51,936 --> 00:00:53,203
+En deux mille vingt-quatre,
+
+43
+00:00:53,203 --> 00:00:55,159
+des autorités ont imposé
+
+44
+00:00:55,159 --> 00:00:56,029
+au moins deux cent
+
+45
+00:00:56,029 --> 00:00:57,333
+quatre-vingt-seize coupures
+
+46
+00:00:57,333 --> 00:00:58,383
+d'Internet,
+
+47
+00:00:58,383 --> 00:01:00,137
+dans cinquante-quatre pays.
+
+48
+00:01:00,137 --> 00:01:01,007
+Près de six par
+
+49
+00:01:01,007 --> 00:01:02,041
+semaine.
+
+50
+00:01:02,041 --> 00:01:02,911
+Vingt-quatre heures sans
+
+51
+00:01:02,911 --> 00:01:04,280
+Internet ?
+
+52
+00:01:04,280 --> 00:01:05,802
+On ne s'en aperçoit
+
+53
+00:01:05,802 --> 00:01:07,557
+que quand ça s'arrête.
+
+54
+00:01:07,557 --> 00:01:08,643
+La prochaine fois que
+
+55
+00:01:08,643 --> 00:01:09,693
+ton wifi saute,
+
+56
+00:01:09,693 --> 00:01:10,780
+regarde tout ce qui
+
+57
+00:01:10,780 --> 00:01:12,584
+s'éteint avec lui.
+

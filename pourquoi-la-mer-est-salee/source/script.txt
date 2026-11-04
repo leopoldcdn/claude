@@ -1,0 +1,8 @@
+{s1}La pluie est douce. {s1b}Les rivières aussi. {s1c}Pourtant, elles finissent {mer}dans une mer salée.
+{q}Comment c'est possible ?
+{halley}En mille sept cent quinze, {astro}Edmond Halley, {comete}celui de la comète, {remarque}remarque que {lacs}les lacs sans sortie sont salés.
+{riv}Les rivières apportent un peu de sel. {sortie}Dans un lac sans sortie, {evap}l'eau ne part qu'en s'évaporant : {vapeur}elle monte en vapeur. {reste}Le sel, lui, reste. {mer2}La mer, c'est un immense lac sans sortie.
+{dou}D'où vient ce sel ? {roche}De la roche. {co2}La pluie contient du gaz carbonique : {acide}un peu acide, {ronge}elle ronge la roche et {sucre}la dissout, comme du sucre dans un café. {sels}Ces minéraux dissous, ce sont des sels.
+{chem}Autre source : des cheminées au fond de l'océan, chauffées par la roche en fusion.
+{imagine}Imagine tout ce sel, {etale}étalé sur toutes les terres du monde. {couche}Une couche d'environ cent cinquante mètres. {immeuble}Un immeuble de quarante étages. {partout}Partout.
+{tasse}La prochaine fois que tu bois la tasse, {roche2}dis-toi que tu goûtes de la roche. {rongee}Rongée par la pluie, grain après grain, {millions}depuis des millions d'années. {encore}Et ça continue.

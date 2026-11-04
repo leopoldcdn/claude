@@ -3,6 +3,10 @@
 Le **Studio Contre-Prompt** est un artefact (page privée) relié à la session Claude Code.
 Il envoie des messages commençant par `[Studio Contre-Prompt] ACTION=…` et affiche ce que Claude Code écrit dans sa base.
 
+**Canal d'envoi** : les boutons du Studio postent un commentaire sur l'artefact et l'envoient à Claude (fonction « Envoyer à Claude » de claude.ai). La session, qui surveille l'artefact, est réveillée par un tour `[Artifact comment sent to Claude]`. Tous les envois vont dans **un seul fil** (identifiant gardé dans `meta/channel`, champ `threadId`).
+À la réception : 1) lire le fil avec `ArtifactComments` (`read`), 2) répondre par un court accusé dans le fil (`reply`), 3) travailler et tenir la base à jour, 4) ne **pas** résoudre le fil, la conversation continue. Un message dépasse rarement 4 Ko : les détails du protocole sont ici, pas dans le message.
+(Le connecteur « Claude Code Remote » a été abandonné : il ne se charge pas depuis le compte de Leopold.)
+
 - Artefact : https://claude.ai/artifact/8hLF4hUjzxpN9Z85fKSvaT (copie du code : `contre-prompt/studio/studio.html`)
 - Les vidéos vivent dans `contre-prompt/<id>/` (`<id>` = sujet sans accents, en minuscules, séparé par des tirets).
 - La première vidéo (`pourquoi-la-mer-est-salee`) est la référence de format et de qualité.
@@ -27,6 +31,7 @@ Lecture et écriture avec l'outil `ArtifactData` (url de l'artefact ci-dessus). 
 | `ideas/<id>` | Claude (création), page (statut) | `title` (la question), `hook`, `angle`, `why`, `check`, `status: proposed\|chosen\|dismissed`, `batch`, `createdAt`, `videoId?` |
 | `audio/<id>-<n>` | page | morceaux base64 (`b64`) de l'enregistrement de Leopold, `videoId`, `n`, `total`, `type` |
 | `requests/*` | page | journal des messages envoyés |
+| `meta/channel` | page | `threadId` du fil de commentaires utilisé pour parler à Claude |
 
 Étapes (`stage`) : 0 Sujet choisi · 1 En création · 2 À relire · 3 Attente audio · 4 Montage final · 5 Terminée.
 

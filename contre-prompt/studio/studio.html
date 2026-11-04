@@ -208,7 +208,6 @@ video { max-height: 70vh; aspect-ratio: 9 / 16; object-fit: contain; }
 
 <script>
 const SESSION = 'session_01K2LpZGXYMQ5BcetmRb91bN';
-const SERVER = 'Claude Code Remote';
 const SESSION_URL = 'https://claude.ai/code/' + SESSION;
 const ARTIFACT_URL = 'https://claude.ai/artifact/8hLF4hUjzxpN9Z85fKSvaT';
 const STAGES = ['Sujet choisi', 'En création', 'À relire', 'Attente audio', 'Montage final', 'Terminée'];
@@ -216,7 +215,7 @@ const CHECKS = [['voix', 'Voix off'], ['video', 'Vidéo sans voix'], ['legende',
 const CHUNK = 150000;
 
 const S = { videos: new Map(), jobs: new Map(), media: new Map(), texts: new Map(), ideas: new Map(), requests: [], tab: 'suivi', sel: null, ttab: 'voix', read: false, dbState: 'loading' };
-let db = null, mcp = null, downloads = null;
+let db = null, downloads = null;
 const drafts = {}, sig = {}, audio = { state: 'idle', pct: 0, url: null, vid: null, msg: '' };
 
 const $ = s => document.querySelector(s);
@@ -229,42 +228,49 @@ function setHTML(id, html, key) { const k = key == null ? html : key; if (sig[id
 const job = (id, kind) => { const j = S.jobs.get(id); return j && j[kind] ? j[kind] : null; };
 const running = j => j && j.state === 'running';
 
-/* ---------- liaison avec la session Claude Code ---------- */
+/* ---------- liaison avec la session Claude Code : commentaires « envoyés à Claude » ---------- */
+let comments = null, canSend = 'off';
+const cut = (t, n) => { const u = new TextEncoder().encode(t); return u.length <= n ? t : new TextDecoder().decode(u.slice(0, n)).replace(/\uFFFD$/, '') + '…'; };
 function setLink(state, text, task) {
   $('#linkpill').dataset.s = state; $('#linktext').textContent = text; $('#tasktext').textContent = task || '';
   const a = $('#linkact'); a.innerHTML = '';
-  if (state === 'consent') { const b = document.createElement('button'); b.className = 'btn primary small'; b.textContent = 'Autoriser le lien'; b.onclick = connect; a.appendChild(b); }
-  if (state !== 'unavailable') { const l = document.createElement('a'); l.href = SESSION_URL; l.target = '_blank'; l.rel = 'noopener'; l.className = 'mono'; l.textContent = 'Ouvrir la session'; a.appendChild(l); }
+  const l = document.createElement('a'); l.href = SESSION_URL; l.target = '_blank'; l.rel = 'noopener'; l.className = 'mono'; l.textContent = 'Ouvrir la session'; a.appendChild(l);
 }
-function onSession(ev) {
-  if (ev.type === 'data') {
-    const c = (ev.result.payload && ev.result.payload.ccr) || {}, k = String(c.status_bucket || '').replace('SESSION_STATUS_BUCKET_', '');
-    const m = ({ WORKING: ['working', 'Claude Code travaille'], BLOCKED: ['blocked', 'Claude Code attend une réponse'], REVIEW_READY: ['idle', 'Claude Code a fini'], COMPLETED: ['done', 'Claude Code a terminé'], FAILED: ['error', 'Claude Code a rencontré une erreur'] })[k] || ['idle', 'Claude Code au repos'];
-    setLink(m[0], m[1], m[0] === 'working' && c.task_summary ? String(c.task_summary).slice(0, 110) : (c.updated_at ? 'Dernière activité ' + rel(Date.parse(c.updated_at)) : '')); return;
-  }
-  const code = ev.error && ev.error.code;
-  if (['approval_required', 'not_in_manifest', 'consent_required'].includes(code)) setLink('consent', 'Claude Code : accès à autoriser');
-  else if (code === 'server_not_connected') setLink('error', 'Ajoute le connecteur Claude Code Remote dans Réglages › Connecteurs');
-  else if (code === 'needs_reauth') setLink('error', 'Reconnecte Claude Code Remote dans Réglages › Connecteurs');
-  else if (code === 'tool_error') setLink('error', 'La session ne répond pas (archivée ?)');
-  else if (!(ev.error && ev.error.retryable)) setLink('error', 'Claude Code : lien indisponible (' + (code || 'erreur') + ')');
+function refreshLink() {
+  if (!comments) { setLink('error', 'Claude Code : liaison indisponible dans cette vue'); return; }
+  const rows = [...S.jobs.entries()].map(([id, j]) => ({ id, j: running(j.creation) ? j.creation : running(j.montage) ? j.montage : null })).filter(x => x.j);
+  if (rows.length) { const x = rows[0], v = S.videos.get(x.id); setLink('working', 'Claude Code travaille', (v ? v.title + ' · ' : '') + (x.j.step || '') + ' · ' + (+x.j.pct || 0) + ' %'); return; }
+  const last = Math.max(0, ...[...S.jobs.values()].flatMap(j => [j.creation, j.montage]).filter(Boolean).map(x => x.updatedAt || 0));
+  if (canSend === 'available') setLink('idle', 'Claude Code relié', last ? 'Dernière mise à jour ' + rel(last) : '');
+  else if (canSend === 'no_session') setLink('blocked', "Aucune session Claude Code à l'écoute", 'Rouvre la session pour la réveiller.');
+  else if (canSend === 'writers_only') setLink('error', 'Lecture seule : seuls les éditeurs peuvent envoyer', '');
+  else setLink('error', "L'envoi à Claude Code est désactivé ici", '');
 }
-async function connect() { if (!mcp) return; try { await mcp.callTool(SERVER, 'get_session', { session_id: SESSION }, { cache: false }); await mcp.invalidate(SERVER, 'get_session').catch(() => {}); } catch (e) { onSession({ type: 'error', error: e }); } }
+async function checkSend() { if (!comments) return; try { canSend = await comments.canSendToClaude(); } catch (e) { canSend = 'off'; } refreshLink(); }
 function errText(c) {
-  return ({ approval_required: 'Autorise d\'abord le lien avec Claude Code (bouton en haut).', not_in_manifest: 'Le lien avec Claude Code n\'est pas autorisé pour cette page.', consent_required: 'Autorise d\'abord le lien avec Claude Code.',
-    server_not_connected: 'Le connecteur Claude Code Remote n\'est pas ajouté à ton compte.', needs_reauth: 'Reconnecte le connecteur Claude Code Remote dans claude.ai.', tool_error: 'La session a refusé le message (archivée ou arrêtée ?).',
-    indisponible: 'Le lien avec Claude Code n\'est pas disponible dans cette vue : ouvre la page dans claude.ai.' })[c] || 'Envoi impossible (' + c + ').';
+  return ({ consent_required: 'Autorise la page à envoyer des commentaires en ton nom (fenêtre de claude.ai), puis recommence.', forbidden: 'Les commentaires depuis la page sont désactivés pour toi ici. Réactive-les dans le panneau des commentaires de claude.ai.',
+    claude_unavailable: 'Aucune session Claude Code ne peut recevoir le message maintenant : rouvre la session.', rate_limited: 'Trop rapide : attends quelques secondes et recommence.', unavailable: 'Les commentaires sont momentanément indisponibles. Recommence dans un instant.',
+    not_granted: 'L\'envoi à Claude Code n\'est pas disponible dans cette vue : ouvre la page dans claude.ai.', capability_disabled: 'L\'envoi à Claude Code n\'est pas disponible dans cette vue : ouvre la page dans claude.ai.', indisponible: 'L\'envoi à Claude Code n\'est pas disponible dans cette vue : ouvre la page dans claude.ai.',
+    invalid: 'Le message a été refusé (trop long ?).' })[c] || 'Envoi impossible (' + c + ').';
 }
-async function send(kind, videoId, message) {
-  let ref = null; const rec = { videoId: videoId || '', kind, message, at: Date.now(), state: 'pending' };
-  if (db) { try { ref = db.collection('requests').doc(); await ref.set(rec); } catch (e) { ref = null; } }
-  let err = null;
-  if (!mcp) err = 'indisponible'; else { try { await mcp.callTool(SERVER, 'send_message', { session_id: SESSION, message }); } catch (e) { err = (e && e.code) || 'erreur'; } }
-  const state = err ? 'failed' : 'sent'; if (ref) { try { await ref.update({ state, error: err || null }); } catch (e) {} }
-  return { state, err };
+async function send(kind, videoId, message, anchorP) {
+  const text = cut(message, 3900); let err = null;
+  if (!comments) err = 'indisponible';
+  else {
+    try {
+      let res = null, tid = S.channel && S.channel.threadId;
+      if (tid) { try { res = await comments.sendToClaude({ threadId: tid, text }); } catch (e) { if (!e || e.code !== 'not_found') throw e; } }
+      if (!res) { const anchor = anchorP ? await anchorP : null; if (!anchor) throw { code: 'invalid' }; res = await comments.sendToClaude({ anchor, text }); }
+      if (res.threadId !== tid) S.channel = { threadId: res.threadId };
+      if (db && res.threadId !== tid) { try { await db.doc('meta/channel').set({ threadId: res.threadId, at: Date.now() }); } catch (e) {} }
+    } catch (e) { err = (e && e.code) || 'erreur'; }
+  }
+  const state = err ? 'failed' : 'sent';
+  if (db) { try { await db.collection('requests').doc().set({ videoId: videoId || '', kind, message: text, at: Date.now(), state, error: err || null }); } catch (e) {} }
+  checkSend(); return { state, err };
 }
 const HEAD = '[Studio Contre-Prompt] ';
-const TAIL = '\nArtefact (base de données) : ' + ARTIFACT_URL + '\nProcédure et protocole de la base : contre-prompt/PROCEDURE.md dans le dépôt.';
+const TAIL = '\nArtefact : ' + ARTIFACT_URL + ' · protocole : contre-prompt/PROCEDURE.md';
 async function patch(id, data) { if (!db) return false; try { await db.doc('videos/' + id).update(Object.assign({ updatedAt: Date.now() }, data)); return true; } catch (e) { return false; } }
 
 /* ---------- navigation ---------- */
@@ -412,6 +418,8 @@ async function newVideo(title, extra) {
 }
 document.addEventListener('click', async e => {
   const q = sel => e.target.closest(sel);
+  const btnEl = e.target.closest && e.target.closest('.btn');
+  const anchorP = (comments && btnEl) ? comments.anchorFor(btnEl).catch(() => null) : Promise.resolve(null);
   let el;
   if ((el = q('[data-tab]'))) { go(el.dataset.tab); return; }
   if ((el = q('[data-open]'))) { go('video', el.dataset.open); return; }
@@ -426,39 +434,38 @@ document.addEventListener('click', async e => {
 
   if (e.target.id === 'btn-ideas') {
     const theme = $('#theme').value.trim(); e.target.disabled = true; say('#ideamsg', 'Envoi à Claude Code…');
-    const r = await send('sujets', '', HEAD + 'ACTION=proposer_sujets count=6' + (theme ? ' theme="' + theme + '"' : '') + '\nPropose 6 sujets de mini-docs (questions du quotidien, une révélation nette, émerveillement ou surprise, montrable en animation). Ne copie pas les vidéos déjà faites. Écris chaque sujet dans la base de l\'artefact : collection ideas, un document par sujet, champs title (la question), hook (une première phrase possible, formulée comme hypothèse tant que rien n\'est vérifié), angle (le personnage ou la situation qui porte le récit), why (pourquoi on l\'envoie à quelqu\'un), check (ce qu\'il faudra vérifier dans les sources), status="proposed", batch, createdAt.' + TAIL);
+    const r = await send('sujets', '', HEAD + 'ACTION=proposer_sujets count=6' + (theme ? ' theme="' + theme + '"' : '') + '\nPropose 6 sujets de mini-docs (questions du quotidien, une révélation nette, émerveillement ou surprise, montrable en animation). Ne copie pas les vidéos déjà faites. Écris chaque sujet dans la base de l\'artefact : collection ideas, un document par sujet, champs title (la question), hook (une première phrase possible, formulée comme hypothèse tant que rien n\'est vérifié), angle (le personnage ou la situation qui porte le récit), why (pourquoi on l\'envoie à quelqu\'un), check (ce qu\'il faudra vérifier dans les sources), status="proposed", batch, createdAt.' + TAIL, anchorP);
     say('#ideamsg', r.state === 'sent' ? 'Demande envoyée. Les sujets apparaissent ici dès que Claude Code les a écrits.' : errText(r.err), r.state === 'sent' ? 'ok' : 'err'); e.target.disabled = false; return;
   }
   const v = S.videos.get(S.sel);
   if (e.target.id === 'btn-create' && v) {
     e.target.disabled = true; drafts._cmsg = { t: 'Envoi à Claude Code…', k: '' }; say('#cmsg', 'Envoi à Claude Code…');
-    await patch(S.sel, { stage: 1 });
     const r = await send('creation', S.sel, HEAD + 'ACTION=creer_video id=' + S.sel + '\nSujet : « ' + v.title + ' »' + (v.angle ? '\nAngle : ' + v.angle : '') + (v.summary ? '\nAccroche envisagée : ' + v.summary : '') +
-      '\nCrée la vidéo de bout en bout : recherches (sources lues, aucun chiffre de mémoire), voix off que je lirai moi-même (45 s à 1 min 15, nombres en lettres), vidéo animée 9:16 sans voix avec sous-titres, légende Instagram avec sources, fiche de sources, couverture. Range tout dans ' + (v.folder || 'contre-prompt/' + S.sel) + '/.\nTiens à jour la barre d\'avancement : document jobs/' + S.sel + ', champ creation {state, pct, step, steps[{label,state}], updatedAt}. Quand c\'est fini : media/' + S.sel + ', texts/' + S.sel + ', stage=2 dans videos/' + S.sel + '.' + TAIL);
-    drafts._cmsg = { t: r.state === 'sent' ? 'Envoyé. Claude Code démarre : la barre d\'avancement va apparaître.' : errText(r.err), k: r.state === 'sent' ? 'ok' : 'err' }; if (r.state === 'failed') await patch(S.sel, { stage: 0 });
+      '\nCrée la vidéo de bout en bout : recherches (sources lues, aucun chiffre de mémoire), voix off que je lirai moi-même (45 s à 1 min 15, nombres en lettres), vidéo animée 9:16 sans voix avec sous-titres, légende Instagram avec sources, fiche de sources, couverture. Range tout dans ' + (v.folder || 'contre-prompt/' + S.sel) + '/.\nTiens à jour la barre d\'avancement : document jobs/' + S.sel + ', champ creation {state, pct, step, steps[{label,state}], updatedAt}. Quand c\'est fini : media/' + S.sel + ', texts/' + S.sel + ', stage=2 dans videos/' + S.sel + '.' + TAIL, anchorP);
+    drafts._cmsg = { t: r.state === 'sent' ? 'Envoyé. Claude Code démarre : la barre d\'avancement va apparaître.' : errText(r.err), k: r.state === 'sent' ? 'ok' : 'err' }; if (r.state === 'sent') await patch(S.sel, { stage: 1 });
     say('#cmsg', drafts._cmsg.t, drafts._cmsg.k); sig['#v-create'] = null; renderVideo(); return;
   }
   if (e.target.id === 'btn-changes' && v) {
     const todo = CHECKS.filter(([k]) => !(v.checks && v.checks[k])).map(x => x[1]), note = (drafts['n' + S.sel] != null ? drafts['n' + S.sel] : v.note || '').trim();
     if (!note) { drafts._rmsg = { t: 'Écris une note pour dire ce qui doit changer.', k: 'err' }; say('#rmsg', drafts._rmsg.t, 'err'); return; }
-    e.target.disabled = true; say('#rmsg', 'Envoi à Claude Code…'); await patch(S.sel, { note, stage: 1 });
-    const r = await send('changements', S.sel, HEAD + 'ACTION=changements id=' + S.sel + '\nChangements demandés sur « ' + v.title + ' » (dossier ' + (v.folder || 'contre-prompt/' + S.sel) + ').' + (todo.length ? '\nLivrables pas encore validés : ' + todo.join(', ') + '.' : '') + '\nNotes de relecture : ' + note + '\nCorrige, repousse sur la branche, mets à jour jobs/' + S.sel + ' (creation) et media/texts si les fichiers changent, puis remets stage=2 dans videos/' + S.sel + '.' + TAIL);
-    drafts._rmsg = { t: r.state === 'sent' ? 'Envoyé. Claude Code reprend le travail.' : errText(r.err), k: r.state === 'sent' ? 'ok' : 'err' }; if (r.state === 'failed') await patch(S.sel, { stage: 2 });
+    e.target.disabled = true; say('#rmsg', 'Envoi à Claude Code…'); await patch(S.sel, { note });
+    const r = await send('changements', S.sel, HEAD + 'ACTION=changements id=' + S.sel + '\nChangements demandés sur « ' + v.title + ' » (dossier ' + (v.folder || 'contre-prompt/' + S.sel) + ').' + (todo.length ? '\nLivrables pas encore validés : ' + todo.join(', ') + '.' : '') + '\nNotes de relecture : ' + cut(note, 2200) + '\nCorrige, repousse sur la branche, mets à jour jobs/' + S.sel + ' (creation) et media/texts si les fichiers changent, puis remets stage=2 dans videos/' + S.sel + '.' + TAIL, anchorP);
+    drafts._rmsg = { t: r.state === 'sent' ? 'Envoyé. Claude Code reprend le travail.' : errText(r.err), k: r.state === 'sent' ? 'ok' : 'err' }; if (r.state === 'sent') await patch(S.sel, { stage: 1 });
     say('#rmsg', drafts._rmsg.t, drafts._rmsg.k); return;
   }
   if (e.target.id === 'btn-validate' && v) {
-    e.target.disabled = true; say('#rmsg', 'Validation…'); await patch(S.sel, { stage: 3, validatedAt: Date.now() });
-    const r = await send('validation', S.sel, HEAD + 'ACTION=validee id=' + S.sel + '\n« ' + v.title + ' » est validée : les ' + CHECKS.length + ' livrables sont relus et bons. Rien à modifier. J\'enregistre la voix off, puis je déposerai l\'audio dans le studio.' + TAIL);
+    e.target.disabled = true; say('#rmsg', 'Validation…'); const r = await send('validation', S.sel, HEAD + 'ACTION=validee id=' + S.sel + '\n« ' + v.title + ' » est validée : les ' + CHECKS.length + ' livrables sont relus et bons. Rien à modifier. J\'enregistre la voix off, puis je déposerai l\'audio dans le studio.' + TAIL, anchorP);
+    await patch(S.sel, { stage: 3, validatedAt: Date.now() });
     drafts._rmsg = { t: r.state === 'sent' ? 'Validée, Claude Code est prévenu. Enregistre ta voix off, puis dépose l\'audio.' : 'Validée dans le suivi. ' + errText(r.err), k: r.state === 'sent' ? 'ok' : 'err' }; say('#rmsg', drafts._rmsg.t, drafts._rmsg.k); return;
   }
   if (e.target.id === 'btn-copy') { const t = $('#tbox'); try { await navigator.clipboard.writeText(t.textContent); say('#copymsg', 'Copié.', 'ok'); } catch (x) { const r = document.createRange(); r.selectNodeContents(t); const s = getSelection(); s.removeAllRanges(); s.addRange(r); say('#copymsg', 'Texte sélectionné : copie-le avec ton clavier.', ''); } return; }
   if (e.target.id === 'btn-read') { S.read = !S.read; renderVideo(); return; }
   if (e.target.id === 'btn-listen') { await listen(S.sel); return; }
   if (e.target.id === 'btn-montage' && v && v.audio) {
-    e.target.disabled = true; say('#amsg', 'Envoi à Claude Code…'); await patch(S.sel, { stage: 4 }); const a = v.audio;
+    e.target.disabled = true; say('#amsg', 'Envoi à Claude Code…'); const a = v.audio;
     const r = await send('montage', S.sel, HEAD + 'ACTION=monter_rendu_final id=' + S.sel + '\nMon audio est déposé pour « ' + v.title + ' ». Fichier : ' + a.name + ' (' + a.type + ', ' + a.size + ' octets), ' + a.chunks + ' morceaux base64 dans les documents audio/' + S.sel + '-0 à audio/' + S.sel + '-' + (a.chunks - 1) + ' (champ b64, à concaténer dans l\'ordre de n).' +
-      '\nMonte le rendu final : reconstruis l\'audio, mesure le rythme réel de ma lecture, recale l\'animation dessus, assemble vidéo et voix, exporte, dépose le rendu dans media/' + S.sel + ' (finalUrl et hq.final). Tiens à jour la barre : jobs/' + S.sel + ', champ montage {state, pct, step, steps, updatedAt}. À la fin : stage=5 dans videos/' + S.sel + '.' + TAIL);
-    say('#amsg', r.state === 'sent' ? 'Envoyé. Claude Code monte le rendu : la barre d\'avancement apparaît ci-dessus.' : errText(r.err), r.state === 'sent' ? 'ok' : 'err'); if (r.state === 'failed') await patch(S.sel, { stage: 3 }); return;
+      '\nMonte le rendu final : reconstruis l\'audio, mesure le rythme réel de ma lecture, recale l\'animation dessus, assemble vidéo et voix, exporte, dépose le rendu dans media/' + S.sel + ' (finalUrl et hq.final). Tiens à jour la barre : jobs/' + S.sel + ', champ montage {state, pct, step, steps, updatedAt}. À la fin : stage=5 dans videos/' + S.sel + '.' + TAIL, anchorP);
+    say('#amsg', r.state === 'sent' ? 'Envoyé. Claude Code monte le rendu : la barre d\'avancement apparaît ci-dessus.' : errText(r.err), r.state === 'sent' ? 'ok' : 'err'); if (r.state === 'sent') await patch(S.sel, { stage: 4 }); return;
   }
   if (e.target.id === 'btn-dl') { const m = S.media.get(S.sel) || {}; say('#dlmsg', 'Préparation du fichier…'); try { downloads = downloads || await claude.use('downloads'); if (!downloads) throw { code: 'unavailable' }; const r = await fetch(m.finalUrl); const b = await r.blob(); await downloads.save({ filename: S.sel + '_rendu-final.mp4', data: b }); say('#dlmsg', 'Enregistré.', 'ok'); } catch (x) { say('#dlmsg', x && x.code === 'declined' ? 'Téléchargement annulé.' : 'Téléchargement impossible ici : utilise « Ouvrir dans un onglet ».', 'err'); } return; }
 });
@@ -525,11 +532,8 @@ setInterval(() => { sig['#board'] = null; render(); }, 60000);
   const slow = setTimeout(() => { if (S.dbState === 'loading') { S.dbState = 'slow'; render(); } }, 10000), fail = () => { S.dbState = 'absent'; render(); };
   const listen2 = (name, key, after) => db.collection(name).onSnapshot(snap => { clearTimeout(slow); if (S.dbState === 'loading') S.dbState = 'ready'; S[key] = new Map(snap.docs.map(d => [d.id, d.data()])); if (after) after(); render(); }, fail);
   listen2('videos', 'videos', () => { if (!S.sel || !S.videos.has(S.sel)) { if (S.tab !== 'video' || !S.videos.has(S.sel)) S.sel = [...S.videos.entries()].sort((a, b) => (b[1].updatedAt || 0) - (a[1].updatedAt || 0)).map(x => x[0])[0] || null; } });
-  listen2('jobs', 'jobs'); listen2('media', 'media'); listen2('texts', 'texts'); listen2('ideas', 'ideas');
+  listen2('jobs', 'jobs', refreshLink); db.doc('meta/channel').onSnapshot(sn => { S.channel = sn.exists ? sn.data() : null; }, () => {}); listen2('media', 'media'); listen2('texts', 'texts'); listen2('ideas', 'ideas');
   db.collection('requests').orderBy('at', 'desc').limit(60).onSnapshot(snap => { S.requests = snap.docs.map(d => d.data()); if (S.tab === 'video') renderVideo(); }, () => {});
 })();
-(async () => {
-  mcp = await claude.use('mcp'); if (!mcp) { setLink('unavailable', 'Claude Code : lien indisponible dans cette vue'); return; }
-  mcp.watchTool(SERVER, 'get_session', { session_id: SESSION }, onSession, { refetchInterval: 30000 });
-})();
+(async () => { comments = await claude.use('comments'); await checkSend(); setInterval(checkSend, 60000); })();
 </script>

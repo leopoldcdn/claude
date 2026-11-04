@@ -1,0 +1,535 @@
+<title>Studio Contre-Prompt</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Plan : table de montage. Papier gris-bleu et encre marine ; le corail du papier découpé est la seule couleur d'action. Titres en Bricolage, texte en Instrument Sans, repères techniques (étapes, durées, pourcentages) en mono. */
+:root {
+  --bg: #eceff3; --surface: #f6f8fa; --raised: #ffffff; --ink: #0f1a2a; --muted: #566377; --line: #d3dae3;
+  --accent: #d9472f; --accent-ink: #ffffff; --sea: #17719a; --ok: #25794d; --warn: #9a6400; --bad: #b3261e;
+  --display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --body: 'Instrument Sans', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0b121c; --surface: #111b29; --raised: #172438; --ink: #e7edf5; --muted: #93a1b5; --line: #25344a;
+  --accent: #ff7a5f; --accent-ink: #1a0c08; --sea: #5cc0ea; --ok: #58c58a; --warn: #e0a53a; --bad: #ff8a80; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0b121c; --surface: #111b29; --raised: #172438; --ink: #e7edf5; --muted: #93a1b5; --line: #25344a;
+  --accent: #ff7a5f; --accent-ink: #1a0c08; --sea: #5cc0ea; --ok: #58c58a; --warn: #e0a53a; --bad: #ff8a80; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); margin: 0;
+  padding-block: 20px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 18px; }
+.wrap .wrap { width: 100%; max-width: none; margin: 0; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+h1 { font-size: clamp(26px, 5vw, 36px); line-height: 1.05; font-weight: 800; }
+h2 { font-size: 19px; font-weight: 700; }
+h3 { font-size: 16px; font-weight: 700; line-height: 1.25; }
+.label { font-family: var(--mono); font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+.mono { font-family: var(--mono); font-size: 12px; }
+a { color: var(--sea); text-underline-offset: 3px; }
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--sea); outline-offset: 2px; border-radius: 4px; }
+[hidden] { display: none !important; }
+
+.top { display: grid; gap: 14px; grid-template-columns: 1fr auto; align-items: end; }
+.top p { margin: 6px 0 0; color: var(--muted); max-width: 58ch; }
+.link { display: grid; gap: 4px; justify-items: end; min-width: 0; }
+.pill { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--raised); font-size: 13px; font-weight: 600; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.pill[data-s="working"] .dot { background: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
+.pill[data-s="idle"] .dot, .pill[data-s="done"] .dot { background: var(--ok); }
+.pill[data-s="blocked"] .dot, .pill[data-s="error"] .dot { background: var(--bad); }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .pill[data-s="working"] .dot, .bar.run i::after { animation: none !important; } }
+.task { font-size: 12px; color: var(--muted); max-width: 46ch; text-align: right; overflow-wrap: anywhere; }
+@media (max-width: 760px) { .top { grid-template-columns: 1fr; } .link { justify-items: start; } .task { text-align: left; } }
+
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tab { appearance: none; border: 0; background: none; padding: 10px 14px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; margin-bottom: -1px; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tab .n { font-family: var(--mono); font-size: 11px; background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 1px 7px; margin-left: 6px; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 14px; min-width: 0; }
+.panel > header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.empty { border: 1px dashed var(--line); border-radius: 10px; padding: 14px; color: var(--muted); }
+.msg { font-size: 13.5px; color: var(--muted); min-height: 20px; overflow-wrap: anywhere; }
+.msg[data-k="err"] { color: var(--bad); } .msg[data-k="ok"] { color: var(--ok); }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.btn { appearance: none; border: 1px solid var(--line); background: var(--raised); border-radius: 9px; padding: 9px 14px; font-weight: 600; cursor: pointer; min-height: 40px; }
+.btn:hover:not(:disabled) { border-color: var(--sea); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.06); }
+.btn.small { min-height: 32px; padding: 4px 10px; font-size: 13px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+input[type="text"], textarea { width: 100%; background: var(--raised); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; min-width: 0; }
+textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
+
+/* suivi : tableau */
+.board { display: grid; grid-template-columns: repeat(6, minmax(190px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
+.col { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: grid; gap: 8px; align-content: start; min-height: 150px; scroll-snap-align: start; }
+.col > header { display: flex; justify-content: space-between; align-items: baseline; }
+.col .cnt { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.card { appearance: none; text-align: left; width: 100%; background: var(--raised); border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: grid; gap: 6px; cursor: pointer; }
+.card:hover { border-color: var(--sea); }
+.card b { font-family: var(--display); font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.card small { color: var(--muted); font-size: 12px; }
+.card.need { box-shadow: inset 3px 0 0 var(--accent); }
+.tag { font-family: var(--mono); font-size: 10.5px; padding: 2px 7px; border-radius: 6px; width: fit-content; background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+
+/* barres d'avancement */
+.bar { height: 12px; border-radius: 7px; background: var(--line); overflow: hidden; position: relative; }
+.bar i { display: block; height: 100%; border-radius: 7px; background: var(--accent); position: relative; transition: width .6s ease; }
+.bar.run i::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.38), transparent); animation: sweep 1.6s linear infinite; }
+.bar.done i { background: var(--ok); }
+@keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.bar.sm { height: 7px; }
+.jobhead { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.steps { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.steps li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: center; color: var(--muted); }
+.steps li::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); justify-self: center; }
+.steps li[data-s="doing"] { color: var(--ink); font-weight: 600; } .steps li[data-s="doing"]::before { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.steps li[data-s="done"] { color: var(--ink); } .steps li[data-s="done"]::before { border-color: var(--ok); background: var(--ok); }
+
+/* sujets */
+.ideas { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.idea { background: var(--raised); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 8px; align-content: start; }
+.idea .hook { font-style: italic; color: var(--ink); margin: 0; }
+.idea dl { margin: 0; display: grid; gap: 4px; font-size: 13.5px; }
+.idea dt { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.idea dd { margin: 0 0 4px; color: var(--ink); }
+.idea[data-st="chosen"] { border-color: var(--ok); }
+
+/* vidéo */
+.dhead { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; }
+.dhead img { width: 84px; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); display: block; }
+.dhead p { margin: 4px 0 0; color: var(--muted); }
+.facts { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; }
+.facts span { font-family: var(--mono); font-size: 12px; color: var(--muted); } .facts b { color: var(--ink); font-weight: 500; }
+.next { border-left: 3px solid var(--accent); padding: 8px 12px; background: color-mix(in srgb, var(--accent) 9%, transparent); border-radius: 0 8px 8px 0; font-weight: 500; }
+.track { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.step { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; text-align: left; display: grid; gap: 5px; min-width: 0; }
+.step i { display: block; height: 7px; border-radius: 4px; background: var(--line); }
+.step[data-state="done"] i { background: var(--sea); } .step[data-state="now"] i { background: var(--accent); }
+.step span { font-family: var(--mono); font-size: 10.5px; color: var(--muted); line-height: 1.2; overflow-wrap: anywhere; }
+.step[data-state="now"] span { color: var(--ink); font-weight: 500; }
+@media (max-width: 520px) { .step span { display: none; } .step[data-state="now"] span { display: block; grid-column: 1 / -1; } .track { row-gap: 8px; } }
+.media { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 640px) { .media { grid-template-columns: minmax(0, 1fr); } }
+video, audio { width: 100%; display: block; border-radius: 10px; background: #000; }
+audio { background: none; }
+video { max-height: 70vh; aspect-ratio: 9 / 16; object-fit: contain; }
+.links { display: grid; gap: 8px; align-content: start; }
+.links a.l { display: flex; justify-content: space-between; gap: 10px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--raised); text-decoration: none; color: var(--ink); font-weight: 500; }
+.links a.l:hover { border-color: var(--sea); } .links a.l span { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+.ttabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.ttab { appearance: none; border: 1px solid var(--line); background: var(--raised); border-radius: 999px; padding: 5px 13px; font-weight: 600; cursor: pointer; font-size: 13.5px; }
+.ttab[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tbox { background: var(--raised); border: 1px solid var(--line); border-radius: 10px; padding: 14px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow: auto; font-size: 14.5px; line-height: 1.6; }
+.tbox.read { font-size: 22px; line-height: 1.75; max-height: 70vh; }
+.checks { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.check { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; padding: 9px 11px; background: var(--raised); border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.check input { width: 20px; height: 20px; accent-color: var(--ok); margin: 0; } .check[data-ok="1"] { border-color: color-mix(in srgb, var(--ok) 55%, var(--line)); }
+.drop { border: 2px dashed var(--line); border-radius: 12px; padding: 18px; text-align: center; background: var(--raised); display: grid; gap: 8px; justify-items: center; }
+.drop.over { border-color: var(--accent); }
+.drop input { max-width: 100%; }
+.reqs { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.req { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; font-size: 13.5px; padding: 8px 0; border-top: 1px solid var(--line); }
+.req:first-child { border-top: 0; }
+.req .k { font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line); white-space: nowrap; }
+.req .k[data-st="sent"] { color: var(--ok); border-color: var(--ok); } .req .k[data-st="failed"] { color: var(--bad); border-color: var(--bad); } .req .k[data-st="pending"] { color: var(--warn); border-color: var(--warn); }
+.req p { margin: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.how { color: var(--muted); font-size: 13.5px; }
+.how code { font-family: var(--mono); font-size: 12px; background: var(--raised); border: 1px solid var(--line); padding: 1px 6px; border-radius: 5px; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="label">Atelier mini-docs</div>
+      <h1>Studio Contre-Prompt</h1>
+      <p>Choisis un sujet, suis la fabrication, relis, dépose ta voix, récupère le rendu final. Claude Code travaille dans sa session et met cette page à jour.</p>
+    </div>
+    <div class="link">
+      <div class="pill" id="linkpill" data-s="off"><span class="dot"></span><span id="linktext">Claude Code : liaison en cours…</span></div>
+      <div class="task" id="tasktext"></div>
+      <div class="actions" id="linkact"></div>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab" role="tab" data-tab="suivi" aria-selected="true">Suivi</button>
+    <button class="tab" role="tab" data-tab="sujets" aria-selected="false">Sujets<span class="n" id="ideacount" hidden></span></button>
+    <button class="tab" role="tab" data-tab="video" aria-selected="false" id="tabvideo">Vidéo</button>
+  </nav>
+
+  <!-- SUIVI -->
+  <section id="p-suivi" class="wrap" style="gap:14px">
+    <div class="board" id="board" aria-label="Tableau de suivi"></div>
+    <div class="msg" id="boardmsg"></div>
+  </section>
+
+  <!-- SUJETS -->
+  <section id="p-sujets" class="wrap" hidden style="gap:14px">
+    <div class="panel">
+      <header><h2>Demander des sujets</h2><span class="label">Claude Code propose, tu choisis</span></header>
+      <div class="actions" style="align-items:stretch">
+        <input type="text" id="theme" autocomplete="off" maxlength="120" placeholder="Un thème ou une envie (facultatif) : corps humain, espace, cuisine…" style="flex:1 1 280px">
+        <button class="btn primary" id="btn-ideas">Proposer 6 sujets</button>
+      </div>
+      <div class="msg" id="ideamsg" role="status"></div>
+    </div>
+    <div class="ideas" id="ideas"></div>
+    <details class="panel" id="dismissed" hidden><summary class="label" style="cursor:pointer">Sujets écartés</summary><div class="ideas" id="ideas-off" style="margin-top:12px"></div></details>
+    <form class="panel" id="ownform">
+      <header><h2>Ton propre sujet</h2><span class="label">Sans passer par les propositions</span></header>
+      <div class="actions" style="align-items:stretch">
+        <input type="text" id="own" autocomplete="off" maxlength="140" placeholder="Ex. Pourquoi le ciel est bleu ?" style="flex:1 1 280px">
+        <button class="btn" type="submit">Ajouter au suivi</button>
+      </div>
+      <div class="msg" id="ownmsg" role="status"></div>
+    </form>
+  </section>
+
+  <!-- VIDÉO -->
+  <section id="p-video" class="wrap" hidden style="gap:14px">
+    <div class="panel" id="v-head"></div>
+    <div class="panel" id="v-create"></div>
+    <div class="panel" id="v-media"></div>
+    <div class="panel" id="v-texts"></div>
+    <div class="panel" id="v-review"></div>
+    <div class="panel" id="v-audio"></div>
+    <div class="panel" id="v-final"></div>
+    <div class="panel" id="v-log"></div>
+  </section>
+
+  <p class="how">Le suivi vit dans la base de cette page. Claude Code y écrit l'avancement, les sujets, les aperçus et les textes depuis sa session (<code>jobs/…</code>, <code>ideas/…</code>, <code>media/…</code>, <code>texts/…</code>). Tes choix, cases cochées, notes et audio y sont aussi.</p>
+</div>
+
+<script>
+const SESSION = 'session_01K2LpZGXYMQ5BcetmRb91bN';
+const SERVER = 'Claude Code Remote';
+const SESSION_URL = 'https://claude.ai/code/' + SESSION;
+const ARTIFACT_URL = 'https://claude.ai/artifact/8hLF4hUjzxpN9Z85fKSvaT';
+const STAGES = ['Sujet choisi', 'En création', 'À relire', 'Attente audio', 'Montage final', 'Terminée'];
+const CHECKS = [['voix', 'Voix off'], ['video', 'Vidéo sans voix'], ['legende', 'Légende'], ['sources', 'Fiche de sources'], ['couverture', 'Couverture']];
+const CHUNK = 150000;
+
+const S = { videos: new Map(), jobs: new Map(), media: new Map(), texts: new Map(), ideas: new Map(), requests: [], tab: 'suivi', sel: null, ttab: 'voix', read: false, dbState: 'loading' };
+let db = null, mcp = null, downloads = null;
+const drafts = {}, sig = {}, audio = { state: 'idle', pct: 0, url: null, vid: null, msg: '' };
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const rel = ms => { if (!ms) return ''; const m = Math.round((Date.now() - ms) / 60000); if (m < 1) return "à l'instant"; if (m < 60) return 'il y a ' + m + ' min'; const h = Math.round(m / 60); return h < 24 ? 'il y a ' + h + ' h' : 'il y a ' + Math.round(h / 24) + ' j'; };
+const slugify = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'video';
+const say = (sel, text, k) => { const m = $(sel); if (m) { m.textContent = text; m.dataset.k = k || ''; } };
+const doneCount = v => CHECKS.filter(([k]) => v.checks && v.checks[k]).length;
+function setHTML(id, html, key) { const k = key == null ? html : key; if (sig[id] === k) return false; sig[id] = k; $(id).innerHTML = html; return true; }
+const job = (id, kind) => { const j = S.jobs.get(id); return j && j[kind] ? j[kind] : null; };
+const running = j => j && j.state === 'running';
+
+/* ---------- liaison avec la session Claude Code ---------- */
+function setLink(state, text, task) {
+  $('#linkpill').dataset.s = state; $('#linktext').textContent = text; $('#tasktext').textContent = task || '';
+  const a = $('#linkact'); a.innerHTML = '';
+  if (state === 'consent') { const b = document.createElement('button'); b.className = 'btn primary small'; b.textContent = 'Autoriser le lien'; b.onclick = connect; a.appendChild(b); }
+  if (state !== 'unavailable') { const l = document.createElement('a'); l.href = SESSION_URL; l.target = '_blank'; l.rel = 'noopener'; l.className = 'mono'; l.textContent = 'Ouvrir la session'; a.appendChild(l); }
+}
+function onSession(ev) {
+  if (ev.type === 'data') {
+    const c = (ev.result.payload && ev.result.payload.ccr) || {}, k = String(c.status_bucket || '').replace('SESSION_STATUS_BUCKET_', '');
+    const m = ({ WORKING: ['working', 'Claude Code travaille'], BLOCKED: ['blocked', 'Claude Code attend une réponse'], REVIEW_READY: ['idle', 'Claude Code a fini'], COMPLETED: ['done', 'Claude Code a terminé'], FAILED: ['error', 'Claude Code a rencontré une erreur'] })[k] || ['idle', 'Claude Code au repos'];
+    setLink(m[0], m[1], m[0] === 'working' && c.task_summary ? String(c.task_summary).slice(0, 110) : (c.updated_at ? 'Dernière activité ' + rel(Date.parse(c.updated_at)) : '')); return;
+  }
+  const code = ev.error && ev.error.code;
+  if (['approval_required', 'not_in_manifest', 'consent_required'].includes(code)) setLink('consent', 'Claude Code : accès à autoriser');
+  else if (code === 'server_not_connected') setLink('error', 'Ajoute le connecteur Claude Code Remote dans Réglages › Connecteurs');
+  else if (code === 'needs_reauth') setLink('error', 'Reconnecte Claude Code Remote dans Réglages › Connecteurs');
+  else if (code === 'tool_error') setLink('error', 'La session ne répond pas (archivée ?)');
+  else if (!(ev.error && ev.error.retryable)) setLink('error', 'Claude Code : lien indisponible (' + (code || 'erreur') + ')');
+}
+async function connect() { if (!mcp) return; try { await mcp.callTool(SERVER, 'get_session', { session_id: SESSION }, { cache: false }); await mcp.invalidate(SERVER, 'get_session').catch(() => {}); } catch (e) { onSession({ type: 'error', error: e }); } }
+function errText(c) {
+  return ({ approval_required: 'Autorise d\'abord le lien avec Claude Code (bouton en haut).', not_in_manifest: 'Le lien avec Claude Code n\'est pas autorisé pour cette page.', consent_required: 'Autorise d\'abord le lien avec Claude Code.',
+    server_not_connected: 'Le connecteur Claude Code Remote n\'est pas ajouté à ton compte.', needs_reauth: 'Reconnecte le connecteur Claude Code Remote dans claude.ai.', tool_error: 'La session a refusé le message (archivée ou arrêtée ?).',
+    indisponible: 'Le lien avec Claude Code n\'est pas disponible dans cette vue : ouvre la page dans claude.ai.' })[c] || 'Envoi impossible (' + c + ').';
+}
+async function send(kind, videoId, message) {
+  let ref = null; const rec = { videoId: videoId || '', kind, message, at: Date.now(), state: 'pending' };
+  if (db) { try { ref = db.collection('requests').doc(); await ref.set(rec); } catch (e) { ref = null; } }
+  let err = null;
+  if (!mcp) err = 'indisponible'; else { try { await mcp.callTool(SERVER, 'send_message', { session_id: SESSION, message }); } catch (e) { err = (e && e.code) || 'erreur'; } }
+  const state = err ? 'failed' : 'sent'; if (ref) { try { await ref.update({ state, error: err || null }); } catch (e) {} }
+  return { state, err };
+}
+const HEAD = '[Studio Contre-Prompt] ';
+const TAIL = '\nArtefact (base de données) : ' + ARTIFACT_URL + '\nProcédure et protocole de la base : contre-prompt/PROCEDURE.md dans le dépôt.';
+async function patch(id, data) { if (!db) return false; try { await db.doc('videos/' + id).update(Object.assign({ updatedAt: Date.now() }, data)); return true; } catch (e) { return false; } }
+
+/* ---------- navigation ---------- */
+function go(tab, id) {
+  if (id) S.sel = id; S.tab = tab;
+  for (const t of ['suivi', 'sujets', 'video']) { $('#p-' + t).hidden = t !== tab; document.querySelector('[data-tab="' + t + '"]').setAttribute('aria-selected', t === tab); }
+  try { history.replaceState(null, '', '#' + (tab === 'video' && S.sel ? 'v-' + S.sel : tab)); } catch (e) {}
+  render();
+}
+function fromHash() {
+  const h = decodeURIComponent((location.hash || '').slice(1));
+  if (h.startsWith('v-')) { S.sel = h.slice(2); S.tab = 'video'; } else if (h === 'sujets') S.tab = 'sujets'; else S.tab = 'suivi';
+}
+
+/* ---------- affichage : suivi ---------- */
+function nextTag(v, id) {
+  const s = v.stage | 0;
+  if (s === 0) return 'À lancer'; if (s === 2) return 'À relire'; if (s === 3) return 'Ton audio'; return '';
+}
+function renderBoard() {
+  const cols = STAGES.map(() => []);
+  [...S.videos.entries()].sort((a, b) => (b[1].updatedAt || 0) - (a[1].updatedAt || 0)).forEach(([id, v]) => cols[Math.min(5, v.stage | 0)].push([id, v]));
+  const html = STAGES.map((n, i) => '<div class="col"><header><span class="label">' + esc(n) + '</span><span class="cnt">' + cols[i].length + '</span></header>' +
+    (cols[i].length ? cols[i].map(([id, v]) => {
+      const jc = job(id, 'creation'), jm = job(id, 'montage'), j = running(jm) ? jm : running(jc) ? jc : null, tg = nextTag(v, id);
+      return '<button class="card' + (tg ? ' need' : '') + '" data-open="' + esc(id) + '"><b>' + esc(v.title) + '</b>' + (tg ? '<span class="tag">' + esc(tg) + '</span>' : '') +
+        (j ? '<div class="bar sm run"><i style="width:' + (+j.pct || 0) + '%"></i></div><small>' + esc(j.step || '') + ' · ' + (+j.pct || 0) + ' %</small>' : '<small>' + (i === 2 ? doneCount(v) + '/' + CHECKS.length + ' livrables relus · ' : '') + esc(rel(v.updatedAt)) + '</small>') + '</button>';
+    }).join('') : '<small class="label" style="text-transform:none;letter-spacing:0">Rien ici</small>') + '</div>').join('');
+  setHTML('#board', html, JSON.stringify([html, Math.floor(Date.now() / 60000)]));
+  const none = !S.videos.size;
+  $('#boardmsg').textContent = none ? (S.dbState === 'loading' ? 'Chargement du suivi…' : S.dbState === 'absent' ? 'Le suivi est indisponible dans cette vue : ouvre la page dans claude.ai.' : 'Aucune vidéo pour l\'instant. Va dans « Sujets » pour en choisir une.') : '';
+}
+
+/* ---------- affichage : sujets ---------- */
+function ideaCard(id, d) {
+  const dl = [['Angle', d.angle], ['Pourquoi ça se partage', d.why], ['À vérifier', d.check]].filter(x => x[1]).map(x => '<dt>' + x[0] + '</dt><dd>' + esc(x[1]) + '</dd>').join('');
+  const act = d.status === 'chosen' ? '<div class="actions"><span class="tag" style="background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)">Choisi</span>' + (d.videoId ? '<button class="btn small" data-open="' + esc(d.videoId) + '">Voir la vidéo</button>' : '') + '</div>'
+    : d.status === 'dismissed' ? '<div class="actions"><button class="btn small" data-idea-restore="' + esc(id) + '">Remettre</button></div>'
+    : '<div class="actions"><button class="btn primary small" data-idea-choose="' + esc(id) + '">Choisir ce sujet</button><button class="btn small" data-idea-dismiss="' + esc(id) + '">Écarter</button></div>';
+  return '<article class="idea" data-st="' + esc(d.status) + '"><h3>' + esc(d.title) + '</h3>' + (d.hook ? '<p class="hook">« ' + esc(d.hook) + ' »</p>' : '') + '<dl>' + dl + '</dl>' + act + '</article>';
+}
+function renderIdeas() {
+  const all = [...S.ideas.entries()].sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0));
+  const on = all.filter(([, d]) => d.status !== 'dismissed'), off = all.filter(([, d]) => d.status === 'dismissed');
+  const np = all.filter(([, d]) => d.status === 'proposed').length;
+  const c = $('#ideacount'); c.hidden = !np; c.textContent = np;
+  setHTML('#ideas', on.length ? on.map(([id, d]) => ideaCard(id, d)).join('') : '<div class="empty" style="grid-column:1/-1">' + (S.dbState === 'loading' ? 'Chargement…' : 'Aucun sujet proposé. Clique sur « Proposer 6 sujets » : Claude Code les écrit ici en quelques minutes, tu choisis celui que tu veux.') + '</div>');
+  $('#dismissed').hidden = !off.length; setHTML('#ideas-off', off.map(([id, d]) => ideaCard(id, d)).join(''));
+}
+
+/* ---------- affichage : vidéo ---------- */
+function nextAction(v, id) {
+  const s = v.stage | 0, jc = job(id, 'creation'), jm = job(id, 'montage');
+  if (s === 0) return 'Lance la création : Claude Code cherche et vérifie les sources, écrit la voix off et anime la vidéo.';
+  if (s === 1) return running(jc) ? 'Claude Code fabrique la vidéo. Suis l\'avancement ci-dessous.' : 'Création demandée. En attente de Claude Code.';
+  if (s === 2) { const n = CHECKS.length - doneCount(v); return n ? 'À toi : regarde l\'aperçu, lis les textes, coche ce qui est bon (' + n + ' à relire), puis valide ou demande des changements.' : 'Tout est relu. Tu peux valider la vidéo.'; }
+  if (s === 3) return v.audio ? 'Audio reçu. Demande le montage du rendu final.' : 'À toi : enregistre la voix off (texte dans « Textes »), puis dépose l\'audio plus bas.';
+  if (s === 4) return running(jm) ? 'Claude Code monte le rendu final avec ton audio.' : 'Montage demandé. En attente de Claude Code.';
+  return 'Terminé. Télécharge le rendu final.';
+}
+function jobBlock(j, titleIdle) {
+  if (!j) return '';
+  const pct = Math.max(0, Math.min(100, +j.pct || 0)), st = j.state;
+  const steps = (j.steps || []).map(x => '<li data-s="' + esc(x.state) + '">' + esc(x.label) + '</li>').join('');
+  return '<div class="jobhead"><b>' + esc(st === 'done' ? 'Terminé' : st === 'error' ? 'Interrompu' : (j.step || titleIdle)) + '</b><span class="mono">' + pct + ' %' + (j.updatedAt ? ' · ' + esc(rel(j.updatedAt)) : '') + '</span></div>' +
+    '<div class="bar ' + (st === 'running' ? 'run' : st === 'done' ? 'done' : '') + '" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><i style="width:' + pct + '%"></i></div>' +
+    (steps ? '<ul class="steps">' + steps + '</ul>' : '') + (j.message ? '<div class="msg" data-k="' + (st === 'error' ? 'err' : '') + '">' + esc(j.message) + '</div>' : '');
+}
+function renderVideo() {
+  const id = S.sel, v = S.videos.get(id);
+  $('#tabvideo').textContent = v ? 'Vidéo · ' + (v.title.length > 22 ? v.title.slice(0, 21) + '…' : v.title) : 'Vidéo';
+  if (!v) { setHTML('#v-head', '<div class="empty">Choisis une vidéo dans le tableau de suivi pour voir son avancement, ses aperçus et ses textes.</div>'); for (const k of ['create', 'media', 'texts', 'review', 'audio', 'final', 'log']) $('#v-' + k).hidden = true; return; }
+  for (const k of ['create', 'media', 'texts', 'review', 'audio', 'final', 'log']) $('#v-' + k).hidden = false;
+  const s = v.stage | 0, m = S.media.get(id) || {}, jc = job(id, 'creation'), jm = job(id, 'montage');
+
+  // en-tête
+  setHTML('#v-head', '<div class="dhead"><div><div class="label">' + esc(STAGES[s] || '') + ' · étape ' + (s + 1) + ' sur ' + STAGES.length + '</div><h2 style="font-size:24px;margin-top:4px">' + esc(v.title) + '</h2>' + (v.summary ? '<p>' + esc(v.summary) + '</p>' : '') +
+    '<div class="facts">' + (v.duration ? '<span>durée <b>' + esc(v.duration) + '</b></span>' : '') + (v.words ? '<span>voix off <b>' + esc(v.words) + ' mots</b></span>' : '') + (v.format ? '<span>format <b>' + esc(v.format) + '</b></span>' : '') + '<span>mis à jour <b>' + esc(rel(v.updatedAt)) + '</b></span></div></div>' +
+    (m.coverUrl ? '<img src="' + esc(m.coverUrl) + '" alt="Couverture">' : '') + '</div><div class="next">' + esc(nextAction(v, id)) + '</div>' +
+    '<div><div class="label" style="margin-bottom:8px">Étape (clique pour la corriger à la main)</div><div class="track" role="group">' + STAGES.map((n, i) => '<button class="step" data-stage="' + i + '" data-state="' + (i < s ? 'done' : i === s ? 'now' : 'todo') + '" aria-label="' + esc(n) + '"><i></i><span>' + esc(n) + '</span></button>').join('') + '</div></div>', JSON.stringify([v.title, v.summary, v.stage, v.duration, v.words, v.format, m.coverUrl, Math.floor(Date.now() / 60000), running(jc), running(jm), v.audio && v.audio.size]));
+
+  // création
+  const cBtn = s === 0 ? '<div class="actions"><button class="btn primary" id="btn-create">Créer la vidéo</button></div><div class="msg" id="cmsg" role="status"></div>' : '';
+  setHTML('#v-create', '<header><h2>Création</h2><span class="label">Recherche · voix off · animation · textes</span></header>' +
+    (jc ? jobBlock(jc, 'En cours') : (s === 0 ? '<p style="margin:0;color:var(--muted)">Le sujet est choisi. Quand tu lances la création, une barre d\'avancement apparaît ici et Claude Code la met à jour à chaque étape.</p>' : s === 1 ? '<p style="margin:0;color:var(--muted)">Création demandée, la barre apparaît dès que Claude Code démarre.</p>' : '<p style="margin:0;color:var(--muted)">Création terminée.</p>')) + cBtn,
+    JSON.stringify([s, jc, drafts._cmsg]));
+  if (drafts._cmsg && $('#cmsg')) { $('#cmsg').textContent = drafts._cmsg.t; $('#cmsg').dataset.k = drafts._cmsg.k; }
+
+  // aperçu
+  const hq = m.hq || {};
+  const hqLinks = Object.entries(hq).map(([k, u]) => '<a class="l" href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(({ video: 'Vidéo haute qualité', final: 'Rendu final haute qualité', cover: 'Couverture haute définition', dossier: 'Dossier du projet' })[k] || k) + '<span>GitHub ↗</span></a>').join('');
+  setHTML('#v-media', '<header><h2>Aperçu sans voix</h2><span class="label">Version allégée pour la relecture</span></header>' +
+    (m.previewUrl ? '<div class="media"><video controls playsinline preload="metadata"' + (m.coverUrl ? ' poster="' + esc(m.coverUrl) + '"' : '') + ' src="' + esc(m.previewUrl) + '"></video><div class="links">' + (hqLinks || '<span class="msg">Pas encore de lien haute qualité.</span>') + '<p class="msg" style="margin:4px 0 0">Les sous-titres sont gravés dans l\'image. L\'aperçu est allégé (720×1280) ; la haute qualité est sur GitHub.</p></div></div>'
+      : '<div class="empty">L\'aperçu apparaîtra ici dès que Claude Code l\'aura déposé.</div>'), JSON.stringify([m.previewUrl, m.coverUrl, hq]));
+
+  // textes
+  const t = S.texts.get(id) || {}, tabs = [['voix', 'Voix off'], ['legende', 'Légende'], ['sources', 'Sources']].filter(x => t[x[0]]);
+  if (tabs.length && !tabs.find(x => x[0] === S.ttab)) S.ttab = tabs[0][0];
+  setHTML('#v-texts', '<header><h2>Textes</h2><span class="label">À lire, à copier</span></header>' + (tabs.length ?
+    '<div class="ttabs">' + tabs.map(x => '<button class="ttab" data-ttab="' + x[0] + '" aria-pressed="' + (S.ttab === x[0]) + '">' + x[1] + '</button>').join('') + '</div>' +
+    '<div class="tbox' + (S.read && S.ttab === 'voix' ? ' read' : '') + '" id="tbox">' + esc(t[S.ttab]) + '</div>' +
+    '<div class="actions"><button class="btn small" id="btn-copy">Copier</button>' + (S.ttab === 'voix' ? '<button class="btn small" id="btn-read">' + (S.read ? 'Quitter le mode lecture' : 'Mode lecture (gros texte)') + '</button>' : '') + '<span class="msg" id="copymsg"></span></div>'
+    : '<div class="empty">Les textes (voix off, légende, sources) apparaîtront ici dès que Claude Code les aura déposés.</div>'), JSON.stringify([S.ttab, S.read, t.voix, t.legende, t.sources]));
+
+  // relecture
+  if (!$('#note') || document.activeElement !== $('#note')) {
+    const note = drafts['n' + id] != null ? drafts['n' + id] : (v.note || ''), all = doneCount(v) === CHECKS.length;
+    const focused = document.activeElement && document.activeElement.id === 'note';
+    setHTML('#v-review', '<header><h2>Relecture</h2><span class="label">' + doneCount(v) + ' sur ' + CHECKS.length + ' relus</span></header>' +
+      '<ul class="checks">' + CHECKS.map(([k, l]) => '<li><label class="check" data-ok="' + (v.checks && v.checks[k] ? 1 : 0) + '"><input type="checkbox" data-check="' + k + '"' + (v.checks && v.checks[k] ? ' checked' : '') + '><span>' + esc(l) + '</span></label></li>').join('') + '</ul>' +
+      '<div><label class="label" for="note" style="display:block;margin-bottom:8px">Notes pour Claude Code</label><textarea id="note" placeholder="Ex. La phrase d\'accroche est trop longue ; ralentis le passage sur la roche.">' + esc(note) + '</textarea></div>' +
+      '<div class="actions"><button class="btn" id="btn-changes">Demander des changements</button><button class="btn primary" id="btn-validate"' + (all && s <= 2 ? '' : ' disabled') + '>Valider la vidéo</button></div>' +
+      '<div class="msg" id="rmsg" role="status">' + (s > 2 ? 'Vidéo déjà validée.' : all ? '' : 'Pour valider, coche les ' + CHECKS.length + ' livrables.') + '</div>', JSON.stringify([v.checks, v.note, s, drafts['n' + id]]));
+    if (drafts._rmsg && $('#rmsg')) { $('#rmsg').textContent = drafts._rmsg.t; $('#rmsg').dataset.k = drafts._rmsg.k; }
+  }
+
+  // audio
+  const a = v.audio, can = s >= 3;
+  setHTML('#v-audio', '<header><h2>Ta voix</h2><span class="label">Dépose l\'audio, Claude Code monte le rendu</span></header>' +
+    (!can ? '<div class="empty">Disponible après la validation de la vidéo. Tu pourras alors enregistrer la voix off (texte dans « Textes ») et déposer le fichier ici.</div>' :
+      '<div class="drop" id="drop"><div>' + (a ? 'Audio déposé : <b>' + esc(a.name) + '</b> · ' + (a.size / 1048576).toFixed(1) + ' Mo · ' + esc(rel(a.uploadedAt)) : 'Glisse ton enregistrement ici ou choisis un fichier (m4a, mp3, wav…)') + '</div><input type="file" id="audiofile" accept="audio/*,.m4a,.mp3,.wav,.aac,.ogg,.webm,.mp4" ' + (s >= 4 && running(jm) ? 'disabled' : '') + '>' +
+      (audio.state === 'up' && audio.vid === id ? '<div class="bar run" style="width:100%"><i style="width:' + audio.pct + '%"></i></div>' : '') + '</div>' +
+      (a ? '<div id="audiobox"><div class="actions"><button class="btn small" id="btn-listen">' + (audio.url && audio.vid === id ? 'Réécouter' : 'Écouter le fichier déposé') + '</button></div>' + (audio.url && audio.vid === id ? '<audio controls src="' + audio.url + '"></audio>' : '') + '</div>' : '') +
+      '<div class="actions"><button class="btn primary" id="btn-montage"' + (a && audio.state !== 'up' && !(running(jm)) ? '' : ' disabled') + '>Monter le rendu final</button></div>' +
+      (jm ? jobBlock(jm, 'Montage') : '') + '<div class="msg" id="amsg" role="status">' + esc(audio.vid === id ? audio.msg : '') + '</div>'),
+    JSON.stringify([s, a, jm, audio.state, audio.pct, audio.url, audio.vid, audio.msg]));
+
+  // rendu final
+  setHTML('#v-final', '<header><h2>Rendu final</h2><span class="label">Avec ta voix</span></header>' + (m.finalUrl ?
+    '<div class="media"><video controls playsinline preload="metadata"' + (m.coverUrl ? ' poster="' + esc(m.coverUrl) + '"' : '') + ' src="' + esc(m.finalUrl) + '"></video><div class="links"><button class="btn primary" id="btn-dl">Télécharger le rendu final</button><a class="l" href="' + esc(m.finalUrl) + '" target="_blank" rel="noopener">Ouvrir dans un onglet<span>↗</span></a>' + (hq.final ? '<a class="l" href="' + esc(hq.final) + '" target="_blank" rel="noopener">Version haute qualité<span>GitHub ↗</span></a>' : '') + '<div class="msg" id="dlmsg"></div></div></div>'
+    : '<div class="empty">Le rendu final apparaîtra ici une fois l\'audio déposé et le montage terminé.</div>'), JSON.stringify([m.finalUrl, hq.final, m.coverUrl]));
+
+  // journal
+  const mine = S.requests.filter(r => r.videoId === id).slice(0, 6);
+  setHTML('#v-log', '<header><h2>Messages envoyés à Claude Code</h2></header>' + (mine.length ? '<ul class="reqs">' + mine.map(r => '<li class="req"><span class="k" data-st="' + esc(r.state) + '">' + (r.state === 'sent' ? 'envoyé' : r.state === 'failed' ? 'échec' : 'en cours') + '</span><p>' + esc(String(r.message).replace(/^\[Studio Contre-Prompt\]\s*/, '')) + '</p><span class="mono" style="color:var(--muted)">' + esc(rel(r.at)) + '</span></li>').join('') + '</ul>' : '<div class="empty">Aucun message pour cette vidéo.</div>'), JSON.stringify([mine, Math.floor(Date.now() / 60000)]));
+}
+function render() { renderBoard(); renderIdeas(); if (S.tab === 'video') renderVideo(); }
+
+/* ---------- actions : clics ---------- */
+async function newVideo(title, extra) {
+  const id = slugify(title);
+  if (S.videos.has(id)) return id;
+  await db.doc('videos/' + id).set(Object.assign({ title, summary: '', stage: 0, createdAt: Date.now(), updatedAt: Date.now(), folder: 'contre-prompt/' + id, checks: {}, note: '' }, extra || {}));
+  return id;
+}
+document.addEventListener('click', async e => {
+  const q = sel => e.target.closest(sel);
+  let el;
+  if ((el = q('[data-tab]'))) { go(el.dataset.tab); return; }
+  if ((el = q('[data-open]'))) { go('video', el.dataset.open); return; }
+  if ((el = q('[data-ttab]'))) { S.ttab = el.dataset.ttab; renderVideo(); return; }
+  if ((el = q('[data-stage]')) && S.sel) { await patch(S.sel, { stage: +el.dataset.stage }); return; }
+  if ((el = q('[data-idea-choose]')) && db) {
+    const id = el.dataset.ideaChoose, d = S.ideas.get(id); if (!d) return; el.disabled = true;
+    try { const vid = await newVideo(d.title, { summary: d.hook || '', angle: d.angle || '', ideaId: id }); await db.doc('ideas/' + id).update({ status: 'chosen', videoId: vid }); go('video', vid); } catch (x) { el.disabled = false; say('#ideamsg', 'Impossible d\'enregistrer ce choix.', 'err'); } return;
+  }
+  if ((el = q('[data-idea-dismiss]')) && db) { try { await db.doc('ideas/' + el.dataset.ideaDismiss).update({ status: 'dismissed' }); } catch (x) {} return; }
+  if ((el = q('[data-idea-restore]')) && db) { try { await db.doc('ideas/' + el.dataset.ideaRestore).update({ status: 'proposed' }); } catch (x) {} return; }
+
+  if (e.target.id === 'btn-ideas') {
+    const theme = $('#theme').value.trim(); e.target.disabled = true; say('#ideamsg', 'Envoi à Claude Code…');
+    const r = await send('sujets', '', HEAD + 'ACTION=proposer_sujets count=6' + (theme ? ' theme="' + theme + '"' : '') + '\nPropose 6 sujets de mini-docs (questions du quotidien, une révélation nette, émerveillement ou surprise, montrable en animation). Ne copie pas les vidéos déjà faites. Écris chaque sujet dans la base de l\'artefact : collection ideas, un document par sujet, champs title (la question), hook (une première phrase possible, formulée comme hypothèse tant que rien n\'est vérifié), angle (le personnage ou la situation qui porte le récit), why (pourquoi on l\'envoie à quelqu\'un), check (ce qu\'il faudra vérifier dans les sources), status="proposed", batch, createdAt.' + TAIL);
+    say('#ideamsg', r.state === 'sent' ? 'Demande envoyée. Les sujets apparaissent ici dès que Claude Code les a écrits.' : errText(r.err), r.state === 'sent' ? 'ok' : 'err'); e.target.disabled = false; return;
+  }
+  const v = S.videos.get(S.sel);
+  if (e.target.id === 'btn-create' && v) {
+    e.target.disabled = true; drafts._cmsg = { t: 'Envoi à Claude Code…', k: '' }; say('#cmsg', 'Envoi à Claude Code…');
+    await patch(S.sel, { stage: 1 });
+    const r = await send('creation', S.sel, HEAD + 'ACTION=creer_video id=' + S.sel + '\nSujet : « ' + v.title + ' »' + (v.angle ? '\nAngle : ' + v.angle : '') + (v.summary ? '\nAccroche envisagée : ' + v.summary : '') +
+      '\nCrée la vidéo de bout en bout : recherches (sources lues, aucun chiffre de mémoire), voix off que je lirai moi-même (45 s à 1 min 15, nombres en lettres), vidéo animée 9:16 sans voix avec sous-titres, légende Instagram avec sources, fiche de sources, couverture. Range tout dans ' + (v.folder || 'contre-prompt/' + S.sel) + '/.\nTiens à jour la barre d\'avancement : document jobs/' + S.sel + ', champ creation {state, pct, step, steps[{label,state}], updatedAt}. Quand c\'est fini : media/' + S.sel + ', texts/' + S.sel + ', stage=2 dans videos/' + S.sel + '.' + TAIL);
+    drafts._cmsg = { t: r.state === 'sent' ? 'Envoyé. Claude Code démarre : la barre d\'avancement va apparaître.' : errText(r.err), k: r.state === 'sent' ? 'ok' : 'err' }; if (r.state === 'failed') await patch(S.sel, { stage: 0 });
+    say('#cmsg', drafts._cmsg.t, drafts._cmsg.k); sig['#v-create'] = null; renderVideo(); return;
+  }
+  if (e.target.id === 'btn-changes' && v) {
+    const todo = CHECKS.filter(([k]) => !(v.checks && v.checks[k])).map(x => x[1]), note = (drafts['n' + S.sel] != null ? drafts['n' + S.sel] : v.note || '').trim();
+    if (!note) { drafts._rmsg = { t: 'Écris une note pour dire ce qui doit changer.', k: 'err' }; say('#rmsg', drafts._rmsg.t, 'err'); return; }
+    e.target.disabled = true; say('#rmsg', 'Envoi à Claude Code…'); await patch(S.sel, { note, stage: 1 });
+    const r = await send('changements', S.sel, HEAD + 'ACTION=changements id=' + S.sel + '\nChangements demandés sur « ' + v.title + ' » (dossier ' + (v.folder || 'contre-prompt/' + S.sel) + ').' + (todo.length ? '\nLivrables pas encore validés : ' + todo.join(', ') + '.' : '') + '\nNotes de relecture : ' + note + '\nCorrige, repousse sur la branche, mets à jour jobs/' + S.sel + ' (creation) et media/texts si les fichiers changent, puis remets stage=2 dans videos/' + S.sel + '.' + TAIL);
+    drafts._rmsg = { t: r.state === 'sent' ? 'Envoyé. Claude Code reprend le travail.' : errText(r.err), k: r.state === 'sent' ? 'ok' : 'err' }; if (r.state === 'failed') await patch(S.sel, { stage: 2 });
+    say('#rmsg', drafts._rmsg.t, drafts._rmsg.k); return;
+  }
+  if (e.target.id === 'btn-validate' && v) {
+    e.target.disabled = true; say('#rmsg', 'Validation…'); await patch(S.sel, { stage: 3, validatedAt: Date.now() });
+    const r = await send('validation', S.sel, HEAD + 'ACTION=validee id=' + S.sel + '\n« ' + v.title + ' » est validée : les ' + CHECKS.length + ' livrables sont relus et bons. Rien à modifier. J\'enregistre la voix off, puis je déposerai l\'audio dans le studio.' + TAIL);
+    drafts._rmsg = { t: r.state === 'sent' ? 'Validée, Claude Code est prévenu. Enregistre ta voix off, puis dépose l\'audio.' : 'Validée dans le suivi. ' + errText(r.err), k: r.state === 'sent' ? 'ok' : 'err' }; say('#rmsg', drafts._rmsg.t, drafts._rmsg.k); return;
+  }
+  if (e.target.id === 'btn-copy') { const t = $('#tbox'); try { await navigator.clipboard.writeText(t.textContent); say('#copymsg', 'Copié.', 'ok'); } catch (x) { const r = document.createRange(); r.selectNodeContents(t); const s = getSelection(); s.removeAllRanges(); s.addRange(r); say('#copymsg', 'Texte sélectionné : copie-le avec ton clavier.', ''); } return; }
+  if (e.target.id === 'btn-read') { S.read = !S.read; renderVideo(); return; }
+  if (e.target.id === 'btn-listen') { await listen(S.sel); return; }
+  if (e.target.id === 'btn-montage' && v && v.audio) {
+    e.target.disabled = true; say('#amsg', 'Envoi à Claude Code…'); await patch(S.sel, { stage: 4 }); const a = v.audio;
+    const r = await send('montage', S.sel, HEAD + 'ACTION=monter_rendu_final id=' + S.sel + '\nMon audio est déposé pour « ' + v.title + ' ». Fichier : ' + a.name + ' (' + a.type + ', ' + a.size + ' octets), ' + a.chunks + ' morceaux base64 dans les documents audio/' + S.sel + '-0 à audio/' + S.sel + '-' + (a.chunks - 1) + ' (champ b64, à concaténer dans l\'ordre de n).' +
+      '\nMonte le rendu final : reconstruis l\'audio, mesure le rythme réel de ma lecture, recale l\'animation dessus, assemble vidéo et voix, exporte, dépose le rendu dans media/' + S.sel + ' (finalUrl et hq.final). Tiens à jour la barre : jobs/' + S.sel + ', champ montage {state, pct, step, steps, updatedAt}. À la fin : stage=5 dans videos/' + S.sel + '.' + TAIL);
+    say('#amsg', r.state === 'sent' ? 'Envoyé. Claude Code monte le rendu : la barre d\'avancement apparaît ci-dessus.' : errText(r.err), r.state === 'sent' ? 'ok' : 'err'); if (r.state === 'failed') await patch(S.sel, { stage: 3 }); return;
+  }
+  if (e.target.id === 'btn-dl') { const m = S.media.get(S.sel) || {}; say('#dlmsg', 'Préparation du fichier…'); try { downloads = downloads || await claude.use('downloads'); if (!downloads) throw { code: 'unavailable' }; const r = await fetch(m.finalUrl); const b = await r.blob(); await downloads.save({ filename: S.sel + '_rendu-final.mp4', data: b }); say('#dlmsg', 'Enregistré.', 'ok'); } catch (x) { say('#dlmsg', x && x.code === 'declined' ? 'Téléchargement annulé.' : 'Téléchargement impossible ici : utilise « Ouvrir dans un onglet ».', 'err'); } return; }
+});
+document.addEventListener('change', async e => {
+  const k = e.target.dataset && e.target.dataset.check;
+  if (k && S.sel) { const ok = await patch(S.sel, { checks: { [k]: e.target.checked } }); if (!ok) { e.target.checked = !e.target.checked; say('#rmsg', 'Impossible d\'enregistrer : la base n\'accepte pas l\'écriture dans cette vue.', 'err'); } return; }
+  if (e.target.id === 'audiofile' && e.target.files[0]) uploadAudio(e.target.files[0]);
+});
+document.addEventListener('input', e => { if (e.target.id === 'note' && S.sel) drafts['n' + S.sel] = e.target.value; });
+document.addEventListener('focusout', async e => { if (e.target.id !== 'note' || !S.sel) return; const v = S.videos.get(S.sel); if (v && (v.note || '') !== e.target.value) await patch(S.sel, { note: e.target.value }); });
+document.addEventListener('dragover', e => { const d = e.target.closest && e.target.closest('#drop'); if (d) { e.preventDefault(); d.classList.add('over'); } });
+document.addEventListener('dragleave', e => { const d = e.target.closest && e.target.closest('#drop'); if (d) d.classList.remove('over'); });
+document.addEventListener('drop', e => { const d = e.target.closest && e.target.closest('#drop'); if (d) { e.preventDefault(); d.classList.remove('over'); if (e.dataTransfer.files[0]) uploadAudio(e.dataTransfer.files[0]); } });
+$('#ownform').addEventListener('submit', async e => {
+  e.preventDefault(); const t = $('#own').value.trim(); if (t.length < 6) { say('#ownmsg', 'Écris le sujet en une phrase ou une question.', 'err'); return; } if (!db) { say('#ownmsg', 'Le suivi est indisponible dans cette vue.', 'err'); return; }
+  try { const id = await newVideo(t); $('#own').value = ''; go('video', id); } catch (x) { say('#ownmsg', 'Impossible d\'ajouter le sujet.', 'err'); }
+});
+
+/* ---------- audio : dépôt par morceaux dans la base ---------- */
+const b64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+const unb64 = s => { const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
+function wavMono(buf, rate) {      // mono 16 bits : allège un enregistrement non compressé
+  const n = Math.floor(buf.length * rate / buf.sampleRate), ch = buf.getChannelData(0), out = new Int16Array(n);
+  for (let i = 0; i < n; i++) { const x = ch[Math.floor(i * buf.sampleRate / rate)] || 0; out[i] = Math.max(-1, Math.min(1, x)) * 32767; }
+  const w = new ArrayBuffer(44 + out.length * 2), d = new DataView(w), W = (o, s) => { for (let i = 0; i < s.length; i++) d.setUint8(o + i, s.charCodeAt(i)); };
+  W(0, 'RIFF'); d.setUint32(4, 36 + out.length * 2, true); W(8, 'WAVEfmt '); d.setUint32(16, 16, true); d.setUint16(20, 1, true); d.setUint16(22, 1, true); d.setUint32(24, rate, true); d.setUint32(28, rate * 2, true); d.setUint16(32, 2, true); d.setUint16(34, 16, true); W(36, 'data'); d.setUint32(40, out.length * 2, true);
+  new Int16Array(w, 44).set(out); return new Uint8Array(w);
+}
+function audioState(id, st, pct, msg, url) { audio.vid = id; audio.state = st; audio.pct = pct; audio.msg = msg || ''; if (url !== undefined) audio.url = url; if (S.sel === id) renderVideo(); }
+async function uploadAudio(file) {
+  const id = S.sel, v = S.videos.get(id); if (!db || !v) return;
+  if (file.size > 40 * 1048576) { audioState(id, 'idle', 0, 'Fichier trop lourd (40 Mo maximum). Exporte-le en m4a ou mp3.'); return; }
+  try {
+    audioState(id, 'up', 2, 'Lecture du fichier…');
+    let bytes = new Uint8Array(await file.arrayBuffer()), type = file.type || 'audio/mpeg', name = file.name;
+    if (bytes.length > 6 * 1048576) {     // gros fichier : on le convertit en WAV mono 22 kHz
+      try { const ac = new (window.AudioContext || window.webkitAudioContext)(); const buf = await ac.decodeAudioData(bytes.buffer.slice(0)); bytes = wavMono(buf, 22050); type = 'audio/wav'; name = name.replace(/\.[^.]+$/, '') + '.wav'; ac.close(); } catch (x) { /* on garde l'original */ }
+    }
+    if (bytes.length > 14 * 1048576) { audioState(id, 'idle', 0, 'Après conversion, le fichier dépasse 14 Mo. Exporte-le en m4a ou mp3.'); return; }
+    const total = Math.ceil(bytes.length / CHUNK), old = (v.audio && v.audio.chunks) || 0;
+    for (let n = 0; n < total; n++) {
+      await db.doc('audio/' + id + '-' + n).set({ videoId: id, n, total, type, b64: b64(bytes.subarray(n * CHUNK, (n + 1) * CHUNK)) });
+      audioState(id, 'up', Math.round(((n + 1) / total) * 96), 'Envoi du fichier… ' + (n + 1) + '/' + total);
+    }
+    for (let n = total; n < old; n++) { try { await db.doc('audio/' + id + '-' + n).delete(); } catch (x) {} }
+    await db.doc('videos/' + id).update({ updatedAt: Date.now(), audio: { name, type, size: bytes.length, chunks: total, uploadedAt: Date.now() } });
+    const url = URL.createObjectURL(new Blob([bytes], { type })); audioState(id, 'idle', 100, 'Audio déposé. Tu peux demander le montage.', url);
+  } catch (e) { audioState(id, 'idle', 0, 'Dépôt impossible : ' + ((e && (e.code || e.message)) || 'erreur') + '. ' + (e && e.code === 'quota_exceeded' ? 'La base est pleine.' : 'Réessaie.')); }
+}
+async function listen(id) {
+  const v = S.videos.get(id); if (!v || !v.audio || !db) return;
+  try { audioState(id, 'idle', 0, 'Chargement de l\'audio…'); const snap = await db.collection('audio').where('videoId', '==', id).get();
+    const parts = snap.docs.map(d => d.data()).filter(d => d.n < v.audio.chunks).sort((a, b) => a.n - b.n).map(d => unb64(d.b64)); const all = new Uint8Array(parts.reduce((s, p) => s + p.length, 0)); let o = 0; parts.forEach(p => { all.set(p, o); o += p.length; });
+    audioState(id, 'idle', 0, '', URL.createObjectURL(new Blob([all], { type: v.audio.type }))); } catch (e) { audioState(id, 'idle', 0, 'Impossible de relire l\'audio.'); }
+}
+
+/* ---------- démarrage ---------- */
+fromHash(); setLink('off', 'Claude Code : liaison en cours…'); go(S.tab);
+addEventListener('hashchange', () => { fromHash(); go(S.tab); });
+setInterval(() => { sig['#board'] = null; render(); }, 60000);
+(async () => {
+  db = await claude.use('db');
+  if (!db) { S.dbState = 'absent'; render(); return; }
+  const slow = setTimeout(() => { if (S.dbState === 'loading') { S.dbState = 'slow'; render(); } }, 10000), fail = () => { S.dbState = 'absent'; render(); };
+  const listen2 = (name, key, after) => db.collection(name).onSnapshot(snap => { clearTimeout(slow); if (S.dbState === 'loading') S.dbState = 'ready'; S[key] = new Map(snap.docs.map(d => [d.id, d.data()])); if (after) after(); render(); }, fail);
+  listen2('videos', 'videos', () => { if (!S.sel || !S.videos.has(S.sel)) { if (S.tab !== 'video' || !S.videos.has(S.sel)) S.sel = [...S.videos.entries()].sort((a, b) => (b[1].updatedAt || 0) - (a[1].updatedAt || 0)).map(x => x[0])[0] || null; } });
+  listen2('jobs', 'jobs'); listen2('media', 'media'); listen2('texts', 'texts'); listen2('ideas', 'ideas');
+  db.collection('requests').orderBy('at', 'desc').limit(60).onSnapshot(snap => { S.requests = snap.docs.map(d => d.data()); if (S.tab === 'video') renderVideo(); }, () => {});
+})();
+(async () => {
+  mcp = await claude.use('mcp'); if (!mcp) { setLink('unavailable', 'Claude Code : lien indisponible dans cette vue'); return; }
+  mcp.watchTool(SERVER, 'get_session', { session_id: SESSION }, onSession, { refetchInterval: 30000 });
+})();
+</script>

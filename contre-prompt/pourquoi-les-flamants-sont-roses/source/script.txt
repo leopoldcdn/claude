@@ -1,0 +1,7 @@
+{h1}Un flamant rose n'est pas né rose. {h2}Il naît en duvet gris clair.
+{q}Alors, d'où vient ce rose ?
+{assiette}Il vient de son assiette. {tete}Le flamant plonge la tête à l'envers dans l'eau et filtre ce qu'il y trouve : {algues}des algues microscopiques et de minuscules crevettes. {carot}Ces algues contiennent des pigments, des matières colorées : les caroténoïdes. {carotte}Ce sont les mêmes qui rendent les carottes orange. {voyage}La couleur passe de l'algue à la crevette, puis au flamant.
+{digere}Il les digère, son corps les envoie dans ses plumes, {rosit}et petit à petit, il rosit. {annees}Il lui faut plusieurs années.
+{mais}Mais un poussin ne mange pas d'algues. Pas encore. {com}Comment fait-il pour rosir ?
+{parents}Ses parents lui donnent leur propre couleur. {lait}Dans leur gorge, ils fabriquent un lait, rouge vif, chargé des mêmes pigments. {repas}Repas après repas, le rose quitte leurs plumes et passe dans le poussin. {blancs}À la fin de la saison, les parents sont presque blancs, et lui, de plus en plus rose.
+{fin}La prochaine fois que tu croises un flamant tout pâle, {plains}ne le plains pas trop vite : {donne}il a peut-être donné sa couleur à son petit.

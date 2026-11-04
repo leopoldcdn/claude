@@ -7,6 +7,7 @@
 | Légende Instagram avec sources (+ version courte) | [`legende-instagram.md`](legende-instagram.md) |
 | Fiche de sources (chaque affirmation, sa source, son statut) | [`fiche-sources.md`](fiche-sources.md) |
 | Image de couverture 1080×1920 (titre dans le cadrage central 3:4) | `couverture.png` |
+| **Rendu final avec ta voix** (1080×1920, 58 s, −16 LUFS) | `pourquoi-la-mer-est-salee_rendu-final.mp4` |
 
 ## Le choix visuel
 

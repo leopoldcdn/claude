@@ -67,6 +67,10 @@ Prendre acte. Rien à modifier. Leopold enregistre sa voix.
 ## ACTION=monter_rendu_final
 
 1. Lire `audio/<id>-0` à `audio/<id>-<chunks-1>` (`ArtifactData list`, `out_dir`), concaténer les `b64` dans l'ordre de `n`, décoder, enregistrer le fichier.
+   Méthode éprouvée sur « Pourquoi la mer est salée ? » (fichier `.m4a`, 58 s) :
+   - transcription avec horaires mot à mot : `pip install --target ./pylib faster-whisper`, modèle `small` (téléchargé depuis Hugging Face), audio passé en tableau numpy 16 kHz (`wave` + `numpy`) car PyAV du conteneur est trop ancien ; sortie `asr_words.json` ;
+   - recalage : `python3 timing.py --asr asr_words.json` aligne les mots lus sur ceux de `script.txt` (nombres et mots mal reconnus répartis dans leur intervalle), décale tout pour que la voix démarre à 0,25 s (`audio_trim`) ;
+   - rendu des images puis `source/monter_final.sh` : coupe le silence de départ, passe-haut 70 Hz, normalisation −16 LUFS, version web 720p ≤ 20 Mo.
 2. Mesurer le rythme réel : `ffmpeg silencedetect` pour retrouver les pauses entre phrases (ou une transcription si disponible), faire correspondre aux phrases de `script.txt`, produire un `timing.json` réel.
 3. Recaler l'animation sur ce timing, rendre à nouveau, assembler vidéo et voix (`ffmpeg`), normaliser le volume, vérifier la durée.
 4. Déposer la version haute qualité sur GitHub, une version web (≤ 20 Mo) en fichier de l'artefact, puis `media/<id>.finalUrl` et `hq.final`.

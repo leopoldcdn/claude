@@ -37,15 +37,15 @@ WH = ["166", "1490", "175", "3115", "1492", "2635"]; ACC = ["2519", "3123", "257
 wipes = plan["wipes"]; whs = [load(n) for n in WH]; accs = [load(n) for n in ACC]
 order = list(rng.permutation(len(WH)))
 for k, w in enumerate(wipes):                           # un balayage de papier = un « woosh », jamais deux fois le meme de suite
-    idx = order[k % len(order)]; put(whs[idx], w, -9 + rng.uniform(-1.2, 1.2), pan=rng.uniform(-.25, .25), tail=1.6)
+    idx = order[k % len(order)]; put(whs[idx], w, -16 + rng.uniform(-1.2, 1.2), pan=rng.uniform(-.25, .25), tail=1.6)
 vend = plan.get("voice_end", plan["video_end"] - 1.5); cues = sorted(plan["cues"].values())
 rev = [c for c in cues if 0.55 * vend <= c <= 0.80 * vend]
 rev_t = min(rev, key=lambda c: abs(c - 0.667 * vend)) if rev else None
 last = -9; n = 0
 for c in cues:                                          # petits accents : rares (3,5 s mini), jamais sur un balayage ni sur la revelation
     if any(abs(c - w) < 0.6 for w in wipes) or (rev_t and abs(c - rev_t) < 1.5) or c - last < 3.5 or c < 1.0: continue
-    put(accs[n % len(accs)], c + 0.06, -19 + rng.uniform(-1, 1), pan=rng.uniform(-.3, .3), tail=0.9); last = c; n += 1
-if rev_t: put(load("2919"), rev_t, -11, tail=3.8)       # montee puis impact : la revelation
+    put(accs[n % len(accs)], c + 0.06, -22 + rng.uniform(-1, 1), pan=rng.uniform(-.3, .3), tail=0.9); last = c; n += 1
+if rev_t: put(load("2919"), rev_t, -14, tail=3.8)       # montee puis impact : la revelation
 n_acc = n
 def save(p, a):
     a = np.clip(a, -1, 1); b = (a * 32767).astype("<i2").tobytes()

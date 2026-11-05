@@ -1,0 +1,453 @@
+{
+ "sps": 4.6,
+ "audio_trim": 0.0,
+ "voice_end": 95.75,
+ "video_end": 97.35,
+ "words": 231,
+ "cues": {
+  "h1": 0.25,
+  "h2": 6.352,
+  "lab": 8.704,
+  "role": 16.373,
+  "actor": 24.267,
+  "prods": 28.061,
+  "pred": 35.01,
+  "res": 41.915,
+  "tense": 48.242,
+  "cta1": 51.429,
+  "var": 58.311,
+  "nuance": 66.243,
+  "doubt": 73.394,
+  "fin": 78.425,
+  "cta2": 91.554
+ },
+ "sentences": [
+  {
+   "text": "Un inconnu en blouse grise te dit de continuer à envoyer des décharges électriques à quelqu'un. Tu t'arrêtes, forcément ?",
+   "start": 0.25,
+   "end": 8.054
+  },
+  {
+   "text": "Années soixante, université Yale : Stanley Milgram recrute des volontaires pour une soi-disant étude sur la mémoire. Toi, tu es le professeur. À chaque erreur de l'élève, tu montes d'un cran, jusqu'à quatre cent cinquante volts.",
+   "start": 8.704,
+   "end": 23.667
+  },
+  {
+   "text": "Sauf que l'élève est un acteur : il ne reçoit rien. Quand tu hésites, l'expérimentateur répond : « L'expérience exige que vous continuiez. »",
+   "start": 24.267,
+   "end": 34.86
+  },
+  {
+   "text": "Des étudiants en psychologie avaient prédit qu'environ un participant sur cent irait jusqu'au bout.",
+   "start": 35.01,
+   "end": 41.315
+  },
+  {
+   "text": "Résultat : vingt-six participants sur quarante, soixante-cinq pour cent, vont jusqu'au bout. Ils transpirent, ils tremblent. Mais ils continuent.",
+   "start": 41.915,
+   "end": 50.829
+  },
+  {
+   "text": "Sur cette chaîne, je t'apprends des choses tous les jours. Abonne-toi pour te coucher plus intelligent ce soir.",
+   "start": 51.429,
+   "end": 57.711
+  },
+  {
+   "text": "Par téléphone, ils ne sont plus que vingt et un pour cent. Si deux autres professeurs refusent, quatre sur quarante seulement obéissent.",
+   "start": 58.311,
+   "end": 65.643
+  },
+  {
+   "text": "Et ceux à qui l'on dit « vous n'avez pas le choix » désobéissent tous, d'après une reproduction récente. Mais certains doutent : la moitié des participants ne croyait pas vraiment aux chocs.",
+   "start": 66.243,
+   "end": 77.825
+  },
+  {
+   "text": "Alors, qu'est-ce qui fait obéir ? Peut-être moins l'ordre que l'impression de servir une cause importante. La prochaine fois qu'on te dit « c'est comme ça », demande-toi : qui décide ?",
+   "start": 78.425,
+   "end": 90.904
+  },
+  {
+   "text": "Tu as appris quelque chose ? Commente la vidéo pour me le dire.",
+   "start": 91.554,
+   "end": 95.75
+  }
+ ],
+ "subs": [
+  {
+   "text": "Un inconnu en blouse",
+   "start": 0.25,
+   "end": 1.554
+  },
+  {
+   "text": "grise te dit de",
+   "start": 1.554,
+   "end": 2.424
+  },
+  {
+   "text": "continuer à envoyer des",
+   "start": 2.424,
+   "end": 3.946
+  },
+  {
+   "text": "décharges électriques à quelqu'un.",
+   "start": 3.946,
+   "end": 6.352
+  },
+  {
+   "text": "Tu t'arrêtes,",
+   "start": 6.352,
+   "end": 7.402
+  },
+  {
+   "text": "forcément ?",
+   "start": 7.402,
+   "end": 8.704
+  },
+  {
+   "text": "Années soixante,",
+   "start": 8.704,
+   "end": 9.536
+  },
+  {
+   "text": "université Yale :",
+   "start": 9.536,
+   "end": 11.358
+  },
+  {
+   "text": "Stanley Milgram recrute des",
+   "start": 11.358,
+   "end": 12.88
+  },
+  {
+   "text": "volontaires pour une soi-disant",
+   "start": 12.88,
+   "end": 14.619
+  },
+  {
+   "text": "étude sur la mémoire.",
+   "start": 14.619,
+   "end": 16.373
+  },
+  {
+   "text": "Toi, tu es le professeur.",
+   "start": 16.373,
+   "end": 18.525
+  },
+  {
+   "text": "À chaque erreur de",
+   "start": 18.525,
+   "end": 19.829
+  },
+  {
+   "text": "l'élève,",
+   "start": 19.829,
+   "end": 20.661
+  },
+  {
+   "text": "tu montes d'un cran,",
+   "start": 20.661,
+   "end": 21.928
+  },
+  {
+   "text": "jusqu'à quatre cent cinquante",
+   "start": 21.928,
+   "end": 23.45
+  },
+  {
+   "text": "volts.",
+   "start": 23.45,
+   "end": 24.267
+  },
+  {
+   "text": "Sauf que l'élève est",
+   "start": 24.267,
+   "end": 25.572
+  },
+  {
+   "text": "un acteur :",
+   "start": 25.572,
+   "end": 26.741
+  },
+  {
+   "text": "il ne reçoit rien.",
+   "start": 26.741,
+   "end": 28.061
+  },
+  {
+   "text": "Quand tu hésites,",
+   "start": 28.061,
+   "end": 29.11
+  },
+  {
+   "text": "l'expérimentateur répond",
+   "start": 29.11,
+   "end": 31.067
+  },
+  {
+   "text": ": « L'expérience exige que",
+   "start": 31.067,
+   "end": 33.323
+  },
+  {
+   "text": "vous continuiez.",
+   "start": 33.323,
+   "end": 34.643
+  },
+  {
+   "text": "» Des étudiants en",
+   "start": 34.643,
+   "end": 36.097
+  },
+  {
+   "text": "psychologie avaient prédit",
+   "start": 36.097,
+   "end": 37.619
+  },
+  {
+   "text": "qu'environ un participant",
+   "start": 37.619,
+   "end": 39.576
+  },
+  {
+   "text": "sur cent irait jusqu'au",
+   "start": 39.576,
+   "end": 41.097
+  },
+  {
+   "text": "bout.",
+   "start": 41.097,
+   "end": 41.915
+  },
+  {
+   "text": "Résultat :",
+   "start": 41.915,
+   "end": 43.084
+  },
+  {
+   "text": "vingt-six participants sur",
+   "start": 43.084,
+   "end": 44.606
+  },
+  {
+   "text": "quarante,",
+   "start": 44.606,
+   "end": 45.221
+  },
+  {
+   "text": "soixante-cinq pour cent,",
+   "start": 45.221,
+   "end": 46.705
+  },
+  {
+   "text": "vont jusqu'au bout.",
+   "start": 46.705,
+   "end": 48.242
+  },
+  {
+   "text": "Ils transpirent,",
+   "start": 48.242,
+   "end": 49.074
+  },
+  {
+   "text": "ils tremblent.",
+   "start": 49.074,
+   "end": 49.959
+  },
+  {
+   "text": "Mais ils continuent.",
+   "start": 49.959,
+   "end": 51.429
+  },
+  {
+   "text": "Sur cette chaîne,",
+   "start": 51.429,
+   "end": 52.261
+  },
+  {
+   "text": "je t'apprends des choses",
+   "start": 52.261,
+   "end": 53.565
+  },
+  {
+   "text": "tous les jours.",
+   "start": 53.565,
+   "end": 54.667
+  },
+  {
+   "text": "Abonne-toi pour te coucher",
+   "start": 54.667,
+   "end": 56.407
+  },
+  {
+   "text": "plus intelligent ce soir.",
+   "start": 56.407,
+   "end": 58.311
+  },
+  {
+   "text": "Par téléphone,",
+   "start": 58.311,
+   "end": 59.36
+  },
+  {
+   "text": "ils ne sont plus",
+   "start": 59.36,
+   "end": 60.23
+  },
+  {
+   "text": "que vingt et un",
+   "start": 60.23,
+   "end": 61.1
+  },
+  {
+   "text": "pour cent.",
+   "start": 61.1,
+   "end": 61.984
+  },
+  {
+   "text": "Si deux autres professeurs",
+   "start": 61.984,
+   "end": 63.289
+  },
+  {
+   "text": "refusent,",
+   "start": 63.289,
+   "end": 63.903
+  },
+  {
+   "text": "quatre sur quarante seulement",
+   "start": 63.903,
+   "end": 65.208
+  },
+  {
+   "text": "obéissent.",
+   "start": 65.208,
+   "end": 66.243
+  },
+  {
+   "text": "Et ceux à qui",
+   "start": 66.243,
+   "end": 67.112
+  },
+  {
+   "text": "l'on dit « vous",
+   "start": 67.112,
+   "end": 68.199
+  },
+  {
+   "text": "n'avez pas le choix",
+   "start": 68.199,
+   "end": 69.503
+  },
+  {
+   "text": "» désobéissent tous,",
+   "start": 69.503,
+   "end": 70.77
+  },
+  {
+   "text": "d'après une reproduction",
+   "start": 70.77,
+   "end": 72.51
+  },
+  {
+   "text": "récente.",
+   "start": 72.51,
+   "end": 73.394
+  },
+  {
+   "text": "Mais certains doutent :",
+   "start": 73.394,
+   "end": 74.781
+  },
+  {
+   "text": "la moitié des participants",
+   "start": 74.781,
+   "end": 76.52
+  },
+  {
+   "text": "ne croyait pas vraiment",
+   "start": 76.52,
+   "end": 77.39
+  },
+  {
+   "text": "aux chocs.",
+   "start": 77.39,
+   "end": 78.425
+  },
+  {
+   "text": "Alors,",
+   "start": 78.425,
+   "end": 79.04
+  },
+  {
+   "text": "qu'est-ce qui fait obéir",
+   "start": 79.04,
+   "end": 80.344
+  },
+  {
+   "text": "?",
+   "start": 80.344,
+   "end": 81.061
+  },
+  {
+   "text": "Peut-être moins l'ordre que",
+   "start": 81.061,
+   "end": 82.366
+  },
+  {
+   "text": "l'impression de servir une",
+   "start": 82.366,
+   "end": 84.105
+  },
+  {
+   "text": "cause importante.",
+   "start": 84.105,
+   "end": 85.424
+  },
+  {
+   "text": "La prochaine fois qu'on",
+   "start": 85.424,
+   "end": 86.729
+  },
+  {
+   "text": "te dit « c'est",
+   "start": 86.729,
+   "end": 87.816
+  },
+  {
+   "text": "comme ça »,",
+   "start": 87.816,
+   "end": 88.648
+  },
+  {
+   "text": "demande-toi :",
+   "start": 88.648,
+   "end": 90.035
+  },
+  {
+   "text": "qui décide ?",
+   "start": 90.035,
+   "end": 91.554
+  },
+  {
+   "text": "Tu as appris quelque",
+   "start": 91.554,
+   "end": 92.859
+  },
+  {
+   "text": "chose ?",
+   "start": 92.859,
+   "end": 93.793
+  },
+  {
+   "text": "Commente la vidéo pour",
+   "start": 93.793,
+   "end": 95.098
+  },
+  {
+   "text": "me le dire.",
+   "start": 95.098,
+   "end": 96.25
+  }
+ ]
+}

@@ -1,0 +1,10 @@
+{h1}Un inconnu en blouse grise te dit de continuer à envoyer des décharges électriques à quelqu'un. {h2}Tu t'arrêtes, forcément ?
+{lab}Années soixante, université Yale : Stanley Milgram recrute des volontaires pour une soi-disant étude sur la mémoire. {role}Toi, tu es le professeur. À chaque erreur de l'élève, tu montes d'un cran, jusqu'à quatre cent cinquante volts.
+{actor}Sauf que l'élève est un acteur : il ne reçoit rien. {prods}Quand tu hésites, l'expérimentateur répond : « L'expérience exige que vous continuiez. »
+{pred}Des étudiants en psychologie avaient prédit qu'environ un participant sur cent irait jusqu'au bout.
+{res}Résultat : vingt-six participants sur quarante, soixante-cinq pour cent, vont jusqu'au bout. {tense}Ils transpirent, ils tremblent. Mais ils continuent.
+{cta1}Sur cette chaîne, je t'apprends des choses tous les jours. Abonne-toi pour te coucher plus intelligent ce soir.
+{var}Par téléphone, ils ne sont plus que vingt et un pour cent. Si deux autres professeurs refusent, quatre sur quarante seulement obéissent.
+{nuance}Et ceux à qui l'on dit « vous n'avez pas le choix » désobéissent tous, d'après une reproduction récente. {doubt}Mais certains doutent : la moitié des participants ne croyait pas vraiment aux chocs.
+{fin}Alors, qu'est-ce qui fait obéir ? Peut-être moins l'ordre que l'impression de servir une cause importante. La prochaine fois qu'on te dit « c'est comme ça », demande-toi : qui décide ?
+{cta2}Tu as appris quelque chose ? Commente la vidéo pour me le dire.

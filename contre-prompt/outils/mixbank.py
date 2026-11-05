@@ -33,11 +33,12 @@ def put(a, t_peak, gain_db, pan=0.0, tail=None):
     l, r = g * (1 - max(0, pan)), g * (1 + min(0, pan))
     s = max(0, -i0); e = min(len(a), N - i0)
     if e > s: fx[i0 + s:i0 + e, 0] += a[s:e, 0] * l; fx[i0 + s:i0 + e, 1] += a[s:e, 1] * r
-WH = ["166", "1490", "175", "3115", "1492", "2635"]; ACC = ["2519", "3123", "2577", "2624"]
+WH = ["166", "1490", "175", "3115", "1492", "3161"]; TRIM = {"3161": -7}
+ACC = ["2519", "3123", "2577", "2624"]   # TRIM : correction de niveau par son (le swoosh 3161 est tres plein, il est ramene au niveau des autres)
 wipes = plan["wipes"]; whs = [load(n) for n in WH]; accs = [load(n) for n in ACC]
 order = list(rng.permutation(len(WH)))
 for k, w in enumerate(wipes):                           # un balayage de papier = un « woosh », jamais deux fois le meme de suite
-    idx = order[k % len(order)]; put(whs[idx], w, -16 + rng.uniform(-1.2, 1.2), pan=rng.uniform(-.25, .25), tail=1.6)
+    idx = order[k % len(order)]; put(whs[idx], w, -16 + TRIM.get(WH[idx], 0) + rng.uniform(-1.2, 1.2), pan=rng.uniform(-.25, .25), tail=1.6)
 vend = plan.get("voice_end", plan["video_end"] - 1.5); cues = sorted(plan["cues"].values())
 rev = [c for c in cues if 0.55 * vend <= c <= 0.80 * vend]
 rev_t = min(rev, key=lambda c: abs(c - 0.667 * vend)) if rev else None

@@ -2,10 +2,10 @@
 # Ajoute musique de banque + bruitages (Mixkit, voir sons/SOURCES.md) sous la voix d'un rendu final, avec baisse automatique de la musique sous la voix.
 # Usage : ./ajouter_sons.sh <dossier-video> <id-musique> [niveau_musique_dB=-10] [niveau_bruitages_dB=0]
 #   ids de musique disponibles : voir sons/musique/ (ex. 1167, 90, 506, 69) ; "none" = bruitages seuls, sans musique
-# Le rendu avec voix seule n'est pas modifie : on cree <nom>_rendu-final_sonore_<id>.mp4.
+# Le rendu avec voix seule n'est pas modifie : on cree <nom>_rendu-final_sonore.mp4 (sans musique) ou <nom>_rendu-final_sonore_<id>.mp4 (avec la musique <id>).
 set -e
 D="$(cd "$1" && pwd)"; MID="$2"; MUS="${3:--10}"; FXDB="${4:-0}"; HERE="$(cd "$(dirname "$0")" && pwd)"
-NAME="$(basename "$D")"; SRC="$D/${NAME}_rendu-final.mp4"; OUT="$D/${NAME}_rendu-final_sonore_${MID}.mp4"; TMP="$(mktemp -d)"
+NAME="$(basename "$D")"; SRC="$D/${NAME}_rendu-final.mp4"; SUF="_${MID}"; [ "$MID" = none ] && SUF=""; OUT="$D/${NAME}_rendu-final_sonore${SUF}.mp4"; TMP="$(mktemp -d)"
 [ -f "$SRC" ] || { echo "pas de rendu final : $SRC"; exit 1; }
 node "$HERE/plan_times.js" "$D/source" > "$TMP/plan.json"
 python3 "$HERE/mixbank.py" "$TMP/plan.json" "$HERE/sons/musique/$MID.mp3" "$TMP/musique.wav" "$TMP/fx.wav"

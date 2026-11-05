@@ -298,20 +298,11 @@ async function saveFolder(id) {
     downloads = downloads || await claude.use('downloads'); if (!downloads) throw { code: 'unavailable' };
     const add = (n, d) => files.push({ name: base + '/' + n, data: typeof d === 'string' ? enc.encode(d) : d });
     const grab = async (n, url) => { if (!url) { miss.push(n); return; } try { const r = await fetch(url); if (!r.ok) throw 0; add(n, new Uint8Array(await r.arrayBuffer())); } catch (x) { miss.push(n); } };
-    t.voix ? add('voix-off.md', '# ' + v.title + ' — voix off\n\n' + t.voix + '\n') : miss.push('voix-off.md');
-    t.legende ? add('legende-instagram.md', t.legende + '\n') : miss.push('legende-instagram.md');
-    t.sources ? add('fiche-sources.md', t.sources + '\n') : miss.push('fiche-sources.md');
-    await grab('couverture.jpg', m.coverUrl); await grab('apercu-sans-voix.mp4', m.previewUrl); await grab('rendu-final.mp4', m.finalUrl);
-    if (v.audio && db) {
-      try { const snap = await db.collection('audio').where('videoId', '==', id).get(); const ch = snap.docs.map(d => d.data()).sort((a, b) => a.n - b.n).map(c => Uint8Array.from(atob(c.b64), x => x.charCodeAt(0)));
-        const all = new Uint8Array(ch.reduce((a, b) => a + b.length, 0)); let o = 0; for (const c of ch) { all.set(c, o); o += c.length; }
-        if (!all.length) throw 0; add('ta-voix' + ((String(v.audio.name || '').match(/\.[a-z0-9]+$/i) || ['.m4a'])[0]), all); } catch (x) { miss.push('ta-voix'); }
-    }
-    add('LISEZ-MOI.txt', v.title + '\nDossier enregistré le ' + new Date().toLocaleDateString('fr-FR') + ' depuis le Studio Contre-Prompt.\n\nContenu : voix off, légende Instagram, fiche de sources, couverture, aperçu sans voix, rendu final, et ta voix enregistrée.\n' +
-      'Les vidéos de ce dossier sont les versions allégées (720p). Versions haute qualité et fichiers de fabrication :\n' + [hq.dossier && 'Dossier : ' + hq.dossier, hq.final && 'Rendu final : ' + hq.final, hq.video && 'Vidéo sans voix : ' + hq.video, hq.cover && 'Couverture : ' + hq.cover].filter(Boolean).join('\n') + '\n' + (miss.length ? '\nManquant au moment de l\'enregistrement : ' + miss.join(', ') + '\n' : ''));
+    t.legende ? add('legende-instagram.txt', t.legende + '\n') : miss.push('legende-instagram.txt');
+    await grab('couverture' + (m.coverHqUrl ? '.png' : '.jpg'), m.coverHqUrl || m.coverUrl);
     await downloads.save({ filename: base + '.zip', data: makeZip(files) });
     say('#dlmsg', 'Dossier enregistré' + (miss.length ? ' (il manque : ' + miss.join(', ') + ')' : '') + '.', miss.length ? '' : 'ok');
-  } catch (x) { say('#dlmsg', x && x.code === 'declined' ? 'Enregistrement annulé.' : 'Enregistrement impossible ici : utilise « Ouvrir dans un onglet » pour chaque fichier.', 'err'); }
+  } catch (x) { say('#dlmsg', x && x.code === 'declined' ? 'Enregistrement annulé.' : 'Enregistrement impossible ici : la couverture et la légende sont dans l’onglet Textes de cette vidéo.', 'err'); }
 }
 async function patch(id, data) { if (!db) return false; try { await db.doc('videos/' + id).update(Object.assign({ updatedAt: Date.now() }, data)); return true; } catch (e) { return false; } }
 
@@ -442,7 +433,7 @@ function renderVideo() {
 
   // rendu final
   setHTML('#v-final', '<header><h2>Rendu final</h2><span class="label">Avec ta voix</span></header>' + (m.finalUrl ?
-    '<div class="media"><video controls playsinline preload="metadata"' + (m.coverUrl ? ' poster="' + esc(m.coverUrl) + '"' : '') + ' src="' + esc(m.finalUrl) + '"></video><div class="links"><button class="btn primary" id="btn-dl">Télécharger le rendu final</button><a class="l" href="' + esc(m.finalUrl) + '" target="_blank" rel="noopener">Ouvrir dans un onglet<span>↗</span></a>' + (hq.final ? '<a class="l" href="' + esc(hq.final) + '" target="_blank" rel="noopener">Version haute qualité<span>GitHub ↗</span></a>' : '') + '' + (s >= 5 ? '<button class="btn" id="btn-folder">Enregistrer tout le dossier</button>' : '') + (s === 5 ? '<button class="btn" id="btn-publish">Marquer comme publiée</button>' : s >= 6 ? '<button class="btn" id="btn-unpublish">Annuler « publiée »</button>' : '') + '<div class="msg" id="dlmsg"></div></div></div>'
+    '<div class="media"><video controls playsinline preload="metadata"' + (m.coverUrl ? ' poster="' + esc(m.coverUrl) + '"' : '') + ' src="' + esc(m.finalUrl) + '"></video><div class="links"><button class="btn primary" id="btn-dl">Télécharger le rendu final</button><a class="l" href="' + esc(m.finalUrl) + '" target="_blank" rel="noopener">Ouvrir dans un onglet<span>↗</span></a>' + (hq.final ? '<a class="l" href="' + esc(hq.final) + '" target="_blank" rel="noopener">Version haute qualité<span>GitHub ↗</span></a>' : '') + '' + (s >= 5 ? '<button class="btn" id="btn-folder">Enregistrer le dossier (couverture + légende)</button>' : '') + (s === 5 ? '<button class="btn" id="btn-publish">Marquer comme publiée</button>' : s >= 6 ? '<button class="btn" id="btn-unpublish">Annuler « publiée »</button>' : '') + '<div class="msg" id="dlmsg"></div></div></div>'
     : '<div class="empty">Le rendu final apparaîtra ici une fois l\'audio déposé et le montage terminé.</div>'), JSON.stringify([m.finalUrl, hq.final, m.coverUrl, s]));
 
   // journal

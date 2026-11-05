@@ -76,9 +76,11 @@ Prendre acte. Rien à modifier. Leopold enregistre sa voix.
 4. Déposer la version haute qualité sur GitHub, une version web (≤ 20 Mo) en fichier de l'artefact, puis `media/<id>.finalUrl` et `hq.final`.
 5. Barre : `jobs/<id>.montage` (réception 0 à 10, analyse du rythme 10 à 35, recalage et rendu 35 à 85, assemblage 85 à 95, dépôt 95 à 100). À la fin : `videos/<id>.stage = 5`.
 
-## Bouton « Enregistrer tout le dossier » (page seule, Claude n'y touche pas)
+## Bouton « Enregistrer le dossier (couverture + légende) » (page seule, Claude n'y touche pas)
 
-À partir de l'étape « Rendu prêt », la page propose un bouton qui assemble un fichier `.zip` dans le navigateur et l'enregistre : `aaaa-jj-mm - Mini-doc - nom du doc.zip` (la date est celle du jour de l'enregistrement, ordre année-jour-mois comme demandé). Il contient la voix off, la légende, la fiche de sources (lues dans `texts/<id>`), la couverture et l'aperçu (`media/<id>`), le rendu final (`media/<id>.finalUrl`), la voix de Leopold (`audio/<id>-n`) et un `LISEZ-MOI.txt` avec les liens GitHub de la version haute qualité. Conséquence pour Claude : garder `media/<id>.finalUrl`, `texts/<id>` à jour.
+À partir de l'étape « Rendu prêt », la page propose un bouton qui assemble un fichier `.zip` dans le navigateur et l'enregistre : `aaaa-jj-mm - Mini-doc - nom du doc.zip` (la date est celle du jour de l'enregistrement, ordre année-jour-mois comme demandé). Il contient seulement la couverture en pleine qualité (`media/<id>.coverHqUrl`, PNG ; sinon `coverUrl`) et la légende (`texts/<id>.legende`, en `.txt`). Leopold récupère le rendu final lui-même sur GitHub (`media/<id>.hq.final`) et l'ajoute à la main au dossier.
+
+**Consigne pour Claude** : à chaque vidéo, déposer la couverture PNG comme fichier de l'artefact (`media/<id>.coverHqUrl`), garder `texts/<id>.legende` à jour, et faire pointer `media/<id>.hq.final` vers le rendu final le plus récent sur la branche (version avec bruitages : `<id>_rendu-final_sonore.mp4`, voir `outils/ajouter_sons.sh`).
 
 ## À savoir
 

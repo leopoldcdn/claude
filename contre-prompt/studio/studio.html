@@ -200,6 +200,7 @@ video { max-height: 70vh; aspect-ratio: 9 / 16; object-fit: contain; }
     <div class="panel" id="v-review"></div>
     <div class="panel" id="v-audio"></div>
     <div class="panel" id="v-final"></div>
+    <div class="panel" id="v-stats" hidden></div>
     <div class="panel" id="v-log"></div>
   </section>
 
@@ -375,7 +376,7 @@ function jobBlock(j, titleIdle) {
 function renderVideo() {
   const id = S.sel, v = S.videos.get(id);
   $('#tabvideo').textContent = v ? 'Vidéo · ' + (v.title.length > 22 ? v.title.slice(0, 21) + '…' : v.title) : 'Vidéo';
-  if (!v) { setHTML('#v-head', '<div class="empty">Choisis une vidéo dans le tableau de suivi pour voir son avancement, ses aperçus et ses textes.</div>'); for (const k of ['create', 'media', 'texts', 'review', 'audio', 'final', 'log']) $('#v-' + k).hidden = true; return; }
+  if (!v) { setHTML('#v-head', '<div class="empty">Choisis une vidéo dans le tableau de suivi pour voir son avancement, ses aperçus et ses textes.</div>'); for (const k of ['create', 'media', 'texts', 'review', 'audio', 'final', 'log']) $('#v-' + k).hidden = true; $('#v-stats').hidden = true; return; }
   for (const k of ['create', 'media', 'texts', 'review', 'audio', 'final', 'log']) $('#v-' + k).hidden = false;
   const s = v.stage | 0, m = S.media.get(id) || {}, jc = job(id, 'creation'), jm = job(id, 'montage');
 
@@ -435,6 +436,21 @@ function renderVideo() {
   setHTML('#v-final', '<header><h2>Rendu final</h2><span class="label">Avec ta voix</span></header>' + (m.finalUrl ?
     '<div class="media"><video controls playsinline preload="metadata"' + (m.coverUrl ? ' poster="' + esc(m.coverUrl) + '"' : '') + ' src="' + esc(m.finalUrl) + '"></video><div class="links"><button class="btn primary" id="btn-dl">Télécharger le rendu final</button><a class="l" href="' + esc(m.finalUrl) + '" target="_blank" rel="noopener">Ouvrir dans un onglet<span>↗</span></a>' + (hq.final ? '<a class="l" href="' + esc(hq.final) + '" target="_blank" rel="noopener">Version haute qualité<span>GitHub ↗</span></a>' : '') + '' + (s >= 5 ? '<button class="btn" id="btn-folder">Enregistrer le dossier (couverture + légende)</button>' : '') + (s === 5 ? '<button class="btn" id="btn-publish">Marquer comme publiée</button>' : s >= 6 ? '<button class="btn" id="btn-unpublish">Annuler « publiée »</button>' : '') + '<div class="msg" id="dlmsg"></div></div></div>'
     : '<div class="empty">Le rendu final apparaîtra ici une fois l\'audio déposé et le montage terminé.</div>'), JSON.stringify([m.finalUrl, hq.final, m.coverUrl, s]));
+
+  // résultats du reel publié
+  $('#v-stats').hidden = s < 6;
+  if (s >= 6) {
+    const st = v.stats || {}, F = [['vues', 'Vues'], ['duree_moy_s', 'Durée moyenne de visionnage (secondes)'], ['pct_fin', '% vu jusqu\'à la fin'], ['envois', 'Envois en message privé'], ['enregistrements', 'Enregistrements'], ['abonnes', 'Abonnés gagnés']];
+    const cell = (per, k) => '<input type="number" min="0" step="any" inputmode="decimal" data-stat="' + per + '.' + k + '" value="' + esc(st[per] && st[per][k] != null ? st[per][k] : '') + '" aria-label="' + esc(k + ' ' + per) + '" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--raised)">';
+    const ratio = per => (st[per] && +st[per].vues > 0 && st[per].envois != null) ? (st[per].envois / st[per].vues * 1000).toFixed(1).replace('.', ',') : '—';
+    setHTML('#v-stats', '<header><h2>Résultats du reel</h2><span class="label">Instagram › Statistiques du reel</span></header>' +
+      '<p style="margin:0;color:var(--muted)">Renseigne les chiffres 24 heures puis 7 jours après la publication. Après cinq vidéos mesurées, demande un bilan à Claude Code : il comparera accroches, durées, images réelles et sujets.</p>' +
+      '<div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:center"><span></span><span class="label">À 24 h</span><span class="label">À 7 jours</span>' +
+      F.map(([k, lab]) => '<span>' + esc(lab) + '</span>' + cell('j1', k) + cell('j7', k)).join('') +
+      '<span class="label">Envois pour 1 000 vues</span><span>' + ratio('j1') + '</span><span>' + ratio('j7') + '</span></div>' +
+      '<div class="actions"><button class="btn primary" id="btn-stats">Enregistrer les résultats</button></div><div class="msg" id="smsg" role="status"></div>', JSON.stringify([id, v.stats]));
+    if (drafts._smsg && $('#smsg')) { $('#smsg').textContent = drafts._smsg.t; $('#smsg').dataset.k = drafts._smsg.k; }
+  }
 
   // journal
   const mine = S.requests.filter(r => r.videoId === id).slice(0, 6);
@@ -502,6 +518,7 @@ document.addEventListener('click', async e => {
       '\nMonte le rendu final : reconstruis l\'audio, mesure le rythme réel de ma lecture, recale l\'animation dessus, assemble vidéo et voix, exporte, dépose le rendu dans media/' + S.sel + ' (finalUrl et hq.final). Tiens à jour la barre : jobs/' + S.sel + ', champ montage {state, pct, step, steps, updatedAt}. À la fin : stage=5 dans videos/' + S.sel + '.' + TAIL, anchorP);
     say('#amsg', r.state === 'sent' ? 'Envoyé. Claude Code monte le rendu : la barre d\'avancement apparaît ci-dessus.' : errText(r.err), r.state === 'sent' ? 'ok' : 'err'); if (r.state === 'sent') await patch(S.sel, { stage: 4 }); return;
   }
+  if (e.target.id === 'btn-stats' && S.sel) { const out = {}; document.querySelectorAll('[data-stat]').forEach(i => { if (i.value === '') return; const [per, k] = i.dataset.stat.split('.'); (out[per] = out[per] || {})[k] = +i.value; }); const ok = await patch(S.sel, { stats: out }); drafts._smsg = { t: ok ? 'Résultats enregistrés.' : 'Impossible d\'enregistrer ici.', k: ok ? 'ok' : 'err' }; say('#smsg', drafts._smsg.t, drafts._smsg.k); return; }
   if (e.target.id === 'btn-folder' && S.sel) { await saveFolder(S.sel); return; }
   if (e.target.id === 'btn-dl') { const m = S.media.get(S.sel) || {}; say('#dlmsg', 'Préparation du fichier…'); try { downloads = downloads || await claude.use('downloads'); if (!downloads) throw { code: 'unavailable' }; const r = await fetch(m.finalUrl); const b = await r.blob(); await downloads.save({ filename: S.sel + '_rendu-final.mp4', data: b }); say('#dlmsg', 'Enregistré.', 'ok'); } catch (x) { say('#dlmsg', x && x.code === 'declined' ? 'Téléchargement annulé.' : 'Téléchargement impossible ici : utilise « Ouvrir dans un onglet ».', 'err'); } return; }
 });

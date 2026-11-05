@@ -59,7 +59,7 @@ function coverTemplate(o) {
   setTime(.4); K = 7; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.clearRect(0, 0, W, H);
   if (o.bg) o.bg(); else { ctx.fillStyle = '#cfe3ea'; ctx.fillRect(0, 0, W, H); }
   if (o.illustration) o.illustration();
-  extruded(o.kicker, 540, 380, 110, BRAND.paper, o.shade || '#2f62ad', { depth: 11, rot: -.012 });
+  extruded(o.kicker, 540, 380, o.kickerSize || 110, BRAND.paper, o.shade || '#2f62ad', { depth: 11, rot: -.012 });
   extruded(o.word, 540, 560, o.wordSize || 190, o.wordColor || BRAND.accent2, BRAND.accent, { depth: 15, rot: .01 });
   if (o.tagText) tag(o.tagText, 540, 760, 52, { bg: BRAND.accent, fg: '#fff', rot: -.02, sh: 12 });
   ctx.save(); ctx.fillStyle = BRAND.accent; ctx.beginPath(); ctx.moveTo(0, 1546); ctx.lineTo(W, 1500); ctx.lineTo(W, 1680); ctx.lineTo(0, 1680); ctx.closePath(); ctx.fill(); ctx.restore();

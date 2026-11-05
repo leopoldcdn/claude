@@ -1,0 +1,3 @@
+{h1}Première phrase : douze mots au maximum, avec une tension. {h2}Une idée par phrase, quinze mots au plus.
+{cta1}Sur cette chaîne, je t'apprends des choses tous les jours. Abonne-toi pour te coucher plus intelligent ce soir.
+{cta2}Tu as appris quelque chose ? Commente la vidéo pour me le dire.

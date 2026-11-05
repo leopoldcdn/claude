@@ -1,0 +1,56 @@
+1
+00:00:00,250 --> 00:00:01,420
+Première phrase :
+
+2
+00:00:01,420 --> 00:00:02,904
+douze mots au maximum,
+
+3
+00:00:02,904 --> 00:00:04,441
+avec une tension.
+
+4
+00:00:04,441 --> 00:00:05,708
+Une idée par phrase,
+
+5
+00:00:05,708 --> 00:00:07,177
+quinze mots au plus.
+
+6
+00:00:07,177 --> 00:00:08,010
+Sur cette chaîne,
+
+7
+00:00:08,010 --> 00:00:09,314
+je t'apprends des choses
+
+8
+00:00:09,314 --> 00:00:10,416
+tous les jours.
+
+9
+00:00:10,416 --> 00:00:12,155
+Abonne-toi pour te coucher
+
+10
+00:00:12,155 --> 00:00:14,060
+plus intelligent ce soir.
+
+11
+00:00:14,060 --> 00:00:15,364
+Tu as appris quelque
+
+12
+00:00:15,364 --> 00:00:16,299
+chose ?
+
+13
+00:00:16,299 --> 00:00:17,603
+Commente la vidéo pour
+
+14
+00:00:17,603 --> 00:00:18,755
+me le dire.
+

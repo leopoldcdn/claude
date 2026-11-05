@@ -1,0 +1,7 @@
+{h1}Ton message pour l'autre bout du monde ne passe presque jamais par le ciel. {h2}Il passe au fond de l'océan.
+{num}Plus de quatre-vingt-dix-neuf pour cent des données qui passent d'un pays à l'autre voyagent dans des câbles sous-marins. {num2}Plus de cinq cents câbles.
+{len}Mis bout à bout : plus d'un million sept cent mille kilomètres. {len2}Plus de quatre fois la distance de la Terre à la Lune.
+{hose}Pourtant, en pleine mer, un câble a à peu près l'épaisseur d'un tuyau d'arrosage. {fail}Chaque année, il y a entre cent cinquante et deux cents pannes. {fail2}Sept à huit fois sur dix, c'est un accident : un filet de pêche, une ancre qui traîne.
+{ship}Et réparer prend du temps. Une vingtaine de navires seulement sont dédiés à cette tâche. {ship2}En deux mille vingt-quatre, une réparation a pris en moyenne cinquante et un jours, attente comprise.
+{tonga}Janvier deux mille vingt-deux, à Tonga. Une éruption volcanique et un tsunami sectionnent le câble qui relie le pays au monde. {tonga2}Pendant trente-huit jours, il ne reste que des connexions de fortune par satellite.
+{reroute}Ailleurs, tu ne remarques souvent rien : les données prennent un autre chemin. {fin}La prochaine fois que tu envoies un message à l'étranger, {fin2}pense à ce tuyau posé au fond de l'eau.

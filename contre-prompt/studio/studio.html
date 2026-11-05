@@ -271,6 +271,48 @@ async function send(kind, videoId, message, anchorP) {
 }
 const HEAD = '[Studio Contre-Prompt] ';
 const TAIL = '\nArtefact : ' + ARTIFACT_URL + ' · protocole : contre-prompt/PROCEDURE.md';
+/* ---------- dossier complet : un seul fichier .zip, nommé « aaaa-jj-mm - Mini-doc - nom du doc » ---------- */
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = u => { let c = 0xFFFFFFFF; for (let i = 0; i < u.length; i++) c = CRC[(c ^ u[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], cd = []; let off = 0;
+  const dt = new Date(), dosT = (dt.getHours() << 11) | (dt.getMinutes() << 5) | (dt.getSeconds() >> 1), dosD = ((dt.getFullYear() - 1980) << 9) | ((dt.getMonth() + 1) << 5) | dt.getDate();
+  for (const f of files) {
+    const nm = enc.encode(f.name), crc = crc32(f.data), sz = f.data.length;
+    const lh = new DataView(new ArrayBuffer(30)); lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(10, dosT, true); lh.setUint16(12, dosD, true); lh.setUint32(14, crc, true); lh.setUint32(18, sz, true); lh.setUint32(22, sz, true); lh.setUint16(26, nm.length, true);
+    parts.push(new Uint8Array(lh.buffer), nm, f.data);
+    const ch = new DataView(new ArrayBuffer(46)); ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(12, dosT, true); ch.setUint16(14, dosD, true); ch.setUint32(16, crc, true); ch.setUint32(20, sz, true); ch.setUint32(24, sz, true); ch.setUint16(28, nm.length, true); ch.setUint32(42, off, true);
+    cd.push(new Uint8Array(ch.buffer), nm); off += 30 + nm.length + sz;
+  }
+  const cdSize = cd.reduce((a, b) => a + b.length, 0), end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, cdSize, true); end.setUint32(16, off, true);
+  return new Blob([...parts, ...cd, new Uint8Array(end.buffer)], { type: 'application/zip' });
+}
+const cleanName = s => String(s || '').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim();
+const dateTag = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getDate()) + '-' + p(d.getMonth() + 1); };   // aaaa-jj-mm, comme demandé
+async function saveFolder(id) {
+  const v = S.videos.get(id) || {}, m = S.media.get(id) || {}, t = S.texts.get(id) || {}, hq = m.hq || {};
+  const base = dateTag() + ' - Mini-doc - ' + cleanName(v.title || id), enc = new TextEncoder(), files = [], miss = [];
+  say('#dlmsg', 'Préparation du dossier…');
+  try {
+    downloads = downloads || await claude.use('downloads'); if (!downloads) throw { code: 'unavailable' };
+    const add = (n, d) => files.push({ name: base + '/' + n, data: typeof d === 'string' ? enc.encode(d) : d });
+    const grab = async (n, url) => { if (!url) { miss.push(n); return; } try { const r = await fetch(url); if (!r.ok) throw 0; add(n, new Uint8Array(await r.arrayBuffer())); } catch (x) { miss.push(n); } };
+    t.voix ? add('voix-off.md', '# ' + v.title + ' — voix off\n\n' + t.voix + '\n') : miss.push('voix-off.md');
+    t.legende ? add('legende-instagram.md', t.legende + '\n') : miss.push('legende-instagram.md');
+    t.sources ? add('fiche-sources.md', t.sources + '\n') : miss.push('fiche-sources.md');
+    await grab('couverture.jpg', m.coverUrl); await grab('apercu-sans-voix.mp4', m.previewUrl); await grab('rendu-final.mp4', m.finalUrl);
+    if (v.audio && db) {
+      try { const snap = await db.collection('audio').where('videoId', '==', id).get(); const ch = snap.docs.map(d => d.data()).sort((a, b) => a.n - b.n).map(c => Uint8Array.from(atob(c.b64), x => x.charCodeAt(0)));
+        const all = new Uint8Array(ch.reduce((a, b) => a + b.length, 0)); let o = 0; for (const c of ch) { all.set(c, o); o += c.length; }
+        if (!all.length) throw 0; add('ta-voix' + ((String(v.audio.name || '').match(/\.[a-z0-9]+$/i) || ['.m4a'])[0]), all); } catch (x) { miss.push('ta-voix'); }
+    }
+    add('LISEZ-MOI.txt', v.title + '\nDossier enregistré le ' + new Date().toLocaleDateString('fr-FR') + ' depuis le Studio Contre-Prompt.\n\nContenu : voix off, légende Instagram, fiche de sources, couverture, aperçu sans voix, rendu final, et ta voix enregistrée.\n' +
+      'Les vidéos de ce dossier sont les versions allégées (720p). Versions haute qualité et fichiers de fabrication :\n' + [hq.dossier && 'Dossier : ' + hq.dossier, hq.final && 'Rendu final : ' + hq.final, hq.video && 'Vidéo sans voix : ' + hq.video, hq.cover && 'Couverture : ' + hq.cover].filter(Boolean).join('\n') + '\n' + (miss.length ? '\nManquant au moment de l\'enregistrement : ' + miss.join(', ') + '\n' : ''));
+    await downloads.save({ filename: base + '.zip', data: makeZip(files) });
+    say('#dlmsg', 'Dossier enregistré' + (miss.length ? ' (il manque : ' + miss.join(', ') + ')' : '') + '.', miss.length ? '' : 'ok');
+  } catch (x) { say('#dlmsg', x && x.code === 'declined' ? 'Enregistrement annulé.' : 'Enregistrement impossible ici : utilise « Ouvrir dans un onglet » pour chaque fichier.', 'err'); }
+}
 async function patch(id, data) { if (!db) return false; try { await db.doc('videos/' + id).update(Object.assign({ updatedAt: Date.now() }, data)); return true; } catch (e) { return false; } }
 
 /* ---------- navigation ---------- */
@@ -400,7 +442,7 @@ function renderVideo() {
 
   // rendu final
   setHTML('#v-final', '<header><h2>Rendu final</h2><span class="label">Avec ta voix</span></header>' + (m.finalUrl ?
-    '<div class="media"><video controls playsinline preload="metadata"' + (m.coverUrl ? ' poster="' + esc(m.coverUrl) + '"' : '') + ' src="' + esc(m.finalUrl) + '"></video><div class="links"><button class="btn primary" id="btn-dl">Télécharger le rendu final</button><a class="l" href="' + esc(m.finalUrl) + '" target="_blank" rel="noopener">Ouvrir dans un onglet<span>↗</span></a>' + (hq.final ? '<a class="l" href="' + esc(hq.final) + '" target="_blank" rel="noopener">Version haute qualité<span>GitHub ↗</span></a>' : '') + '' + (s === 5 ? '<button class="btn" id="btn-publish">Marquer comme publiée</button>' : s >= 6 ? '<button class="btn" id="btn-unpublish">Annuler « publiée »</button>' : '') + '<div class="msg" id="dlmsg"></div></div></div>'
+    '<div class="media"><video controls playsinline preload="metadata"' + (m.coverUrl ? ' poster="' + esc(m.coverUrl) + '"' : '') + ' src="' + esc(m.finalUrl) + '"></video><div class="links"><button class="btn primary" id="btn-dl">Télécharger le rendu final</button><a class="l" href="' + esc(m.finalUrl) + '" target="_blank" rel="noopener">Ouvrir dans un onglet<span>↗</span></a>' + (hq.final ? '<a class="l" href="' + esc(hq.final) + '" target="_blank" rel="noopener">Version haute qualité<span>GitHub ↗</span></a>' : '') + '' + (s >= 5 ? '<button class="btn" id="btn-folder">Enregistrer tout le dossier</button>' : '') + (s === 5 ? '<button class="btn" id="btn-publish">Marquer comme publiée</button>' : s >= 6 ? '<button class="btn" id="btn-unpublish">Annuler « publiée »</button>' : '') + '<div class="msg" id="dlmsg"></div></div></div>'
     : '<div class="empty">Le rendu final apparaîtra ici une fois l\'audio déposé et le montage terminé.</div>'), JSON.stringify([m.finalUrl, hq.final, m.coverUrl, s]));
 
   // journal
@@ -469,6 +511,7 @@ document.addEventListener('click', async e => {
       '\nMonte le rendu final : reconstruis l\'audio, mesure le rythme réel de ma lecture, recale l\'animation dessus, assemble vidéo et voix, exporte, dépose le rendu dans media/' + S.sel + ' (finalUrl et hq.final). Tiens à jour la barre : jobs/' + S.sel + ', champ montage {state, pct, step, steps, updatedAt}. À la fin : stage=5 dans videos/' + S.sel + '.' + TAIL, anchorP);
     say('#amsg', r.state === 'sent' ? 'Envoyé. Claude Code monte le rendu : la barre d\'avancement apparaît ci-dessus.' : errText(r.err), r.state === 'sent' ? 'ok' : 'err'); if (r.state === 'sent') await patch(S.sel, { stage: 4 }); return;
   }
+  if (e.target.id === 'btn-folder' && S.sel) { await saveFolder(S.sel); return; }
   if (e.target.id === 'btn-dl') { const m = S.media.get(S.sel) || {}; say('#dlmsg', 'Préparation du fichier…'); try { downloads = downloads || await claude.use('downloads'); if (!downloads) throw { code: 'unavailable' }; const r = await fetch(m.finalUrl); const b = await r.blob(); await downloads.save({ filename: S.sel + '_rendu-final.mp4', data: b }); say('#dlmsg', 'Enregistré.', 'ok'); } catch (x) { say('#dlmsg', x && x.code === 'declined' ? 'Téléchargement annulé.' : 'Téléchargement impossible ici : utilise « Ouvrir dans un onglet ».', 'err'); } return; }
 });
 document.addEventListener('change', async e => {

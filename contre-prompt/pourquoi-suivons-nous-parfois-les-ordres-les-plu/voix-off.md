@@ -1,6 +1,6 @@
 # Pourquoi suivons-nous parfois les ordres les plus absurdes ? — texte de la voix off
 
-**À enregistrer par toi.** 231 mots · environ **1:36** à mon rythme estimé ; pour tes vidéos précédentes, tu as lu environ 15 % plus vite que mon estimation, donc compte plutôt **1 min 20 à 1 min 25**. C'est au-dessus de 1 min 15, mais tu as dit que la compréhension passait avant la durée : j'ai gardé les deux appels à l'action et chaque étape de l'explication. Les nombres sont écrits en lettres. Aucun nom de source n'est dit (le nom de Milgram fait partie de l'histoire).
+**À enregistrer par toi.** 231 mots · **1 min 21** mesurées sur ta lecture (mon estimation était de 1:36 ; tu lis environ 15 % plus vite). C'est au-dessus de 1 min 15, mais tu as dit que la compréhension passait avant la durée : j'ai gardé les deux appels à l'action et chaque étape de l'explication. Les nombres sont écrits en lettres. Aucun nom de source n'est dit (le nom de Milgram fait partie de l'histoire).
 
 ---
 

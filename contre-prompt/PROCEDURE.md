@@ -33,7 +33,7 @@ Lecture et écriture avec l'outil `ArtifactData` (url de l'artefact ci-dessus). 
 | `requests/*` | page | journal des messages envoyés |
 | `meta/channel` | page | `threadId` du fil de commentaires utilisé pour parler à Claude |
 
-Étapes (`stage`) : 0 Sujet choisi · 1 En création · 2 À relire · 3 Attente audio · 4 Montage final · 5 Terminée.
+Étapes (`stage`) : 0 Sujet choisi · 1 En création · 2 À relire · 3 Attente audio · 4 Montage final · 5 Rendu prêt · 6 Publiée (posé sur Instagram, marqué à la main par Leopold ; `publishedAt` est renseigné par la page, Claude n'y touche pas).
 
 ## ACTION=proposer_sujets
 

@@ -66,7 +66,7 @@ input[type="text"], textarea { width: 100%; background: var(--raised); border: 1
 textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 
 /* suivi : tableau */
-.board { display: grid; grid-template-columns: repeat(6, minmax(190px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
+.board { display: grid; grid-template-columns: repeat(7, minmax(190px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
 .col { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: grid; gap: 8px; align-content: start; min-height: 150px; scroll-snap-align: start; }
 .col > header { display: flex; justify-content: space-between; align-items: baseline; }
 .col .cnt { font-family: var(--mono); font-size: 11px; color: var(--muted); }
@@ -107,7 +107,7 @@ textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
 .facts { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; }
 .facts span { font-family: var(--mono); font-size: 12px; color: var(--muted); } .facts b { color: var(--ink); font-weight: 500; }
 .next { border-left: 3px solid var(--accent); padding: 8px 12px; background: color-mix(in srgb, var(--accent) 9%, transparent); border-radius: 0 8px 8px 0; font-weight: 500; }
-.track { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.track { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .step { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; text-align: left; display: grid; gap: 5px; min-width: 0; }
 .step i { display: block; height: 7px; border-radius: 4px; background: var(--line); }
 .step[data-state="done"] i { background: var(--sea); } .step[data-state="now"] i { background: var(--accent); }
@@ -210,7 +210,7 @@ video { max-height: 70vh; aspect-ratio: 9 / 16; object-fit: contain; }
 const SESSION = 'session_01K2LpZGXYMQ5BcetmRb91bN';
 const SESSION_URL = 'https://claude.ai/code/' + SESSION;
 const ARTIFACT_URL = 'https://claude.ai/artifact/8hLF4hUjzxpN9Z85fKSvaT';
-const STAGES = ['Sujet choisi', 'En création', 'À relire', 'Attente audio', 'Montage final', 'Terminée'];
+const STAGES = ['Sujet choisi', 'En création', 'À relire', 'Attente audio', 'Montage final', 'Rendu prêt', 'Publiée'];
 const CHECKS = [['voix', 'Voix off'], ['video', 'Vidéo sans voix'], ['legende', 'Légende'], ['sources', 'Fiche de sources'], ['couverture', 'Couverture']];
 const CHUNK = 150000;
 
@@ -288,11 +288,11 @@ function fromHash() {
 /* ---------- affichage : suivi ---------- */
 function nextTag(v, id) {
   const s = v.stage | 0;
-  if (s === 0) return 'À lancer'; if (s === 2) return 'À relire'; if (s === 3) return 'Ton audio'; return '';
+  if (s === 0) return 'À lancer'; if (s === 2) return 'À relire'; if (s === 3) return 'Ton audio'; if (s === 5) return 'À publier'; return '';
 }
 function renderBoard() {
   const cols = STAGES.map(() => []);
-  [...S.videos.entries()].sort((a, b) => (b[1].updatedAt || 0) - (a[1].updatedAt || 0)).forEach(([id, v]) => cols[Math.min(5, v.stage | 0)].push([id, v]));
+  [...S.videos.entries()].sort((a, b) => (b[1].updatedAt || 0) - (a[1].updatedAt || 0)).forEach(([id, v]) => cols[Math.min(6, v.stage | 0)].push([id, v]));
   const html = STAGES.map((n, i) => '<div class="col"><header><span class="label">' + esc(n) + '</span><span class="cnt">' + cols[i].length + '</span></header>' +
     (cols[i].length ? cols[i].map(([id, v]) => {
       const jc = job(id, 'creation'), jm = job(id, 'montage'), j = running(jm) ? jm : running(jc) ? jc : null, tg = nextTag(v, id);
@@ -329,7 +329,7 @@ function nextAction(v, id) {
   if (s === 2) { const n = CHECKS.length - doneCount(v); return n ? 'À toi : regarde l\'aperçu, lis les textes, coche ce qui est bon (' + n + ' à relire), puis valide ou demande des changements.' : 'Tout est relu. Tu peux valider la vidéo.'; }
   if (s === 3) return v.audio ? 'Audio reçu. Demande le montage du rendu final.' : 'À toi : enregistre la voix off (texte dans « Textes »), puis dépose l\'audio plus bas.';
   if (s === 4) return running(jm) ? 'Claude Code monte le rendu final avec ton audio.' : 'Montage demandé. En attente de Claude Code.';
-  return 'Terminé. Télécharge le rendu final.';
+  if (s === 5) return 'Rendu final prêt. Télécharge-le, poste le reel, puis clique sur « Marquer comme publiée ».'; return 'Publiée' + (v.publishedAt ? ' le ' + new Date(v.publishedAt).toLocaleDateString('fr-FR') : '') + '. Bravo !';
 }
 function jobBlock(j, titleIdle) {
   if (!j) return '';
@@ -400,8 +400,8 @@ function renderVideo() {
 
   // rendu final
   setHTML('#v-final', '<header><h2>Rendu final</h2><span class="label">Avec ta voix</span></header>' + (m.finalUrl ?
-    '<div class="media"><video controls playsinline preload="metadata"' + (m.coverUrl ? ' poster="' + esc(m.coverUrl) + '"' : '') + ' src="' + esc(m.finalUrl) + '"></video><div class="links"><button class="btn primary" id="btn-dl">Télécharger le rendu final</button><a class="l" href="' + esc(m.finalUrl) + '" target="_blank" rel="noopener">Ouvrir dans un onglet<span>↗</span></a>' + (hq.final ? '<a class="l" href="' + esc(hq.final) + '" target="_blank" rel="noopener">Version haute qualité<span>GitHub ↗</span></a>' : '') + '<div class="msg" id="dlmsg"></div></div></div>'
-    : '<div class="empty">Le rendu final apparaîtra ici une fois l\'audio déposé et le montage terminé.</div>'), JSON.stringify([m.finalUrl, hq.final, m.coverUrl]));
+    '<div class="media"><video controls playsinline preload="metadata"' + (m.coverUrl ? ' poster="' + esc(m.coverUrl) + '"' : '') + ' src="' + esc(m.finalUrl) + '"></video><div class="links"><button class="btn primary" id="btn-dl">Télécharger le rendu final</button><a class="l" href="' + esc(m.finalUrl) + '" target="_blank" rel="noopener">Ouvrir dans un onglet<span>↗</span></a>' + (hq.final ? '<a class="l" href="' + esc(hq.final) + '" target="_blank" rel="noopener">Version haute qualité<span>GitHub ↗</span></a>' : '') + '' + (s === 5 ? '<button class="btn" id="btn-publish">Marquer comme publiée</button>' : s >= 6 ? '<button class="btn" id="btn-unpublish">Annuler « publiée »</button>' : '') + '<div class="msg" id="dlmsg"></div></div></div>'
+    : '<div class="empty">Le rendu final apparaîtra ici une fois l\'audio déposé et le montage terminé.</div>'), JSON.stringify([m.finalUrl, hq.final, m.coverUrl, s]));
 
   // journal
   const mine = S.requests.filter(r => r.videoId === id).slice(0, 6);
@@ -424,7 +424,9 @@ document.addEventListener('click', async e => {
   if ((el = q('[data-tab]'))) { go(el.dataset.tab); return; }
   if ((el = q('[data-open]'))) { go('video', el.dataset.open); return; }
   if ((el = q('[data-ttab]'))) { S.ttab = el.dataset.ttab; renderVideo(); return; }
-  if ((el = q('[data-stage]')) && S.sel) { await patch(S.sel, { stage: +el.dataset.stage }); return; }
+  if ((el = q('[data-stage]')) && S.sel) { const ns = +el.dataset.stage; await patch(S.sel, ns === 6 ? { stage: 6, publishedAt: Date.now() } : { stage: ns }); return; }
+  if (e.target.id === 'btn-publish' && S.sel) { await patch(S.sel, { stage: 6, publishedAt: Date.now() }); return; }
+  if (e.target.id === 'btn-unpublish' && S.sel) { await patch(S.sel, { stage: 5 }); return; }
   if ((el = q('[data-idea-choose]')) && db) {
     const id = el.dataset.ideaChoose, d = S.ideas.get(id); if (!d) return; el.disabled = true;
     try { const vid = await newVideo(d.title, { summary: d.hook || '', angle: d.angle || '', ideaId: id }); await db.doc('ideas/' + id).update({ status: 'chosen', videoId: vid }); go('video', vid); } catch (x) { el.disabled = false; say('#ideamsg', 'Impossible d\'enregistrer ce choix.', 'err'); } return;

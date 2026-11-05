@@ -1,7 +1,7 @@
 #!/bin/bash
 # Ajoute musique de banque + bruitages (Mixkit, voir sons/SOURCES.md) sous la voix d'un rendu final, avec baisse automatique de la musique sous la voix.
 # Usage : ./ajouter_sons.sh <dossier-video> <id-musique> [niveau_musique_dB=-10] [niveau_bruitages_dB=0]
-#   ids de musique disponibles : voir sons/musique/ (ex. 1167, 90, 506, 69)
+#   ids de musique disponibles : voir sons/musique/ (ex. 1167, 90, 506, 69) ; "none" = bruitages seuls, sans musique
 # Le rendu avec voix seule n'est pas modifie : on cree <nom>_rendu-final_sonore_<id>.mp4.
 set -e
 D="$(cd "$1" && pwd)"; MID="$2"; MUS="${3:--10}"; FXDB="${4:-0}"; HERE="$(cd "$(dirname "$0")" && pwd)"

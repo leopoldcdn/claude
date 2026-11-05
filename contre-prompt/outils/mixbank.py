@@ -12,8 +12,11 @@ dur = plan["video_end"] + 0.5; N = int(dur * SR)
 
 # ---- musique : coupee a la duree, fondu entree/sortie, un peu moins de mediums (la place de la voix), niveau cible -24 LUFS ----
 fo = max(dur - 3.2, 1)
-subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", track, "-t", "%.2f" % dur, "-ac", "2", "-ar", str(SR),
-  "-af", "equalizer=f=2200:t=q:w=0.9:g=-4,afade=t=in:d=1.5,afade=t=out:st=%.2f:d=3.2,loudnorm=I=-24:TP=-3:LRA=7" % fo, out_music], check=True)
+if track.endswith("none.mp3"):                            # option « sans musique » : piste muette, bruitages seuls
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "anullsrc=r=%d:cl=stereo" % SR, "-t", "%.2f" % dur, out_music], check=True)
+else:
+  subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", track, "-t", "%.2f" % dur, "-ac", "2", "-ar", str(SR),
+    "-af", "equalizer=f=2200:t=q:w=0.9:g=-4,afade=t=in:d=1.5,afade=t=out:st=%.2f:d=3.2,loudnorm=I=-24:TP=-3:LRA=7" % fo, out_music], check=True)
 
 # ---- bruitages ----
 def load(name):

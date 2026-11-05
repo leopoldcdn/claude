@@ -2,6 +2,6 @@
 {surprise}D'abord, personne ne peut éteindre tout Internet d'un coup : {isoc}ce sont des dizaines de milliers de réseaux, et personne n'en est le patron.
 {fb}Mais un morceau peut disparaître. {fb2}En octobre deux mille vingt et un, Facebook, Instagram et WhatsApp sortent d'Internet pendant plus de cinq heures. {fbcause}La cause : un mauvais réglage, pas une attaque.
 {visa}En deux mille dix-huit, ce n'est pas Internet mais le réseau Visa qui tombe : {visa2}sur une dizaine d'heures, plus de cinq millions de paiements échouent en Europe.
-{crowd}En juillet deux mille vingt-quatre, une mise à jour défectueuse plante huit millions et demi d'ordinateurs : {crowd2}des milliers de vols sont annulés.
+{crowd}En juillet deux mille vingt-quatre, une mise à jour défectueuse plante huit millions et demi d'ordinateurs. {crowd1}Le trafic aérien est bouleversé : {crowd2}des milliers de vols sont annulés.
 {coupures}Et les coupures volontaires ? {ak}En deux mille vingt-quatre, des autorités ont imposé au moins deux cent quatre-vingt-seize coupures d'Internet, dans cinquante-quatre pays. {six}Près de six par semaine.
 {fin}Vingt-quatre heures sans Internet ? {fin2}On ne s'en aperçoit que quand ça s'arrête. {fin3}La prochaine fois que ton wifi saute, regarde tout ce qui s'éteint avec lui.

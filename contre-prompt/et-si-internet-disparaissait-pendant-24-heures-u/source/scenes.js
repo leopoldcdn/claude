@@ -162,7 +162,8 @@ function sceneE(t) {
   const c = TIMING.cues; nightBg(t);
   const e = E.out(prog(t, c.crowd, .6)); board(540, lerp(-200, 640, e), t, c.crowd + .9, ['PARIS', 'LONDRES', 'MADRID', 'ROME', 'BERLIN', 'LISBONNE']);
   if (t > c.crowd + .3) tag('JUILLET 2024', 540, 1000, 48, { bg: N.paper, fg: N.ink, rot: -.03, scale: pop(t, c.crowd + .3, .3) });
-  if (t >= c.crowd + 1.4 && t < c.crowd2) { const k = pop(t, c.crowd + 1.4, .35); extruded('8,5 M', 540, 1125, 130, N.white, N.cyanDk, { depth: 12, scale: k, rot: .01 }); tag("D'ORDINATEURS PLANTÉS", 540, 1215, 44, { bg: N.cyan, fg: N.ink, rot: -.02, scale: k }); }
+  if (t >= c.crowd1 && t < c.crowd2) { const k = pop(t, c.crowd1, .35); tag('TRAFIC AÉRIEN BOULEVERSÉ', 540, 1125, 56, { bg: N.amber, fg: N.ink, rot: -.02, scale: k }); }
+  if (t >= c.crowd + 1.4 && t < c.crowd1) { const k = pop(t, c.crowd + 1.4, .35); extruded('8,5 M', 540, 1125, 130, N.white, N.cyanDk, { depth: 12, scale: k, rot: .01 }); tag("D'ORDINATEURS PLANTÉS", 540, 1215, 44, { bg: N.cyan, fg: N.ink, rot: -.02, scale: k }); }
   if (t >= c.crowd2) { const k = pop(t, c.crowd2, .35); extruded('DES MILLIERS', 540, 1125, 106, N.white, N.red, { depth: 12, scale: k, rot: -.01 }); tag('DE VOLS ANNULÉS', 540, 1215, 50, { bg: N.red, fg: '#fff', rot: .02, scale: k }); }
 }
 

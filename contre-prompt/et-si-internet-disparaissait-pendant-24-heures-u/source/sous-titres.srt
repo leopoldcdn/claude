@@ -143,86 +143,94 @@ une mise à jour
 défectueuse plante huit millions
 
 37
-00:00:44,883 --> 00:00:47,140
-et demi d'ordinateurs :
+00:00:44,883 --> 00:00:47,073
+et demi d'ordinateurs.
 
 38
-00:00:47,140 --> 00:00:48,227
-des milliers de vols
+00:00:47,073 --> 00:00:48,377
+Le trafic aérien est
 
 39
-00:00:48,227 --> 00:00:49,697
-sont annulés.
+00:00:48,377 --> 00:00:49,764
+bouleversé :
 
 40
-00:00:49,697 --> 00:00:51,218
-Et les coupures volontaires
+00:00:49,764 --> 00:00:50,851
+des milliers de vols
 
 41
-00:00:51,218 --> 00:00:51,936
-?
+00:00:50,851 --> 00:00:52,320
+sont annulés.
 
 42
-00:00:51,936 --> 00:00:53,203
-En deux mille vingt-quatre,
+00:00:52,320 --> 00:00:53,842
+Et les coupures volontaires
 
 43
-00:00:53,203 --> 00:00:55,159
-des autorités ont imposé
+00:00:53,842 --> 00:00:54,560
+?
 
 44
-00:00:55,159 --> 00:00:56,029
-au moins deux cent
+00:00:54,560 --> 00:00:55,827
+En deux mille vingt-quatre,
 
 45
-00:00:56,029 --> 00:00:57,333
-quatre-vingt-seize coupures
+00:00:55,827 --> 00:00:57,783
+des autorités ont imposé
 
 46
-00:00:57,333 --> 00:00:58,383
-d'Internet,
+00:00:57,783 --> 00:00:58,653
+au moins deux cent
 
 47
-00:00:58,383 --> 00:01:00,137
-dans cinquante-quatre pays.
+00:00:58,653 --> 00:00:59,957
+quatre-vingt-seize coupures
 
 48
-00:01:00,137 --> 00:01:01,007
-Près de six par
+00:00:59,957 --> 00:01:01,007
+d'Internet,
 
 49
-00:01:01,007 --> 00:01:02,041
-semaine.
+00:01:01,007 --> 00:01:02,761
+dans cinquante-quatre pays.
 
 50
-00:01:02,041 --> 00:01:02,911
-Vingt-quatre heures sans
+00:01:02,761 --> 00:01:03,630
+Près de six par
 
 51
-00:01:02,911 --> 00:01:04,280
-Internet ?
+00:01:03,630 --> 00:01:04,665
+semaine.
 
 52
-00:01:04,280 --> 00:01:05,802
-On ne s'en aperçoit
+00:01:04,665 --> 00:01:05,535
+Vingt-quatre heures sans
 
 53
-00:01:05,802 --> 00:01:07,557
-que quand ça s'arrête.
+00:01:05,535 --> 00:01:06,904
+Internet ?
 
 54
-00:01:07,557 --> 00:01:08,643
-La prochaine fois que
+00:01:06,904 --> 00:01:08,426
+On ne s'en aperçoit
 
 55
-00:01:08,643 --> 00:01:09,693
-ton wifi saute,
+00:01:08,426 --> 00:01:10,180
+que quand ça s'arrête.
 
 56
-00:01:09,693 --> 00:01:10,780
-regarde tout ce qui
+00:01:10,180 --> 00:01:11,267
+La prochaine fois que
 
 57
-00:01:10,780 --> 00:01:12,584
+00:01:11,267 --> 00:01:12,317
+ton wifi saute,
+
+58
+00:01:12,317 --> 00:01:13,404
+regarde tout ce qui
+
+59
+00:01:13,404 --> 00:01:15,208
 s'éteint avec lui.
 

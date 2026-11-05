@@ -5,7 +5,7 @@ Le dossier porte le nom de l'identifiant du Studio (`et-si-internet-disparaissai
 | Livrable | Fichier |
 |---|---|
 | Texte de la voix off (à enregistrer par toi) | [`voix-off.md`](voix-off.md) |
-| Vidéo animée sans voix, 1080×1920, 30 i/s, 1 min 14, sous-titres gravés | `et-si-internet-disparaissait-pendant-24-heures-u_sans-voix.mp4` |
+| Vidéo animée sans voix, 1080×1920, 30 i/s, 1 min 16, sous-titres gravés | `et-si-internet-disparaissait-pendant-24-heures-u_sans-voix.mp4` |
 | Légende Instagram avec sources | [`legende-instagram.md`](legende-instagram.md) |
 | Fiche de sources | [`fiche-sources.md`](fiche-sources.md) |
 | Image de couverture 1080×1920 | `couverture.png` |

@@ -1,9 +1,9 @@
 {
  "sps": 4.6,
  "audio_trim": 0.0,
- "voice_end": 72.08,
- "video_end": 73.68,
- "words": 181,
+ "voice_end": 74.71,
+ "video_end": 76.31,
+ "words": 186,
  "cues": {
   "h1": 0.25,
   "h2": 4.011,
@@ -15,13 +15,14 @@
   "visa": 31.052,
   "visa2": 36.097,
   "crowd": 40.79,
-  "crowd2": 47.14,
-  "coupures": 49.697,
-  "ak": 51.936,
-  "six": 60.137,
-  "fin": 62.041,
-  "fin2": 64.28,
-  "fin3": 67.557
+  "crowd1": 47.073,
+  "crowd2": 49.764,
+  "coupures": 52.32,
+  "ak": 54.56,
+  "six": 62.761,
+  "fin": 64.665,
+  "fin2": 66.904,
+  "fin3": 70.18
  },
  "sentences": [
   {
@@ -45,19 +46,19 @@
    "end": 40.19
   },
   {
-   "text": "En juillet deux mille vingt-quatre, une mise à jour défectueuse plante huit millions et demi d'ordinateurs : des milliers de vols sont annulés.",
+   "text": "En juillet deux mille vingt-quatre, une mise à jour défectueuse plante huit millions et demi d'ordinateurs. Le trafic aérien est bouleversé : des milliers de vols sont annulés.",
    "start": 40.79,
-   "end": 49.097
+   "end": 51.72
   },
   {
    "text": "Et les coupures volontaires ? En deux mille vingt-quatre, des autorités ont imposé au moins deux cent quatre-vingt-seize coupures d'Internet, dans cinquante-quatre pays. Près de six par semaine.",
-   "start": 49.697,
-   "end": 61.441
+   "start": 52.32,
+   "end": 64.065
   },
   {
    "text": "Vingt-quatre heures sans Internet ? On ne s'en aperçoit que quand ça s'arrête. La prochaine fois que ton wifi saute, regarde tout ce qui s'éteint avec lui.",
-   "start": 62.041,
-   "end": 72.084
+   "start": 64.665,
+   "end": 74.708
   }
  ],
  "subs": [
@@ -242,109 +243,119 @@
    "end": 44.883
   },
   {
-   "text": "et demi d'ordinateurs :",
+   "text": "et demi d'ordinateurs.",
    "start": 44.883,
-   "end": 47.14
+   "end": 47.073
+  },
+  {
+   "text": "Le trafic aérien est",
+   "start": 47.073,
+   "end": 48.377
+  },
+  {
+   "text": "bouleversé :",
+   "start": 48.377,
+   "end": 49.764
   },
   {
    "text": "des milliers de vols",
-   "start": 47.14,
-   "end": 48.227
+   "start": 49.764,
+   "end": 50.851
   },
   {
    "text": "sont annulés.",
-   "start": 48.227,
-   "end": 49.697
+   "start": 50.851,
+   "end": 52.32
   },
   {
    "text": "Et les coupures volontaires",
-   "start": 49.697,
-   "end": 51.218
+   "start": 52.32,
+   "end": 53.842
   },
   {
    "text": "?",
-   "start": 51.218,
-   "end": 51.936
+   "start": 53.842,
+   "end": 54.56
   },
   {
    "text": "En deux mille vingt-quatre,",
-   "start": 51.936,
-   "end": 53.203
+   "start": 54.56,
+   "end": 55.827
   },
   {
    "text": "des autorités ont imposé",
-   "start": 53.203,
-   "end": 55.159
+   "start": 55.827,
+   "end": 57.783
   },
   {
    "text": "au moins deux cent",
-   "start": 55.159,
-   "end": 56.029
+   "start": 57.783,
+   "end": 58.653
   },
   {
    "text": "quatre-vingt-seize coupures",
-   "start": 56.029,
-   "end": 57.333
+   "start": 58.653,
+   "end": 59.957
   },
   {
    "text": "d'Internet,",
-   "start": 57.333,
-   "end": 58.383
-  },
-  {
-   "text": "dans cinquante-quatre pays.",
-   "start": 58.383,
-   "end": 60.137
-  },
-  {
-   "text": "Près de six par",
-   "start": 60.137,
+   "start": 59.957,
    "end": 61.007
   },
   {
-   "text": "semaine.",
+   "text": "dans cinquante-quatre pays.",
    "start": 61.007,
-   "end": 62.041
+   "end": 62.761
+  },
+  {
+   "text": "Près de six par",
+   "start": 62.761,
+   "end": 63.63
+  },
+  {
+   "text": "semaine.",
+   "start": 63.63,
+   "end": 64.665
   },
   {
    "text": "Vingt-quatre heures sans",
-   "start": 62.041,
-   "end": 62.911
+   "start": 64.665,
+   "end": 65.535
   },
   {
    "text": "Internet ?",
-   "start": 62.911,
-   "end": 64.28
+   "start": 65.535,
+   "end": 66.904
   },
   {
    "text": "On ne s'en aperçoit",
-   "start": 64.28,
-   "end": 65.802
+   "start": 66.904,
+   "end": 68.426
   },
   {
    "text": "que quand ça s'arrête.",
-   "start": 65.802,
-   "end": 67.557
+   "start": 68.426,
+   "end": 70.18
   },
   {
    "text": "La prochaine fois que",
-   "start": 67.557,
-   "end": 68.643
+   "start": 70.18,
+   "end": 71.267
   },
   {
    "text": "ton wifi saute,",
-   "start": 68.643,
-   "end": 69.693
+   "start": 71.267,
+   "end": 72.317
   },
   {
    "text": "regarde tout ce qui",
-   "start": 69.693,
-   "end": 70.78
+   "start": 72.317,
+   "end": 73.404
   },
   {
    "text": "s'éteint avec lui.",
-   "start": 70.78,
-   "end": 72.584
+   "start": 73.404,
+   "end": 75.208
   }
  ]
 }

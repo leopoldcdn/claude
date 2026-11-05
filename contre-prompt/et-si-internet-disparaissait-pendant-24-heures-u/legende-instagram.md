@@ -11,7 +11,7 @@ Ce que disent les sources :
 • Personne ne peut éteindre tout Internet d'un coup : ce sont des dizaines de milliers de réseaux reliés entre eux, sans patron (Internet Society).
 • Octobre 2021 : Facebook, Instagram et WhatsApp disparaissent d'Internet plus de cinq heures. Cause : un mauvais réglage, pas une attaque.
 • Juin 2018 : une panne dans un centre de données de Visa fait échouer 5,2 millions de paiements (ce n'était pas une panne d'Internet).
-• Juillet 2024 : une mise à jour défectueuse affecte 8,5 millions d'appareils Windows ; des milliers de vols sont annulés (pas une panne d'Internet non plus).
+• Juillet 2024 : une mise à jour défectueuse affecte 8,5 millions d'appareils Windows ; le trafic aérien est bouleversé, avec des milliers de vols annulés (pas une panne d'Internet non plus).
 • 2024 : au moins 296 coupures imposées par des autorités, dans 54 pays, un record (Access Now). Cela fait environ 5,7 par semaine (calcul refait).
 
 Une question laissée ouverte : que se passerait-il avec 24 heures de coupure mondiale ? Personne ne peut le dire : cela n'est jamais arrivé.

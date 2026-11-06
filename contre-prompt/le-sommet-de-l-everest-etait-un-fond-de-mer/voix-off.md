@@ -1,6 +1,6 @@
 # Pourquoi le sommet de l'Everest est-il fait de fonds marins ? — texte de la voix off
 
-**À enregistrer par toi.** 202 mots · environ **1:15** à mon rythme estimé ; à ton rythme habituel (tu lis environ 15 % plus vite que mon estimation), compte plutôt **1 min 05 à 1 min 10**. Les nombres sont écrits en lettres. Aucun nom de source n'est dit. **Fin : variante B** de l'appel à l'action (« Envoie-lui la vidéo »), puisque Milgram avait la variante A.
+**À enregistrer par toi.** 202 mots · **1 min 06** mesurées sur ta lecture (mon estimation était de 1:15 ; tu lis environ 15 % plus vite). Les nombres sont écrits en lettres. Aucun nom de source n'est dit. **Fin : variante B** de l'appel à l'action (« Envoie-lui la vidéo »), puisque Milgram avait la variante A.
 
 ---
 

@@ -1,6 +1,6 @@
 # Et si Internet disparaissait pendant 24 heures ? — texte de la voix off
 
-**À enregistrer par toi.** 186 mots · environ **1:15** à mon rythme estimé ; pour tes vidéos précédentes, tu as lu environ 15 % plus vite que mon estimation, donc compte plutôt **1 min 05 à 1 min 08**. Les nombres sont écrits en lettres. Aucun nom de source n'est dit (les noms de sociétés sont les sujets des pannes, pas des sources).
+**À enregistrer par toi.** 186 mots · **1 min 02** mesurées sur ta lecture (mon estimation était de 1:15 ; tu lis environ 15 % plus vite). Les nombres sont écrits en lettres. Aucun nom de source n'est dit (les noms de sociétés sont les sujets des pannes, pas des sources).
 
 ---
 

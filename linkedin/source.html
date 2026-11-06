@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Visuels LinkedIn de Teamora, rendus en PNG par render.js (un élément .shot = une image). */
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #222; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; padding: 20px; display: grid; gap: 20px; justify-items: start; }
+  .shot { position: relative; overflow: hidden; color: #fff; }
+  .bg { background: radial-gradient(60% 120% at 88% 0%, #3a33b8 0%, transparent 60%), radial-gradient(50% 120% at 0% 120%, #0b6f88 0%, transparent 60%), #0f1230; }
+  .wm { font-family: Sora, system-ui, sans-serif; font-weight: 800; letter-spacing: -0.03em; }
+  .grad { background: linear-gradient(90deg, #a5a0ff, #5fd3ec); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); border-radius: 999px; font-weight: 600; color: #d9dbf7; white-space: nowrap; }
+  .chip i { width: 8px; height: 8px; border-radius: 50%; background: #ffd166; }
+  /* Roue décorative : les rubriques du parcours autour d'un centre */
+  .ring { position: absolute; border-radius: 50%; border: 1px solid rgba(255,255,255,.1); }
+  .dot { position: absolute; border-radius: 50%; }
+  /* 1. Logo de la page entreprise (400 × 400) */
+  #logo { width: 400px; height: 400px; }
+  /* 2. Logo pour un recadrage en cercle (photo de profil ronde) */
+  #logo-rond { width: 400px; height: 400px; }
+  /* 3. Bannière de la page entreprise (1128 × 191) : le logo masque le bas à gauche */
+  #banniere-page { width: 1128px; height: 191px; }
+  /* 4. Bannière du profil personnel (1584 × 396) : la photo masque le bas à gauche (~ 0 à 470 px) */
+  #banniere-profil { width: 1584px; height: 396px; }
+</style></head><body>
+
+<div class="shot" id="logo"><svg width="400" height="400" viewBox="0 0 64 64"><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b52f0"/><stop offset="1" stop-color="#10a9c9"/></linearGradient></defs><rect width="64" height="64" fill="url(#g1)"/><circle cx="32" cy="15" r="6" fill="#ffd166"/><path d="M14 28h36M32 28v22" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/></svg></div>
+
+<div class="shot" id="logo-rond"><svg width="400" height="400" viewBox="0 0 64 64"><defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b52f0"/><stop offset="1" stop-color="#10a9c9"/></linearGradient></defs><rect width="64" height="64" fill="url(#g2)"/><g transform="translate(32 33) scale(.78) translate(-32 -32)"><circle cx="32" cy="15" r="6" fill="#ffd166"/><path d="M14 28h36M32 28v22" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/></g></svg></div>
+
+<div class="shot bg" id="banniere-page">
+  <div style="position:absolute;left:250px;top:44px;right:250px">
+    <div class="wm" style="font-size:31px;line-height:1.15;white-space:nowrap">Le logiciel RH qui <span class="grad">prévient votre PME</span></div>
+    <div style="font-size:16px;color:#c9cbf0;margin-top:8px">avant chaque nouvelle obligation, du recrutement au départ</div>
+    <div style="display:flex;gap:10px;margin-top:16px"><span class="chip" style="font-size:12.5px;padding:5px 11px"><i></i>Seuils d'effectif suivis</span><span class="chip" style="font-size:12.5px;padding:5px 11px"><i style="background:#5fd3ec"></i>Convention appliquée</span><span class="chip" style="font-size:12.5px;padding:5px 11px"><i style="background:#a5a0ff"></i>Bordeaux</span></div>
+  </div>
+  <div id="wheel1" style="position:absolute;right:50px;top:8px;width:176px;height:176px"></div>
+</div>
+
+<div class="shot bg" id="banniere-profil">
+  <div style="position:absolute;left:520px;top:78px;width:680px">
+    <div style="display:flex;align-items:center;gap:14px"><svg width="46" height="46" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="url(#g1)"/><circle cx="32" cy="15" r="6" fill="#ffd166"/><path d="M14 28h36M32 28v22" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/></svg><span class="wm" style="font-size:30px">Teamora</span><span class="chip" style="font-size:13px;padding:6px 12px;margin-left:6px">Fondateur · Bordeaux</span></div>
+    <div class="wm" style="font-size:44px;line-height:1.12;margin-top:22px">Que chaque PME sache, <span class="grad">à chaque embauche</span>, ce que la loi attend d'elle.</div>
+    <div style="font-size:18px;color:#c9cbf0;margin-top:16px">Logiciel RH pour les PME sans service RH · en test avec des entreprises bordelaises</div>
+  </div>
+  <div id="wheel2" style="position:absolute;right:60px;top:28px;width:340px;height:340px"></div>
+</div>
+
+<script>
+  // Roue décorative reprenant les couleurs des rubriques de l'application
+  const COLORS = ['#6366f1', '#7c3aed', '#a855f7', '#e11d48', '#ea580c', '#d97706', '#ca8a04', '#65a30d', '#16a34a', '#059669', '#0d9488', '#0891b2'];
+  function wheel(el, hub) {
+    const W = el.clientWidth, c = W / 2, R = W * 0.38, d = W * 0.11;
+    el.insertAdjacentHTML('beforeend', `<div class="ring" style="left:${c - R}px;top:${c - R}px;width:${2 * R}px;height:${2 * R}px"></div>`);
+    COLORS.forEach((col, k) => { const a = -Math.PI / 2 + k * 2 * Math.PI / COLORS.length;
+      el.insertAdjacentHTML('beforeend', `<div class="dot" style="left:${c + Math.cos(a) * R - d / 2}px;top:${c + Math.sin(a) * R - d / 2}px;width:${d}px;height:${d}px;background:${col};box-shadow:0 0 0 ${d * .12}px rgba(255,255,255,.08)"></div>`); });
+    const h = W * hub;
+    el.insertAdjacentHTML('beforeend', `<div class="dot" style="left:${c - h / 2}px;top:${c - h / 2}px;width:${h}px;height:${h}px;background:linear-gradient(140deg,#4f46e5,#0ea5c6);box-shadow:0 0 0 ${W * .03}px rgba(165,160,255,.15)"><svg viewBox="0 0 64 64" style="width:100%;height:100%"><g transform="translate(32 33) scale(.62) translate(-32 -32)"><circle cx="32" cy="15" r="6" fill="#ffd166"/><path d="M14 28h36M32 28v22" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/></g></svg></div>`);
+  }
+  wheel(document.getElementById('wheel1'), 0.34); wheel(document.getElementById('wheel2'), 0.36);
+</script>
+</body></html>

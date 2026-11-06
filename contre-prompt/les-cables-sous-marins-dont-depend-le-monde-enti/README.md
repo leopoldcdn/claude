@@ -5,7 +5,7 @@ Le dossier porte le nom de l'identifiant du Studio (`les-cables-sous-marins-dont
 | Livrable | Fichier |
 |---|---|
 | Texte de la voix off (à enregistrer par toi) | [`voix-off.md`](voix-off.md) |
-| Vidéo animée sans voix, 1080×1920, 30 i/s, environ 1 min 15, sous-titres gravés | `les-cables-sous-marins-dont-depend-le-monde-enti_sans-voix.mp4` |
+| Vidéo animée sans voix, 1080×1920, 30 i/s, 1 min 07 après recalage sur la voix, sous-titres gravés | `les-cables-sous-marins-dont-depend-le-monde-enti_sans-voix.mp4` |
 | Légende Instagram avec sources | [`legende-instagram.md`](legende-instagram.md) |
 | Fiche de sources | [`fiche-sources.md`](fiche-sources.md) |
 | Image de couverture 1080×1920 | `couverture.png` |

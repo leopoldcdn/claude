@@ -1,6 +1,6 @@
 # Les câbles sous-marins dont dépend le monde entier — texte de la voix off
 
-**À enregistrer par toi.** 208 mots · environ **1:13** à mon rythme estimé ; pour tes vidéos précédentes, tu as lu environ 15 % plus vite que mon estimation, donc compte plutôt **1 min 03 à 1 min 06**. Les nombres sont écrits en lettres. Aucun nom de source n'est dit.
+**À enregistrer par toi.** 208 mots · **1 min 05** mesurées sur ta lecture (mon estimation était de 1:13 ; tu lis environ 15 % plus vite). Les nombres sont écrits en lettres. Aucun nom de source n'est dit.
 
 ---
 

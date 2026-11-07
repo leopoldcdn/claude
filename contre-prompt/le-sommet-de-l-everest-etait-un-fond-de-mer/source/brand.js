@@ -54,7 +54,7 @@ function ctaSend(t, t0, x = 690, y = 650) {      // variante « Envoie-la à que
 /* ---------- couverture : même gabarit pour toutes les vidéos ----------
    coverTemplate({ kicker: 'POURQUOI', word: 'OBÉIT-ON ?', tagText: "L'EXPÉRIENCE DE MILGRAM", bg: () => {...}, illustration: () => {...} })
    Le titre reste entre y = 330 et y = 800 (dans le cadrage 3:4 de la grille) ; le mot-clé est GROS (lisible en miniature) ;
-   un liseré d'accent et le nom de la chaîne sont toujours au même endroit. */
+   aucune signature ni nom de chaîne sur la couverture. */
 function coverTemplate(o) {
   setTime(.4); K = 7; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.clearRect(0, 0, W, H);
   if (o.bg) o.bg(); else { ctx.fillStyle = '#cfe3ea'; ctx.fillRect(0, 0, W, H); }
@@ -62,7 +62,5 @@ function coverTemplate(o) {
   extruded(o.kicker, 540, 380, o.kickerSize || 110, BRAND.paper, o.shade || '#2f62ad', { depth: 11, rot: -.012 });
   extruded(o.word, 540, 560, o.wordSize || 190, o.wordColor || BRAND.accent2, BRAND.accent, { depth: 15, rot: .01 });
   if (o.tagText) tag(o.tagText, 540, 760, 52, { bg: BRAND.accent, fg: '#fff', rot: -.02, sh: 12 });
-  ctx.save(); ctx.fillStyle = BRAND.accent; ctx.beginPath(); ctx.moveTo(0, 1546); ctx.lineTo(W, 1500); ctx.lineTo(W, 1680); ctx.lineTo(0, 1680); ctx.closePath(); ctx.fill(); ctx.restore();
-  ctx.fillStyle = '#fff'; font(54); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(BRAND.name, 540, 1608);
   grain();
 }

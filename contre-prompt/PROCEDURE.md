@@ -60,7 +60,7 @@ Elle vient de l'audit `contre-prompt/AUDIT-contenu.md`. **Les vidéos déjà cr�
 - **Crédits** : dans le tableau « Images » de `fiche-sources.md` (auteur, source, licence, lien) et dans la légende (ligne « Images : … »).
 
 **6. Couverture**
-- Gabarit unique : `coverTemplate` de `brand.js` (mot-clé GROS lisible en miniature, titre entre y = 330 et y = 800, étiquette d'accent, bandeau corail avec le nom de la chaîne). Lancer `contre-prompt/outils/verifier_couverture.sh <dossier>` et regarder `_couv_3x4.png` (rien de coupé dans le cadrage de la grille) et `_couv_miniature.png` (titre lisible à 300×400).
+- Gabarit unique : `coverTemplate` de `brand.js` (mot-clé GROS lisible en miniature, titre entre y = 330 et y = 800, étiquette d'accent ; aucune signature ni nom de chaîne sur la couverture). Lancer `contre-prompt/outils/verifier_couverture.sh <dossier>` et regarder `_couv_3x4.png` (rien de coupé dans le cadrage de la grille) et `_couv_miniature.png` (titre lisible à 300×400).
 
 **7. Légende**
 - Première ligne = la question, avec les mots qu'on tape ; au plus 2 200 caractères, sources et crédits d'images compris ; six hashtags au plus.

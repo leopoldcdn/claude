@@ -1,0 +1,12 @@
+{h1}Tu as déjà vu une étoile filante ? Ce n'était pas une étoile.
+{h2}C'était souvent un caillou plus petit qu'un petit pois.
+{comete}Ces grains viennent souvent de comètes. En passant, elles laissent derrière elles des miettes.
+{entree}Parfois, la Terre traverse ces miettes. {fonce}Alors un grain fonce dans notre ciel, jusqu'à soixante-douze kilomètres par seconde.
+{relance}Mais comment un si petit grain peut-il briller autant ?
+{chauffe}À cette vitesse, l'air autour de lui devient brûlant. À plus de quatre-vingts kilomètres d'altitude, il se vaporise.
+{cta1}Sur cette chaîne, je t'apprends des choses tous les jours. Abonne-toi pour te coucher plus intelligent ce soir.
+{reveal}Alors ce qui brille, ce n'est pas le grain. C'est l'air chauffé tout autour de lui.
+{energie}Un grain gros comme un petit pois porte autant d'énergie qu'un obus d'artillerie.
+{fin}Tout ça dure quelques secondes. Si un morceau plus gros survit, on l'appelle une météorite.
+{boucle}Mais l'étoile filante, elle, n'était qu'un petit grain qui s'éteint.
+{cta2}Tu as appris quelque chose ? Commente la vidéo pour me le dire.

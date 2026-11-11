@@ -1,0 +1,356 @@
+{
+ "sps": 4.6,
+ "audio_trim": 0.0,
+ "voice_end": 67.83,
+ "video_end": 69.43,
+ "words": 167,
+ "cues": {
+  "h1": 0.25,
+  "h2": 5.48,
+  "comete": 9.341,
+  "entree": 14.267,
+  "fonce": 16.636,
+  "relance": 21.981,
+  "chauffe": 25.675,
+  "cta1": 33.824,
+  "reveal": 40.706,
+  "energie": 46.719,
+  "fin": 52.536,
+  "boucle": 58.549,
+  "cta2": 63.639
+ },
+ "sentences": [
+  {
+   "text": "Tu as déjà vu une étoile filante ? Ce n'était pas une étoile.",
+   "start": 0.25,
+   "end": 4.88
+  },
+  {
+   "text": "C'était souvent un caillou plus petit qu'un petit pois.",
+   "start": 5.48,
+   "end": 8.741
+  },
+  {
+   "text": "Ces grains viennent souvent de comètes. En passant, elles laissent derrière elles des miettes.",
+   "start": 9.341,
+   "end": 13.667
+  },
+  {
+   "text": "Parfois, la Terre traverse ces miettes. Alors un grain fonce dans notre ciel, jusqu'à soixante-douze kilomètres par seconde.",
+   "start": 14.267,
+   "end": 21.381
+  },
+  {
+   "text": "Mais comment un si petit grain peut-il briller autant ?",
+   "start": 21.981,
+   "end": 25.025
+  },
+  {
+   "text": "À cette vitesse, l'air autour de lui devient brûlant. À plus de quatre-vingts kilomètres d'altitude, il se vaporise.",
+   "start": 25.675,
+   "end": 33.224
+  },
+  {
+   "text": "Sur cette chaîne, je t'apprends des choses tous les jours. Abonne-toi pour te coucher plus intelligent ce soir.",
+   "start": 33.824,
+   "end": 40.106
+  },
+  {
+   "text": "Alors ce qui brille, ce n'est pas le grain. C'est l'air chauffé tout autour de lui.",
+   "start": 40.706,
+   "end": 46.119
+  },
+  {
+   "text": "Un grain gros comme un petit pois porte autant d'énergie qu'un obus d'artillerie.",
+   "start": 46.719,
+   "end": 51.936
+  },
+  {
+   "text": "Tout ça dure quelques secondes. Si un morceau plus gros survit, on l'appelle une météorite.",
+   "start": 52.536,
+   "end": 57.949
+  },
+  {
+   "text": "Mais l'étoile filante, elle, n'était qu'un petit grain qui s'éteint.",
+   "start": 58.549,
+   "end": 63.039
+  },
+  {
+   "text": "Tu as appris quelque chose ? Commente la vidéo pour me le dire.",
+   "start": 63.639,
+   "end": 67.835
+  }
+ ],
+ "subs": [
+  {
+   "text": "Tu as déjà vu",
+   "start": 0.25,
+   "end": 1.337
+  },
+  {
+   "text": "une étoile filante ?",
+   "start": 1.337,
+   "end": 3.141
+  },
+  {
+   "text": "Ce n'était pas une",
+   "start": 3.141,
+   "end": 4.446
+  },
+  {
+   "text": "étoile.",
+   "start": 4.446,
+   "end": 5.48
+  },
+  {
+   "text": "C'était souvent un caillou",
+   "start": 5.48,
+   "end": 7.002
+  },
+  {
+   "text": "plus petit qu'un petit",
+   "start": 7.002,
+   "end": 8.524
+  },
+  {
+   "text": "pois.",
+   "start": 8.524,
+   "end": 9.341
+  },
+  {
+   "text": "Ces grains viennent souvent",
+   "start": 9.341,
+   "end": 10.211
+  },
+  {
+   "text": "de comètes.",
+   "start": 10.211,
+   "end": 11.313
+  },
+  {
+   "text": "En passant,",
+   "start": 11.313,
+   "end": 12.145
+  },
+  {
+   "text": "elles laissent derrière elles",
+   "start": 12.145,
+   "end": 13.232
+  },
+  {
+   "text": "des miettes.",
+   "start": 13.232,
+   "end": 14.267
+  },
+  {
+   "text": "Parfois,",
+   "start": 14.267,
+   "end": 14.882
+  },
+  {
+   "text": "la Terre traverse ces",
+   "start": 14.882,
+   "end": 15.969
+  },
+  {
+   "text": "miettes.",
+   "start": 15.969,
+   "end": 16.636
+  },
+  {
+   "text": "Alors un grain fonce",
+   "start": 16.636,
+   "end": 17.723
+  },
+  {
+   "text": "dans notre ciel,",
+   "start": 17.723,
+   "end": 18.555
+  },
+  {
+   "text": "jusqu'à soixante-douze kilomètres",
+   "start": 18.555,
+   "end": 20.729
+  },
+  {
+   "text": "par seconde.",
+   "start": 20.729,
+   "end": 21.981
+  },
+  {
+   "text": "Mais comment un si",
+   "start": 21.981,
+   "end": 22.851
+  },
+  {
+   "text": "petit grain peut-il briller",
+   "start": 22.851,
+   "end": 24.373
+  },
+  {
+   "text": "autant ?",
+   "start": 24.373,
+   "end": 25.675
+  },
+  {
+   "text": "À cette vitesse,",
+   "start": 25.675,
+   "end": 26.724
+  },
+  {
+   "text": "l'air autour de lui",
+   "start": 26.724,
+   "end": 28.029
+  },
+  {
+   "text": "devient brûlant.",
+   "start": 28.029,
+   "end": 29.131
+  },
+  {
+   "text": "À plus de quatre-vingts",
+   "start": 29.131,
+   "end": 30.435
+  },
+  {
+   "text": "kilomètres d'altitude,",
+   "start": 30.435,
+   "end": 32.137
+  },
+  {
+   "text": "il se vaporise.",
+   "start": 32.137,
+   "end": 33.824
+  },
+  {
+   "text": "Sur cette chaîne,",
+   "start": 33.824,
+   "end": 34.656
+  },
+  {
+   "text": "je t'apprends des choses",
+   "start": 34.656,
+   "end": 35.96
+  },
+  {
+   "text": "tous les jours.",
+   "start": 35.96,
+   "end": 37.063
+  },
+  {
+   "text": "Abonne-toi pour te coucher",
+   "start": 37.063,
+   "end": 38.802
+  },
+  {
+   "text": "plus intelligent ce soir.",
+   "start": 38.802,
+   "end": 40.706
+  },
+  {
+   "text": "Alors ce qui brille,",
+   "start": 40.706,
+   "end": 41.973
+  },
+  {
+   "text": "ce n'est pas le",
+   "start": 41.973,
+   "end": 43.06
+  },
+  {
+   "text": "grain.",
+   "start": 43.06,
+   "end": 43.727
+  },
+  {
+   "text": "C'est l'air chauffé tout",
+   "start": 43.727,
+   "end": 45.249
+  },
+  {
+   "text": "autour de lui.",
+   "start": 45.249,
+   "end": 46.719
+  },
+  {
+   "text": "Un grain gros comme",
+   "start": 46.719,
+   "end": 47.588
+  },
+  {
+   "text": "un petit pois porte",
+   "start": 47.588,
+   "end": 48.675
+  },
+  {
+   "text": "autant d'énergie qu'un obus",
+   "start": 48.675,
+   "end": 50.849
+  },
+  {
+   "text": "d'artillerie.",
+   "start": 50.849,
+   "end": 52.536
+  },
+  {
+   "text": "Tout ça dure quelques",
+   "start": 52.536,
+   "end": 53.406
+  },
+  {
+   "text": "secondes.",
+   "start": 53.406,
+   "end": 54.29
+  },
+  {
+   "text": "Si un morceau plus",
+   "start": 54.29,
+   "end": 55.377
+  },
+  {
+   "text": "gros survit,",
+   "start": 55.377,
+   "end": 56.21
+  },
+  {
+   "text": "on l'appelle une météorite.",
+   "start": 56.21,
+   "end": 58.549
+  },
+  {
+   "text": "Mais l'étoile filante,",
+   "start": 58.549,
+   "end": 60.033
+  },
+  {
+   "text": "elle, n'était qu'un petit grain",
+   "start": 60.033,
+   "end": 62.17
+  },
+  {
+   "text": "qui s'éteint.",
+   "start": 62.17,
+   "end": 63.639
+  },
+  {
+   "text": "Tu as appris quelque",
+   "start": 63.639,
+   "end": 64.943
+  },
+  {
+   "text": "chose ?",
+   "start": 64.943,
+   "end": 65.878
+  },
+  {
+   "text": "Commente la vidéo pour",
+   "start": 65.878,
+   "end": 67.183
+  },
+  {
+   "text": "me le dire.",
+   "start": 67.183,
+   "end": 68.335
+  }
+ ]
+}

@@ -1,0 +1,9 @@
+_frames/
+_stills/
+_render.log
+node_modules/
+_apercu.mp4
+_couv*.jpg
+_couv*.png
+*_web.mp4
+*_rendu-final_sonore_*.mp4

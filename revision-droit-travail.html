@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Révision — Droit du travail (M2 MRH)</title>
+<style>
+:root{
+  --bg:#f5f1e8; --paper:#fffdf8; --ink:#1c2333; --mute:#667085; --line:#e2dccd;
+  --accent:#1f4e79; --accent-soft:#e3edf6; --hl:#ffe98a; --hl-soft:#fff6cf;
+  --ok:#1f7a4d; --ok-soft:#e1f3e8; --ko:#b3372f; --ko-soft:#fbe6e3; --warn:#9a6700; --warn-soft:#fdf0d0;
+  --hc:#5b4b8a; --hc-soft:#eeeaf7; --shadow:0 1px 2px rgba(28,35,51,.06),0 6px 20px rgba(28,35,51,.06);
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+:root[data-theme=dark]{
+  --bg:#12161f; --paper:#1a202c; --ink:#e8eaf0; --mute:#98a2b3; --line:#2c3445;
+  --accent:#8ab8e6; --accent-soft:#1f2c3f; --hl:#e6c94a; --hl-soft:#3a3418;
+  --ok:#6fd09a; --ok-soft:#173224; --ko:#f08b82; --ko-soft:#3a1d1b; --warn:#e3b341; --warn-soft:#3a2f12;
+  --hc:#b7a6ea; --hc-soft:#272240; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 var(--sans)}
+h1,h2,h3{font-family:var(--serif);line-height:1.2;margin:0 0 .5em;font-weight:700;text-wrap:balance}
+h1{font-size:clamp(1.7rem,4vw,2.4rem)} h2{font-size:1.4rem} h3{font-size:1.1rem}
+p{margin:.5em 0} ul,ol{margin:.5em 0;padding-left:1.3em} li{margin:.25em 0}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+header{position:sticky;top:0;z-index:10;background:var(--paper);border-bottom:1px solid var(--line)}
+.bar{max-width:980px;margin:0 auto;display:flex;align-items:center;gap:.75rem;padding:.5rem 1rem}
+.brand{font-family:var(--serif);font-weight:700;white-space:nowrap;background:none;border:0;padding:0;font-size:1.05rem}
+.brand span{background:linear-gradient(transparent 55%,var(--hl) 55%)}
+nav{display:flex;gap:.15rem;overflow-x:auto;flex:1;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{background:none;border:0;padding:.45rem .7rem;border-radius:8px;white-space:nowrap;color:var(--mute);font-size:.93rem}
+nav button:hover{color:var(--ink);background:var(--bg)}
+nav button.on{color:var(--accent);background:var(--accent-soft);font-weight:600}
+.iconbtn{background:none;border:1px solid var(--line);border-radius:8px;width:36px;height:36px;flex:none}
+main{max-width:980px;margin:0 auto;padding:1.5rem 1rem 5rem}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:1.2rem 1.3rem;box-shadow:var(--shadow)}
+.grid{display:grid;gap:1rem}
+.g2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.lead{color:var(--mute);max-width:62ch}
+.eyebrow{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);font-weight:600}
+.stat b{display:block;font-family:var(--serif);font-size:1.9rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat span{font-size:.85rem;color:var(--mute)}
+.btn{display:inline-flex;align-items:center;gap:.4rem;border:1px solid var(--line);background:var(--paper);border-radius:10px;padding:.55rem .95rem;font-weight:600;font-size:.95rem}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-theme=dark] .btn.pri{color:#0f1722}
+.btn.sm{padding:.3rem .6rem;font-size:.82rem;font-weight:500}
+.btn.ok{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.btn.ko{background:var(--ko-soft);border-color:var(--ko);color:var(--ko)}
+.btn.mid{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+.row{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.sp{justify-content:space-between}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0 1rem}
+.chip{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:.3rem .75rem;font-size:.86rem}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.tag{display:inline-block;font-size:.72rem;font-weight:600;border-radius:6px;padding:.1rem .45rem;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.tag.ex{background:var(--hl-soft);color:var(--warn)}
+.tag.hcb{background:var(--hc-soft);color:var(--hc)}
+.pbar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;flex:1;min-width:80px}
+.pbar i{display:block;height:100%;background:var(--ok);border-radius:99px;transition:width .3s}
+.memo,.piege,.hc{border-radius:10px;padding:.6rem .8rem .6rem 2.4rem;margin:.8rem 0;position:relative;font-size:.95rem}
+.memo::before,.piege::before,.hc::before{position:absolute;left:.7rem;top:.55rem}
+.memo{background:var(--hl-soft)} .memo::before{content:"💡"}
+.piege{background:var(--ko-soft)} .piege::before{content:"⚠️"}
+.hc{background:var(--hc-soft)} .hc::before{content:"＋"; color:var(--hc);font-weight:700}
+table{border-collapse:collapse;width:100%;margin:.7rem 0;font-size:.93rem}
+th,td{border:1px solid var(--line);padding:.4rem .55rem;text-align:left;vertical-align:top}
+th{background:var(--bg);font-weight:600}
+.tw{overflow-x:auto}
+details{border-top:1px solid var(--line)} details:first-of-type{border-top:0}
+summary{cursor:pointer;padding:.8rem 0;font-family:var(--serif);font-weight:700;font-size:1.08rem;list-style:none;display:flex;justify-content:space-between;gap:1rem}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--mute);font-family:var(--sans);font-weight:400}
+details[open] summary::after{content:"–"}
+details>div{padding-bottom:1rem}
+.side{display:grid;grid-template-columns:230px 1fr;gap:1.2rem;align-items:start}
+.menu{position:sticky;top:64px;display:flex;flex-direction:column;gap:.2rem}
+.menu button{text-align:left;background:none;border:0;border-radius:8px;padding:.45rem .6rem;font-size:.92rem;display:flex;gap:.5rem;align-items:center}
+.menu button:hover{background:var(--paper)}
+.menu button.on{background:var(--paper);box-shadow:var(--shadow);font-weight:600}
+.menu small{margin-left:auto;color:var(--mute);font-variant-numeric:tabular-nums}
+@media(max-width:760px){.side{grid-template-columns:1fr}.menu{position:static;flex-direction:row;overflow-x:auto;padding-bottom:.3rem}.menu button{white-space:nowrap;border:1px solid var(--line);background:var(--paper)}.menu small{margin-left:.3rem}}
+.fc{min-height:300px;display:flex;flex-direction:column;justify-content:center;text-align:center;padding:2rem 1.5rem}
+.fc .q{font-family:var(--serif);font-size:clamp(1.2rem,3vw,1.55rem);line-height:1.35;text-wrap:balance}
+.fc .a{margin-top:1.3rem;padding-top:1.3rem;border-top:1px dashed var(--line);font-size:1.05rem;text-align:left;max-width:60ch;margin-inline:auto;animation:in .25s}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.boxes{display:flex;gap:.4rem;margin:.8rem 0}
+.boxes div{flex:1;text-align:center;border:1px solid var(--line);border-radius:8px;padding:.4rem .2rem;font-size:.75rem;color:var(--mute);background:var(--paper)}
+.boxes b{display:block;font-size:1.1rem;color:var(--ink);font-variant-numeric:tabular-nums}
+.opt{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--paper);border-radius:10px;padding:.7rem .9rem;margin:.5rem 0}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt.good{background:var(--ok-soft);border-color:var(--ok)}
+.opt.bad{background:var(--ko-soft);border-color:var(--ko)}
+.opt:disabled{cursor:default;color:inherit}
+.expl{background:var(--accent-soft);border-radius:10px;padding:.7rem .9rem;margin-top:.8rem;animation:in .25s}
+textarea{width:100%;min-height:90px;border:1px solid var(--line);border-radius:10px;padding:.6rem .7rem;font:inherit;font-size:.95rem;background:var(--bg);color:var(--ink);resize:vertical}
+.step{border-left:3px solid var(--accent);padding:.1rem 0 .1rem .9rem;margin:.9rem 0}
+.step.new{animation:in .25s}
+.trow{flex-wrap:wrap}
+@media(max-width:640px){.trow>div:first-child{flex:1 1 100%!important}}
+.step h4{margin:0 0 .2rem;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.step.c{border-color:var(--ok)} .step.c h4{color:var(--ok)}
+.qn{font-family:var(--serif);font-weight:700;color:var(--accent);margin-right:.4rem}
+.cloze{border:0;border-bottom:2px dotted var(--mute);background:var(--hl-soft);border-radius:4px 4px 0 0;padding:0 .5rem;min-width:70px;font-weight:700;color:transparent;user-select:none}
+.cloze.on{color:var(--ink);background:none;border-bottom-color:transparent}
+.nrow{display:flex;justify-content:space-between;gap:1rem;align-items:center;padding:.45rem 0;border-top:1px solid var(--line)}
+.nrow:first-child{border-top:0}
+kbd{font:600 .75rem var(--sans);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 .35rem;background:var(--bg)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--line);flex:none}
+.dot.l1{background:var(--ko)} .dot.l2{background:var(--warn)} .dot.l3{background:var(--ok)}
+.mt{margin-top:1rem} .mt2{margin-top:1.8rem} .mute{color:var(--mute)} .small{font-size:.87rem}
+.syl{counter-reset:s;list-style:none;padding:0}
+.syl li{counter-increment:s;position:relative;padding:.6rem 0 .6rem 2.8rem;border-top:1px solid var(--line)}
+.syl li:first-child{border-top:0}
+.syl li::before{content:counter(s);position:absolute;left:0;top:.6rem;width:2rem;height:2rem;border-radius:50%;background:var(--accent);color:var(--paper);display:grid;place-items:center;font-weight:700;font-family:var(--serif)}
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <button class="brand" data-a="go" data-v="home"><span>Droit du travail</span></button>
+  <nav id="nav"></nav>
+  <button class="iconbtn" data-a="dark" title="Mode clair / sombre" aria-label="Mode clair ou sombre">◐</button>
+</div></header>
+<main id="main"></main>
+<script>
+/* ===== FICHES DE COURS ===== */
+const THEMES = [
+{n:1, t:'Négociation collective', ic:'🤝', exam:0, s:[
+['Syndicats et représentativité', `
+<p><b>Liberté syndicale</b> (L2141-1) : fonder un syndicat, adhérer ou non, choisir son syndicat. Objet : étude et défense des droits et intérêts matériels et moraux, collectifs et individuels (L2131-1). Statuts déposés en mairie → personnalité morale.</p>
+<p><b>7 critères de représentativité des syndicats de salariés</b> (L2121-1) :</p>
+<ul><li>Respect des <b>v</b>aleurs républicaines</li><li><b>I</b>ndépendance</li><li><b>T</b>ransparence financière</li><li><b>A</b>ncienneté de 2 ans dans le champ de la négociation</li><li><b>A</b>udience : <b>10 %</b> dans l'entreprise, <b>8 %</b> dans la branche et au niveau national (1er tour des élections CSE)</li><li><b>I</b>nfluence (activité, expérience)</li><li><b>E</b>ffectifs d'adhérents et cotisations</li></ul>
+<div class="memo">Moyen mnémo : <b>VITA-AIE</b> — Valeurs, Indépendance, Transparence, Ancienneté, Audience, Influence, Effectifs.</div>
+<p>Organisations patronales : <b>6 critères</b> (L2151-1), les mêmes sans « effectifs ». Audience : 8 % des entreprises adhérentes <i>ou</i> entreprises employant 8 % des salariés.</p>
+<p>Représentativité nationale 2025-2029 : CFDT 30 %, CGT 25 %, FO 17 %, CFE-CGC 15 %, CFTC 11 %.</p>`],
+['Présence syndicale dans l\'entreprise', `
+<table><tr><th></th><th>Délégué syndical (DS)</th><th>Représentant de section (RSS)</th></tr>
+<tr><td>Désigné par</td><td>Syndicat <b>représentatif</b></td><td>Syndicat <b>non représentatif</b></td></tr>
+<tr><td>Seuil</td><td>Entreprise de plus de 50 salariés</td><td>Plus de 50 salariés</td></tr>
+<tr><td>Conditions</td><td>18 ans, 1 an dans l'entreprise, <b>10 % des suffrages à titre personnel</b> sur une liste à 10 %</td><td>—</td></tr>
+<tr><td>Pouvoirs</td><td>Revendique <b>et négocie / signe</b></td><td>Participe aux négociations mais <b>ne peut pas conclure</b></td></tr>
+<tr><td>Heures</td><td>—</td><td>4 h / mois</td></tr></table>
+<p>Contestation d'une désignation de DS : <b>tribunal judiciaire, 15 jours</b> à compter de la notification.</p>
+<p><b>Section syndicale</b> : tableau d'affichage, tracts, réunion 1 fois/mois, local commun (plus de 200 salariés) ou propre (plus de 1 000), crédit de 10 h/an au-delà de 500 salariés.</p>`],
+['Validité des accords', `
+<ul><li><b>Interpro et branche</b> : signature par des organisations pesant <b>30 %</b>, sans opposition d'organisations pesant <b>50 %</b>.</li>
+<li><b>Entreprise</b> (L2232-12) : signature par des syndicats pesant <b>50 %</b> des suffrages ; ou <b>30 % + référendum</b> des salariés (majorité des suffrages exprimés).</li></ul>
+<p><b>Sans délégué syndical :</b></p>
+<ul><li><b>Moins de 11 salariés</b> : projet de l'employeur, communiqué 15 jours avant, ratifié à la <b>majorité des 2/3</b> du personnel.</li>
+<li><b>11 à 50</b> : sans élus → même règle des 2/3 ; avec élus → salariés mandatés (+ référendum) ou élus du CSE représentant la majorité des suffrages.</li>
+<li><b>Plus de 50</b> : élus mandatés (+ référendum) ; à défaut élus non mandatés (seulement sur les mesures que la loi subordonne à un accord) ; à défaut salariés mandatés (+ référendum).</li></ul>
+<p><b>Forme</b> : préambule, clauses de suivi et de rendez-vous, dépôt à la DREETS, entrée en vigueur <b>le lendemain du dépôt</b>. Publication en ligne sans le nom des signataires — sauf épargne salariale, PSE et APC (non publiés).</p>
+<div class="piege">Piège vu en cours (cas 1) : ce qui compte, c'est que tous les syndicats représentatifs soient <b>convoqués</b>, pas qu'ils soient présents. Un syndicat créé en 2025 n'a pas les 2 ans d'ancienneté.</div>`],
+['Négociation obligatoire', `
+<p>Obligation de <b>négocier</b>, jamais de conclure.</p>
+<ul><li><b>Branche</b> : au moins tous les <b>4 ans</b> (salaires, égalité F/H, conditions de travail et GPEC, handicap, formation…) et tous les <b>5 ans</b> (classifications, épargne). À défaut d'accord de méthode : salaires <b>chaque année</b>, autres thèmes tous les <b>3 ans</b>, classifications tous les <b>5 ans</b>.</li>
+<li><b>Entreprise de plus de 50 salariés avec DS</b> : au moins tous les 4 ans → ① rémunération, temps de travail, partage de la valeur ajoutée ; ② égalité professionnelle et QVT ; ③ GEPP si au moins 300 salariés. À défaut d'accord de méthode : ① et ② <b>annuelles</b>, ③ <b>tous les 3 ans</b>.</li></ul>`],
+['Hiérarchie des normes : 13 + 4 + le reste', `
+<ul><li><b>Bloc 1 — la branche s'impose (13 matières)</b>, sauf garanties au moins équivalentes : salaires minima hiérarchiques, classifications, fonds du paritarisme et de la formation, prévoyance, certaines règles de durée du travail, CDD et intérim, CDI de chantier, égalité F/H, renouvellement de la période d'essai, transfert conventionnel des contrats, portage salarial…</li>
+<li><b>Bloc 2 — la branche s'impose si elle le dit expressément (4 matières)</b> : prévention des risques professionnels, travailleurs handicapés, seuil et nombre de DS, primes pour travaux dangereux ou insalubres.</li>
+<li><b>Bloc 3 — tout le reste : l'accord d'entreprise prime</b>, même moins favorable, qu'il soit antérieur ou postérieur (primes, préavis, indemnités de rupture, durée de la période d'essai…). Sans accord d'entreprise, la branche s'applique.</li></ul>
+<p><b>Accord collectif et contrat</b> : le contrat ne peut pas être moins favorable que l'accord ; s'il est plus favorable, on applique le contrat. La perte d'un avantage collectif n'est pas une modification du contrat.</p>`],
+['Durée, révision, dénonciation', `
+<ul><li>Durée : <b>5 ans</b> sauf stipulation contraire.</li>
+<li>Révision : l'avenant se substitue de plein droit à l'accord initial.</li>
+<li>Dénonciation (accords à durée indéterminée) : par la totalité des signataires d'une partie → <b>préavis de 3 mois</b> puis <b>survie de 12 mois</b>. Sans accord de substitution : garantie de la <b>rémunération moyenne des 12 derniers mois</b>.</li></ul>
+<div class="memo">« 3 + 12 » : trois mois de préavis, douze mois de survie.</div>
+<div class="piege">Cas 3 du cours : une <b>entreprise ne peut pas dénoncer une convention de branche</b> — seules les organisations signataires le peuvent. La dénonciation n'a pas à être motivée. Un accord à durée déterminée ne se dénonce pas (il se révise).</div>
+<p><b>Extension</b> : arrêté du ministre du Travail → l'accord de branche s'applique à toutes les entreprises du champ, adhérentes ou non. <b>Élargissement</b> : application à une autre branche. Une entreprise applique une seule convention : celle de son <b>activité principale</b>.</p>`]
+]},
+{n:2, t:'Conditions d\'emploi', ic:'📄', exam:1, s:[
+['Contrats particuliers', `
+<ul><li><b>CDD à objet défini</b> : ingénieurs et cadres uniquement ; <b>18 à 36 mois</b> ; délai de prévenance 2 mois ; prime de précarité due.</li>
+<li><b>Contrat de chantier ou d'opération</b> : doit être prévu par la convention de branche ; c'est un CDI qui prend fin avec le chantier → licenciement pour motif personnel avec cause réelle et sérieuse, préavis et indemnité.</li></ul>`],
+['Télétravail', `
+<p>Mise en place : <b>accord collectif</b>, ou <b>charte</b> de l'employeur soumise au CSE, ou <b>accord individuel</b> formalisé par tout moyen.</p>
+<p>L'accord du salarié est obligatoire, <b>sauf circonstances exceptionnelles</b> (maintien de l'activité, protection des salariés). L'employeur reste tenu de l'obligation de sécurité ; la législation sur les accidents du travail s'applique. Entretien annuel sur la charge de travail.</p>
+<div class="piege">Imposer le télétravail ou le travail à domicile = <b>modification du contrat</b>. Y mettre fin aussi : le salarié peut refuser.</div>`],
+['Jeunes, travailleurs handicapés', `
+<ul><li><b>Jeunes</b> : interdiction avant 16 ans ; 7 h/jour et 35 h/semaine ; travaux dangereux interdits.</li>
+<li><b>Handicap</b> (L5213-1) : obligation d'emploi (OETH), référent handicap, suivi médical spécifique. Licenciement : préavis <b>doublé dans la limite de 3 mois</b> ; handicap pris en compte dans l'ordre des licenciements économiques. Refuser les <b>aménagements raisonnables</b> demandés par le médecin du travail = discrimination (Soc. 2 avril 2025).</li></ul>`],
+['Seniors — sujet du cas VIII', `
+<ul><li>Négociation tous les <b>3 ans</b> sur « l'emploi et le travail des salariés expérimentés » (loi du 24 octobre 2025).</li>
+<li>Visite médicale de mi-carrière à <b>45 ans</b> + entretien dans les 2 mois ; entretien de fin de carrière entre <b>58 et 60 ans</b>.</li>
+<li><b>Contrat de valorisation de l'expérience (CDI senior)</b>, temps partiel de fin de carrière, retraite progressive.</li></ul>
+<div class="hc">Complément utile pour le cas VIII : l'employeur ne peut mettre un salarié à la retraite d'office qu'à <b>70 ans</b> (avant, le salarié peut refuser chaque année). Le contrat de valorisation de l'expérience permet justement la mise à la retraite dès le taux plein. L'âge est un motif de discrimination : refuser d'embaucher ou de former à cause de l'âge est interdit.</div>`]
+]},
+{n:3, t:'Obligations des parties', ic:'⚖️', exam:1, s:[
+['Obligations du salarié', `
+<ol><li>Exécution personnelle du travail</li><li>Respect des directives</li><li>Discrétion</li><li><b>Fidélité et loyauté</b> — subsistent pendant la suspension du contrat (maladie)</li><li>Le travail fourni appartient à l'entreprise (utiliser les données à des fins personnelles = vol, détournement)</li><li>Comportement, tenue</li><li>Expression</li></ol>
+<p><b>Tenue</b> : la liberté de se vêtir à sa guise au travail <b>n'est pas une liberté fondamentale</b>. L'employeur peut imposer une tenue répondant à une <b>exigence légitime</b>. Le refus de porter les EPI est une faute.</p>
+<div class="hc">Cadre général : L1121-1 — toute restriction aux libertés doit être <b>justifiée par la nature de la tâche et proportionnée au but recherché</b>.</div>`],
+['Liberté d\'expression', `
+<p>Le salarié s'exprime librement <b>dans et hors de l'entreprise</b> (L1121-1 ; art. 10 CEDH). Le licenciement fondé sur l'exercice de cette liberté est <b>nul</b> (Soc. 16 février 2022).</p>
+<ul><li><b>Avant 2026</b> : liberté « sauf abus » — propos injurieux, diffamatoires ou excessifs (faute grave selon le cours).</li>
+<li><b>Depuis 2026</b> : abandon du critère de l'abus. Le juge <b>met en balance</b> la liberté du salarié et les intérêts de l'employeur, et vérifie que la sanction est <b>nécessaire, adéquate et proportionnée</b>.</li></ul>
+<p>Quatre critères à passer en revue dans la copie :</p>
+<ol><li>la <b>teneur</b> des propos</li><li>le <b>contexte</b></li><li>leur <b>portée et impact</b> dans l'entreprise</li><li>les <b>conséquences négatives</b> pour l'employeur</li></ol>
+<div class="memo">« TCPC » : Teneur, Contexte, Portée, Conséquences.</div>`],
+['Lanceur d\'alerte', `
+<p>L1132-3-3 : aucune sanction ni discrimination contre celui qui relate ou témoigne <b>de bonne foi</b> de faits constitutifs d'un <b>délit ou d'un crime</b> dont il a eu connaissance dans ses fonctions, ou qui signale une alerte selon la loi du 9 décembre 2016 (Sapin 2).</p>
+<p>Trois conditions : être légitimement informé, viser un crime ou un délit, être de bonne foi. Les entreprises de plus de 50 salariés doivent avoir une procédure de recueil des signalements.</p>
+<div class="piege">Un simple <b>désaccord</b> avec une décision de gestion (ex. : le costume obligatoire) n'est pas une alerte.</div>`],
+['Responsabilité du salarié', `
+<ul><li><b>Civile envers l'employeur</b> : seulement en cas de <b>faute lourde</b> (sauf restitution des sommes ou biens détournés).</li>
+<li><b>Dommage à un tiers</b> : c'est l'employeur qui répond (commettant), sauf infraction pénale intentionnelle ou dépassement des limites de la mission.</li>
+<li><b>Pénale</b> : toujours personnelle.</li></ul>`],
+['Obligations de l\'employeur', `
+<ol><li>Fournir le travail et les moyens</li><li>Verser le salaire</li><li>Exécuter le contrat de <b>bonne foi</b> (loyauté dans la surveillance)</li><li><b>Sécurité</b> (L4121-1) : protéger la santé physique et mentale ; DUERP ; passeport de prévention. Conscience du risque + mesures insuffisantes = faute inexcusable</li><li>Former : adapter le salarié à l'évolution de son emploi</li><li>Entretiens : entretien professionnel, charge de travail (forfait jours, télétravail), mandats</li></ol>`],
+['Surveillance et preuve — très utile pour les cas', `
+<table><tr><th>Moyen</th><th>Règle</th></tr>
+<tr><td>Vidéosurveillance</td><td>Libre dans les lieux où les salariés <b>n'ont pas accès</b> ; ailleurs, information des salariés et consultation du CSE</td></tr>
+<tr><td>Fichiers, mails</td><td><b>Présumés professionnels</b> sauf s'ils sont marqués « personnel »</td></tr>
+<tr><td>SMS professionnels</td><td>Pas protégés par le secret des correspondances</td></tr>
+<tr><td>Photos perso sur l'ordinateur pro</td><td>Pas une faute, sauf caractère pornographique</td></tr>
+<tr><td>Géolocalisation</td><td>Matériels professionnels</td></tr>
+<tr><td>LinkedIn</td><td>Caractère <b>public</b></td></tr>
+<tr><td>Facebook</td><td>L'employeur ne peut ni consulter ni utiliser des échanges privés</td></tr></table>
+<div class="hc">Complément : un casier ou une armoire individuelle ne s'ouvre qu'en <b>présence du salarié ou après l'avoir prévenu</b>. Depuis l'Assemblée plénière du 22 décembre 2023, une preuve illicite ou déloyale n'est plus écartée d'office : le juge l'admet si elle est <b>indispensable</b> au droit à la preuve et l'atteinte <b>proportionnée</b>. Ce n'est pas une raison pour conseiller un procédé clandestin.</div>`]
+]},
+{n:4, t:'Discriminations', ic:'🚫', exam:1, s:[
+['Motifs interdits', `
+<p>Origine, sexe, mœurs, orientation sexuelle, identité de genre, <b>âge</b>, situation de famille, <b>grossesse</b>, caractéristiques génétiques, situation économique, ethnie/nation/prétendue race, opinions politiques, activités syndicales, <b>convictions religieuses</b>, <b>apparence physique</b>, nom, lieu de résidence, domiciliation bancaire, <b>état de santé</b>, handicap, perte d'autonomie, capacité à s'exprimer en français.</p>
+<p>Protection aussi pour : exercice normal du droit de grève, fonctions de juré, droit d'alerte, témoignage d'agissements discriminatoires, maternité. Elle joue à <b>toutes les étapes</b> : embauche, rémunération, formation, mutation, sanction, rupture.</p>`],
+['Limites admises', `
+<ul><li>L1133-1 : différence de traitement justifiée par une <b>exigence professionnelle essentielle et déterminante</b>, avec objectif légitime et exigence proportionnée.</li>
+<li>L1321-2-1 : le <b>règlement intérieur</b> peut inscrire un principe de <b>neutralité</b> si c'est justifié par d'autres libertés ou par le bon fonctionnement de l'entreprise, et proportionné.</li>
+<li>Service public : laïcité et neutralité obligatoires. Secteur privé : il faut passer par le règlement intérieur.</li></ul>`],
+['Preuve en trois temps', `
+<ol><li>Le salarié <b>présente des éléments de fait laissant supposer</b> une discrimination.</li><li>L'employeur <b>prouve que sa décision repose sur des éléments objectifs</b> étrangers à toute discrimination.</li><li>Le <b>juge</b> forme sa conviction, au besoin après mesures d'instruction.</li></ol>
+<div class="memo">Même mécanique pour le harcèlement et pour l'égalité de traitement : le salarié n'a jamais à <i>prouver</i>, seulement à <i>laisser supposer</i>.</div>
+<p>Juridictions : conseil de prud'hommes, tribunal judiciaire, tribunal correctionnel. Sanction civile : <b>nullité</b> de la mesure.</p>`]
+]},
+{n:5, t:'Harcèlement & RPS', ic:'🛑', exam:1, s:[
+['Harcèlement moral', `
+<p>L1152-1 : <b>agissements répétés</b> ayant pour <b>objet ou pour effet</b> une dégradation des conditions de travail susceptible de porter atteinte aux droits et à la dignité, d'altérer la santé physique ou mentale, ou de compromettre l'avenir professionnel.</p>
+<p><b>Harcèlement managérial</b> : il peut venir de méthodes de gestion abusives et répétées (France Télécom), sans conflit personnel.</p>`],
+['Harcèlement sexuel', `
+<p>L1153-1 :</p>
+<ul><li><b>1°</b> propos ou comportements à connotation <b>sexuelle ou sexiste</b>, <b>répétés</b>, qui portent atteinte à la dignité (dégradants, humiliants) <b>ou</b> créent une situation intimidante, hostile ou offensante.</li>
+<li>La répétition peut venir de <b>plusieurs personnes</b> : de manière concertée, ou successivement en sachant qu'il y a répétition — même si chacune n'agit qu'une fois.</li>
+<li><b>2°</b> assimilé : toute <b>pression grave, même non répétée</b>, pour obtenir un acte de nature sexuelle.</li></ul>
+<p><b>Outrage sexiste</b> : propos ou comportement sexuel ou sexiste imposé, hors cas de harcèlement.</p>
+<div class="memo">Plaisanteries graveleuses quotidiennes de toute une équipe à la pause-café = le cas « plusieurs personnes ». Pas besoin que chacun ait recommencé.</div>`],
+['Ce que doit faire l\'employeur', `
+<p>Obligation de sécurité : <b>prévenir</b> et <b>réagir immédiatement</b> dès qu'il est informé.</p>
+<ol><li>Recevoir et écouter la personne, tracer par écrit.</li><li>Mesures conservatoires (éloigner, protéger).</li><li><b>Enquête interne</b> sérieuse et impartiale.</li><li>Sanction si les faits sont établis.</li></ol>
+<div class="piege">Mauvais réflexe typique de l'énoncé : « qu'elle porte plainte, on verra après l'enquête pénale ». L'employeur ne peut pas attendre : son inaction est une faute.</div>
+<p><b>Dénonciation</b> : aucun salarié ne peut être sanctionné pour avoir dénoncé ou témoigné → licenciement <b>nul</b>. Seule limite : la <b>mauvaise foi</b>, c'est-à-dire l'accusation mensongère.</p>
+<div class="hc">Précision : la mauvaise foi suppose que le salarié <b>savait</b> que les faits étaient faux. Des faits simplement non établis ne suffisent pas.</div>
+<p><b>Preuve</b> : éléments précis et concordants laissant supposer le harcèlement → l'employeur justifie par des éléments objectifs → le juge tranche.</p>
+<p><b>Rupture</b> : le licenciement pour inaptitude est nul si l'inaptitude découle du harcèlement ; même effet pour la résiliation judiciaire.</p>`],
+['Risques psychosociaux', `
+<p>RPS : stress, violences internes et externes, mal-être, harcèlement, addictions. Stress (ANI) : déséquilibre entre les contraintes perçues et les ressources perçues pour y faire face.</p>
+<p>Employeur : évaluer les risques (DUERP), agir, plan d'action. Salarié : respecter les consignes, signaler tout danger grave et imminent, <b>droit de retrait</b>. Autres acteurs : CSE, médecin du travail, inspection du travail, CARSAT, INRS.</p>`]
+]},
+{n:6, t:'Suspension du contrat', ic:'🩺', exam:1, s:[
+['Qualifier l\'arrêt', `
+<ul><li><b>Accident du travail (AT)</b> : lésion corporelle ou psychologique sur les lieux ou à l'occasion du travail.</li>
+<li><b>Maladie professionnelle (MP)</b> : tableaux de la Sécurité sociale.</li>
+<li><b>Salarié en mission</b> : protégé pendant toute la mission, actes de la vie courante compris, sauf interruption pour motif personnel (Soc. 19 juillet 2001).</li>
+<li><b>Accident de trajet</b> : domicile ↔ travail, travail ↔ lieu habituel des repas ; détour admis pour covoiturage régulier.</li></ul>
+<div class="memo">Premier réflexe dans un cas : <b>professionnel ou non ?</b> Toutes les règles en dépendent (licenciement, indemnisation, congés, visite de reprise).</div>`],
+['Pendant l\'arrêt', `
+<table><tr><th></th><th>AT / MP</th><th>Maladie non professionnelle</th></tr>
+<tr><td>Licenciement</td><td><b>Interdit</b> jusqu'à la fin de l'arrêt</td><td>Interdit <b>en raison de la maladie</b></td></tr>
+<tr><td>Sécurité sociale</td><td>60 % du brut pendant 30 jours puis 80 % (plafond 1,8 SMIC au 1er nov. 2026)</td><td>50 % à partir du <b>4e jour</b>, 360 jours max, plafond 1,4 SMIC</td></tr>
+<tr><td>Complément employeur</td><td>—</td><td>Si <b>1 an d'ancienneté</b> et absence <b>justifiée dans les 48 h</b></td></tr>
+<tr><td>Congés acquis</td><td>Comme du temps de travail</td><td><b>2 jours ouvrables/mois</b>, 24 jours/an max</td></tr></table>
+<div class="hc">Compléments : pendant un arrêt AT/MP, le licenciement n'est possible que pour <b>faute grave</b> ou <b>impossibilité de maintenir le contrat pour un motif étranger</b> à l'accident — sinon il est <b>nul</b>. En maladie ordinaire, la jurisprudence admet le licenciement lorsque l'absence prolongée <b>perturbe le fonctionnement de l'entreprise et impose un remplacement définitif</b> (embauche en CDI). L'employeur peut faire pratiquer une <b>contre-visite médicale</b>, contrepartie du complément de salaire.</div>
+<p><b>Congés au retour</b> : l'employeur <b>informe</b> le salarié du nombre de jours acquis et du délai de <b>15 mois</b> pour les poser, sous peine de perte.</p>
+<div class="piege">Le contrat est suspendu : on ne fait <b>jamais travailler</b> un salarié en arrêt, même « un peu, chez lui, à son rythme ». Mais l'obligation de <b>loyauté</b> demeure (restituer un mot de passe, par exemple).</div>`],
+['Fin de l\'arrêt et inaptitude', `
+<p><b>Visite de reprise</b> auprès du médecin du travail si l'arrêt a duré au moins <b>30 jours (AT/MP)</b> ou <b>60 jours (autres cas)</b>. Pas de visite de reprise s'il y a eu une visite de préreprise dans les 30 jours précédents sans réserve.</p>
+<p><b>Inaptitude</b> :</p>
+<ol><li><b>Seul le médecin du travail</b> la prononce.</li><li>L'employeur a une <b>obligation de reclassement</b> — obligation de moyens, à tracer par écrit.</li><li>Délai d'<b>1 mois</b> à compter de l'avis pour reclasser ou licencier ; au-delà, <b>reprise du paiement du salaire</b>.</li><li>Absence de recherche de reclassement ou licenciement d'un salarié apte → sanction prud'homale.</li></ol>
+<div class="hc">Compléments : consultation du <b>CSE</b> sur les propositions de reclassement ; l'obligation est <b>réputée satisfaite</b> si l'employeur a proposé un emploi conforme aux préconisations du médecin ; dispense de reclassement si l'avis mentionne que tout maintien dans un emploi serait gravement préjudiciable à la santé ou que l'état de santé fait obstacle à tout reclassement. Inaptitude d'origine professionnelle : indemnité spéciale de licenciement <b>doublée</b>.</div>`],
+['Faciliter la reprise', `
+<ul><li><b>Mi-temps thérapeutique</b> : proposé par le <b>médecin traitant</b>, l'employeur doit l'accepter (selon le cours), avis du médecin-conseil de la CPAM. Indemnités journalières + travail aménagé.</li>
+<li><b>Rendez-vous de liaison</b> : arrêt de plus de <b>30 jours</b> ; salarié, employeur, service de santé au travail, référent handicap. Sert à informer sur la préreprise et les mesures d'aménagement. Pas de sanction prévue s'il n'est pas proposé, mais c'est un risque.</li>
+<li><b>Visite de préreprise</b> : à la demande du salarié, directement auprès de la médecine du travail, sans informer l'employeur.</li>
+<li><b>Essai encadré</b> : <b>14 jours ouvrables renouvelables une fois</b>, avec un tuteur.</li>
+<li><b>CRPE</b> (convention de rééducation professionnelle en entreprise) : salariés inaptes ou à risque d'inaptitude.</li></ul>`],
+['Maternité', `
+<ul><li><b>Protection relative</b> : pendant la grossesse (ou la PMA) et jusqu'à <b>10 semaines</b> après le congé. Licenciement possible uniquement pour <b>faute grave non liée à la grossesse</b> ou <b>impossibilité de maintenir le contrat pour un motif étranger</b>.</li>
+<li><b>Protection absolue</b> : aucune notification pendant le congé maternité et les congés payés qui le suivent.</li>
+<li>Pas de protection si l'employeur <b>n'est pas informé</b>. La salariée n'est pas obligée de révéler sa grossesse.</li>
+<li>Licenciement <b>nul</b> : réintégration, salaires, dommages-intérêts d'au moins <b>6 mois</b>.</li></ul>
+<div class="hc">Complément : si le licenciement est notifié alors que l'employeur ignorait la grossesse, la salariée a <b>15 jours</b> pour envoyer un certificat médical et le faire annuler (sauf faute grave ou impossibilité de maintien).</div>
+<p><b>Santé</b> : examens médicaux = temps de travail effectif ; <b>affectation temporaire sur un autre poste</b> si l'état de santé l'exige ; interdiction d'emploi 8 semaines dont 6 après l'accouchement.</p>
+<p><b>Durée du congé</b> : 6 + 10 semaines ; 8 + 18 au 3e enfant ; 12 + 22 pour des jumeaux ; 24 + 22 pour des triplés. Au retour : visite médicale dans les 8 jours, même poste, augmentations rattrapées.</p>
+<p><b>Père</b> : protection de 10 semaines après la naissance ; congé de naissance 3 jours (employeur) ; paternité <b>4 jours obligatoires + 21 jours</b> à prendre dans les 6 mois (Sécurité sociale). Congé supplémentaire de naissance : 1 ou 2 mois, 70 % puis 60 % du net.</p>`],
+['Autres congés', `
+<table><tr><td>Mariage / PACS</td><td>4 j</td><td>Mariage d'un enfant</td><td>1 j</td></tr>
+<tr><td>Naissance / adoption</td><td>3 j</td><td>Décès d'un enfant</td><td>12 à 14 j</td></tr>
+<tr><td>Décès conjoint / proche</td><td>3 j</td><td>Survenue d'un handicap</td><td>2 j</td></tr>
+<tr><td>Enfant malade</td><td>3 j non payés</td><td>Présence parentale</td><td>310 j sur 3 ans</td></tr>
+<tr><td>Congé parental</td><td>1 an renouvelable</td><td>Solidarité familiale</td><td>3 mois</td></tr>
+<tr><td>Création d'entreprise</td><td>12 mois max</td><td>Sabbatique</td><td>11 mois max</td></tr></table>`]
+]},
+{n:7, t:'Modification du contrat', ic:'✏️', exam:1, s:[
+['La distinction qui fait tout', `
+<table><tr><th></th><th>Modification du contrat</th><th>Changement des conditions de travail</th></tr>
+<tr><td>Porte sur</td><td>Un <b>élément essentiel</b></td><td>L'organisation, dans le cadre du pouvoir de direction</td></tr>
+<tr><td>Accord du salarié</td><td><b>Obligatoire</b></td><td>Non</td></tr>
+<tr><td>Refus</td><td><b>N'est pas une faute</b></td><td>Faute</td></tr></table>
+<p><b>Sont des modifications du contrat</b> (jurisprudence) :</p>
+<ul><li>la <b>rémunération</b> ou son mode de calcul</li><li>la <b>qualification</b>, le niveau de responsabilité</li><li>la <b>durée du travail</b></li><li>imposer le travail à domicile ou le <b>télétravail</b></li><li>le détachement, la mutation dans une autre société du groupe (Soc. 5 mai 2004)</li><li>le lieu de travail, <b>s'il y a changement de secteur géographique</b> (Soc. 4 juillet 2012)</li></ul>
+<div class="memo">Les 4 piliers du contrat : <b>R</b>émunération, <b>Q</b>ualification, <b>D</b>urée, <b>L</b>ieu (secteur géographique).</div>
+<div class="hc">Compléments : une <b>clause de mobilité</b> valable fait d'une mutation un simple changement des conditions de travail. Si l'employeur propose la modification pour un <b>motif économique</b> : lettre recommandée, <b>1 mois</b> de réflexion, le silence vaut acceptation ; le refus ouvre un licenciement économique. Face à un refus, l'employeur renonce <b>ou</b> licencie — le motif du licenciement est la raison de la modification, jamais le refus lui-même.</div>`],
+['Accord de performance collective (APC)', `
+<p>Accord d'entreprise conclu pour répondre aux nécessités de fonctionnement ou préserver ou développer l'emploi. Il peut aménager :</p>
+<ul><li>la <b>durée du travail</b></li><li>la <b>rémunération</b> (dans le respect des minima)</li><li>la <b>mobilité</b> géographique ou professionnelle</li></ul>
+<p>Ses stipulations <b>se substituent de plein droit</b> aux clauses contraires du contrat. Le salarié a <b>30 jours</b> pour refuser ; l'employeur a alors <b>60 jours</b> pour engager le licenciement.</p>
+<div class="memo">APC = le seul cas où un accord collectif l'emporte sur un contrat plus favorable.</div>`]
+]},
+{n:8, t:'Restructurations', ic:'🏭', exam:1, s:[
+['L1224-1 : le transfert des contrats', `
+<p>« S'il survient une modification dans la situation juridique de l'employeur, notamment par succession, vente, <b>fusion</b>, transformation du fonds, mise en société, tous les contrats de travail en cours subsistent entre le nouvel employeur et le personnel. »</p>
+<p><b>Condition clé</b> : transfert d'une <b>entité économique autonome</b> — ensemble organisé de personnes et de moyens (matériel, locaux, clientèle) poursuivant une activité — qui conserve son identité.</p>
+<p><b>Effets</b> :</p>
+<ul><li>Transfert <b>automatique</b> : ni l'accord du salarié ni un nouveau contrat ne sont nécessaires.</li><li>Contrat maintenu <b>en l'état</b> (ancienneté, salaire, qualification).</li><li><b>Pas de licenciement à l'occasion du transfert</b> (sauf motif personnel comme une faute grave) → sinon dommages-intérêts ou poursuite du contrat.</li><li>Ensuite, le repreneur peut restructurer dans un délai raisonnable (pas de délai légal).</li></ul>
+<p>Si L1224-1 ne joue pas : transfert <b>conventionnel</b> (prévu par la convention de branche) ou <b>volontaire</b> — ce sont alors les conditions du repreneur qui s'appliquent.</p>`],
+['Accords collectifs et représentants', `
+<ul><li>Les accords de l'entreprise absorbée sont <b>mis en cause</b> (fusion, cession, scission, changement d'activité).</li>
+<li>Les accords de l'<b>absorbante</b> bénéficient <b>immédiatement</b> aux salariés transférés.</li>
+<li><b>Accord de transition</b> (3 ans max) : pour les seuls salariés de l'entité absorbée.</li>
+<li><b>Accord d'adaptation</b> : pour l'ensemble du nouveau périmètre.</li>
+<li>Ces deux accords peuvent être négociés <b>avant ou après</b> la fusion.</li></ul>
+<div class="hc">Complément : la mise en cause suit le même calendrier que la dénonciation — préavis de 3 mois puis survie de 12 mois, puis garantie de rémunération.</div>
+<p><b>IRP</b> (selon le cours) : les syndicats restent représentatifs, les DS et RSS restent en place, le CSE aussi.</p>
+<div class="hc">Complément : le projet de fusion doit être soumis à la <b>consultation des CSE</b> des deux sociétés avant sa réalisation.</div>`]
+]},
+{n:9, t:'Égalité professionnelle', ic:'💶', exam:1, s:[
+['« À travail égal, salaire égal »', `
+<p>L3221-2 : égalité de rémunération femmes/hommes pour un même travail ou un travail de <b>valeur égale</b>. La jurisprudence l'étend à tous : des salariés <b>placés dans une situation identique</b> doivent être payés de la même façon. Rémunération = salaire de base <b>et tous les accessoires</b>.</p>
+<p>L'employeur peut traiter différemment à condition de justifier de <b>critères objectifs, pertinents et matériellement vérifiables</b>. Sans justification, l'inégalité de traitement est retenue.</p>
+<table><tr><th>Justification</th><th>Admise ?</th></tr>
+<tr><td>Ancienneté, expérience</td><td>Oui, si éléments objectifs et vérifiables</td></tr>
+<tr><td>Diplômes</td><td>Oui, mêmes conditions</td></tr>
+<tr><td>Statut public / privé (La Poste)</td><td>Non, pas à lui seul (Soc. 9 nov. 2016)</td></tr>
+<tr><td>Cadres / non-cadres</td><td>Oui si spécificité de situation (fonctions, carrière, rémunération)</td></tr>
+<tr><td><b>Établissements différents</b> d'une même entreprise</td><td>Oui, si <b>raisons objectives</b></td></tr>
+<tr><td><b>Entreprises différentes</b>, même groupe ou même convention</td><td>Pas de comparaison possible (Soc. 24 sept. 2008 ; 20 nov. 2012)</td></tr></table>
+<div class="piege">« Le coût de la vie est <i>sans doute</i> différent » : une supposition n'est pas une justification objective. Il faut des éléments chiffrés.</div>
+<div class="hc">Compléments : le salarié ne peut pas exiger de son employeur les bulletins de paie de ses collègues, mais le <b>juge peut en ordonner la communication</b> (noms et données personnelles occultés) si c'est indispensable à la preuve et proportionné (Soc. 8 mars 2023). L'ancienneté ne justifie pas un écart si elle est déjà payée par une prime d'ancienneté.</div>`],
+['Égalité femmes / hommes', `
+<ul><li><b>Index de l'égalité</b> : entreprises d'au moins <b>50 salariés</b> (4 indicateurs ; 5 à partir de 250), publié chaque année au <b>1er mars</b>. Résultats insuffisants → mesures de correction, <b>3 ans</b> pour se mettre en conformité, sinon pénalité.</li>
+<li><b>Négociation</b> sur l'égalité professionnelle et la QVT ; à défaut d'accord, <b>plan d'action annuel</b>. Objectifs chiffrés dans 3 domaines (moins de 300 salariés) ou 4 (300 et plus).</li>
+<li><b>Affichage</b> des textes sur l'égalité de rémunération.</li>
+<li><b>CSE</b> : commission de l'égalité professionnelle à partir de 300 salariés.</li></ul>`]
+]},
+{n:10, t:'Grève', ic:'✊', exam:0, s:[
+['Définition', `
+<p><b>Cessation collective, totale et concertée du travail en vue d'appuyer des revendications professionnelles.</b></p>
+<ul><li><b>Totale</b> : arrêt complet, même très court. Un ralentissement (grève perlée) n'est pas une grève.</li>
+<li><b>Collective et concertée</b> : on ne fait pas grève seul.</li>
+<li><b>Revendications professionnelles</b>, portées à la connaissance de l'employeur (pas de préavis légal dans le privé). Les grèves de solidarité sont illicites selon le cours.</li></ul>
+<div class="memo">« 3C + RP » : Collective, Concertée, Complète + Revendications Professionnelles.</div>`],
+['Protection du gréviste', `
+<ul><li>Contrat <b>suspendu</b> ; salaire suspendu en stricte proportion.</li>
+<li>Réduire une prime à cause de la grève = <b>discrimination</b>.</li>
+<li>Licenciement possible <b>seulement pour faute lourde</b> ; à défaut il est <b>nul de plein droit</b>.</li>
+<li>Malade avant la grève → reste considéré comme malade.</li>
+<li>Paiement exceptionnel des jours de grève si les salariés ont été contraints de faire grève pour faire respecter leurs droits essentiels.</li></ul>`],
+['L\'entreprise pendant la grève', `
+<ul><li><b>Interdit</b> : embaucher des CDD ou des intérimaires pour remplacer les grévistes.</li>
+<li><b>Permis</b> : réaffecter des non-grévistes, recourir à la sous-traitance, à des bénévoles.</li>
+<li><b>Occupation des locaux</b> : trouble illicite → expulsion ordonnée par le juge. <b>Piquets</b> bloquant l'accès : exercice anormal du droit de grève.</li>
+<li><b>Lock-out interdit</b>, sauf force majeure ou situation contraignante, impératifs d'ordre et de sécurité, exception d'inexécution. Lock-out illicite : salaires dus à tous + dommages-intérêts.</li></ul>
+<p><b>Sortie de conflit</b> : négociation (accord de fin de conflit), <b>conciliation</b> (on rapproche), <b>médiation</b> (le médiateur propose), <b>arbitrage</b> (l'arbitre décide — rare).</p>
+<p><b>Responsabilités</b> : civile des grévistes pour leurs fautes personnelles, des syndicats s'ils sont à l'origine directe des agissements ; pénale pour entrave à la liberté du travail, violences, séquestration.</p>`]
+]},
+{n:11, t:'Formation professionnelle', ic:'🎓', exam:1, s:[
+['Obligations de l\'employeur', `
+<ul><li><b>Financer</b> : contribution unique <b>0,55 %</b> (moins de 11 salariés) à <b>1 %</b> de la masse salariale ; CPF-CDD 1 % ; contribution supplémentaire à l'apprentissage au-delà de 250 salariés.</li>
+<li><b>Adapter</b> (L6321-1) : « L'employeur assure l'adaptation des salariés à leur poste de travail. Il veille au maintien de leur capacité à occuper un emploi. » Cette obligation vaut pour <b>tous les salariés, quel que soit leur âge</b>.</li>
+<li><b>Entretien professionnel</b> ; sanction (entreprises d'au moins 50 salariés) : abondement du CPF de <b>3 000 €</b>.</li>
+<li><b>Consulter le CSE</b> (orientations stratégiques, politique sociale) ; informer le salarié ; inscrire les formations sécurité au passeport de prévention.</li></ul>
+<p><b>OPCO</b> : 11 opérateurs de compétences ; financent l'alternance, appuient les branches et les entreprises de moins de 50 salariés.</p>`],
+['Plan de développement des compétences', `
+<p>Formations décidées par l'employeur : actions de formation, bilans de compétences, VAE. Il choisit librement, sous réserve de la <b>non-discrimination</b> et de l'égalité F/H.</p>
+<ul><li>Formation inscrite au plan = <b>obligatoire</b> : le refus du salarié peut justifier un licenciement.</li>
+<li>Le <b>bilan de compétences</b> exige l'accord du salarié ; son refus n'est jamais fautif.</li>
+<li>Formations obligatoires = <b>temps de travail effectif</b>, salaire maintenu. Les autres : hors temps de travail possible dans la limite de <b>30 h/an</b> avec accord du salarié.</li></ul>`],
+['CPF', `
+<p><b>500 €/an</b>, plafond <b>5 000 €</b>. Géré par la Caisse des dépôts. Mobilisable uniquement avec l'accord du salarié.</p>
+<p>Formation <b>sur le temps de travail</b> : demande d'autorisation d'absence <b>60 jours</b> avant (formation de moins de 6 mois) ou <b>120 jours</b> avant (6 mois et plus) ; l'employeur répond sous <b>30 jours</b>.</p>`],
+['Congé de transition professionnelle — sujet du cas V', `
+<ul><li>Ancienneté : <b>24 mois</b> comme salarié, dont <b>12 mois dans l'entreprise</b>.</li>
+<li>Mêmes délais de demande que le CPF : <b>60 ou 120 jours</b>.</li>
+<li>L'employeur <b>ne peut pas refuser</b> ; il peut seulement <b>différer</b> le départ (raisons de service, ou trop de salariés déjà en congé). Le CSE est consulté en cas de report.</li>
+<li>Délai de carence entre deux congés : 10 fois la durée du précédent (6 mois minimum, 6 ans maximum).</li>
+<li>Financement par l'association Transitions Pro : formation inscrite au RNCP ; salaire intégral jusqu'à 2 SMIC.</li>
+<li>Congé = temps de travail effectif. À l'issue : retour au poste ou à un poste équivalent ; refuser de reprendre = faute grave.</li></ul>`]
+]}
+];
+/* ===== CARTES MÉMOIRE : [thème, question, réponse, horsCours?] ===== */
+const CARDS = [
+// 1
+[1,`Quels sont les 7 critères de représentativité d'un syndicat de salariés ?`,`<b>VITA-AIE</b> : Valeurs républicaines, Indépendance, Transparence financière, Ancienneté de 2 ans, Audience, Influence, Effectifs d'adhérents et cotisations.`],
+[1,`Quel score un syndicat doit-il atteindre pour être représentatif dans l'entreprise ? Dans la branche ?`,`<b>10 %</b> des suffrages exprimés au 1er tour dans l'entreprise ; <b>8 %</b> dans la branche et au niveau national.`],
+[1,`Quelle est la différence essentielle entre un DS et un RSS ?`,`Le <b>DS</b> est désigné par un syndicat représentatif et peut <b>négocier et signer</b>. Le <b>RSS</b> est désigné par un syndicat non représentatif : il participe mais <b>ne peut pas conclure</b> d'accord (4 h/mois).`],
+[1,`Conditions personnelles pour être désigné délégué syndical ?`,`18 ans, 1 an dans l'entreprise, avoir recueilli <b>10 % des suffrages à titre personnel</b> — dans une entreprise de plus de 50 salariés dotée d'une section syndicale.`],
+[1,`Comment contester la désignation d'un délégué syndical ?`,`Devant le <b>tribunal judiciaire</b>, dans les <b>15 jours</b> de la notification.`],
+[1,`À quelles conditions un accord d'entreprise est-il valable ?`,`Signature par des syndicats représentant <b>50 %</b> des suffrages ; ou <b>30 %</b> + approbation par <b>référendum</b> des salariés à la majorité.`],
+[1,`Conditions de validité d'un accord de branche ?`,`Signataires pesant <b>30 %</b>, et <b>absence d'opposition</b> d'organisations pesant <b>50 %</b>.`],
+[1,`Entreprise de moins de 11 salariés sans DS : comment conclure un accord ?`,`L'employeur propose un projet, transmis <b>15 jours</b> avant la consultation ; ratification à la <b>majorité des 2/3</b> du personnel.`],
+[1,`Quand un accord collectif entre-t-il en vigueur ?`,`Le <b>lendemain de son dépôt</b> à la DREETS, sauf stipulation contraire.`],
+[1,`Quels accords ne sont pas publiés dans la base nationale ?`,`Les accords d'<b>épargne salariale</b>, les accords fixant un <b>PSE</b> et les <b>APC</b>.`],
+[1,`Hiérarchie des normes : que recouvrent les blocs 1, 2 et 3 ?`,`<b>Bloc 1</b> (13 matières) : la branche s'impose. <b>Bloc 2</b> (4 matières) : la branche s'impose si elle le prévoit expressément. <b>Bloc 3</b> (le reste) : l'accord d'entreprise prime, même moins favorable.`],
+[1,`Cite 4 matières du bloc 1.`,`Salaires minima hiérarchiques, classifications, égalité F/H, renouvellement de la période d'essai, prévoyance, CDD/intérim, CDI de chantier, fonds de la formation…`],
+[1,`Quelles sont les 4 matières du bloc 2 ?`,`Prévention des risques professionnels, travailleurs handicapés, seuil et nombre de délégués syndicaux, primes pour travaux dangereux ou insalubres.`],
+[1,`Un accord d'entreprise peut-il prévoir une indemnité de licenciement inférieure à celle de la branche ?`,`<b>Oui</b> : bloc 3, l'accord d'entreprise prime — à condition de respecter le minimum légal.`],
+[1,`Le contrat de travail est plus favorable que l'accord collectif : lequel s'applique ?`,`Le <b>contrat</b>. (Exception : l'APC, qui se substitue aux clauses contraires.)`],
+[1,`Calendrier de la dénonciation d'un accord collectif ?`,`<b>3 mois</b> de préavis + <b>12 mois</b> de survie. Sans accord de substitution : maintien de la rémunération moyenne des 12 derniers mois.`],
+[1,`Une entreprise peut-elle dénoncer la convention collective de branche ?`,`<b>Non.</b> Seules les organisations syndicales ou patronales signataires le peuvent.`],
+[1,`Durée d'un accord collectif à défaut de précision ?`,`<b>5 ans.</b>`],
+[1,`Qu'est-ce que l'extension d'un accord de branche ?`,`Un arrêté du ministre du Travail le rend applicable à <b>toutes les entreprises</b> du champ, adhérentes ou non à une organisation signataire.`],
+[1,`Négociations obligatoires en entreprise à défaut d'accord de méthode : quelle périodicité ?`,`<b>Annuelle</b> : rémunération/temps de travail/partage de la valeur ; égalité pro et QVT. <b>Tous les 3 ans</b> : GEPP (300 salariés et plus).`],
+// 2
+[2,`CDD à objet défini : pour qui et pour combien de temps ?`,`Ingénieurs et cadres ; <b>18 à 36 mois</b> ; délai de prévenance de 2 mois ; prime de précarité.`],
+[2,`Par quels moyens met-on en place le télétravail ?`,`Accord collectif, <b>charte</b> de l'employeur après avis du CSE, ou accord individuel formalisé par tout moyen.`],
+[2,`L'employeur peut-il imposer le télétravail ?`,`Non, c'est une modification du contrat — <b>sauf circonstances exceptionnelles</b> (continuité de l'activité, protection des salariés).`],
+[2,`Préavis de licenciement d'un travailleur handicapé ?`,`<b>Doublé, dans la limite de 3 mois</b> (sauf inaptitude).`],
+[2,`Quels entretiens spécifiques pour les seniors ?`,`Visite médicale de mi-carrière à <b>45 ans</b> + entretien dans les 2 mois ; entretien de fin de carrière entre <b>58 et 60 ans</b>.`],
+[2,`À quel âge l'employeur peut-il mettre un salarié à la retraite sans son accord ?`,`À <b>70 ans</b>. Avant, le salarié peut refuser. Exception : le contrat de valorisation de l'expérience.`,1],
+[2,`Qu'apporte le contrat de valorisation de l'expérience ?`,`CDI pour demandeurs d'emploi seniors : l'employeur peut mettre le salarié à la retraite <b>dès qu'il a droit au taux plein</b>, sans attendre 70 ans.`,1],
+// 3
+[3,`La liberté de s'habiller à sa guise au travail est-elle une liberté fondamentale ?`,`<b>Non.</b> L'employeur peut imposer une tenue qui répond à une <b>exigence légitime</b> (justifiée et proportionnée).`],
+[3,`Liberté d'expression : qu'a changé la jurisprudence de 2026 ?`,`Abandon du critère de l'<b>abus</b>. Le juge <b>met en balance</b> la liberté du salarié et les intérêts de l'employeur et contrôle que la sanction est nécessaire, adéquate et <b>proportionnée</b>.`],
+[3,`Les 4 critères examinés par le juge en matière de liberté d'expression ?`,`<b>TCPC</b> : Teneur des propos, Contexte, Portée et impact dans l'entreprise, Conséquences négatives pour l'employeur.`],
+[3,`Sanction d'un licenciement portant atteinte à la liberté d'expression ?`,`<b>Nullité</b> (Soc. 16 février 2022) — c'est une liberté fondamentale.`],
+[3,`Trois conditions pour être protégé comme lanceur d'alerte ?`,`Être légitimement informé ; dénoncer un <b>crime ou un délit</b> (ou une alerte « Sapin 2 ») ; être de <b>bonne foi</b>.`],
+[3,`Quand le salarié est-il civilement responsable envers son employeur ?`,`Uniquement en cas de <b>faute lourde</b> (intention de nuire).`],
+[3,`Un salarié cause un dommage à un client : qui répond ?`,`L'<b>employeur</b> (commettant), sauf infraction pénale intentionnelle ou dépassement des limites de la mission.`],
+[3,`Un fichier sur l'ordinateur professionnel est-il consultable par l'employeur ?`,`Oui : il est <b>présumé professionnel</b>, sauf s'il est identifié comme « personnel ».`],
+[3,`L'employeur peut-il utiliser des échanges Facebook d'un salarié ?`,`En principe <b>non</b> (sphère privée). LinkedIn, lui, est considéré comme public.`],
+[3,`Vidéosurveillance : quand est-elle libre ?`,`Dans les lieux où les salariés <b>n'ont pas accès</b>. Ailleurs : information des salariés et consultation du CSE.`],
+[3,`Fondement et contenu de l'obligation de sécurité ?`,`<b>L4121-1</b> : l'employeur prend les mesures nécessaires pour assurer la sécurité et protéger la santé <b>physique et mentale</b>.`],
+[3,`L'obligation de loyauté s'arrête-t-elle pendant un arrêt maladie ?`,`<b>Non.</b> Le salarié doit par exemple restituer les informations ou mots de passe nécessaires à l'activité.`],
+[3,`Comment ouvrir légalement le casier ou l'armoire d'un salarié ?`,`En sa <b>présence</b> ou après l'avoir <b>prévenu</b>, dans les conditions du règlement intérieur. Jamais « discrètement ».`,1],
+[3,`Un fait de la vie personnelle peut-il être sanctionné ?`,`En principe non. Sauf s'il <b>se rattache à la vie professionnelle</b> ou constitue un manquement à une obligation du contrat (loyauté, sécurité).`,1],
+// 4
+[4,`Cite 8 motifs de discrimination.`,`Origine, sexe, âge, grossesse, situation de famille, état de santé, handicap, convictions religieuses, activités syndicales, apparence physique, opinions politiques, lieu de résidence…`],
+[4,`Régime de la preuve en matière de discrimination ?`,`① Le salarié présente des éléments <b>laissant supposer</b>. ② L'employeur prouve des <b>éléments objectifs</b> étrangers à toute discrimination. ③ Le juge forme sa conviction.`],
+[4,`Quand une différence de traitement fondée sur un motif protégé est-elle admise ?`,`Si elle répond à une <b>exigence professionnelle essentielle et déterminante</b>, avec objectif légitime et exigence proportionnée (L1133-1).`],
+[4,`Comment une entreprise privée peut-elle imposer la neutralité religieuse ?`,`Par une clause du <b>règlement intérieur</b> (L1321-2-1), justifiée et proportionnée.`],
+[4,`Sanction d'un licenciement discriminatoire ?`,`<b>Nullité</b> → réintégration possible.`],
+[4,`Refuser les aménagements de poste demandés par le médecin du travail pour un salarié handicapé, c'est…`,`Une <b>discrimination</b> fondée sur le handicap (Soc. 2 avril 2025).`],
+// 5
+[5,`Définition du harcèlement moral ?`,`<b>Agissements répétés</b> ayant pour <b>objet ou pour effet</b> une dégradation des conditions de travail susceptible de porter atteinte aux droits/dignité, à la santé ou à l'avenir professionnel (L1152-1).`],
+[5,`Les deux formes de harcèlement sexuel ?`,`① Propos ou comportements sexuels ou sexistes <b>répétés</b> (dégradants ou créant une situation hostile). ② <b>Pression grave, même unique</b>, pour obtenir un acte sexuel.`],
+[5,`Plusieurs collègues font chacun une remarque sexiste : harcèlement ?`,`<b>Oui</b> : la répétition peut venir de plusieurs personnes, agissant de concert ou sachant que leurs propos se répètent.`],
+[5,`L'employeur informé d'un harcèlement peut-il attendre l'issue d'une plainte pénale ?`,`<b>Non.</b> Il doit réagir immédiatement : écoute, mesures conservatoires, <b>enquête interne</b>.`],
+[5,`Peut-on sanctionner un salarié qui dénonce un harcèlement non prouvé ?`,`<b>Non</b>, sauf <b>mauvaise foi</b> (accusation mensongère, faite en connaissance de cause). La sanction serait nulle.`],
+[5,`Preuve du harcèlement : que doit apporter le salarié ?`,`Des éléments de fait <b>précis et concordants</b> laissant supposer le harcèlement.`],
+[5,`Inaptitude causée par un harcèlement : sort du licenciement ?`,`<b>Nul.</b>`],
+[5,`Qu'est-ce que le harcèlement managérial ?`,`Un harcèlement moral né de <b>méthodes de gestion</b> abusives et répétées (ex. France Télécom).`],
+[5,`Que recouvrent les RPS ?`,`Stress, violences internes, violences externes, mal-être et souffrance au travail (harcèlement, addictions).`],
+[5,`Le harcèlement sexuel protège-t-il une stagiaire ?`,`<b>Oui</b> : les personnes en formation ou en stage sont protégées comme les salariés.`,1],
+// 6
+[6,`Définition de l'accident du travail ?`,`Lésion corporelle ou psychologique survenue <b>sur les lieux ou à l'occasion du travail</b>.`],
+[6,`Peut-on licencier un salarié en arrêt pour accident du travail ?`,`<b>Non</b>, jusqu'à la fin de l'arrêt. Seules exceptions : faute grave ou impossibilité de maintenir le contrat pour un motif étranger à l'accident. Sinon : nullité.`],
+[6,`Indemnisation Sécurité sociale en AT/MP ?`,`<b>60 %</b> du brut pendant 30 jours, puis <b>80 %</b>.`],
+[6,`Indemnisation Sécurité sociale en maladie ordinaire ?`,`<b>50 %</b> à partir du <b>4e jour</b>, dans la limite de 360 jours.`],
+[6,`Conditions du complément de salaire versé par l'employeur ?`,`<b>1 an d'ancienneté</b> et absence <b>justifiée dans les 48 h</b>.`],
+[6,`Congés payés acquis pendant une maladie non professionnelle ?`,`<b>2 jours ouvrables par mois</b>, plafonnés à <b>24 jours/an</b>.`],
+[6,`Au retour d'arrêt, quelle obligation pour l'employeur sur les congés ?`,`<b>Informer</b> le salarié du nombre de jours acquis et du délai de <b>15 mois</b> pour les prendre.`],
+[6,`Quand la visite de reprise est-elle obligatoire ?`,`Arrêt d'au moins <b>30 jours</b> (AT/MP) ou <b>60 jours</b> (autres cas).`],
+[6,`Qui peut constater l'inaptitude ?`,`<b>Uniquement le médecin du travail.</b>`],
+[6,`Inaptitude : que doit faire l'employeur, et dans quel délai ?`,`Chercher un <b>reclassement</b> ; il a <b>1 mois</b> pour reclasser ou licencier, sinon il doit <b>reprendre le paiement du salaire</b>.`],
+[6,`L'obligation de reclassement est-elle de moyens ou de résultat ?`,`De <b>moyens</b> — mais la recherche doit être sérieuse et tracée par écrit.`],
+[6,`Qui prescrit le mi-temps thérapeutique ?`,`Le <b>médecin traitant</b> ; avis du médecin-conseil de la CPAM ; selon le cours, l'employeur doit l'accepter.`],
+[6,`Qu'est-ce que le rendez-vous de liaison ?`,`Pour les arrêts de plus de <b>30 jours</b> : informer le salarié des dispositifs de prévention de la désinsertion (préreprise, aménagements).`],
+[6,`Qui demande la visite de préreprise ?`,`Le <b>salarié</b> lui-même, directement auprès de la médecine du travail, sans en informer l'employeur.`],
+[6,`Durée de l'essai encadré ?`,`<b>14 jours ouvrables, renouvelables une fois.</b>`],
+[6,`Peut-on confier « quelques tâches » à un salarié en arrêt de travail ?`,`<b>Non</b> : le contrat est suspendu. L'employeur manque à son obligation de sécurité et le salarié risque ses indemnités journalières.`],
+[6,`Licenciement d'une salariée enceinte : dans quels cas est-il possible ?`,`<b>Faute grave non liée à la grossesse</b> ou <b>impossibilité de maintenir le contrat</b> pour un motif étranger. Jamais pendant le congé maternité.`],
+[6,`Jusqu'à quand dure la protection après le congé maternité ?`,`<b>10 semaines</b> après la fin du congé (et des congés payés pris à la suite).`],
+[6,`Durée du congé maternité (1er enfant, 3e enfant, jumeaux) ?`,`<b>6 + 10</b> semaines ; <b>8 + 18</b> au 3e ; <b>12 + 22</b> pour des jumeaux.`],
+[6,`Sanction du licenciement nul d'une salariée enceinte ?`,`Réintégration, rappel de salaires, dommages-intérêts d'au moins <b>6 mois</b> de salaire.`],
+[6,`Une salariée enceinte peut-elle exiger un changement de poste ?`,`Seulement si son <b>état de santé médicalement constaté</b> l'exige (affectation temporaire, salaire maintenu). Pas pour convenance personnelle.`],
+[6,`Congé de paternité ?`,`3 jours de naissance (employeur) + <b>4 jours obligatoires</b> + <b>21 jours</b> à prendre dans les 6 mois.`],
+[6,`Absence prolongée pour maladie : à quelles conditions peut-on licencier ?`,`<b>Perturbation du fonctionnement de l'entreprise</b> + nécessité d'un <b>remplacement définitif</b> (CDI). Jamais à cause de la maladie elle-même.`,1],
+[6,`Contre-visite médicale patronale : conséquence si l'arrêt paraît injustifié ?`,`L'employeur peut <b>suspendre le complément de salaire</b>. Ce n'est pas une faute disciplinaire.`,1],
+// 7
+[7,`Quels éléments constituent une modification du contrat ?`,`<b>RQDL</b> : Rémunération, Qualification, Durée du travail, Lieu (changement de secteur géographique) — plus le télétravail imposé et la mutation dans une autre société.`],
+[7,`Refuser une modification de son contrat est-il une faute ?`,`<b>Non.</b> L'employeur doit renoncer ou licencier pour le motif à l'origine de la proposition.`],
+[7,`Refuser un changement des conditions de travail est-il une faute ?`,`<b>Oui</b> : cela relève du pouvoir de direction.`],
+[7,`Mutation dans une autre ville : modification du contrat ?`,`Oui s'il y a <b>changement de secteur géographique</b> (Soc. 4 juillet 2012) et pas de clause de mobilité.`],
+[7,`Sur quoi peut porter un APC ?`,`<b>Durée du travail</b>, <b>rémunération</b> (dans le respect des minima), <b>mobilité</b> géographique ou professionnelle.`],
+[7,`APC : délais en cas de refus du salarié ?`,`Le salarié a <b>30 jours</b> pour refuser ; l'employeur a <b>60 jours</b> pour engager le licenciement.`],
+[7,`Modification pour motif économique : procédure ?`,`Lettre recommandée, <b>1 mois</b> de réflexion, le <b>silence vaut acceptation</b>.`,1],
+// 8
+[8,`Que prévoit l'article L1224-1 ?`,`En cas de modification de la situation juridique de l'employeur (vente, <b>fusion</b>…), tous les contrats en cours <b>subsistent</b> avec le nouvel employeur.`],
+[8,`Condition d'application de L1224-1 ?`,`Transfert d'une <b>entité économique autonome</b> : ensemble organisé de personnes et de moyens poursuivant une activité.`],
+[8,`Le salarié doit-il donner son accord au transfert de son contrat ?`,`<b>Non</b> : le transfert est automatique et s'impose à tous.`],
+[8,`Peut-on licencier à l'occasion du transfert ?`,`<b>Non</b> (sauf motif personnel, comme la faute grave). Le repreneur pourra restructurer ensuite, dans un délai raisonnable.`],
+[8,`Que deviennent les accords collectifs de la société absorbée ?`,`Ils sont <b>mis en cause</b>. Les accords de l'absorbante bénéficient immédiatement aux salariés transférés.`],
+[8,`Accord de transition ou accord d'adaptation ?`,`<b>Transition</b> : 3 ans max, pour les seuls salariés transférés. <b>Adaptation</b> : statut du nouvel ensemble. Négociables avant la fusion.`],
+[8,`Que deviennent le CSE et les DS de l'entité absorbée (cours) ?`,`Ils <b>restent en place</b> ; les syndicats restent représentatifs.`],
+// 9
+[9,`Énonce le principe « à travail égal, salaire égal ».`,`Des salariés placés dans une <b>situation identique</b> doivent recevoir la même rémunération, sauf justification par des <b>critères objectifs et pertinents</b>.`],
+[9,`L'ancienneté peut-elle justifier un écart de salaire ?`,`Oui, si l'appréciation repose sur des éléments <b>objectifs et matériellement vérifiables</b>.`],
+[9,`Peut-on comparer les salaires de deux sociétés d'un même groupe ?`,`<b>Non</b> : pas d'application du principe entre entreprises différentes (Soc. 20 novembre 2012).`],
+[9,`Écarts de salaire entre deux établissements d'une même entreprise ?`,`Possibles s'ils reposent sur des <b>raisons objectives</b>.`],
+[9,`Une salariée peut-elle obtenir les bulletins de paie de ses collègues ?`,`Pas en l'exigeant de l'employeur ; mais le <b>juge</b> peut ordonner leur communication (données personnelles occultées) si c'est indispensable à la preuve.`,1],
+[9,`Index de l'égalité professionnelle : qui, quand ?`,`Entreprises d'au moins <b>50 salariés</b> ; publication chaque année au <b>1er mars</b> ; 3 ans pour corriger.`],
+[9,`À défaut d'accord sur l'égalité professionnelle, que doit faire l'employeur ?`,`Établir un <b>plan d'action annuel</b>.`],
+// 10
+[10,`Définition de la grève ?`,`Cessation <b>collective, totale et concertée</b> du travail en vue d'appuyer des <b>revendications professionnelles</b>.`],
+[10,`Quand peut-on licencier un gréviste ?`,`Uniquement pour <b>faute lourde</b>. Sinon le licenciement est nul.`],
+[10,`Peut-on remplacer des grévistes par des intérimaires ?`,`<b>Non</b> (ni CDD ni intérim). On peut réaffecter des non-grévistes ou sous-traiter.`],
+[10,`Peut-on réduire une prime en raison de la grève ?`,`Non : c'est une <b>discrimination</b>. Seul le salaire est réduit, en stricte proportion.`],
+[10,`Le lock-out est-il permis ?`,`Non, sauf <b>force majeure</b>, impératifs d'<b>ordre et de sécurité</b>, ou <b>exception d'inexécution</b>.`],
+[10,`Conciliation, médiation, arbitrage : quelle différence ?`,`Conciliation : on rapproche les parties. Médiation : le médiateur <b>propose</b> une solution. Arbitrage : l'arbitre <b>décide</b>.`],
+[10,`L'occupation des locaux par les grévistes est-elle licite ?`,`Non : trouble illicite → expulsion ordonnée par le juge.`],
+// 11
+[11,`Que dit l'article L6321-1 ?`,`L'employeur <b>assure l'adaptation</b> des salariés à leur poste et <b>veille au maintien de leur capacité à occuper un emploi</b>.`],
+[11,`Le salarié peut-il refuser une formation du plan de développement des compétences ?`,`Non : elle est obligatoire, le refus peut justifier un licenciement. (Sauf bilan de compétences ou formation sans lien avec l'activité.)`],
+[11,`Montant annuel et plafond du CPF ?`,`<b>500 €/an</b>, plafond <b>5 000 €</b>.`],
+[11,`CPF sur le temps de travail : délais ?`,`Demande <b>60 jours</b> avant (moins de 6 mois) ou <b>120 jours</b> (6 mois et plus) ; réponse de l'employeur sous <b>30 jours</b>.`],
+[11,`Conditions d'ancienneté du congé de transition professionnelle ?`,`<b>24 mois</b> comme salarié, dont <b>12 mois</b> dans l'entreprise.`],
+[11,`L'employeur peut-il refuser un congé de transition professionnelle ?`,`<b>Non.</b> Il peut seulement le <b>différer</b> (raisons de service, effectifs déjà absents).`],
+[11,`Sanction du défaut d'entretiens professionnels ?`,`Abondement du CPF de <b>3 000 €</b>.`],
+[11,`Les formations obligatoires sont-elles du temps de travail ?`,`<b>Oui</b>, temps de travail effectif avec maintien du salaire.`]
+];
+
+/* ===== CHIFFRES ET DÉLAIS : [thème, libellé, valeur] ===== */
+const NUMS = [
+[1,`Audience pour être représentatif dans l'entreprise`,`10 %`],
+[1,`Audience dans la branche / au niveau national`,`8 %`],
+[1,`Ancienneté minimale d'un syndicat`,`2 ans`],
+[1,`Accord d'entreprise majoritaire`,`50 %`],
+[1,`Accord d'entreprise minoritaire + référendum`,`30 %`],
+[1,`Ratification dans une entreprise de moins de 11 salariés`,`2/3 du personnel`],
+[1,`Seuil de désignation d'un DS`,`50 salariés`],
+[1,`Contestation de la désignation d'un DS`,`15 jours`],
+[1,`Crédit d'heures du RSS`,`4 h / mois`],
+[1,`Préavis de dénonciation d'un accord`,`3 mois`],
+[1,`Survie de l'accord dénoncé`,`12 mois`],
+[1,`Durée par défaut d'un accord collectif`,`5 ans`],
+[1,`Matières des blocs 1 et 2`,`13 et 4`],
+[2,`CDD à objet défini`,`18 à 36 mois`],
+[2,`Visite médicale de mi-carrière`,`45 ans`],
+[2,`Entretien de fin de carrière`,`58 à 60 ans`],
+[2,`Mise à la retraite d'office (hors cours)`,`70 ans`],
+[6,`Visite de reprise après AT/MP`,`arrêt ≥ 30 jours`],
+[6,`Visite de reprise après maladie ordinaire`,`arrêt ≥ 60 jours`],
+[6,`Délai pour reclasser ou licencier après l'avis d'inaptitude`,`1 mois`],
+[6,`IJ Sécurité sociale AT/MP`,`60 % puis 80 %`],
+[6,`IJ Sécurité sociale maladie`,`50 % dès le 4e jour`],
+[6,`Justification de l'absence pour le complément employeur`,`48 h`],
+[6,`Ancienneté pour le complément employeur`,`1 an`],
+[6,`Congés acquis en maladie non professionnelle`,`2 j/mois, 24 j/an`],
+[6,`Délai de report des congés après le retour`,`15 mois`],
+[6,`Rendez-vous de liaison`,`arrêt > 30 jours`],
+[6,`Essai encadré`,`14 jours ouvrables × 2`],
+[6,`Protection après le congé maternité`,`10 semaines`],
+[6,`Congé maternité de base`,`6 + 10 semaines`],
+[6,`Dommages-intérêts minimum, licenciement nul (maternité)`,`6 mois de salaire`],
+[6,`Congé de paternité`,`4 j obligatoires + 21 j`],
+[7,`APC : délai de refus du salarié`,`30 jours`],
+[7,`APC : délai pour engager le licenciement`,`60 jours`],
+[7,`Modification pour motif économique : réflexion (hors cours)`,`1 mois`],
+[8,`Durée maximale d'un accord de transition`,`3 ans`],
+[9,`Index égalité : seuil`,`50 salariés`],
+[9,`Index égalité : date de publication`,`1er mars`],
+[9,`Délai de correction de l'index`,`3 ans`],
+[11,`CPF : alimentation annuelle / plafond`,`500 € / 5 000 €`],
+[11,`Demande de formation de moins de 6 mois`,`60 jours avant`],
+[11,`Demande de formation de 6 mois et plus`,`120 jours avant`],
+[11,`Réponse de l'employeur à la demande`,`30 jours`],
+[11,`Transition pro : ancienneté`,`24 mois dont 12 dans l'entreprise`],
+[11,`Abondement-sanction du CPF`,`3 000 €`],
+[11,`Formation hors temps de travail`,`30 h / an max`],
+[3,`Procédure de recueil des alertes obligatoire`,`plus de 50 salariés`],
+[5,`Prescription des faits fautifs (hors cours)`,`2 mois après connaissance`]
+];
+/* ===== QCM : [thème, question, [options], indexBonne, explication] ===== */
+const QUIZ = [
+[8,`La SA GVC absorbe la SARL ASV. Que deviennent les contrats des 68 salariés d'ASV ?`,[`Ils sont rompus puis GVC propose de nouveaux contrats`,`Ils se poursuivent automatiquement avec GVC`,`Ils se poursuivent si chaque salarié signe un avenant`,`Ils sont suspendus pendant la fusion`],1,`L1224-1 : en cas de fusion, tous les contrats en cours subsistent avec le nouvel employeur, sans formalité ni accord du salarié.`],
+[8,`GVC peut-elle licencier une partie des salariés d'ASV le jour de l'absorption pour « alléger » la reprise ?`,[`Oui, c'est le principe de la restructuration`,`Oui, avec l'accord du CSE`,`Non : pas de licenciement à l'occasion du transfert`,`Non, jamais, même plus tard`],2,`Le transfert interdit les licenciements liés à l'opération. Le repreneur pourra restructurer ensuite, dans un délai raisonnable, avec un vrai motif.`],
+[8,`Après la fusion, quel statut collectif s'applique immédiatement aux salariés transférés ?`,[`Uniquement leurs anciens accords, pendant 3 ans`,`Les accords de l'absorbante leur bénéficient immédiatement`,`Aucun accord pendant 12 mois`,`Celui que choisit chaque salarié`],1,`Les accords de l'absorbée sont mis en cause ; ceux de l'absorbante s'appliquent tout de suite. Un accord de transition ou d'adaptation peut organiser la suite.`],
+[7,`Un salarié de Millau (Aveyron) est muté à Pessac (Gironde), sans clause de mobilité. C'est…`,[`Un changement des conditions de travail`,`Une modification du contrat qu'il peut refuser`,`Une sanction disciplinaire`,`Possible seulement avec l'accord du CSE`],1,`Changement de secteur géographique = modification du contrat (Soc. 4 juillet 2012). L'accord du salarié est indispensable et son refus n'est pas fautif.`],
+[7,`Le salarié refuse la modification de son contrat. L'employeur peut…`,[`Le licencier pour faute`,`Lui imposer la mesure après un délai de 30 jours`,`Renoncer, ou licencier pour le motif à l'origine de la modification`,`Suspendre son salaire`],2,`Le refus n'est jamais le motif. Si la raison est économique (fermeture du site), c'est un licenciement économique.`],
+[7,`Lequel de ces changements N'EST PAS une modification du contrat ?`,[`Baisse du taux horaire`,`Passage à temps partiel`,`Changement d'horaires de 8 h-16 h à 9 h-17 h`,`Télétravail imposé`],2,`Un simple aménagement des horaires relève du pouvoir de direction. Rémunération, durée et télétravail imposé touchent le contrat.`],
+[7,`Un APC prévoit une mobilité vers Pessac. Un salarié refuse. Conséquence ?`,[`L'accord ne lui est pas opposable`,`L'employeur peut engager son licenciement dans les 60 jours`,`Il est réputé démissionnaire`,`Le contrat plus favorable l'emporte`],1,`Les stipulations de l'APC se substituent aux clauses du contrat. Le salarié a 30 jours pour refuser, l'employeur 60 jours pour licencier.`],
+[3,`L'employeur veut imposer le costume aux commerciaux. Sur quel raisonnement s'appuyer ?`,[`C'est interdit : liberté fondamentale de se vêtir`,`C'est libre : pouvoir de direction sans limite`,`C'est possible si la contrainte est justifiée par la tâche et proportionnée`,`Il faut l'accord individuel de chaque salarié`],2,`La liberté vestimentaire n'est pas une liberté fondamentale ; la restriction doit répondre à une exigence légitime (contact clientèle) et rester proportionnée.`],
+[3,`Depuis 2026, comment le juge contrôle-t-il une sanction liée à des propos du salarié ?`,[`Il recherche uniquement un abus`,`Il met en balance liberté d'expression et intérêts de l'employeur, et vérifie la proportionnalité`,`Il annule automatiquement la sanction`,`Il applique le droit pénal de la presse`],1,`Abandon du critère de l'abus : mise en balance et contrôle de nécessité, d'adéquation et de proportionnalité (teneur, contexte, portée, conséquences).`],
+[3,`Un salarié écrit à la direction que le nouveau code vestimentaire est « ridicule ». Est-il lanceur d'alerte ?`,[`Oui, il signale un dysfonctionnement`,`Oui s'il est de bonne foi`,`Non : il n'y a ni crime, ni délit, ni alerte au sens de la loi`,`Oui s'il informe aussi le CSE`],2,`Le lanceur d'alerte relate un crime, un délit ou une alerte « Sapin 2 ». Un désaccord sur une décision de gestion relève de la liberté d'expression.`],
+[3,`Un technicien tient un blog personnel moquant des collègues reconnaissables. L'employeur peut-il agir ?`,[`Non, c'est la vie privée, point final`,`Oui si les faits se rattachent à la vie de l'entreprise et y créent un trouble`,`Oui, tout propos hors travail est sanctionnable`,`Seulement si l'entreprise est nommée`],1,`Un fait de la vie personnelle n'est sanctionnable que s'il se rattache à la vie professionnelle. Ici : collègues identifiables, plaintes, obligation de sécurité de l'employeur.`],
+[3,`Quel réseau social le cours présente-t-il comme « public » ?`,[`Facebook`,`LinkedIn`,`WhatsApp`,`Aucun`],1,`LinkedIn a un caractère public ; les échanges Facebook ne peuvent en principe être ni consultés ni utilisés par l'employeur.`],
+[3,`Un mail non identifié comme « personnel », envoyé depuis la messagerie professionnelle, est…`,[`Couvert par le secret des correspondances`,`Présumé professionnel : l'employeur peut le consulter`,`Consultable seulement avec un huissier`,`Inutilisable en justice`],1,`Ce qui n'est pas expressément marqué personnel est présumé professionnel.`],
+[4,`Un salarié offre une Bible à un collègue hospitalisé, hors temps de travail. Le licencier pour prosélytisme serait…`,[`Justifié par la neutralité`,`Nul, car fondé sur les convictions religieuses et la vie personnelle`,`Possible avec l'accord du CSE`,`Une simple irrégularité de procédure`],1,`Les convictions religieuses sont un motif discriminatoire. Le fait est isolé, hors de l'entreprise, sans pression : rien ne le rattache à la vie professionnelle.`],
+[4,`En matière de discrimination, que doit faire le salarié ?`,[`Prouver la discrimination`,`Présenter des éléments de fait la laissant supposer`,`Rien, la charge pèse entièrement sur l'employeur`,`Obtenir un constat de l'inspection du travail`],1,`Preuve aménagée en trois temps : éléments laissant supposer → justification objective par l'employeur → conviction du juge.`],
+[4,`Une entreprise privée veut interdire les signes religieux visibles. Il lui faut…`,[`Rien, c'est de droit`,`Une clause de neutralité dans le règlement intérieur, justifiée et proportionnée`,`Une autorisation préfectorale`,`C'est toujours interdit`],1,`L1321-2-1. Dans le service public en revanche, la neutralité s'impose directement.`],
+[9,`Mme Ginette demande à la direction une copie des bulletins de paie de deux collègues. La direction…`,[`Doit les lui remettre`,`N'y est pas tenue, mais un juge pourrait en ordonner la communication`,`Commet un délit si elle refuse`,`Doit demander l'accord du CSE`],1,`L'employeur protège la vie privée des collègues ; le droit à la preuve permet toutefois au juge d'ordonner la production, données personnelles occultées (Soc. 8 mars 2023).`],
+[9,`« Vos collègues ont plus d'expérience. » Cette justification d'un écart de salaire est-elle valable ?`,[`Jamais`,`Toujours`,`Oui, si elle repose sur des éléments objectifs et vérifiables`,`Seulement pour les cadres`],2,`Ancienneté et expérience peuvent justifier un écart, à condition d'être matériellement vérifiables et pertinentes pour le poste.`],
+[9,`Avant la fusion, une salariée d'ASV pouvait-elle se comparer aux salariés de GVC à Pessac ?`,[`Oui, même groupe`,`Oui, même convention collective`,`Non, entreprises différentes`,`Oui si même métier`],2,`Le principe ne joue pas entre entreprises différentes, même au sein d'un groupe (Soc. 20 novembre 2012). Après la fusion, ce sont deux établissements d'une même entreprise.`],
+[9,`Des écarts de rémunération entre deux établissements de la même entreprise sont…`,[`Toujours illicites`,`Licites s'ils reposent sur des raisons objectives`,`Licites sans condition`,`Soumis à autorisation de la DREETS`],1,`Par exemple un écart réel et démontré de coût de la vie — pas une simple supposition.`],
+[6,`M. Gontran est en arrêt pour accident du travail. L'employeur doute de son aptitude future. Peut-il le licencier ?`,[`Oui, pour inaptitude probable`,`Oui, s'il le remplace en CDI`,`Non, sauf faute grave ou impossibilité de maintenir le contrat pour un motif étranger à l'accident`,`Oui, après 3 mois d'absence`],2,`Pendant l'arrêt AT/MP, le licenciement est interdit et nul. Seul le médecin du travail apprécie l'aptitude.`],
+[6,`Salarié absent depuis près de 3 mois. Quel dispositif l'employeur aurait-il dû proposer ?`,[`Un entretien préalable`,`Un rendez-vous de liaison`,`Une contre-expertise judiciaire`,`Un bilan de compétences`],1,`Le rendez-vous de liaison concerne les arrêts de plus de 30 jours : il prépare le retour et prévient la désinsertion professionnelle.`],
+[6,`Le médecin du travail déclare le salarié inapte à la station debout prolongée. L'employeur…`,[`Peut licencier immédiatement`,`Doit d'abord rechercher un reclassement`,`Doit attendre 6 mois`,`Doit saisir l'inspection du travail`],1,`Obligation de reclassement (de moyens), à tracer par écrit ; un mois pour reclasser ou licencier, sinon reprise du salaire.`],
+[6,`Le poste de reclassement est moins bien payé. Peut-on l'imposer ?`,[`Oui, l'inaptitude le justifie`,`Non : la baisse de salaire modifie le contrat, il faut l'accord du salarié`,`Oui avec l'avis du CSE`,`Non, il est interdit de proposer un poste moins payé`],1,`On peut le proposer, pas l'imposer. Si le salarié refuse, l'employeur cherche autre chose ou licencie pour inaptitude et impossibilité de reclassement.`],
+[6,`Un mois après l'avis d'inaptitude, le salarié n'est ni reclassé ni licencié. Conséquence ?`,[`Le contrat est rompu de plein droit`,`L'employeur doit reprendre le versement du salaire`,`Le salarié est réputé démissionnaire`,`La Sécurité sociale prend le relais`],1,`Passé un mois, le salaire est dû comme si le salarié travaillait.`],
+[6,`En attendant un mi-temps thérapeutique, peut-on confier des travaux à domicile au salarié en arrêt ?`,[`Oui, s'il est volontaire`,`Oui, s'il est payé en plus`,`Non, le contrat est suspendu`,`Oui, moins de 10 h par semaine`],2,`Aucun travail pendant l'arrêt, même avec l'accord du salarié : obligation de sécurité, et risque de perte des indemnités journalières.`],
+[6,`Qui est à l'initiative du mi-temps thérapeutique ?`,[`L'employeur`,`Le médecin du travail`,`Le médecin traitant`,`Le CSE`],2,`Proposition du médecin traitant, soumise à l'employeur puis à l'avis du médecin-conseil de la CPAM.`],
+[6,`De retour d'arrêt, le salarié a des congés non pris. La règle interne « perdus au 31 décembre » s'applique-t-elle ?`,[`Oui, c'est la règle de l'entreprise`,`Non : il dispose de 15 mois après avoir été informé de ses droits`,`Oui sauf accord du CSE`,`Non, ils sont payés immédiatement`],1,`L'employeur doit informer le salarié du nombre de jours et du délai de 15 mois. Les congés non pris du fait de l'arrêt sont reportés.`],
+[6,`M. Eleazar (7 ans d'ancienneté) transmet son arrêt une semaine après le début de l'absence. Complément employeur ?`,[`Dû, il a plus d'un an d'ancienneté`,`Non dû : absence non justifiée dans les 48 h`,`Dû à 50 %`,`Dû après avis du CSE`],1,`Deux conditions cumulatives : un an d'ancienneté ET justification dans les 48 h.`],
+[6,`L'absence prolongée d'un salarié malade désorganise l'entreprise. Le licenciement est…`,[`Impossible, c'est une discrimination`,`Possible si la perturbation impose son remplacement définitif`,`Possible après 6 mois d'arrêt`,`Possible pour faute`],1,`Le motif n'est pas la maladie mais la perturbation objective et la nécessité d'un remplacement définitif en CDI (jurisprudence).`],
+[6,`L'employeur doute de la réalité de la maladie. Il peut…`,[`Convoquer le salarié dans l'entreprise`,`Faire pratiquer une contre-visite médicale`,`Exiger le dossier médical`,`Suspendre le contrat`],1,`La contre-visite est la contrepartie du complément de salaire ; si l'arrêt paraît injustifié, l'employeur peut cesser de verser ce complément.`],
+[6,`Un salarié en arrêt maladie refuse de donner le mot de passe du poste qu'il a modifié. C'est…`,[`Son droit, le contrat est suspendu`,`Un manquement à l'obligation de loyauté`,`Sans conséquence possible`,`Une faute lourde automatique`],1,`La loyauté survit à la suspension. Restituer une information nécessaire à l'activité n'est pas « travailler ».`],
+[6,`Une salariée annonce sa grossesse pendant l'entretien préalable. L'employeur peut-il poursuivre ?`,[`Non, toute procédure est interdite`,`Oui, sans restriction`,`Oui, seulement pour faute grave non liée à la grossesse ou impossibilité de maintenir le contrat`,`Oui après accord de l'inspection du travail`],2,`Protection relative pendant la grossesse. Hors de ces deux cas, le licenciement est nul.`],
+[6,`Pendant le congé maternité lui-même, le licenciement…`,[`Est possible pour faute grave`,`Ne peut pas être notifié, quel que soit le motif`,`Est possible pour motif économique`,`Est possible avec l'accord de la salariée`],1,`Protection absolue pendant le congé et les congés payés qui le suivent immédiatement.`],
+[6,`Une salariée enceinte exige de changer d'équipe pour ne plus voir son chef. L'employeur…`,[`Doit accepter`,`N'y est tenu que si son état de santé médicalement constaté l'exige`,`Doit saisir le CSE`,`Peut la sanctionner pour cette demande`],1,`L'affectation temporaire est un droit lié à la santé, pas une convenance. Mais si elle évoque un mal-être, l'obligation de sécurité impose d'écouter.`],
+[5,`Chaque matin, plusieurs collègues font des commentaires sur la vie sexuelle supposée d'une salariée. C'est…`,[`De simples plaisanteries`,`Un harcèlement sexuel, même si chacun n'intervient qu'une fois`,`Un outrage sexiste uniquement`,`Rien sans plainte pénale`],1,`L1153-1 : la répétition peut résulter de l'action de plusieurs personnes.`],
+[5,`Une salariée dénonce un harcèlement. Le responsable propose d'attendre l'issue d'une plainte pénale. Votre avis ?`,[`C'est prudent`,`C'est une faute : l'employeur doit réagir immédiatement et enquêter`,`C'est obligatoire`,`Il faut d'abord l'accord de l'accusé`],1,`L'obligation de sécurité impose de prévenir et de faire cesser. L'enquête interne est indépendante de la procédure pénale.`],
+[5,`Pour vérifier une accusation, peut-on ouvrir discrètement l'armoire d'un salarié en son absence ?`,[`Oui, l'armoire appartient à l'entreprise`,`Non : il faut sa présence ou l'avoir prévenu`,`Oui avec un témoin`,`Oui si le DRH est présent`],1,`La fouille clandestine est un procédé déloyal qui fragilise la preuve et la sanction.`],
+[5,`L'enquête ne permet pas d'établir les faits dénoncés. Peut-on sanctionner les salariées qui ont accusé ?`,[`Oui, pour dénonciation calomnieuse`,`Non, sauf si leur mauvaise foi est démontrée`,`Oui, par un avertissement seulement`,`Oui si l'accusé le demande`],1,`La protection ne cède que devant la mauvaise foi : la connaissance de la fausseté des faits. « Non prouvé » ne veut pas dire « mensonger ».`],
+[5,`Des propos racistes tenus au repas de fin d'année de l'entreprise peuvent-ils être sanctionnés ?`,[`Non, c'est la vie privée`,`Oui, l'événement se rattache à la vie de l'entreprise`,`Seulement s'ils sont filmés`,`Seulement si une plainte est déposée`],1,`Un événement organisé par l'entreprise ou entre collègues à ce titre se rattache à la vie professionnelle.`],
+[5,`La vidéosurveillance du parking, installée contre les vols, peut-elle servir contre un salarié ?`,[`Oui, sans condition`,`Non, jamais`,`Oui si les salariés ont été informés et le CSE consulté ; à défaut la preuve est illicite et son admission incertaine`,`Seulement avec l'accord du salarié filmé`],2,`Le parking est accessible aux salariés : il faut information et consultation. Une preuve illicite peut parfois être admise si elle est indispensable et proportionnée, mais c'est un risque.`],
+[2,`Un salarié recruté à 62 ans refuse de partir à la retraite. L'employeur peut l'y contraindre…`,[`À 64 ans`,`À 67 ans`,`À 70 ans`,`Jamais`],2,`Mise à la retraite d'office à 70 ans seulement. Le contrat de valorisation de l'expérience permet de l'anticiper au taux plein.`],
+[11,`Doit-on former les salariés âgés comme les plus jeunes ?`,[`Non, ce n'est pas rentable`,`Oui : obligation d'adaptation pour tous et interdiction de discriminer selon l'âge`,`Seulement jusqu'à 60 ans`,`Seulement s'ils le demandent`],1,`L6321-1 ne distingue pas selon l'âge, et le plan de développement des compétences doit respecter la non-discrimination.`],
+[11,`Une salariée demande un congé de transition professionnelle pour une formation de 8 mois. Délai de prévenance ?`,[`30 jours`,`60 jours`,`120 jours`,`6 mois`],2,`120 jours pour une formation de 6 mois et plus ; 60 jours en dessous.`],
+[11,`L'employeur peut-il refuser un congé de transition professionnelle ?`,[`Oui, librement`,`Non, il peut seulement en différer le départ`,`Oui, après avis du CSE`,`Oui, si la formation est sans rapport avec le poste`],1,`Si les conditions sont réunies, seul le report est possible (raisons de service, effectifs absents).`],
+[1,`Un accord d'entreprise est signé par un seul syndicat ayant obtenu 35 % des suffrages. Est-il valable ?`,[`Oui, directement`,`Oui, s'il est approuvé par référendum à la majorité`,`Non, jamais`,`Oui, sauf opposition à 50 %`],1,`Entre 30 % et 50 %, l'accord doit être validé par les salariés.`],
+[1,`Un accord d'entreprise fixe une prime de vacances inférieure à celle de la convention de branche. Lequel s'applique ?`,[`La branche, plus favorable`,`L'accord d'entreprise`,`Le plus récent`,`Au choix du salarié`],1,`Les primes (hors travaux dangereux) relèvent du bloc 3 : l'accord d'entreprise prime, même moins favorable.`],
+[1,`Un accord d'entreprise fixe un salaire minimum inférieur au minimum hiérarchique de branche. Valable ?`,[`Oui, bloc 3`,`Non, bloc 1 : la branche s'impose`,`Oui avec référendum`,`Oui si la branche ne l'interdit pas`],1,`Les salaires minima hiérarchiques sont la première matière du bloc 1.`],
+[1,`Le contrat prévoit un 13e mois ; un nouvel accord d'entreprise (hors APC) le supprime. Le salarié…`,[`Le perd`,`Le conserve : le contrat plus favorable s'applique`,`Le conserve 12 mois`,`Le perd après 3 mois de préavis`],1,`Un accord collectif ne modifie pas le contrat de travail ; l'avantage contractuel demeure.`],
+[1,`Une entreprise mécontente veut « dénoncer » la convention de branche. Elle…`,[`Le peut avec 3 mois de préavis`,`Ne le peut pas : seuls les signataires peuvent dénoncer`,`Le peut par référendum`,`Le peut avec l'accord du CSE`],1,`Cas 3 du cours. L'entreprise peut en revanche négocier son propre accord dans le bloc 3.`],
+[1,`Lors d'une négociation, un syndicat représentatif n'a pas été convoqué. Conséquence ?`,[`Aucune s'il n'aurait pas signé`,`La négociation est irrégulière : tous les syndicats représentatifs doivent être convoqués`,`L'accord est valable à 30 %`,`Il suffit de l'informer après`],1,`Toutes les organisations représentatives sont convoquées, sous peine de discrimination. Leur présence, elle, n'est pas exigée.`],
+[10,`Des salariés ralentissent volontairement la cadence pour obtenir une prime. Est-ce une grève ?`,[`Oui, grève perlée licite`,`Non : la grève suppose un arrêt total du travail`,`Oui s'ils préviennent 5 jours avant`,`Oui s'ils sont syndiqués`],1,`Sans cessation totale, c'est une exécution fautive du contrat, sanctionnable.`],
+[10,`Pendant la grève, l'employeur recourt à l'intérim pour remplacer les grévistes. C'est…`,[`Licite`,`Interdit`,`Licite avec l'accord du CSE`,`Licite après 8 jours`],1,`Ni CDD ni intérim. Il peut réaffecter des non-grévistes ou sous-traiter.`],
+[10,`Un gréviste est licencié pour avoir participé au mouvement, sans autre grief. Le licenciement est…`,[`Sans cause réelle et sérieuse`,`Nul de plein droit`,`Valable`,`Irrégulier en la forme`],1,`Seule la faute lourde permet de licencier un gréviste.`],
+[2,`L'employeur met fin unilatéralement au télétravail prévu au contrat. Le salarié…`,[`Doit s'y plier`,`Peut refuser : c'est une modification du contrat`,`Est réputé démissionnaire s'il refuse`,`Doit saisir le CSE`],1,`La fin du télétravail contractualisé modifie le contrat, sauf période probatoire ou fin de circonstances exceptionnelles.`]
+];
+/* ===== CAS PRATIQUE GVC : corrigé guidé =====
+   q: question · th: thèmes · pb: problème de droit · r: règle · a: application · c: conclusion · hc: point hors cours */
+const CAS_INTRO = `La <b>SA GVC</b> fabrique et commercialise des tissus d'ameublement, des vêtements et des chaussures. Usines au Portugal et au Maroc, usine de maroquinerie à <b>Versailles</b> (78), usine de tissus d'ameublement à <b>Pessac</b> (33). Siège à Paris. <b>280 salariés</b> en France, un CSE et des délégués syndicaux désignés pour l'ensemble de l'entreprise.`;
+
+const CAS = [
+{id:'I', t:'Absorption d\'ASV et fermeture de Millau', ctx:`GVC absorbe la <b>SARL ASV</b>, qui disparaît en tant que personne juridique. ASV réalise des vêtements en cuir à <b>Millau</b> (12), connaît des difficultés et doit monter en gamme. Elle emploie <b>68 salariés</b> et dispose d'un CSE.`, qs:[
+ {id:'I1', th:[8], q:`Faut-il suivre une procédure particulière à l'égard des salariés d'ASV du fait de l'absorption ?`,
+  pb:`Quel est le sort des contrats de travail lorsque l'employeur disparaît par fusion-absorption ?`,
+  r:`<b>L1224-1</b> : en cas de modification de la situation juridique de l'employeur, « notamment par […] fusion », tous les contrats en cours subsistent avec le nouvel employeur. Condition : transfert d'une <b>entité économique autonome</b>. Effets : transfert automatique, contrat maintenu en l'état, pas de licenciement à l'occasion du transfert.`,
+  a:`ASV est absorbée en totalité : son personnel, son site de Millau et son activité passent à GVC. L'entité économique autonome est transférée dans son ensemble. Les 68 contrats se poursuivent donc de plein droit, avec ancienneté, salaire et qualification inchangés.`,
+  c:`<b>Aucune procédure individuelle</b> : ni accord des salariés, ni avenant, ni nouveau contrat, ni licenciement. Sur le plan collectif en revanche : les accords d'ASV sont mis en cause (négocier un accord de transition ou d'adaptation), ceux de GVC bénéficient immédiatement aux salariés transférés ; CSE et délégués restent en place selon le cours.`,
+  hc:`Le projet de fusion doit être soumis à la consultation des CSE de GVC et d'ASV avant sa réalisation. Une information écrite des salariés est une bonne pratique, pas une condition.`},
+ {id:'I2', th:[7], q:`La direction envisage de fermer Millau et de muter les salariés à Pessac. Peuvent-ils refuser de quitter Millau ?`,
+  pb:`Le changement de lieu de travail est-il une modification du contrat ou un simple changement des conditions de travail ?`,
+  r:`Le changement de lieu de travail entraînant un <b>changement de secteur géographique</b> est une modification du contrat (Soc. 4 juillet 2012). Toute modification du contrat exige l'<b>accord du salarié</b> ; le refus n'est pas fautif. Le transfert L1224-1 maintient le contrat « en l'état » : le repreneur n'a pas plus de droits que l'ancien employeur.`,
+  a:`Millau (Aveyron) et Pessac (Gironde) sont à plusieurs centaines de kilomètres, dans deux bassins d'emploi distincts : le secteur géographique change sans discussion. Rien dans l'énoncé n'indique une clause de mobilité.`,
+  c:`<b>Oui, ils peuvent refuser.</b> Il faut recueillir l'accord de chacun. Réserve à formuler : si un contrat contient une clause de mobilité valable couvrant Pessac, la mutation redevient un changement des conditions de travail, et le refus une faute.`,
+  hc:`Le motif étant économique (fermeture du site), la proposition se fait par lettre recommandée avec un mois de réflexion ; le silence vaut acceptation.`},
+ {id:'I3', th:[7,1], q:`Quelles pourraient être les conséquences de leur éventuel refus ?`,
+  pb:`Que peut faire l'employeur face au refus d'une modification du contrat ?`,
+  r:`Face au refus, l'employeur <b>renonce</b> ou <b>licencie</b> — pour le motif qui a justifié la proposition, jamais pour le refus. Alternative du cours : l'<b>accord de performance collective</b>, qui peut organiser la mobilité géographique ; ses stipulations se substituent au contrat ; le salarié a 30 jours pour refuser et l'employeur 60 jours pour engager le licenciement.`,
+  a:`La mutation vient de la fermeture du site de Millau : motif non inhérent à la personne, donc économique. Les refus déboucheraient sur des licenciements économiques, que l'entreprise devra justifier (difficultés, réorganisation nécessaire à la sauvegarde de la compétitivité). Avec 68 salariés concernés dans une entreprise de 280 salariés dotée de délégués syndicaux, la négociation d'un APC est envisageable.`,
+  c:`Sans APC : <b>licenciements économiques</b> des salariés qui refusent, avec la procédure collective correspondante. Avec APC : licenciement reposant sur un motif spécifique lié au refus de l'accord. Dans les deux cas, le refus n'est <b>pas une faute</b> et le salarié perçoit ses indemnités.`,
+  hc:`Dès 10 refus dans une entreprise d'au moins 50 salariés, un plan de sauvegarde de l'emploi (PSE) est obligatoire, avec consultation du CSE.`}
+]},
+{id:'II', t:'Tenue, expression, vie personnelle, égalité de salaire', ctx:`Questions sur le pouvoir de direction et ses limites.`, qs:[
+ {id:'II1', th:[3,4], q:`La direction veut une présentation soignée des commerciaux et des salariés en contact avec le public. Peut-elle exiger le port systématique d'un tailleur pour les dames et d'un costume pour les hommes ?`,
+  pb:`L'employeur peut-il restreindre la liberté vestimentaire, et jusqu'où ?`,
+  r:`La liberté de se vêtir à sa guise au travail <b>n'est pas une liberté fondamentale</b>. L'employeur peut imposer une tenue correspondant à une <b>exigence légitime</b>. Cadre général (L1121-1) : restriction <b>justifiée par la nature de la tâche et proportionnée au but recherché</b>.`,
+  a:`Pour les salariés <b>en contact avec la clientèle</b>, l'image de l'entreprise justifie une tenue soignée : l'exigence est légitime. Elle ne le serait pas pour des salariés sans contact avec le public. Le caractère « systématique » et le modèle imposé (tailleur / costume) doivent rester proportionnés : une exigence de « tenue de ville correcte » est plus sûre qu'un uniforme genré. La différence dames / hommes doit pouvoir se justifier, le sexe et l'apparence physique étant des motifs de discrimination.`,
+  c:`<b>Oui sur le principe</b>, à condition de limiter l'obligation aux postes en contact avec le public et de la formuler de façon proportionnée.`,
+  hc:`La règle doit passer par le règlement intérieur ou une note de service (consultation du CSE, transmission à l'inspection du travail).`},
+ {id:'II2', th:[3], q:`M. Gustave, commercial, écrit à la direction un courrier virulent : l'idée est « ridicule », « une nouvelle débilité du service RH ». Peut-il être sanctionné ? Peut-il invoquer sa liberté d'expression ou se dire lanceur d'alerte ?`,
+  pb:`Des propos critiques et vifs adressés à la direction relèvent-ils de la liberté d'expression ? Le salarié est-il un lanceur d'alerte ?`,
+  r:`Le salarié jouit de sa liberté d'expression dans et hors de l'entreprise ; le licenciement qui y porte atteinte est <b>nul</b> (Soc. 16 fév. 2022). <b>Depuis 2026</b>, le juge ne recherche plus l'abus : il met en balance cette liberté et les intérêts de l'employeur et contrôle la <b>nécessité et la proportionnalité</b> de la sanction, au regard de la <b>teneur</b> des propos, du <b>contexte</b>, de leur <b>portée</b> et des <b>conséquences</b> pour l'employeur. Lanceur d'alerte (L1132-3-3) : relater de bonne foi un <b>crime ou un délit</b>, ou une alerte au sens de la loi de 2016.`,
+  a:`<b>Teneur</b> : critique d'une décision, en termes vifs (« ridicule », « débilité ») mais visant une mesure et un service, pas une personne nommée. <b>Contexte</b> : réaction à un projet qui touche directement ses conditions de travail. <b>Portée</b> : courrier adressé à la seule direction, sans diffusion. <b>Conséquences</b> : aucune établie. Quant à l'alerte : il ne dénonce ni crime, ni délit, ni menace pour l'intérêt général, seulement son désaccord.`,
+  c:`Il peut <b>invoquer sa liberté d'expression</b> ; une sanction lourde, a fortiori un licenciement, serait disproportionnée et exposée à la nullité. Tout au plus un rappel à l'ordre sur le ton. Il n'est <b>pas lanceur d'alerte</b>.`},
+ {id:'II3', th:[3,4], q:`Convoqué à un entretien préalable, M. Gustave remet au DRH un dessin où celui-ci pense se reconnaître, excluant les hommes de l'entreprise et accueillant à bras ouverts de jeunes collaboratrices « aux jolies formes ». Peut-on le sanctionner ou le licencier ?`,
+  pb:`Une caricature visant personnellement un supérieur reste-t-elle couverte par la liberté d'expression ?`,
+  r:`Même grille qu'à la question précédente : mise en balance et proportionnalité (teneur, contexte, portée, conséquences). Les propos injurieux ou diffamatoires peuvent justifier une sanction.`,
+  a:`<b>Teneur</b> : le dessin vise cette fois une <b>personne identifiable</b> et lui prête un comportement sexiste et discriminatoire — c'est une attaque personnelle, plus grave que le courrier. <b>Contexte</b> : il est remis pendant l'entretien préalable, moment où le salarié se défend. <b>Portée</b> : remis au seul DRH, sans diffusion aux collègues. <b>Conséquences</b> : atteinte à la considération du DRH, mais limitée. La caricature est par nature outrancière ; le DRH « pense » se reconnaître, ce qui n'est pas une certitude.`,
+  c:`Une <b>sanction est envisageable</b> si le caractère injurieux et l'identification sont établis, mais elle doit rester mesurée. Un <b>licenciement paraît disproportionné</b> : pas de publicité, contexte de défense. La réponse changerait si le dessin avait été affiché ou diffusé dans l'entreprise.`,
+  hc:`La jurisprudence protège les propos tenus par le salarié pour sa défense lors de l'entretien préalable : sauf abus, ils ne peuvent fonder un licenciement.`},
+ {id:'II4', th:[3,5], q:`M. Gédéon, technicien à Pessac, tient un blog personnel hors temps de travail. Une rubrique « heurs et malheurs des collègues ploucs » tourne en ridicule des collègues, sans les nommer ni nommer l'entreprise, mais plusieurs se sentent visés et se plaignent. Peut-on le sanctionner ?`,
+  pb:`Un comportement relevant de la vie personnelle peut-il justifier une sanction disciplinaire ?`,
+  r:`Le salarié s'exprime librement <b>hors de l'entreprise</b> aussi. Un fait de la vie personnelle n'est sanctionnable que s'il <b>se rattache à la vie professionnelle</b> ou viole une obligation née du contrat (loyauté). L'employeur est tenu d'une <b>obligation de sécurité</b> (L4121-1) et doit prévenir le harcèlement moral (agissements répétés dégradant les conditions de travail). Contrôle de proportionnalité : teneur, contexte, portée, conséquences.`,
+  a:`Le blog est personnel et tenu hors du temps de travail : en principe, vie privée. Mais il est <b>public</b>, s'inspire <b>régulièrement</b> de collègues qui se <b>reconnaissent</b>, et produit des effets <b>dans l'entreprise</b> (plaintes) : le rattachement à la vie professionnelle est défendable. Teneur : moquerie dénigrante (« ploucs »). Difficulté de preuve : sans nom, il faut établir que les collègues sont identifiables. L'entreprise, non nommée, ne subit pas d'atteinte à son image.`,
+  c:`<b>Sanction possible, mais pas automatique</b> : il faut démontrer que des collègues sont identifiables et que les publications dégradent leurs conditions de travail. L'employeur doit en tout cas <b>réagir</b> (entretien, enquête, mise en demeure de cesser). Sanction proportionnée ; un licenciement immédiat serait risqué.`,
+  hc:`Le blog étant accessible à tous, l'employeur peut le consulter et en faire dresser constat : la preuve est licite, à la différence d'un compte Facebook privé.`},
+ {id:'II5', th:[4], q:`M. Gédéon est allé voir à l'hôpital un collègue accidenté de la route et lui a offert une Bible. Peut-on le licencier pour prosélytisme religieux ?`,
+  pb:`Un acte religieux accompli hors de l'entreprise peut-il fonder un licenciement ?`,
+  r:`Les <b>convictions religieuses</b> sont un motif de discrimination ; la mesure prise sur ce fondement est <b>nulle</b>. Une restriction n'est possible que par une clause de neutralité du <b>règlement intérieur</b> (L1321-2-1), justifiée et proportionnée — et elle ne vaut que <b>dans l'entreprise</b>. Les faits de la vie personnelle ne sont pas sanctionnables.`,
+  a:`Le geste a lieu <b>à l'hôpital</b>, hors du temps et du lieu de travail, lors d'une visite amicale. Il est <b>isolé</b>, sans pression ni insistance, et le collègue n'est victime que d'un accident de la circulation, sans lien avec le travail. Aucune clause de neutralité ne peut s'appliquer là. Rien ne rattache l'acte à la vie de l'entreprise.`,
+  c:`<b>Non.</b> Le licenciement serait discriminatoire, donc nul (réintégration possible). Seul un prosélytisme insistant <i>dans l'entreprise</i>, perturbant le travail ou exerçant une pression sur des collègues, pourrait être sanctionné.`},
+ {id:'II6', th:[9], q:`Mme Ginette, un an d'ancienneté à Millau, s'étonne d'être moins payée que deux collègues du même service et relève que les salaires de Millau seraient inférieurs à ceux de Pessac. Peut-elle obtenir une copie des bulletins de salaire de ses collègues ?`,
+  pb:`Le salarié qui invoque une inégalité de traitement peut-il accéder aux éléments de rémunération de ses collègues ?`,
+  r:`« À travail égal, salaire égal » : des salariés dans une situation identique doivent être payés de la même façon. Preuve aménagée : la salariée présente des éléments laissant supposer l'inégalité, puis l'employeur justifie par des éléments objectifs. Le juge peut ordonner toute mesure d'instruction utile.`,
+  a:`Les bulletins de paie contiennent des données personnelles de tiers. Rien n'oblige la direction à les remettre sur simple demande. Mais Mme Ginette n'a pas à prouver l'inégalité : il lui suffit d'éléments laissant supposer un écart (même service, mêmes fonctions, propos des représentants du personnel).`,
+  c:`<b>Pas directement auprès de la direction.</b> En cas de contentieux, le <b>juge peut ordonner la communication</b> des bulletins.`,
+  hc:`Soc. 8 mars 2023 : la communication de bulletins de collègues, noms conservés mais données personnelles inutiles occultées, est admise si elle est indispensable au droit à la preuve et proportionnée. Elle peut être demandée en référé avant tout procès.`},
+ {id:'II7', th:[9], q:`La direction envisage de répondre que les collègues ont une expérience plus longue et une productivité plus élevée, et que le coût de la vie est « sans doute » différent entre Pessac et Millau. Qu'en pensez-vous ?`,
+  pb:`Ces trois justifications sont-elles objectives et pertinentes ?`,
+  r:`Une différence de traitement doit reposer sur des <b>critères objectifs, pertinents et matériellement vérifiables</b>. L'ancienneté et l'expérience peuvent justifier un écart à cette condition. Entre <b>établissements</b> d'une même entreprise, des différences sont admises si elles reposent sur des <b>raisons objectives</b>. Entre <b>entreprises différentes</b>, le principe ne s'applique pas (Soc. 20 nov. 2012).`,
+  a:`<b>Expérience</b> : recevable — Mme Ginette n'a qu'un an d'ancienneté — si l'employeur produit des éléments vérifiables (dates d'embauche, parcours). <b>Productivité</b> : recevable seulement si elle est mesurée par des critères objectifs (indicateurs, évaluations), pas par une impression. <b>Coût de la vie</b> : l'argument peut valoir entre établissements, mais « sans doute » trahit l'absence de preuve ; il faut des données chiffrées. Enfin, tant que la fusion n'est pas réalisée, ASV et GVC sont deux entreprises distinctes : la comparaison Millau / Pessac est alors inopérante.`,
+  c:`Réponse <b>fragile en l'état</b>. Les deux premiers arguments sont bons en droit mais doivent être <b>documentés</b> ; le troisième doit être démontré. Conseil : réunir les justificatifs avant de répondre.`,
+  hc:`Après la fusion, le maintien des salaires issus des contrats transférés (L1224-1) est lui-même une justification objective d'écarts entre anciens ASV et anciens GVC. L'ancienneté ne justifie rien si elle est déjà rémunérée par une prime d'ancienneté.`}
+]},
+{id:'III', t:'Accident du travail de M. Gontran', ctx:`M. Gontran, employé à la découpe des cuirs, a subi un <b>accident du travail le 8 août 2026</b> sur le site de Millau.`, qs:[
+ {id:'III1', th:[6,4], q:`Dès l'accident, la direction a douté de son aptitude à reprendre et a souhaité le remplacer. Pouvait-on engager une procédure de licenciement ?`,
+  pb:`Peut-on licencier un salarié dont le contrat est suspendu par un accident du travail ?`,
+  r:`<b>Interdiction du licenciement jusqu'à l'issue de l'arrêt AT/MP.</b> L'état de santé est un motif de discrimination. L'inaptitude ne peut être constatée que par le <b>médecin du travail</b>.`,
+  a:`L'accident est survenu sur le lieu de travail : c'est un accident du travail, le contrat est suspendu. Les « doutes » de la direction ne sont pas un avis médical, et vouloir le remplacer revient à le licencier en raison de son état de santé.`,
+  c:`<b>Non.</b> Le licenciement serait nul. Pour assurer la production, l'entreprise peut recourir à un CDD de remplacement ou à l'intérim.`,
+  hc:`Les deux seules exceptions pendant l'arrêt AT/MP : la faute grave et l'impossibilité de maintenir le contrat pour un motif étranger à l'accident.`},
+ {id:'III2', th:[6], q:`Le salarié est absent depuis près de trois mois. L'entreprise aurait-elle dû faire quelque chose malgré l'absence d'évolution de son état de santé ?`,
+  pb:`Quelles démarches incombent à l'employeur pendant un arrêt long ?`,
+  r:`Pour tout arrêt de plus de <b>30 jours</b> : <b>rendez-vous de liaison</b>, destiné à informer le salarié des actions de prévention de la désinsertion professionnelle, de la visite de préreprise et des aménagements envisageables. La <b>visite de préreprise</b> se fait à la demande du salarié auprès du médecin du travail.`,
+  a:`Trois mois d'absence : le seuil de 30 jours est largement dépassé. L'entreprise aurait dû informer M. Gontran qu'il pouvait bénéficier d'un rendez-vous de liaison et lui rappeler l'existence de la préreprise. C'est d'autant plus utile que son métier (découpe) est physique.`,
+  c:`<b>Oui</b> : proposer le rendez-vous de liaison et garder le contact pour préparer le retour. Aucune sanction spécifique n'est prévue, mais l'inaction pèsera si l'on reproche ensuite à l'employeur de n'avoir rien fait pour le maintien dans l'emploi.`},
+ {id:'III3', th:[6], q:`Le médecin du travail considère que M. Gontran est inapte à un emploi en station debout durable. Peut-on le licencier directement ?`,
+  pb:`Quelles obligations pèsent sur l'employeur après un avis d'inaptitude ?`,
+  r:`Seul le médecin du travail prononce l'inaptitude. L'employeur a une <b>obligation de reclassement</b> (de moyens), dont toutes les étapes doivent être écrites. Il dispose d'<b>un mois</b> à compter de l'avis pour reclasser ou licencier ; au-delà, il <b>reprend le paiement du salaire</b>. L'absence de recherche de reclassement est sanctionnée par le conseil de prud'hommes.`,
+  a:`L'avis ne vise que la station debout prolongée : il laisse ouverts les postes assis ou alternés. Un reclassement est donc concevable et doit être recherché sérieusement dans l'entreprise — Millau, mais aussi Pessac et Versailles.`,
+  c:`<b>Non.</b> Le licenciement n'est possible qu'après une recherche de reclassement infructueuse, ou le refus du poste proposé.`,
+  hc:`Consultation du CSE sur les propositions de reclassement. Dispense de recherche seulement si l'avis mentionne expressément que tout maintien dans un emploi serait gravement préjudiciable à la santé du salarié ou que son état fait obstacle à tout reclassement.`},
+ {id:'III4', th:[6,7], q:`Un poste au contrôle du chargement des commandes (alternance debout/assis, informatique fréquente) pourrait lui être proposé, mais il est moins rémunéré. Peut-il être proposé ? Faut-il respecter une procédure ?`,
+  pb:`Un poste de reclassement moins payé peut-il être proposé, et selon quelles formes ?`,
+  r:`Le reclassement doit être conforme aux <b>préconisations du médecin du travail</b> et faire l'objet d'<b>écrits</b>. La <b>rémunération</b> est un élément du contrat : la réduire est une <b>modification du contrat</b>, qui exige l'accord du salarié.`,
+  a:`L'alternance debout/assis semble compatible avec l'avis, mais c'est au médecin du travail de le confirmer. L'usage fréquent de l'informatique peut exiger une formation, au titre de l'obligation d'adaptation. La baisse de salaire n'interdit pas la proposition — l'employeur doit proposer ce qui existe — mais impose un avenant accepté.`,
+  c:`<b>Oui, il peut et doit être proposé.</b> Procédure : validation par le médecin du travail, proposition écrite et précise, formation si nécessaire, <b>accord exprès</b> de M. Gontran formalisé par avenant.`,
+  hc:`S'y ajoute la consultation préalable du CSE.`},
+ {id:'III5', th:[6,7], q:`M. Gontran peut-il refuser le poste ? Que pourra faire l'entreprise ? Est-elle en faute si elle ne propose pas d'autres postes ?`,
+  pb:`Quelles sont les suites du refus d'un poste de reclassement ?`,
+  r:`Le refus d'une modification du contrat n'est <b>pas fautif</b>. L'obligation de reclassement est de <b>moyens</b>. Délai d'un mois puis reprise du salaire.`,
+  a:`Le poste emporte une baisse de rémunération : M. Gontran est libre de le refuser. L'entreprise doit alors vérifier s'il existe d'autres postes compatibles (dans tous ses établissements). S'il n'y en a pas, le reclassement est impossible.`,
+  c:`<b>Il peut refuser sans faute.</b> L'entreprise peut alors le <b>licencier pour inaptitude et impossibilité de reclassement</b>. Elle n'est pas en faute de ne pas proposer d'autres postes <b>s'il n'en existe pas</b> de compatibles — ce qu'elle doit pouvoir démontrer par écrit.`,
+  hc:`Depuis 2017, l'obligation est réputée satisfaite dès que l'employeur a proposé un emploi conforme aux indications du médecin du travail. L'inaptitude étant d'origine professionnelle : indemnité spéciale de licenciement doublée et indemnité équivalente au préavis.`},
+ {id:'III6', th:[6], q:`On s'oriente vers un mi-temps thérapeutique. En attendant, pour des commandes urgentes, pourrait-on proposer à M. Gontran quelques travaux chez lui, à son rythme ?`,
+  pb:`Peut-on faire travailler un salarié pendant la suspension de son contrat ?`,
+  r:`Pendant l'arrêt, le contrat est <b>suspendu</b>. L'employeur est tenu d'une <b>obligation de sécurité</b>. Le mi-temps thérapeutique est <b>proposé par le médecin traitant</b>, soumis à l'employeur puis au médecin-conseil de la CPAM. Imposer un travail à domicile est une modification du contrat.`,
+  a:`Tant que le mi-temps thérapeutique n'est pas prescrit, M. Gontran est en arrêt complet. Le faire travailler, même volontaire, même chez lui, même « à son rythme », revient à ignorer la prescription médicale. L'urgence des commandes est indifférente.`,
+  c:`<b>Non.</b> L'entreprise s'exposerait à des dommages-intérêts et le salarié à la perte de ses indemnités journalières. Il faut attendre la prescription, puis organiser la reprise à temps partiel.`,
+  hc:`La jurisprudence récente accorde réparation au salarié qu'on a fait travailler pendant un arrêt sans qu'il ait à prouver un préjudice.`},
+ {id:'III7', th:[6], q:`Quelle sera l'incidence de l'absence sur son droit à congés payés ? Les congés se prennent sur l'année civile et sont perdus au 31 décembre. Quelles obligations si M. Gontran revient en février ? A-t-il perdu les congés 2025 non pris ?`,
+  pb:`Le salarié acquiert-il des congés pendant l'arrêt, et que deviennent ceux qu'il n'a pas pu prendre ?`,
+  r:`Le salarié continue d'acquérir des congés pendant l'arrêt (en maladie non professionnelle : 2 jours ouvrables par mois, 24 par an). <b>Au retour</b>, l'employeur l'<b>informe</b> du nombre de jours dont il dispose et du délai de <b>15 mois</b> pour les prendre ; à défaut de prise dans ce délai, ils sont perdus.`,
+  a:`L'arrêt est d'origine professionnelle : M. Gontran acquiert ses congés comme s'il travaillait. Absent d'août 2026 à février, il n'a pas pu solder ses congés avant le 31 décembre : cette impossibilité tient à l'accident, pas à lui. La règle interne ne peut donc pas lui être opposée.`,
+  c:`<b>Il ne perd rien.</b> À son retour en février, l'entreprise doit l'informer par écrit du nombre de jours (reliquat antérieur + jours acquis pendant l'arrêt) et de la date limite : il a <b>15 mois</b> pour les poser.`,
+  hc:`Depuis la loi du 22 avril 2024 : acquisition intégrale (2,5 jours par mois) en AT/MP sans limite de durée ; l'information doit être donnée dans le mois suivant la reprise, et le délai de 15 mois ne court qu'à partir de cette information.`}
+]},
+{id:'IV', t:'Maladie de M. Eleazar', ctx:`M. Eleazar ne se présente pas à son poste un lundi, sans justification. Il prévient le <b>jeudi</b> par téléphone qu'il est en arrêt maladie et envoie l'arrêt <b>la semaine suivante</b>. Il a <b>7 ans d'ancienneté</b> et est chargé des expéditions de l'usine de Millau.`, qs:[
+ {id:'IV1', th:[6], q:`L'entreprise est-elle tenue de lui verser un complément de rémunération ?`,
+  pb:`Quelles sont les conditions du complément de salaire en cas de maladie ?`,
+  r:`En maladie non professionnelle, la Sécurité sociale verse 50 % à partir du 4e jour. L'employeur verse un <b>complément</b> si le salarié a <b>1 an d'ancienneté</b> <u>et</u> s'il <b>justifie de son absence dans les 48 h</b>.`,
+  a:`Ancienneté : 7 ans, condition remplie. Justification : absence le lundi, appel le jeudi (3 jours après), certificat la semaine suivante. Le délai de 48 h n'est pas respecté.`,
+  c:`<b>Non</b>, l'entreprise n'y est pas tenue au titre de la loi, la seconde condition faisant défaut. Réserve : vérifier la convention collective, qui peut être plus favorable.`,
+  hc:`Le complément légal : 90 % du brut puis 2/3, après 7 jours de carence, pour des durées qui augmentent avec l'ancienneté.`},
+ {id:'IV2', th:[3,6], q:`Pourrait-elle le sanctionner pour envoi tardif de l'arrêt de travail ?`,
+  pb:`Le retard à justifier une absence est-il fautif alors que la maladie est réelle ?`,
+  r:`Le salarié doit respecter les directives de l'employeur et exécuter loyalement son contrat : prévenir et justifier son absence en fait partie. La maladie elle-même ne peut jamais être sanctionnée (discrimination liée à l'état de santé). Toute sanction doit être proportionnée.`,
+  a:`Ce qui est reproché n'est pas la maladie mais le <b>silence de trois jours</b> et l'envoi tardif du certificat, qui ont laissé le service des expéditions sans information. Le manquement est réel mais isolé, chez un salarié de 7 ans d'ancienneté ; l'état de santé peut expliquer en partie le retard.`,
+  c:`<b>Oui, une sanction légère</b> (avertissement) est possible. Un licenciement serait disproportionné.`},
+ {id:'IV3', th:[6,4], q:`Son absence se prolonge et désorganise le fonctionnement de l'entreprise. Pourrait-on le licencier ?`,
+  pb:`L'absence prolongée pour maladie peut-elle justifier un licenciement ?`,
+  r:`<b>Interdiction du licenciement fondé sur la maladie</b> (état de santé = discrimination → nullité).`,
+  a:`Le motif ne peut pas être la maladie. Il faut donc un motif distinct et objectif. M. Eleazar occupe un poste clé (contrôle et remise des envois) : la désorganisation est plausible, mais elle doit toucher l'entreprise et ne pas pouvoir être réglée par un remplacement temporaire (CDD, intérim, réaffectation).`,
+  c:`<b>Possible, mais à des conditions strictes</b> : perturbation du fonctionnement de l'entreprise <u>et</u> nécessité d'un <b>remplacement définitif</b> par une embauche en CDI. Sans ces deux éléments, le licenciement est nul.`,
+  hc:`Cette construction est jurisprudentielle. La lettre de licenciement doit mentionner les deux éléments, et l'embauche du remplaçant doit intervenir dans un délai proche. Vérifier aussi une éventuelle clause conventionnelle de garantie d'emploi.`},
+ {id:'IV4', th:[3], q:`Il a modifié le mot de passe de son ordinateur : impossible d'accéder aux données de suivi des marchandises. Cela pourrait-il justifier une sanction ou un licenciement ?`,
+  pb:`Quelles obligations subsistent pendant la suspension du contrat ?`,
+  r:`Le travail fourni par le salarié <b>appartient à l'entreprise</b> ; les fichiers professionnels sont présumés professionnels et l'employeur doit pouvoir y accéder. L'obligation de <b>loyauté</b> survit à la suspension du contrat.`,
+  a:`Modifier un mot de passe n'est pas fautif en soi (c'est même une règle de sécurité). Tout dépend de la suite : l'entreprise doit d'abord <b>demander</b> le mot de passe — ce qui ne revient pas à le faire travailler. S'il le communique, il n'y a pas de faute. S'il refuse, ou s'il l'a changé pour bloquer l'activité, il retient des données appartenant à l'entreprise.`,
+  c:`<b>Pas de sanction d'emblée</b> : demander d'abord. En cas de <b>refus</b> ou d'intention de nuire : manquement à la loyauté, sanctionnable, pouvant aller jusqu'au licenciement pour faute grave — la maladie ordinaire n'y fait pas obstacle.`},
+ {id:'IV5', th:[6], q:`L'entreprise doute du sérieux de la maladie. Peut-elle faire contrôler son état de santé ?`,
+  pb:`De quels moyens de contrôle dispose l'employeur ?`,
+  r:`Le cours ne traite pas ce point : seuls les médecins peuvent apprécier l'état de santé, l'employeur n'a pas accès aux informations médicales.`,
+  a:`L'employeur ne peut ni convoquer le salarié ni l'interroger sur sa pathologie. Il peut en revanche mandater un médecin pour une contre-visite au domicile, et signaler ses doutes à la CPAM.`,
+  c:`<b>Oui, par une contre-visite médicale</b>. Si le médecin conclut que l'arrêt n'est pas justifié ou si le salarié est absent sans motif, l'employeur peut <b>suspendre le complément de salaire</b> — pas sanctionner.`,
+  hc:`La contre-visite est la contrepartie du complément de salaire : ici, si aucun complément n'est versé (question 1), son intérêt est limité ; reste le signalement à la CPAM.`}
+]},
+{id:'V', t:'Mme Séraphine : grossesse, congés, formation', ctx:`Mme Séraphine, salariée à Pessac, est connue pour ses sautes d'humeur et une certaine irrégularité. Elle a été convoquée à un <b>entretien préalable au licenciement</b> pour négligences et propos insolents envers sa hiérarchie.`, qs:[
+ {id:'V1', th:[6], q:`À l'entretien, elle annonce qu'elle poursuivra l'entreprise pour discrimination : son licenciement serait envisagé après qu'elle a appris sa grossesse au médecin du travail. Faut-il cesser la procédure ?`,
+  pb:`L'annonce de la grossesse fait-elle obstacle au licenciement ?`,
+  r:`Pendant la grossesse (et jusqu'à 10 semaines après le congé), le licenciement n'est possible que pour <b>faute grave non liée à l'état de grossesse</b> ou <b>impossibilité de maintenir le contrat</b> pour un motif étranger. La protection suppose que l'employeur soit <b>informé</b>. Licenciement nul : réintégration, salaires, au moins 6 mois de dommages-intérêts. Aucune notification pendant le congé maternité.`,
+  a:`L'employeur est désormais informé : la protection joue. Les griefs — négligences et insolence — sont étrangers à la grossesse, mais constituent-ils une <b>faute grave</b> ? Des négligences relèvent plutôt de la faute simple ou de l'insuffisance ; l'insolence peut être grave selon les termes et la répétition. En l'état, la faute grave est douteuse.`,
+  c:`<b>Pas d'obligation de principe d'arrêter</b>, mais on ne peut poursuivre que sur une <b>faute grave solidement établie</b>. À défaut : renoncer au licenciement et, si nécessaire, prononcer une sanction moindre (avertissement, mise à pied).`,
+  hc:`Même notifié à une salariée dont l'employeur ignorait la grossesse, le licenciement est annulé si elle envoie un certificat médical dans les 15 jours.`},
+ {id:'V2', th:[4], q:`Pensez-vous que l'action en discrimination puisse prospérer ?`,
+  pb:`Les éléments invoqués laissent-ils supposer une discrimination liée à la grossesse ?`,
+  r:`La grossesse est un motif de discrimination. Preuve en trois temps : la salariée présente des <b>éléments laissant supposer</b> ; l'employeur prouve que sa décision repose sur des <b>éléments objectifs étrangers</b> ; le juge forme sa conviction.`,
+  a:`Élément avancé : la chronologie (procédure après la visite au médecin du travail). Mais le médecin du travail est tenu au <b>secret médical</b> : l'employeur n'a appris la grossesse qu'à l'entretien, donc <b>après</b> avoir engagé la procédure. Les griefs sont antérieurs et sans lien avec la grossesse. L'employeur doit pouvoir le démontrer : date de la convocation, traces écrites des négligences et des propos.`,
+  c:`<b>L'action a peu de chances d'aboutir</b> si le dossier est documenté. Attention toutefois : même sans discrimination, le licenciement serait <b>nul</b> s'il était prononcé sans faute grave (protection de la maternité).`},
+ {id:'V3', th:[6,5], q:`Elle exige d'être affectée dans une autre équipe pendant sa grossesse, ne serait-ce que pour ne plus voir son supérieur direct. Doit-on accéder à cette demande ?`,
+  pb:`La salariée enceinte a-t-elle droit à un changement d'affectation ?`,
+  r:`Protection de la santé : <b>affectation sur un autre poste pendant la grossesse</b> lorsque l'état de santé l'exige. Par ailleurs, obligation de sécurité de l'employeur (santé physique et mentale).`,
+  a:`Le motif avancé — ne plus voir son supérieur — est une convenance personnelle, pas une nécessité médicale. L'employeur n'est donc pas tenu d'accepter. Mais la demande peut révéler une tension avec la hiérarchie : l'ignorer serait imprudent.`,
+  c:`<b>Non, pas d'obligation</b>, sauf si le médecin du travail constate que son état de santé l'exige. Conseil : l'orienter vers le médecin du travail et s'assurer qu'il n'existe pas de situation de souffrance au travail.`,
+  hc:`L'affectation temporaire (L1225-7) se fait sans baisse de rémunération.`},
+ {id:'V4', th:[6], q:`Elle rappelle qu'elle a été absente deux ans, en 2020 et 2021, pour un Covid long, et qu'elle a été privée de congés. Peut-elle être indemnisée en compensation ?`,
+  pb:`Le salarié acquiert-il des congés pendant une maladie non professionnelle, y compris pour le passé ?`,
+  r:`Maladie et congés : acquisition de <b>2 jours ouvrables par mois, dans la limite de 24 jours par an</b>. Délai de <b>15 mois</b> pour les prendre.`,
+  a:`Un Covid long est (sauf reconnaissance contraire) une maladie non professionnelle. Sur le principe, Mme Séraphine a acquis jusqu'à 24 jours par an pour 2020 et 2021. Elle est toujours en poste : elle ne peut obtenir que des <b>jours de congé</b>, pas une indemnité, celle-ci n'étant due qu'à la rupture du contrat.`,
+  c:`<b>Sur le principe, des droits existent</b> (jusqu'à 48 jours), mais sous forme de congés et sous réserve des délais pour agir.`,
+  hc:`La loi du 22 avril 2024 est rétroactive au 1er décembre 2009, mais les salariés encore en poste devaient agir dans les 2 ans de son entrée en vigueur, soit avant le 24 avril 2026. À la date du cas, sa demande est très probablement <b>forclose</b>. Point à vérifier avec l'enseignant.`},
+ {id:'V5', th:[11], q:`Elle voudrait bénéficier d'un congé de transition professionnelle à l'issue de son congé maternité. Doit-elle respecter un délai de prévenance ? L'entreprise pourrait-elle refuser son départ en formation ?`,
+  pb:`Quelles sont les conditions du congé de transition professionnelle et les pouvoirs de l'employeur ?`,
+  r:`Conditions : <b>24 mois</b> d'ancienneté comme salarié dont <b>12 dans l'entreprise</b>. Demande d'autorisation d'absence <b>60 jours</b> avant (formation de moins de 6 mois) ou <b>120 jours</b> avant (6 mois et plus) ; réponse de l'employeur sous <b>30 jours</b>. L'employeur <b>ne peut pas refuser</b> ; il peut <b>différer</b> pour raisons de service ou selon le nombre de salariés déjà bénéficiaires. Le CSE est consulté en cas de report.`,
+  a:`Mme Séraphine était déjà dans l'entreprise en 2020 : la condition d'ancienneté est remplie. Le congé maternité n'empêche pas de présenter la demande, qui peut être déposée pendant le congé pour respecter le délai.`,
+  c:`<b>Oui, délai de 60 ou 120 jours</b> selon la durée de la formation. <b>L'entreprise ne peut pas refuser</b> si les conditions sont réunies, seulement reporter le départ, en motivant et après avis du CSE. À défaut de réponse dans les 30 jours, l'autorisation est acquise.`,
+  hc:`Le report pour raisons de service est limité à 9 mois.`}
+]},
+{id:'VII', t:'Harcèlement sexuel : Mme Josette et M. Arsène', ctx:`Mme Josette est souvent en retard, ce qui perturbe son équipe. Elle explique au DRH qu'elle ne supporte plus les <b>plaisanteries graveleuses</b> de l'équipe au café du matin, les suppositions sur sa vie sexuelle selon sa tenue ou sa démarche. Elle accuse M. Arsène d'exhiber des <b>revues pornographiques</b> dans l'entreprise et sur Facebook, et se déclare harcelée sexuellement.`, qs:[
+ {id:'VII1', th:[5,3], q:`Le responsable de production doute, estime que Facebook ne concerne pas l'entreprise, propose d'inviter Mme Josette à porter plainte et d'attendre l'enquête, et de vérifier discrètement l'armoire de M. Arsène. Que conseillez-vous ?`,
+  pb:`Comment l'employeur doit-il réagir à une dénonciation de harcèlement sexuel ?`,
+  r:`<b>L1153-1</b> : propos ou comportements à connotation sexuelle ou sexiste répétés, dégradants ou créant une situation hostile ; la répétition peut venir de <b>plusieurs personnes</b>. L'employeur, tenu d'une <b>obligation de sécurité</b>, doit <b>prévenir et réagir immédiatement</b>. La salariée qui dénonce est protégée, sauf mauvaise foi. Preuve : éléments précis et concordants laissant supposer le harcèlement.`,
+  a:`Les faits décrits correspondent à la définition : remarques quotidiennes sur sa vie sexuelle, venant de plusieurs collègues, plus l'exhibition de revues. Les <b>doutes</b> du responsable ne dispensent pas d'agir. <b>Attendre la plainte pénale</b> serait une faute : les deux procédures sont indépendantes. La <b>fouille discrète de l'armoire</b> est un procédé déloyal. Les <b>retards</b> s'expliquent peut-être par le harcèlement : les sanctionner maintenant exposerait à la nullité.`,
+  c:`① Recevoir Mme Josette et consigner ses déclarations. ② La protéger (aménager l'embauche, l'éloigner de l'équipe sans la pénaliser). ③ Ouvrir sans délai une <b>enquête interne</b> impartiale : auditions de l'équipe et de M. Arsène, association du CSE. ④ Ouvrir l'armoire seulement <b>en présence de M. Arsène</b>. ⑤ Suspendre tout projet de sanction des retards. ⑥ Sanctionner si les faits sont établis.`,
+  hc:`Le CSE désigne un référent harcèlement sexuel. Une mise à pied conservatoire est possible le temps de l'enquête. Les faits fautifs se prescrivent par 2 mois à compter du jour où l'employeur en a une connaissance exacte.`},
+ {id:'VII2', th:[3], q:`Faut-il faire constater par commissaire de justice le contenu du compte Facebook de M. Arsène ?`,
+  pb:`L'employeur peut-il se constituer une preuve à partir d'un réseau social personnel ?`,
+  r:`L'employeur exécute le contrat de bonne foi : ses modes de preuve doivent être loyaux. Selon le cours, il <b>ne peut pas consulter ou utiliser des échanges Facebook</b>, qui relèvent de la sphère privée — à la différence de LinkedIn, public.`,
+  a:`Tout dépend de l'accessibilité. Si les publications sont <b>publiques</b>, ou si elles sont <b>montrées spontanément par des collègues</b> qui y ont légitimement accès (ce qui semble être le cas, puisque Mme Josette les a vues), le constat fige une preuve qui peut disparaître. Si le compte est <b>privé</b>, y accéder par ruse (faux profil, identifiants d'un tiers) serait déloyal. Et puisque des collègues voient ces contenus, ils se rattachent à la vie de l'entreprise, contrairement à ce que soutient le responsable.`,
+  c:`<b>Oui si le contenu est accessible loyalement</b> : le constat est alors utile. <b>Non</b> s'il faut forcer l'accès à un espace privé.`,
+  hc:`La Cour de cassation a admis la production d'une publication Facebook privée transmise spontanément par un collègue « ami », l'atteinte à la vie privée étant proportionnée (Soc. 30 sept. 2020).`},
+ {id:'VII3', th:[5,3], q:`Mme Gertrude l'accuse d'avoir poursuivi une stagiaire de ses assiduités à l'été 2026 ; Mme Gudule signale des messages salaces envoyés avec la messagerie de l'entreprise à des commerciales de clients et fournisseurs ; Mme Alfonsine, informée par ses collègues, rapporte des propos égrillards et racistes au repas de fin d'année de décembre 2025. Ces faits pourraient-ils être sanctionnés ?`,
+  pb:`Ces comportements relèvent-ils du pouvoir disciplinaire ?`,
+  r:`Harcèlement sexuel (L1153-1) et pression grave même non répétée. Obligation de sécurité. Les messages envoyés avec les outils de l'entreprise sont <b>présumés professionnels</b>. Un fait est sanctionnable dès qu'il se rattache à la vie professionnelle.`,
+  a:`<b>Stagiaire</b> : des « assiduités » répétées peuvent constituer un harcèlement sexuel ; elle est sous la responsabilité de l'entreprise. <b>Messages aux commerciales</b> : envoyés avec la messagerie professionnelle, à des partenaires — faute caractérisée, atteinte à l'image, et l'employeur peut consulter ces messages. <b>Repas de fin d'année</b> : événement lié à l'entreprise, propos sexistes et racistes entre collègues — rattachement à la vie professionnelle. Faiblesse : Mme Alfonsine ne rapporte que du <b>ouï-dire</b> ; il faut des témoins directs.`,
+  c:`<b>Oui, les trois séries de faits sont sanctionnables</b>, sous réserve de les établir. Les messages professionnels sont la preuve la plus solide.`,
+  hc:`Les stagiaires sont expressément protégés contre le harcèlement sexuel. Prescription : 2 mois à compter de la connaissance exacte des faits par l'employeur — les faits de décembre 2025 restent donc sanctionnables si la hiérarchie vient de les apprendre.`},
+ {id:'VII4', th:[5], q:`Pourrait-on prononcer directement une sanction disciplinaire contre M. Arsène ?`,
+  pb:`L'employeur peut-il sanctionner sur la seule foi d'accusations ?`,
+  r:`L'employeur doit réagir immédiatement, mais il lui appartient d'établir les faits : il doit démontrer des éléments objectifs. Toute sanction doit être proportionnée.`,
+  a:`À ce stade, il n'y a que des déclarations, dont une indirecte. M. Arsène n'a pas été entendu. Sanctionner maintenant ferait peser un risque d'annulation si les faits ne sont pas prouvés.`,
+  c:`<b>Non.</b> D'abord l'enquête, puis la <b>procédure disciplinaire</b> : convocation, entretien préalable où il s'explique, notification motivée. En attendant, une mesure conservatoire peut l'écarter.`,
+  hc:`La sanction ne peut être notifiée moins de 2 jours ouvrables ni plus d'un mois après l'entretien.`},
+ {id:'VII5', th:[3], q:`Pourrait-on vérifier certaines accusations avec la vidéosurveillance des abords, installée contre les vols mais couvrant le parking où M. Arsène aurait importuné la stagiaire ?`,
+  pb:`Un dispositif de sécurité peut-il servir de preuve contre un salarié ?`,
+  r:`Vidéosurveillance : <b>autorisée sans conditions dans les lieux où les salariés n'ont pas accès</b>. Ailleurs, la loyauté impose l'information des salariés et la consultation du CSE.`,
+  a:`Le parking est un lieu où les salariés circulent : ce n'est pas un lieu « sans accès ». Le dispositif a été installé pour la sécurité, pas pour contrôler le personnel. Si les salariés ont été informés de son existence et le CSE consulté, les images sont utilisables. Sinon, la preuve est illicite. Obstacle pratique : des images de l'été sont probablement déjà effacées.`,
+  c:`<b>Oui si le dispositif a été régulièrement porté à la connaissance des salariés</b> ; sinon, usage risqué.`,
+  hc:`Une preuve illicite n'est plus automatiquement écartée : le juge peut l'admettre si elle est indispensable à l'exercice du droit à la preuve et que l'atteinte est proportionnée (Ass. plén. 22 déc. 2023).`},
+ {id:'VII6', th:[5], q:`Qu'adviendrait-il si ces accusations n'étaient pas clairement établies ? Faudrait-il annuler d'éventuelles sanctions contre M. Arsène et sanctionner inversement Mmes Josette, Gertrude, Alfonsine et Gudule ?`,
+  pb:`Quel est le sort de la sanction et celui des dénonciatrices lorsque les faits ne sont pas prouvés ?`,
+  r:`La dénonciation de faits de harcèlement <b>ne peut justifier ni sanction ni licenciement</b> — nullité. <b>Seule limite : la mauvaise foi</b>, c'est-à-dire l'accusation mensongère.`,
+  a:`Pour M. Arsène : sans faits établis, la sanction n'a pas de fondement. Pour les quatre salariées : « non établi » ne veut pas dire « faux ». Rien n'indique qu'elles aient menti en connaissance de cause ; Mme Alfonsine se borne à rapporter ce qu'on lui a dit.`,
+  c:`<b>Les sanctions contre M. Arsène devraient être retirées</b> ou seraient annulées par le juge. <b>Les salariées ne peuvent pas être sanctionnées</b>, sauf preuve qu'elles savaient les faits inexacts. Toute mesure prise contre elles serait nulle.`,
+  hc:`En matière disciplinaire, le doute profite au salarié. La mauvaise foi ne se déduit pas de la seule absence de preuve des faits dénoncés.`}
+]},
+{id:'VIII', t:'Recrutement de seniors à Millau', ctx:`Le développement de Millau nécessite des recrutements.`, qs:[
+ {id:'VIII1', th:[2,4], q:`Y a-t-il un risque, en recrutant des salariés de plus de 60 ans, de devoir les conserver jusqu'à 70 ans ?`,
+  pb:`L'employeur peut-il rompre le contrat d'un salarié en raison de son âge ?`,
+  r:`L'<b>âge</b> est un motif de discrimination, à l'embauche comme à la rupture. Le cours cite le <b>contrat de valorisation de l'expérience (CDI senior)</b> parmi les dispositifs en faveur des seniors.`,
+  a:`Un CDI classique conclu avec un salarié de plus de 60 ans ne peut pas être rompu au motif de l'âge. Le salarié reste libre de partir à la retraite quand il le souhaite, mais l'employeur ne peut pas l'y contraindre avant l'âge légal de mise à la retraite d'office.`,
+  c:`<b>Oui, le risque existe</b> dans un CDI ordinaire. Il se neutralise en recourant au <b>contrat de valorisation de l'expérience</b>. Refuser d'embaucher des seniors pour cette raison serait une discrimination.`,
+  hc:`Mise à la retraite d'office : 70 ans. Avant, l'employeur peut seulement interroger le salarié chaque année, qui peut refuser. Le contrat de valorisation de l'expérience (loi du 24 octobre 2025), ouvert aux demandeurs d'emploi d'au moins 60 ans, autorise la mise à la retraite dès que le salarié remplit les conditions du taux plein.`},
+ {id:'VIII2', th:[11,4], q:`Est-on obligé de former des salariés âgés comme les plus jeunes ?`,
+  pb:`L'obligation de formation varie-t-elle selon l'âge ?`,
+  r:`<b>L6321-1</b> : l'employeur assure l'adaptation des salariés à leur poste et veille au maintien de leur capacité à occuper un emploi. Le plan de développement des compétences est établi librement, sous réserve du <b>principe de non-discrimination</b>. L'âge est un motif discriminatoire, y compris pour l'accès à la formation.`,
+  a:`Le texte vise « les salariés » sans distinction. Écarter un salarié d'une formation parce qu'il est proche de la retraite serait une discrimination. L'argument de la « rentabilité » de la formation n'est pas recevable. Le projet de montée en gamme de Millau rend d'ailleurs la formation nécessaire pour tous.`,
+  c:`<b>Oui.</b> Même obligation d'adaptation, même accès à la formation. S'y ajoutent des dispositifs propres : entretien de fin de carrière entre 58 et 60 ans, négociation sur l'emploi des salariés expérimentés.`}
+]}
+];
+
+/* ===== RÉFLEXES : mot de l'énoncé → règle ===== */
+const REFLEXES = [
+[`absorption, fusion, rachat, cession`,`L1224-1 : transfert automatique des contrats, pas de licenciement lié au transfert`,8],
+[`mutation, déménagement du site, autre ville`,`Changement de secteur géographique → modification du contrat → accord requis`,7],
+[`baisse de salaire, changement d'horaires, de poste`,`Modification du contrat ou simple changement des conditions de travail ?`,7],
+[`tenue, uniforme, costume`,`Pas une liberté fondamentale ; exigence légitime et proportionnée`,3],
+[`courrier virulent, critique, propos, dessin`,`Liberté d'expression : mise en balance et proportionnalité (teneur, contexte, portée, conséquences)`,3],
+[`« lanceur d'alerte »`,`Crime ou délit + bonne foi ; un désaccord n'est pas une alerte`,3],
+[`blog, Facebook, hors du travail`,`Vie personnelle : rattachement à la vie professionnelle ? Preuve loyale ?`,3],
+[`religion, voile, Bible`,`Discrimination ; neutralité seulement par le règlement intérieur`,4],
+[`moins payée que ses collègues`,`À travail égal, salaire égal : situation identique ? justification objective et vérifiable ?`,9],
+[`accident du travail`,`Licenciement interdit pendant l'arrêt ; au retour : visite de reprise, inaptitude, reclassement`,6],
+[`inapte`,`Médecin du travail seul compétent ; reclassement ; 1 mois ; reprise du salaire`,6],
+[`arrêt maladie`,`48 h et 1 an pour le complément ; pas de licenciement pour maladie ; loyauté maintenue`,6],
+[`congés non pris après un arrêt`,`Acquisition pendant l'arrêt ; information au retour ; 15 mois`,6],
+[`enceinte, congé maternité`,`Protection relative puis absolue ; faute grave non liée ; nullité`,6],
+[`plaisanteries, remarques, messages salaces`,`Harcèlement sexuel ; obligation de sécurité : réagir, enquêter`,5],
+[`« elle a menti », accusations non établies`,`Protection du dénonciateur sauf mauvaise foi`,5],
+[`vidéo, armoire, fouille, mails`,`Loyauté de la preuve ; présomption de caractère professionnel`,3],
+[`plus de 60 ans, senior`,`Âge = discrimination ; mise à la retraite ; contrat de valorisation de l'expérience`,2],
+[`formation, congé de formation`,`L6321-1 ; CPF ; transition professionnelle : 60/120 jours, report mais pas de refus`,11],
+[`accord signé par un syndicat à X %`,`50 % ou 30 % + référendum ; puis bloc 1, 2 ou 3`,1],
+[`arrêt de travail collectif, débrayage`,`Définition de la grève ; faute lourde ; pas d'intérim`,10]
+];
+/* ===== APPLICATION ===== */
+const LS = 'revision-droit-mrh-v1';
+let S = {cards:{}, quiz:{}, cas:{}, lu:{}, dark:null};
+try { const r = localStorage.getItem(LS); if (r) S = Object.assign(S, JSON.parse(r)); } catch(e){}
+const save = () => { try { localStorage.setItem(LS, JSON.stringify(S)); } catch(e){} };
+
+const main = document.getElementById('main'), navEl = document.getElementById('nav');
+const TH = {}; THEMES.forEach(t => TH[t.n] = t);
+const TABS = [['home','Accueil'],['cas','Cas pratique'],['cartes','Cartes'],['quiz','QCM'],['cours','Cours'],['chiffres','Chiffres'],['methode','Méthode']];
+const V = {view:'home', th:0, cours:3, sec:'I', fc:null, qz:null, steps:{}, shown:{}};
+const today = () => Math.floor((Date.now() - new Date().getTimezoneOffset()*6e4) / 864e5);
+const GAP = [0,1,2,4,8,16];
+const shuffle = a => { a = a.slice(); for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+const pct = (a,b) => b ? Math.round(100*a/b) : 0;
+const ALLQ = CAS.flatMap(s => s.qs);
+
+/* ---- statistiques ---- */
+const cst = i => S.cards[i] || {b:0, d:0};
+function cardIdx(th){ return CARDS.map((c,i)=>i).filter(i => !th || CARDS[i][0]===th); }
+function cardStats(th){ const ix = cardIdx(th), t = today(); return {n:ix.length, due:ix.filter(i=>cst(i).d<=t).length, ok:ix.filter(i=>cst(i).b>=3).length, seen:ix.filter(i=>cst(i).b>0).length}; }
+function quizIdx(th){ return QUIZ.map((q,i)=>i).filter(i => !th || QUIZ[i][0]===th); }
+function quizStats(th){ const ix = quizIdx(th).filter(i=>S.quiz[i]); return {n:quizIdx(th).length, done:ix.length, ok:ix.filter(i=>S.quiz[i].last).length}; }
+function casStats(){ return {n:ALLQ.length, done:ALLQ.filter(q=>(S.cas[q.id]||{}).lvl).length, ok:ALLQ.filter(q=>(S.cas[q.id]||{}).lvl===3).length}; }
+
+/* ---- composants ---- */
+function chips(sel, act, counter){
+  return `<div class="chips"><button class="chip ${!sel?'on':''}" data-a="${act}" data-t="0">Tous les thèmes</button>` +
+    THEMES.map(t => `<button class="chip ${sel===t.n?'on':''}" data-a="${act}" data-t="${t.n}">${t.ic} ${t.t}${counter?` · ${counter(t.n)}`:''}</button>`).join('') + `</div>`;
+}
+const thTag = n => `<span class="tag">${TH[n].ic} ${TH[n].t}</span>`;
+
+/* ================= ACCUEIL ================= */
+function vHome(){
+  const c = cardStats(0), q = quizStats(0), k = casStats();
+  return `
+  <p class="eyebrow">M2 MRH · préparation du partiel</p>
+  <h1>Réviser le droit du travail en s'entraînant comme au partiel</h1>
+  <p class="lead">Le partiel est un cas pratique. Cet outil te fait donc <b>retrouver</b> les règles plutôt que les relire, puis les <b>appliquer</b> à l'exercice d'entraînement GVC, question par question.</p>
+  <div class="grid g4 mt">
+    <div class="card stat"><b>${k.done}<small class="mute" style="font-size:1rem">/${k.n}</small></b><span>questions du cas travaillées</span></div>
+    <div class="card stat"><b>${c.due}</b><span>cartes à revoir aujourd'hui</span></div>
+    <div class="card stat"><b>${c.ok}<small class="mute" style="font-size:1rem">/${c.n}</small></b><span>cartes maîtrisées</span></div>
+    <div class="card stat"><b>${q.done?pct(q.ok,q.done)+' %':'—'}</b><span>de réussite aux QCM (${q.done}/${q.n} vus)</span></div>
+  </div>
+  <div class="row mt">
+    <button class="btn pri" data-a="go" data-v="cas">Travailler le cas pratique</button>
+    <button class="btn" data-a="fcStart" data-m="due">Cartes du jour (${Math.min(c.due,20)})</button>
+    <button class="btn" data-a="qzStart" data-n="10">QCM éclair · 10 questions</button>
+  </div>
+
+  <h2 class="mt2">Une séance type, 30 minutes</h2>
+  <div class="card"><ol class="syl">
+    <li><b>Cartes du jour — 10 min.</b> Réponds de tête avant de retourner la carte. Les cartes ratées reviennent, les cartes sues s'espacent.</li>
+    <li><b>Deux ou trois questions du cas — 15 min.</b> Écris ta réponse <i>avant</i> de dévoiler le corrigé, étape par étape.</li>
+    <li><b>QCM mélangé — 5 min.</b> Tous thèmes confondus : au partiel, personne ne te dit de quel chapitre relève la question.</li>
+  </ol></div>
+
+  <h2 class="mt2">Où tu en es, thème par thème</h2>
+  <div class="card">${THEMES.map(t => { const s = cardStats(t.n), z = quizStats(t.n);
+    return `<div class="nrow trow"><div style="min-width:0;flex:1.2"><b>${t.ic} ${t.t}</b> ${t.exam?'<span class="tag ex">dans l\'entraînement</span>':''}</div>
+      <div class="pbar" title="${s.ok}/${s.n} cartes maîtrisées"><i style="width:${pct(s.ok,s.n)}%"></i></div>
+      <div class="row" style="flex:none"><button class="btn sm" data-a="openCours" data-t="${t.n}">Fiche</button><button class="btn sm" data-a="fcStart" data-m="all" data-t="${t.n}">Cartes</button><button class="btn sm" data-a="qzStart" data-n="99" data-t="${t.n}">QCM${z.done?` ${pct(z.ok,z.done)} %`:''}</button></div></div>`; }).join('')}
+  </div>
+  <p class="small mute">Les thèmes marqués « dans l'entraînement » sont ceux que l'exercice GVC mobilise : à travailler en priorité. La négociation collective et la grève n'y figurent pas, mais le cours contient des cas sur la négociation collective.</p>
+
+  <h2 class="mt2">Pourquoi ça marche</h2>
+  <div class="grid g2">
+    <div class="card"><h3>Se tester plutôt que relire</h3><p class="small">Aller chercher une réponse en mémoire la consolide bien plus qu'une relecture. D'où les cartes, les QCM et la consigne d'écrire avant de regarder.</p></div>
+    <div class="card"><h3>Espacer</h3><p class="small">Une carte sue revient après 1, 2, 4, 8 puis 16 jours. Dix minutes par jour valent mieux que trois heures la veille.</p></div>
+    <div class="card"><h3>Mélanger</h3><p class="small">Alterner les thèmes oblige à identifier <i>quelle</i> règle s'applique — exactement ce que demande un cas pratique.</p></div>
+    <div class="card"><h3>S'entraîner dans le format de l'épreuve</h3><p class="small">Chaque corrigé suit le raisonnement attendu : problème, règle, application aux faits, conclusion.</p></div>
+  </div>
+  <p class="small mute mt2">Ta progression est enregistrée dans ce navigateur. <button class="btn sm" data-a="reset">Tout remettre à zéro</button></p>`;
+}
+
+/* ================= COURS ================= */
+function vCours(){
+  const t = TH[V.cours];
+  return `<h1>Fiches de cours</h1><p class="lead">L'essentiel de chaque thème. Les encadrés violets signalent des <b>compléments hors cours</b>, utiles pour les cas mais à recouper avec tes notes.</p>
+  <div class="side mt"><div class="menu">${THEMES.map(x => `<button class="${x.n===t.n?'on':''}" data-a="openCours" data-t="${x.n}">${x.ic} ${x.t}${S.lu[x.n]?' <small>✓</small>':''}</button>`).join('')}</div>
+  <div><div class="card"><p class="eyebrow">Thème ${t.n} ${t.exam?'· <span class="tag ex">dans l\'entraînement</span>':''}</p><h2>${t.ic} ${t.t}</h2>
+    ${t.s.map((s,i) => `<details ${i===0?'open':''}><summary>${s[0]}</summary><div class="tw">${s[1]}</div></details>`).join('')}
+  </div>
+  <div class="row mt"><button class="btn pri" data-a="fcStart" data-m="all" data-t="${t.n}">Me tester : ${cardStats(t.n).n} cartes</button>
+    <button class="btn" data-a="qzStart" data-n="99" data-t="${t.n}">QCM du thème (${quizStats(t.n).n})</button>
+    <button class="btn ${S.lu[t.n]?'ok':''}" data-a="lu" data-t="${t.n}">${S.lu[t.n]?'✓ Fiche lue':'Marquer comme lue'}</button></div></div></div>`;
+}
+
+/* ================= CARTES ================= */
+function vCartes(){
+  const f = V.fc;
+  if (!f) {
+    const s = cardStats(V.th), ix = cardIdx(V.th), box = [0,0,0,0,0,0];
+    ix.forEach(i => box[cst(i).b]++);
+    return `<h1>Cartes mémoire</h1><p class="lead">Lis la question, réponds de tête (ou à voix haute), puis retourne la carte et note-toi honnêtement.</p>
+    ${chips(V.th,'setTh',n=>cardStats(n).n)}
+    <div class="card"><div class="row sp"><div><b>${s.due}</b> à revoir aujourd'hui · <b>${s.ok}</b> maîtrisées · ${s.n} au total</div></div>
+      <div class="boxes"><div><b>${box[0]}</b>nouvelles</div>${[1,2,3,4,5].map(b=>`<div><b>${box[b]}</b>niveau ${b}</div>`).join('')}</div>
+      <div class="row"><button class="btn pri" data-a="fcStart" data-m="due" data-t="${V.th}" ${s.due?'':'disabled'}>Réviser les cartes dues (${Math.min(s.due,20)})</button>
+      <button class="btn" data-a="fcStart" data-m="all" data-t="${V.th}">Tout le paquet (${s.n})</button></div>
+      <p class="small mute mt">Raccourcis : <kbd>Espace</kbd> pour retourner, <kbd>1</kbd> à revoir, <kbd>2</kbd> hésitant, <kbd>3</kbd> je savais.</p></div>`;
+  }
+  if (!f.queue.length) {
+    return `<div class="card" style="text-align:center;padding:2.5rem 1rem"><h2>Séance terminée</h2><p>${f.total} cartes vues · ${f.good} sues du premier coup.</p>
+      <div class="row" style="justify-content:center"><button class="btn pri" data-a="fcQuit">Retour aux cartes</button><button class="btn" data-a="go" data-v="cas">Passer au cas pratique</button></div></div>`;
+  }
+  const i = f.queue[0], c = CARDS[i];
+  return `<div class="row sp"><button class="btn sm" data-a="fcQuit">← Quitter</button><span class="small mute">${f.done} faites · ${f.queue.length} restantes</span></div>
+  <div class="pbar mt"><i style="width:${pct(f.done,f.done+f.queue.length)}%"></i></div>
+  <div class="card fc mt"><div>${thTag(c[0])} ${c[3]?'<span class="tag hcb">hors cours</span>':''}</div>
+    <p class="q mt">${c[1]}</p>
+    ${f.shown ? `<div class="a">${c[2]}</div>` : ''}</div>
+  <div class="row mt" style="justify-content:center">${f.shown ?
+    `<button class="btn ko" data-a="fcRate" data-r="1">À revoir <kbd>1</kbd></button><button class="btn mid" data-a="fcRate" data-r="2">Hésitant <kbd>2</kbd></button><button class="btn ok" data-a="fcRate" data-r="3">Je savais <kbd>3</kbd></button>` :
+    `<button class="btn pri" data-a="fcShow">Voir la réponse <kbd>Espace</kbd></button>`}</div>`;
+}
+function fcStart(mode, th){
+  const t = today(); let ix = cardIdx(th);
+  if (mode === 'due') ix = shuffle(ix.filter(i => cst(i).d <= t)).sort((a,b) => cst(a).b - cst(b).b).slice(0,20);
+  ix = shuffle(ix);
+  V.th = th; V.fc = {queue:ix, shown:false, done:0, good:0, total:ix.length, again:{}}; V.view = 'cartes';
+}
+function fcRate(r){
+  const f = V.fc, i = f.queue.shift(), s = Object.assign({}, cst(i)), t = today();
+  if (r === 1) { s.b = 1; s.d = t; f.again[i] = 1; f.queue.push(i); }
+  else if (r === 2) { s.b = Math.max(1, s.b); s.d = t + 1; f.done++; }
+  else { s.b = Math.min(5, s.b + 1); s.d = t + GAP[s.b]; f.done++; if (!f.again[i]) f.good++; }
+  S.cards[i] = s; f.shown = false; save();
+}
+
+/* ================= QCM ================= */
+function vQuiz(){
+  const z = V.qz;
+  if (!z) {
+    const s = quizStats(V.th);
+    return `<h1>QCM</h1><p class="lead">Des mises en situation courtes, inspirées de l'exercice d'entraînement. Chaque réponse est expliquée.</p>
+    ${chips(V.th,'setTh',n=>quizStats(n).n)}
+    <div class="card"><p><b>${s.n}</b> questions disponibles · ${s.done} déjà vues${s.done?` · ${pct(s.ok,s.done)} % de réussite`:''}</p>
+      <div class="row"><button class="btn pri" data-a="qzStart" data-n="10" data-t="${V.th}">10 questions</button>
+      <button class="btn" data-a="qzStart" data-n="20" data-t="${V.th}">20 questions</button>
+      <button class="btn" data-a="qzStart" data-n="99" data-t="${V.th}">Toutes</button>
+      ${s.done-s.ok>0?`<button class="btn ko" data-a="qzStart" data-n="err" data-t="${V.th}">Refaire mes erreurs (${s.done-s.ok})</button>`:''}</div>
+      <p class="small mute mt">Les questions jamais vues ou ratées sortent en premier.</p></div>`;
+  }
+  if (z.pos >= z.list.length) {
+    const bad = z.res.filter(r => !r.ok);
+    return `<div class="card"><p class="eyebrow">Résultat</p><h2>${z.res.length - bad.length} / ${z.res.length}</h2>
+      <div class="pbar"><i style="width:${pct(z.res.length-bad.length, z.res.length)}%"></i></div>
+      ${bad.length ? `<h3 class="mt2">À revoir</h3>${bad.map(r => `<div class="step" style="border-color:var(--ko)"><p><b>${QUIZ[r.i][1]}</b></p><p>✔ ${QUIZ[r.i][2][QUIZ[r.i][3]]}</p><p class="small mute">${QUIZ[r.i][4]}</p><button class="btn sm" data-a="openCours" data-t="${QUIZ[r.i][0]}">Fiche : ${TH[QUIZ[r.i][0]].t}</button></div>`).join('')}` : '<p class="mt">Sans faute.</p>'}
+      <div class="row mt2"><button class="btn pri" data-a="qzQuit">Nouveau QCM</button>${bad.length?`<button class="btn ko" data-a="qzStart" data-n="err" data-t="0">Refaire mes erreurs</button>`:''}<button class="btn" data-a="go" data-v="home">Accueil</button></div></div>`;
+  }
+  const i = z.list[z.pos], q = QUIZ[i];
+  return `<div class="row sp"><button class="btn sm" data-a="qzQuit">← Quitter</button><span class="small mute">Question ${z.pos+1} / ${z.list.length}</span></div>
+  <div class="pbar mt"><i style="width:${pct(z.pos, z.list.length)}%"></i></div>
+  <div class="card mt">${thTag(q[0])}<h2 class="mt" style="font-size:1.25rem">${q[1]}</h2>
+    ${z.order.map(o => `<button class="opt ${z.pick!==null ? (o===q[3]?'good':(o===z.pick?'bad':'')) : ''}" data-a="qzPick" data-o="${o}" ${z.pick!==null?'disabled':''}>${q[2][o]}</button>`).join('')}
+    ${z.pick!==null ? `<div class="expl"><b>${z.pick===q[3]?'Exact.':'Pas tout à fait.'}</b> ${q[4]}</div><div class="row mt"><button class="btn pri" data-a="qzNext">${z.pos+1<z.list.length?'Question suivante':'Voir le résultat'} <kbd>Entrée</kbd></button></div>` : ''}</div>`;
+}
+function qzStart(n, th){
+  let ix = quizIdx(th);
+  if (n === 'err') ix = shuffle(ix.filter(i => S.quiz[i] && !S.quiz[i].last));
+  else { const w = i => !S.quiz[i] ? 1 : (S.quiz[i].last ? 2 : 0); ix = shuffle(ix).sort((a,b) => w(a)-w(b)).slice(0, +n); ix = shuffle(ix); }
+  if (!ix.length) { V.qz = null; V.view = 'quiz'; return; }
+  V.th = th; V.qz = {list:ix, pos:0, pick:null, res:[], order:shuffle([0,1,2,3])}; V.view = 'quiz';
+}
+function qzPick(o){
+  const z = V.qz, i = z.list[z.pos], ok = o === QUIZ[i][3];
+  z.pick = o; z.res.push({i, ok});
+  const s = S.quiz[i] || {ok:0, ko:0}; ok ? s.ok++ : s.ko++; s.last = ok ? 1 : 0; S.quiz[i] = s; save();
+}
+
+/* ================= CAS PRATIQUE ================= */
+const STEPS = [['pb','Problème de droit'],['r','Règle'],['a','Application aux faits'],['c','Conclusion']];
+function vCas(){
+  const sec = CAS.find(s => s.id === V.sec) || CAS[0];
+  return `<h1>Cas pratique : la SA GVC</h1>
+  <p class="lead">L'exercice d'entraînement, découpé en ${ALLQ.length} questions. Pour chacune : écris ta réponse, puis dévoile le corrigé <b>une étape à la fois</b> et compare.</p>
+  <div class="card mt"><p class="eyebrow">Énoncé général</p><p>${CAS_INTRO}</p></div>
+  <div class="side mt"><div class="menu">${CAS.map(s => { const d = s.qs.filter(q => (S.cas[q.id]||{}).lvl).length;
+      return `<button class="${s.id===sec.id?'on':''}" data-a="openSec" data-s="${s.id}"><b>${s.id}</b> ${s.t}<small>${d}/${s.qs.length}</small></button>`; }).join('')}</div>
+  <div><div class="card" style="background:var(--hl-soft)"><p class="eyebrow">Partie ${sec.id}</p><p>${sec.ctx}</p></div>
+  ${sec.qs.map((q,n) => casQ(q, n+1)).join('')}
+  <div class="row mt2 sp">${nextSec(sec)}</div></div></div>`;
+}
+function nextSec(sec){ const i = CAS.indexOf(sec), p = CAS[i-1], n = CAS[i+1];
+  return (p?`<button class="btn" data-a="openSec" data-s="${p.id}">← Partie ${p.id}</button>`:'<span></span>') + (n?`<button class="btn pri" data-a="openSec" data-s="${n.id}">Partie ${n.id} →</button>`:''); }
+function casQ(q, n){
+  const st = S.cas[q.id] || {}, k = V.steps[q.id] || 0, all = k >= STEPS.length;
+  return `<div class="card mt" id="q-${q.id}">
+    <div class="row sp"><div class="row">${q.th.map(thTag).join('')}</div><span class="dot ${st.lvl?'l'+st.lvl:''}" title="${['Pas encore évaluée','À retravailler','Presque','Maîtrisée'][st.lvl||0]}"></span></div>
+    <p class="mt" style="font-size:1.08rem"><span class="qn">${n}.</span>${q.q}</p>
+    <textarea data-q="${q.id}" placeholder="Ta réponse : quelle règle ? comment s'applique-t-elle ici ? ta conclusion ?">${(st.txt||'').replace(/</g,'&lt;')}</textarea>
+    ${STEPS.slice(0,k).map(([f,l],j) => `<div class="step ${f} ${j===k-1&&V.fresh===q.id?'new':''}"><h4>${l}</h4><div>${q[f]}</div></div>`).join('')}
+    ${all && q.hc ? `<div class="hc"><b>Complément hors cours.</b> ${q.hc}</div>` : ''}
+    <div class="row mt">${all ?
+      `<span class="small mute">Ta réponse était…</span><button class="btn sm ko" data-a="casRate" data-q="${q.id}" data-l="1">à retravailler</button><button class="btn sm mid" data-a="casRate" data-q="${q.id}" data-l="2">presque</button><button class="btn sm ok" data-a="casRate" data-q="${q.id}" data-l="3">juste</button>
+       <button class="btn sm" data-a="casHide" data-q="${q.id}">Masquer le corrigé</button>` :
+      `<button class="btn pri" data-a="casStep" data-q="${q.id}">Dévoiler : ${STEPS[k][1].toLowerCase()}</button>${k===0?`<button class="btn sm" data-a="casAll" data-q="${q.id}">Tout le corrigé</button>`:''}`}</div></div>`;
+}
+
+/* ================= CHIFFRES ================= */
+function vChiffres(){
+  const groups = THEMES.filter(t => NUMS.some(n => n[0]===t.n) && (!V.th || V.th===t.n));
+  return `<h1>Chiffres et délais</h1><p class="lead">Les seuils qu'on attend de toi dans une copie. Dis le chiffre à voix haute, puis clique sur la case pour vérifier.</p>
+  ${chips(V.th,'setTh')}
+  <div class="row"><button class="btn sm" data-a="numAll" data-on="0">Tout masquer</button><button class="btn sm" data-a="numAll" data-on="1">Tout afficher</button></div>
+  ${groups.map(t => `<h3 class="mt2">${t.ic} ${t.t}</h3><div class="card">${NUMS.map((n,i)=>[n,i]).filter(x=>x[0][0]===t.n).map(([n,i]) =>
+    `<div class="nrow"><span>${n[1]}</span><button class="cloze ${V.shown[i]?'on':''}" data-a="num" data-i="${i}" aria-label="Afficher la réponse">${n[2]}</button></div>`).join('')}</div>`).join('')}`;
+}
+
+/* ================= MÉTHODE ================= */
+function vMethode(){
+  return `<h1>La méthode du cas pratique</h1>
+  <p class="lead">Une réponse juste mais non justifiée rapporte peu. Chaque question se traite en quatre temps — c'est le plan de tous les corrigés de cet outil.</p>
+  <div class="card mt"><ol class="syl">
+    <li><b>Qualifier les faits et poser le problème.</b> Traduis l'histoire en termes juridiques : « muter à Pessac » devient « changement de lieu de travail hors du secteur géographique ». Une phrase suffit.</li>
+    <li><b>Énoncer la règle.</b> Le texte ou la jurisprudence, ses conditions, ses effets. Cite l'article si tu le connais ; sinon, énonce clairement le principe.</li>
+    <li><b>Appliquer aux faits.</b> Reprends les éléments de l'énoncé un par un et confronte-les aux conditions. C'est là que se gagnent les points.</li>
+    <li><b>Conclure.</b> Réponds à la question posée : oui, non, ou « oui à condition que ». Si un fait manque, envisage les deux hypothèses.</li>
+  </ol></div>
+
+  <h2 class="mt2">Un exemple rédigé</h2>
+  <div class="card"><p><i>« M. Gédéon a offert une Bible à un collègue hospitalisé. Peut-on le licencier pour prosélytisme ? »</i></p>
+    <div class="step"><h4>Problème</h4>Un acte à caractère religieux accompli hors de l'entreprise peut-il justifier un licenciement ?</div>
+    <div class="step"><h4>Règle</h4>Les convictions religieuses figurent parmi les motifs de discrimination prohibés ; la mesure fondée sur un tel motif est nulle. L'entreprise ne peut restreindre leur manifestation que par une clause de neutralité du règlement intérieur, justifiée et proportionnée (L1321-2-1), qui ne vaut que dans l'entreprise.</div>
+    <div class="step"><h4>Application</h4>En l'espèce, le geste a eu lieu à l'hôpital, hors du temps et du lieu de travail. Il est isolé et sans pression. Il relève de la vie personnelle du salarié et ne cause aucun trouble dans l'entreprise.</div>
+    <div class="step c"><h4>Conclusion</h4>Le licenciement serait discriminatoire, donc nul. Il ne peut pas être prononcé.</div></div>
+
+  <h2 class="mt2">Les réflexes : un mot de l'énoncé, une règle</h2>
+  <div class="card tw"><table><tr><th>Si l'énoncé parle de…</th><th>Pense à…</th><th></th></tr>
+    ${REFLEXES.map(r => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td><button class="btn sm" data-a="openCours" data-t="${r[2]}">Fiche</button></td></tr>`).join('')}</table></div>
+
+  <h2 class="mt2">Trois mécanismes qui reviennent partout</h2>
+  <div class="grid g2">
+    <div class="card"><h3>Preuve en trois temps</h3><p class="small">Discrimination, harcèlement, égalité de salaire : le salarié <b>laisse supposer</b>, l'employeur <b>justifie objectivement</b>, le juge tranche.</p></div>
+    <div class="card"><h3>Justifié et proportionné</h3><p class="small">Tenue, expression, neutralité, surveillance : toute restriction d'une liberté doit être justifiée par la tâche et proportionnée au but.</p></div>
+    <div class="card"><h3>Nullité</h3><p class="small">Atteinte à une liberté fondamentale, discrimination, harcèlement, maternité, accident du travail, grève : le licenciement est <b>nul</b>, pas seulement injustifié — réintégration possible.</p></div>
+    <div class="card"><h3>Vie personnelle</h3><p class="small">Hors du travail, le salarié est libre. Sanction possible seulement si le fait <b>se rattache à la vie professionnelle</b> ou viole la loyauté.</p></div>
+  </div>
+
+  <h2 class="mt2">Erreurs fréquentes</h2>
+  <div class="card"><ul>
+    <li>Répondre « oui » ou « non » sans règle ni application.</li>
+    <li>Réciter le cours sans jamais revenir aux faits de l'énoncé.</li>
+    <li>Oublier de qualifier : accident du travail ou maladie ordinaire ? modification du contrat ou des conditions de travail ?</li>
+    <li>Ignorer une sous-question : chaque point d'interrogation de l'énoncé appelle une réponse.</li>
+    <li>Trancher alors qu'un fait manque : écris « si… alors… ; à défaut… ».</li>
+  </ul></div>`;
+}
+
+/* ================= MOTEUR ================= */
+const VIEWS = {home:vHome, cours:vCours, cartes:vCartes, quiz:vQuiz, cas:vCas, chiffres:vChiffres, methode:vMethode};
+function render(top){
+  navEl.innerHTML = TABS.map(([v,l]) => `<button class="${V.view===v?'on':''}" data-a="go" data-v="${v}">${l}</button>`).join('');
+  main.innerHTML = VIEWS[V.view]();
+  if (top) window.scrollTo(0,0);
+}
+const ACT = {
+  go: e => { V.view = e.dataset.v; V.fc = null; V.qz = null; render(1); },
+  dark: () => { const d = document.documentElement; S.dark = d.dataset.theme === 'dark' ? 0 : 1; d.dataset.theme = S.dark ? 'dark' : 'light'; save(); },
+  setTh: e => { V.th = +e.dataset.t; render(); },
+  openCours: e => { V.cours = +e.dataset.t; V.view = 'cours'; V.fc = null; V.qz = null; render(1); },
+  lu: e => { const t = +e.dataset.t; S.lu[t] = S.lu[t] ? 0 : 1; save(); render(); },
+  fcStart: e => { fcStart(e.dataset.m, +(e.dataset.t||0)); render(1); },
+  fcShow: () => { V.fc.shown = true; render(); },
+  fcRate: e => { fcRate(+e.dataset.r); render(); },
+  fcQuit: () => { V.fc = null; render(1); },
+  qzStart: e => { const n = e.dataset.n; qzStart(n==='err'?n:+n, +(e.dataset.t||0)); render(1); },
+  qzPick: e => { qzPick(+e.dataset.o); render(); },
+  qzNext: () => { const z = V.qz; z.pos++; z.pick = null; z.order = shuffle([0,1,2,3]); render(1); },
+  qzQuit: () => { V.qz = null; render(1); },
+  openSec: e => { V.sec = e.dataset.s; render(1); },
+  casStep: e => { V.steps[e.dataset.q] = (V.steps[e.dataset.q]||0) + 1; V.fresh = e.dataset.q; render(); V.fresh = null; },
+  casAll: e => { V.steps[e.dataset.q] = STEPS.length; render(); },
+  casHide: e => { V.steps[e.dataset.q] = 0; render(); },
+  casRate: e => { const q = e.dataset.q; S.cas[q] = Object.assign(S.cas[q]||{}, {lvl:+e.dataset.l}); save(); render(); },
+  num: e => { const i = e.dataset.i; V.shown[i] = !V.shown[i]; e.classList.toggle('on'); },
+  numAll: e => { NUMS.forEach((n,i) => V.shown[i] = e.dataset.on === '1'); render(); },
+  reset: () => { if (confirm('Effacer toute ta progression (cartes, QCM, réponses au cas) ?')) { S = {cards:{}, quiz:{}, cas:{}, lu:{}, dark:S.dark}; save(); render(1); } }
+};
+document.addEventListener('click', ev => { const el = ev.target.closest('[data-a]'); if (el && !el.disabled && ACT[el.dataset.a]) ACT[el.dataset.a](el); });
+document.addEventListener('input', ev => { const q = ev.target.dataset && ev.target.dataset.q; if (q && ev.target.tagName === 'TEXTAREA') { S.cas[q] = Object.assign(S.cas[q]||{}, {txt:ev.target.value}); save(); } });
+document.addEventListener('keydown', ev => {
+  if (/TEXTAREA|INPUT/.test(ev.target.tagName)) return;
+  if (V.view === 'cartes' && V.fc && V.fc.queue.length) {
+    if (!V.fc.shown && (ev.key === ' ' || ev.key === 'Enter')) { ev.preventDefault(); ACT.fcShow(); }
+    else if (V.fc.shown && '123'.includes(ev.key)) { fcRate(+ev.key); render(); }
+  } else if (V.view === 'quiz' && V.qz && V.qz.pick !== null && ev.key === 'Enter' && V.qz.pos < V.qz.list.length) { ev.preventDefault(); ACT.qzNext(); }
+});
+if (S.dark === 1 || (S.dark === null && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.dataset.theme = 'dark';
+render();
+</script>
+</body>
+</html>

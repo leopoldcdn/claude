@@ -34,7 +34,7 @@ Mais l'étoile filante, elle, n'était qu'un petit grain qui s'éteint.
 
 - **« Grain de sable » est un ordre de grandeur, pas une mesure.** La NASA décrit les débris de comètes comme « de la taille d'un grain de sable à celle d'un pois » ; un manuel d'astronomie (OpenStax, via Lumen) dit qu'un météore typique vient d'une particule de moins d'un gramme, pas plus grosse qu'un pois. La vidéo dit « souvent plus petit qu'un petit pois ».
 - **« Souvent de comètes »** : ces sources citent aussi la poussière d'astéroïdes ; la vidéo dit « souvent », pas « toujours ».
-- **Le mécanisme exact du chauffage** : le manuel lu parle de « frottement » avec l'air, d'autres sources de compression ; la vidéo reste au niveau que les sources permettent : l'air autour devient brûlant et c'est ce gaz chaud qui brille.
+- **Le mécanisme exact du chauffage** : le manuel lu parle de « frottement » avec l'air et je n'ai pas lu de source qui détaille le mécanisme précis ; la vidéo reste au niveau que les sources permettent : l'air autour devient brûlant et c'est ce gaz chaud qui brille.
 - **L'obus d'artillerie** vient du même manuel (comparaison d'énergie, pas une mesure que j'ai recalculée).
 - **L'altitude** : 80 à 130 km selon le manuel ; la vidéo dit « plus de quatre-vingts kilomètres ».
 

@@ -1171,12 +1171,11 @@ const ACT = {
   numAll: e => { NUMS.forEach((n,i) => V.shown[i] = e.dataset.on === '1'); render(); },
   reset: () => { if (confirm('Effacer toute ta progression (cartes, QCM, réponses au cas) ?')) { S = {cards:{}, quiz:{}, cas:{}, lu:{}, dark:S.dark}; save(); render(1); } }
 };
-let busy = false;
 document.addEventListener('click', ev => {
-  const el = ev.target.closest('[data-a]'); if (!el || el.disabled || !ACT[el.dataset.a] || busy) return;
-  ev.preventDefault(); busy = true; if (el.blur) el.blur();
+  const el = ev.target.closest('[data-a]'); if (!el || el.disabled || !ACT[el.dataset.a]) return;
+  ev.preventDefault(); if (el.blur) el.blur();
   /* on laisse le clic se terminer avant de redessiner la page : sinon certains navigateurs « avalent » le clic suivant */
-  setTimeout(() => { busy = false; ACT[el.dataset.a](el); }, 0);
+  setTimeout(() => ACT[el.dataset.a](el), 0);
 });
 document.addEventListener('input', ev => { const q = ev.target.dataset && ev.target.dataset.q; if (q && ev.target.tagName === 'TEXTAREA') { S.cas[q] = Object.assign(S.cas[q]||{}, {txt:ev.target.value}); save(); } });
 document.addEventListener('keydown', ev => {

@@ -12,7 +12,7 @@
   tester l'installation d'une nouvelle entreprise, nouveautés, Teamo assistant IA). À ne pas partager.
 - **Version démo** (`demo.html`, https://claude.ai/artifact/4pHLrU8bBB6Uz6SMuLx7eq) : le lien à partager aux PME testeuses.
   Même code avec `window.TEAMORA_MODE = "demo"` : bas de page réduit à la mention « données fictives », pas d'assistant IA ;
-  Teamo y sert de guide : une **visite guidée** se lance à la première ouverture (11 étapes sur ordinateur : roue, points de
+  Teamo y sert de guide : une **visite guidée** se lance à la première ouverture (13 étapes sur ordinateur : bloc « Aujourd'hui », roue, points de
   vue, gestion ou espace personnel, à traiter, notifications, barre des rubriques, onglets, obligations selon l'effectif,
   avis, puis « Bientôt : Teamo, ton assistant IA », qui présente ce que fera l'assistant et précise qu'il n'est pas
   disponible dans la démo ; 8 étapes sur téléphone), avec Précédent, Suivant, Passer et Échap, puis se relance avec le bouton « Visite guidée »
@@ -21,6 +21,31 @@
   de publier l'avis en commentaire sur la page ou de le copier pour l'envoyer.
   La fenêtre des nouveautés ne s'ouvre plus d'elle-même, dans aucune des deux versions. Les anciennes pages V1 et V2 ont été
   supprimées de claude.ai ; leur code reste dans `logiciel-rh/` et `logiciel-rh-v2/`.
+
+## Accueil « Aujourd'hui », « À traiter » par urgence, menu avec libellés (novembre 2026)
+
+- **Accueil** : à gauche, le bloc « Aujourd'hui » affiche les 5 actions les plus urgentes avec leur échéance ; un clic ouvre
+  l'écran où faire l'action. À droite, la roue reste ouverte (plus de survol nécessaire) et sert de menu. Sous 1180 px, les deux
+  blocs s'empilent. Chaque profil voit ses propres actions.
+- **« À traiter »** : une ligne et un bouton par action (plus de liste à virgules par personne), en trois groupes : en retard,
+  cette semaine (d'aujourd'hui à 7 jours), plus tard (au-delà, ou sans échéance). `todoTasks()` construit cette liste ; chaque
+  action porte l'échéance que l'application connaît déjà (date d'arrivée, dernier jour, clôture de paie, date limite légale…).
+  Pour une demande sans échéance (modification de dossier, souhait d'évolution, candidature…), l'échéance est fixée à
+  7 jours après la demande (`REPLY_DAYS`, délai interne de réponse, pas une règle légale). La paie du mois compte pour une action.
+- **Pastilles** : sur la roue, dans le menu et sur le bouton « À traiter », une pastille (rouge) ne compte plus que les actions
+  en retard. Les onglets des rubriques gardent leurs compteurs.
+- **Menu** : hors de l'accueil, les rubriques sont dans une colonne à gauche, chacune avec son nom, regroupées en quatre
+  familles (Recruter, Gérer, Développer, Départ ; « Piloter » pour les outils RH). Sous 1280 px, la colonne devient un bandeau
+  horizontal. Dans l'espace salarié, les familles s'appellent Arrivée, Au quotidien, Évolution, Départ.
+- **Limite connue** : les données fictives de Nova Studio sont datées de début octobre 2026 et l'application utilise la date
+  réelle. Plus le temps passe, plus d'actions basculent « en retard » (22 sur 62 au 6 octobre 2026, 69 sur 83 au 16 novembre).
+
+## Tests
+
+Les tests sont dans `tests/` et se lancent avec Node et Playwright : `node tests/parcours.js` (chaque profil ouvre l'accueil,
+« À traiter » et toutes ses rubriques, sans erreur) et `node tests/accueil_a_traiter.js` (accueil, urgence, pastilles, menu).
+Ils figent l'horloge au 6 octobre 2026, date pour laquelle la démo a été écrite. Les scripts de test des versions précédentes
+étaient gardés dans un dossier temporaire, hors du dépôt, et n'existent plus.
 
 ## Téléchargements dans les artefacts
 

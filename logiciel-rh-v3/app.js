@@ -72,7 +72,7 @@
     manager: { emp: 'e2', label: 'Manager' },
     salarie: { emp: 'e3', label: 'Salarié' },
   };
-  const freshUI = () => ({ tplSel: null, tplDraft: null, wheelOpen: false, selPerson: null, q: '', fDept: '', fStatus: '', sort: 'name', sortDir: 1,
+  const freshUI = () => ({ tplSel: null, tplDraft: null, selPerson: null, q: '', fDept: '', fStatus: '', sort: 'name', sortDir: 1,
     absTab: 'valider', histStatus: '', planMonth: null, payMonth: null, recJob: null, drawer: null, modal: null, notif: false,
     nSort: 'since', nDir: -1, recTab: 'todo', offerTab: 'cands', colOpen: {}, oSort: 'status', oDir: 1, nq: '', nDept: '', nStatus: 'auto', nFrom: '', rq: '', rDept: '', rStatus: '', rFrom: '', adminTab: 'annuaire', payTab: 'paie', payStep: null, procTab: 'cours', procSel: null, procPhase: null, orgQ: '', orgDept: '', orgSite: '', profTab: 'profil', tsWeek: null, revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
   // Deux versions : « travail » (index.html, toutes les options) et « démo » (demo.html, lien partagé aux PME testeuses).
@@ -566,7 +566,110 @@
     if (ui.profile === 'salarie') return i === 4 && me().stage === 4 && !dossier(me()).astonish && TODAY >= addDays(me().startDate, 20) ? 1 : 0;
     return scopeEmployees().filter((e) => atStage(e, i) && (i <= 4 ? arrivalActions(e, i).length : ui.profile === 'rh' && departActions(e).length)).length;
   }
-  function stageBadge(i) { const n = stageTodo(i); return n ? `<span class="badge todo num" title="À traiter">${n}</span>` : ''; }
+  // ---------------------------------------------------------------- À traiter : une action par ligne, classée par urgence
+  // Chaque action : { k, i (rubrique ou 'obl'), l (libellé), who (salarié), name (autre personne : candidat), sub, due (date ISO ou null), btn, go }.
+  // due : l'échéance que l'application connaît déjà ; pour une demande sans échéance, REPLY_DAYS jours après la demande (délai interne de réponse).
+  const REPLY_DAYS = 7, WEEK_END = addDays(TODAY, 7), TASKS = new Map();
+  function todoTasks() {
+    const key = `${ui.profile}|${ui.selfOf || ''}|${me().id}`; if (TASKS.has(key)) return TASKS.get(key);
+    const p = ui.profile, rh = p === 'rh', m = me(), out = [], vis = visibleStages(), iOf = (v) => vis.find((i) => stageView(i) === v), has = (v) => iOf(v) !== undefined;
+    const reply = (d) => (d ? addDays(d, REPLY_DAYS) : null), first = (...ds) => ds.filter(Boolean).sort()[0] || null, up = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+    const add = (v, k, l, o = {}) => { const i = iOf(v); if (i === undefined) return;
+      out.push({ k: `${v}:${k}`, i, l: up(l), who: o.who || null, name: o.name || '', sub: o.sub || '', due: o.due || null, btn: o.btn || 'Ouvrir', go: o.person ? { person: o.person } : { i, ui: o.ui || null } }); };
+    // Obligations selon l'effectif (RH)
+    complianceTodo().forEach((x) => out.push({ k: `obl:${x.k}`, i: 'obl', l: x.l, who: null, name: '', sub: x.sub, due: x.due || null, btn: 'Ouvrir', go: { obl: x.go } }));
+    // Besoins de recrutement
+    if (has('besoins')) needsToDo().forEach((j) => add('besoins', j.id, j.status === 'En validation' && (rh || dirSelf(j)) ? `Besoin « ${j.title} » à valider` : j.status === 'Validée' ? `Offre « ${j.title} » à ${adReady(j) ? 'valider et publier' : 'rédiger'}` : `Besoin « ${j.title} » à compléter et envoyer`,
+      { sub: j.dept, due: reply(((j.approvals || []).slice(-1)[0] || {}).date || j.createdAt), ui: { drawer: { type: 'need', id: j.id, tab: 'besoin' } } }));
+    // Recrutement : une ligne par candidat et par geste
+    if (has('recrutement')) recTodoGroups().forEach(([g, , items]) => items.forEach((x) => { const c = x.c, j = candJob(c);
+      add('recrutement', `${g}:${c.id}${x.iv ? `:${x.iv.date}` : ''}`, g === 'tri' ? 'Candidature à trier' : g === 'eval' ? `Évaluation à remplir (${x.iv.kind})` : g === 'prop' ? 'Proposition d’embauche à préparer' : `Sans nouvelles depuis ${plural(waitingDays(c), 'jour', 'jours')} : écrire au candidat`,
+        { name: c.name, sub: j ? j.title : '', due: g === 'tri' ? reply(c.appliedAt) : g === 'eval' ? reply(x.iv.date.slice(0, 10)) : g === 'late' ? addDays(lastContact(c), ANSWER_DAYS) : reply(lastContact(c)), btn: x.act, ui: { drawer: { type: 'cand', id: c.id, tab: 'evaluation' } } }); }));
+    // Arrivées et départs : une ligne par action du dossier
+    ['arrivees', 'departs'].forEach((v) => { if (has(v)) procPeople(v).forEach((e) => procTasks(e).forEach((t) => add(v, `${e.id}:${t.l}`, t.l, { who: e, due: t.due, person: e.id, btn: 'Ouvrir le dossier' }))); });
+    // Vie administrative (RH) : demandes de modification et échéances des 14 prochains jours (celles du dossier d'arrivée y figurent déjà)
+    if (rh && has('collaborateurs')) {
+      pendingChanges().forEach((r) => add('collaborateurs', `chg:${r.id}`, `${r.label} : modification à valider`, { who: emp(r.empId), due: reply(r.createdAt), btn: 'Valider', ui: { adminTab: 'demandes' } }));
+      adminDeadlines(db.employees).filter((x) => x.date <= addDays(TODAY, 14) && !(procOf(x.e) === 'arrivees' && /^Période d’essai|^Informations essentielles|information et de prévention/i.test(x.label)))
+        .forEach((x) => add('collaborateurs', `ech:${x.e.id}:${x.label}`, x.label, { who: x.e, sub: x.sub, due: x.hard, ui: { adminTab: 'echeances' } }));
+    }
+    // Temps et absences
+    if (p !== 'salarie' && has('absences')) {
+      pendingForMe().forEach((l) => add('absences', `abs:${l.id}`, `${l.type} du ${fmtShort(l.start)}${l.end !== l.start ? ` au ${fmtShort(l.end)}` : ''} à valider`, { who: emp(l.empId), due: first(l.start, reply(l.createdAt)), btn: 'Valider', ui: { absTab: 'valider' } }));
+      pendingSheets().forEach((t) => add('absences', `ts:${t.id}`, `Heures de la semaine du ${fmtShort(t.week)} à valider`, { who: emp(t.empId), due: reply(t.submittedAt || addDays(t.week, 6)), btn: 'Valider', ui: { absTab: 'temps' } }));
+      if (rh) db.leaves.filter((l) => IJ_TYPES.includes(l.type) && !l.dsnAt).forEach((l) => add('absences', `ij:${l.id}`, `Attestation de salaire à transmettre (${l.type.toLowerCase()} du ${fmtShort(l.start)})`, { who: emp(l.empId), due: l.start, ui: { absTab: 'arrets' } }));
+    }
+    // Rémunération : la paie du mois compte pour une seule action
+    if (p !== 'salarie' && has('paie')) { const pm = payCurrent(), pr = payrollOf(pm), prep = payStatus(pm) === 'Préparation', cut = pr.cutoff || `${pm}-${String(PAY_CUTOFF).padStart(2, '0')}`, ml = monthLabel(pm).toLowerCase(), de = /^[aeiouyéèâîôû]/.test(ml) ? `d’${ml}` : `de ${ml}`;
+      if (rh) {
+        Object.entries(db.raises.proposals).filter(([, x]) => x.status === 'Proposée').forEach(([id, x]) => add('paie', `aug:${id}`, `Augmentation de ${String(x.pct).replace('.', ',')} % à valider`, { who: emp(id), due: db.raises.effective || reply(x.date), btn: 'Valider', ui: { payTab: 'revision' } }));
+        const n = prep ? openChecks(pm).length : 0;
+        if (n) add('paie', `ctl:${pm}`, `Paie ${de} : ${plural(n, 'contrôle à lever', 'contrôles à lever')} avant l’envoi`, { due: cut, ui: { payTab: 'paie', payMonth: pm, payStep: 'controles' } });
+        if (payStatus(pm) === 'Reçue') add('paie', `bul:${pm}`, `Bulletins ${de} à contrôler et diffuser`, { due: addDays(`${shiftMonth(pm, 1)}-01`, -1), ui: { payTab: 'paie', payMonth: pm, payStep: 'bulletins' } });
+      } else {
+        const n = db.raises.status === 'Ouverte' ? scopeEmployees().filter((e) => raiseEligible(e) && !db.raises.proposals[e.id]).length : 0;
+        if (n) add('paie', 'rev', `Révision salariale : ${plural(n, 'proposition à faire', 'propositions à faire')}`, { due: db.raises.deadline, ui: { payTab: 'revision' } });
+        if (prep && teamOf(m, pm).length && !(pr.mgrOk || {})[m.id]) add('paie', `var:${pm}`, `Variables de paie ${de} à valider`, { due: cut, btn: 'Valider', ui: { payTab: 'paie' } });
+      }
+    }
+    // Entretiens
+    if (has('entretiens')) { const ids = p === 'manager' ? scopeSet() : null;
+      db.reviews.forEach((r) => { const e = emp(r.empId); if (!e) return;
+        if (p === 'salarie') { if (r.empId !== m.id) return;
+          if (r.status === 'Planifié') add('entretiens', r.id, `${r.kind} : auto-évaluation à préparer`, { due: r.date, ui: { revTab: 'mon' } });
+          else if (r.status === 'À signer') add('entretiens', r.id, `${r.kind} : compte rendu à signer`, { due: reply(r.date), btn: 'Signer', ui: { revTab: 'mon' } });
+        } else if (p === 'manager') { if (!ids.has(r.empId)) return;
+          if (r.status === 'À planifier') add('entretiens', r.id, `${r.kind} à planifier`, { who: e, due: r.date, ui: { revTab: 'equipe' } });
+          else if (r.status === 'Auto-évaluation faite') add('entretiens', r.id, `${r.kind} à mener : auto-évaluation reçue`, { who: e, due: r.date, ui: { revTab: 'equipe' } });
+        } else if (r.status === 'À planifier') add('entretiens', r.id, `${r.kind} à planifier`, { who: e, due: r.date, ui: { revTab: r.kind === 'Entretien professionnel' ? 'pro' : 'campagne' } }); }); }
+    // Formation
+    if (p !== 'salarie' && has('formation')) { const ids = rh ? null : scopeSet();
+      db.enrollments.filter((x) => (rh ? x.status === 'Validée manager' : x.status === 'Demandée' && ids.has(x.empId))).forEach((x) => { const t = db.trainings.find((y) => y.id === x.trainingId);
+        add('formation', x.id, `Demande de formation à valider${t ? ` : ${t.title}` : ''}`, { who: emp(x.empId), due: first(x.session, reply(x.createdAt)), btn: 'Valider', ui: { trTab: 'valider' } }); }); }
+    // Mobilité
+    if (p !== 'salarie' && has('mobilite')) { const ids = rh ? null : scopeSet();
+      db.wishes.filter((w) => (rh ? w.status === 'Exprimé' : ids.has(w.empId) && !w.mgrOpinion && ['Exprimé', 'En étude'].includes(w.status)))
+        .forEach((w) => add('mobilite', w.id, `${rh ? 'Souhait d’évolution à étudier' : 'Avis à donner sur un souhait d’évolution'} : ${w.kind.toLowerCase()}`, { who: emp(w.empId), due: reply(w.createdAt), ui: { mobTab: 'souhaits' } })); }
+    // Santé et QVT : un accident se déclare sous 48 heures (délai déjà appliqué dans les absences)
+    if (has('sante')) {
+      if (rh) {
+        db.incidents.filter((x) => x.status === 'Déclaré').forEach((x) => add('sante', `inc:${x.id}`, `${x.kind} du ${fmtShort(x.date)} à traiter`, { who: emp(x.empId), due: /accident/i.test(x.kind) ? addDays(x.date, 2) : reply(x.createdAt || x.date), ui: { healthTab: 'accidents' } }));
+        db.adjustments.filter((x) => x.status === 'Demandé').forEach((x) => add('sante', `amg:${x.id}`, `Aménagement de poste demandé : ${x.kind.toLowerCase()}`, { who: emp(x.empId), due: reply(x.createdAt), ui: { healthTab: 'amenagements' } }));
+      } else if (p === 'salarie' && !locked(m) && !(db.surveyDone || []).includes(`${monthKey(TODAY)}:${m.id}`) && !db.survey.some((x) => x.empId === m.id && x.month === monthKey(TODAY)))
+        add('sante', `qvt:${monthKey(TODAY)}`, 'Baromètre du mois à remplir', { due: addDays(`${shiftMonth(monthKey(TODAY), 1)}-01`, -1), btn: 'Répondre', ui: { healthTab: 'qvt' } });
+    }
+    // Relations individuelles (RH)
+    if (rh && has('relations')) db.cases.filter((c) => c.status === 'Ouvert').forEach((c) => add('relations', c.id, `${c.kind} à prendre en charge : ${c.title}`, { who: emp(c.empId), due: reply(c.openedAt), ui: { drawer: { type: 'case', id: c.id } } }));
+    // Espace salarié : pièces d'arrivée, contrat, rapport d'étonnement
+    if (p === 'salarie') { const n = myArrivalTodo(m);
+      if (n) add('arrivee', 'docs', plural(n, 'pièce à déposer', 'pièces à déposer'), { due: m.startDate, btn: 'Déposer' });
+      if (m.stage === 2 && dossier(m).contract.status === 'Envoyé') add('contrat', 'sign', 'Contrat de travail à lire et signer', { due: m.startDate, btn: 'Signer' });
+      if (m.stage === 4 && !dossier(m).astonish && TODAY >= addDays(m.startDate, 20)) add('etape', 'astonish', 'Rapport d’étonnement à rédiger', { due: addDays(m.startDate, 30) });
+    }
+    out.sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999') || a.l.localeCompare(b.l, 'fr'));
+    TASKS.set(key, out); return out;
+  }
+  // Trois groupes : en retard (échéance dépassée), cette semaine (d'aujourd'hui à 7 jours), plus tard (au-delà, ou sans échéance).
+  const URGENCY = [['late', 'En retard', `Échéance dépassée, ou demande sans réponse depuis plus de ${REPLY_DAYS} jours`], ['week', 'Cette semaine', 'À faire d’ici 7 jours'], ['later', 'Plus tard', 'Échéance plus lointaine, ou sans échéance']];
+  const urgency = (t) => (t.due && t.due < TODAY ? 'late' : t.due && t.due <= WEEK_END ? 'week' : 'later');
+  const lateCount = (i) => todoTasks().filter((t) => (i === undefined || t.i === i) && urgency(t) === 'late').length;
+  // Pastille d'une rubrique : les retards seulement (tout le reste se lit dans « À traiter »).
+  const lateBadge = (n) => (n ? `<span class="badge todo num" title="${plural(n, 'action en retard', 'actions en retard')}">${n}</span>` : '');
+  function stageBadge(i) { return lateBadge(lateCount(i)); }
+  function dueChip(t) {
+    if (!t.due) return '<span class="due none">Sans échéance</span>';
+    const u = urgency(t), n = dayDiff(t.due, TODAY);
+    if (u === 'late') return `<span class="due u-late"><b>${fmtShort(t.due)}</b><small>retard de ${plural(n, 'jour', 'jours')}</small></span>`;
+    if (u === 'week') return `<span class="due u-week"><b>${n === 0 ? 'Aujourd’hui' : n === -1 ? 'Demain' : fmtDate(t.due, { weekday: 'long', day: 'numeric', month: 'short' })}</b></span>`;
+    return `<span class="due"><b>${fmtShort(t.due)}</b></span>`;
+  }
+  const taskRub = (t) => (t.i === 'obl' ? { c: '#475569', icon: 'docCheck', name: 'Obligations' } : { c: STAGE_COLORS[t.i], icon: stageDef(t.i).icon, name: stageDef(t.i).short });
+  function taskRow(t) {
+    const r = taskRub(t), who = t.who ? fullName(t.who) : t.name;
+    return `<div class="task u-${urgency(t)}"><span class="stage-dot" style="background:${r.c}" title="${esc(r.name)}">${ic(r.icon)}</span>
+      <div class="t"><b>${esc(t.l)}</b><small>${esc([r.name, who, t.sub].filter(Boolean).join(' · '))}</small></div>${dueChip(t)}
+      <button type="button" class="btn ghost sm" data-act="todo-do" data-k="${esc(t.k)}">${esc(t.btn)}${ic('arrow')}</button></div>`;
+  }
   function topbar() {
     const st = ui.view === 'accueil' ? null : ui.stage;
     const title = ui.view === 'etape' ? esc(STAGES[st].title) : VIEW_LABELS[ui.profile][ui.view];
@@ -585,18 +688,25 @@
   }
   // Bascule entre la gestion (salariés ou équipe) et l'espace personnel, avec le nombre de choses à traiter de l'autre côté.
   function inSpace(profile, selfOf, fn) { const s = [ui.profile, ui.selfOf]; ui.profile = profile; ui.selfOf = selfOf; try { return fn(); } finally { [ui.profile, ui.selfOf] = s; } }
-  const spaceTodo = (perso) => inSpace(perso ? 'salarie' : persona(), perso ? persona() : null, () => visibleStages().reduce((s, i) => s + stageTodo(i), 0));
+  const spaceTodo = (perso) => inSpace(perso ? 'salarie' : persona(), perso ? persona() : null, () => lateCount());
   function spaceSwitch() {
     const p = persona(); if (!['rh', 'manager'].includes(p)) return '';
-    const perso = !!ui.selfOf, other = spaceTodo(!perso), b = (on, s, label) => `<button type="button" data-act="space" data-s="${s}" aria-pressed="${on}">${label}${!on && other ? `<span class="badge todo num" title="À traiter">${other}</span>` : ''}</button>`;
+    const perso = !!ui.selfOf, other = spaceTodo(!perso), b = (on, s, label) => `<button type="button" data-act="space" data-s="${s}" aria-pressed="${on}">${label}${!on ? lateBadge(other) : ''}</button>`;
     return `<div class="space-sw" role="group" aria-label="Espace affiché">${b(!perso, 'gestion', p === 'rh' ? 'Salariés' : 'Mon équipe')}${b(perso, 'perso', 'Mon espace')}</div>`;
   }
-  // Outside the home page, the wheel's stages stay reachable as a strip, in the same order and colours.
+  // Hors de l'accueil, les rubriques restent accessibles dans un menu : chaque rubrique porte son nom, et elles sont regroupées en quatre familles
+  // (colonne à gauche sur grand écran, bandeau sous 1280 px). L'espace salarié garde les mêmes familles, nommées de son point de vue.
+  const RAIL_FAM = [['Recruter', 'Arrivée', [0, 1, 2, 3, 4]], ['Gérer', 'Au quotidien', [5, 6, 7, 11, 12]], ['Développer', 'Évolution', [8, 9, 10]], ['Départ', 'Départ', [13, 14, 15]]];
+  const RAIL_NAME = { 'Relations indiv.': 'Relations individuelles' };
   function stageRail() {
     if (ui.view === 'accueil') return '';
-    return `<nav class="rail" aria-label="Rubriques"><button type="button" class="rail-home" data-act="go" data-v="accueil" aria-label="Retour à la roue" title="Retour à la roue">${ic('home')}</button>${ui.profile === 'rh' ? `<button type="button" class="rail-home rail-rep" data-act="go" data-v="reporting" aria-label="Reporting RH" title="Reporting RH" ${ui.view === 'reporting' ? 'aria-current="page"' : ''}>${ic('chart')}</button><button type="button" class="rail-home rail-rep" data-act="go" data-v="modeles" aria-label="Modèles de documents" title="Modèles de documents" ${ui.view === 'modeles' ? 'aria-current="page"' : ''}>${ic('file')}</button><button type="button" class="rail-home rail-rep" data-act="go" data-v="obligations" aria-label="Obligations selon l’effectif" title="Obligations selon l’effectif" ${ui.view === 'obligations' ? 'aria-current="page"' : ''}>${ic('docCheck')}${(() => { const n = complianceTodo().length; return n ? `<span class="badge todo num" title="À traiter">${n}</span>` : ''; })()}</button><button type="button" class="rail-home rail-rep" data-act="go" data-v="parametres" aria-label="Paramètres" title="Paramètres" ${ui.view === 'parametres' ? 'aria-current="page"' : ''}>${ic('gear')}</button><span class="rail-sep"></span>` : ''}
-      ${visibleStages().map((i) => { const name = stageDef(i).short;
-        return `<button type="button" data-act="stage" data-i="${i}" style="--c:${STAGE_COLORS[i]}" aria-label="${esc(name)}" title="${esc(name)}" ${ui.stage === i ? 'aria-current="page"' : ''}>${ic(stageDef(i).icon)}${stageBadge(i)}</button>`; }).join('')}</nav>`;
+    const vis = visibleStages(), sal = ui.profile === 'salarie', cur = (on) => (on ? 'aria-current="page"' : '');
+    const item = (i) => `<button type="button" class="rail-i" data-act="stage" data-i="${i}" style="--c:${STAGE_COLORS[i]}" ${cur(ui.stage === i)}><span class="rail-ic">${ic(stageDef(i).icon)}</span><span class="rail-l">${esc(sal && stageView(i) === 'relations' ? VIEW_LABELS.salarie.relations : RAIL_NAME[stageDef(i).short] || stageDef(i).short)}</span>${stageBadge(i)}</button>`;
+    const tool = (v, icon, label, badge = '') => `<button type="button" class="rail-i rail-tool" data-act="go" data-v="${v}" ${cur(ui.view === v)}><span class="rail-ic">${ic(icon)}</span><span class="rail-l">${label}</span>${badge}</button>`;
+    const fams = RAIL_FAM.map(([g, own, ids]) => { const list = ids.filter((i) => vis.includes(i)), t = sal ? own : g;
+      return list.length ? `<div class="rail-g" role="group" aria-label="${t}"><span class="rail-t">${t}</span>${list.map(item).join('')}</div>` : ''; }).join('');
+    return `<nav class="rail" aria-label="Rubriques"><div class="rail-in"><div class="rail-g">${tool('accueil', 'home', 'Accueil')}</div>${fams}
+      ${ui.profile === 'rh' ? `<div class="rail-g" role="group" aria-label="Piloter"><span class="rail-t">Piloter</span>${tool('obligations', 'docCheck', 'Obligations', lateBadge(lateCount('obl')))}${tool('reporting', 'chart', 'Reporting')}${tool('modeles', 'file', 'Modèles de documents')}${tool('parametres', 'gear', 'Paramètres')}</div>` : ''}</div></nav>`;
   }
   // V2 : tout ce qui attend le profil courant, rassemblé en un seul endroit (les pastilles de la roue en donnent le détail par rubrique).
   function todoItems() {
@@ -604,8 +714,8 @@
       const people = (v === 'arrivees' || v === 'departs') ? procPeople(v).map((e) => [e, procActions(e)]).filter(([, a]) => a.length) : [];
       return { i, v, n, name: stageDef(i).short, people }; }).filter(Boolean);
   }
-  function todoBtn() { const n = todoItems().reduce((s, x) => s + x.n, 0) + complianceTodo().length;
-    return `<button type="button" class="btn ${n ? 'primary' : 'ghost'} sm todo-btn" data-act="todo-open" aria-label="À traiter : ${n}">${ic('check')}<span class="todo-l">À traiter</span>${n ? `<span class="todo-n num">${n}</span>` : ''}</button>`; }
+  function todoBtn() { const all = todoTasks(), late = all.filter((t) => urgency(t) === 'late').length, week = all.filter((t) => urgency(t) === 'week').length;
+    return `<button type="button" class="btn ${all.length ? 'primary' : 'ghost'} sm todo-btn" data-act="todo-open" aria-label="À traiter : ${late} en retard, ${week} cette semaine, ${all.length - late - week} plus tard">${ic('check')}<span class="todo-l">À traiter</span>${late ? `<span class="todo-n u-late num" title="${plural(late, 'action en retard', 'actions en retard')}">${late}</span>` : all.length ? `<span class="todo-n num">${all.length}</span>` : ''}</button>`; }
   const footer = () => (DEMO ? `<footer class="foot"><p class="demo-note">Démo de Teamora : toutes les données sont fictives et restent dans ton navigateur. N’y saisis aucune donnée réelle. Teamo, le futur assistant IA, n’est pas disponible dans cette démo.</p></footer>` : footerWork());
   const footerWork = () => `<footer class="foot">${TENANT === 'new' ? `<button type="button" class="btn ghost sm" data-act="tenant-nova">${ic('left')}Revenir à la démo Nova Studio</button><button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Recommencer l’installation</button>`
       : `<button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Réinitialiser la démo</button><button type="button" class="btn ghost sm" data-act="tenant-new">${ic('plus')}Tester l’installation (nouvelle entreprise)</button>`}<button type="button" class="btn ghost sm" data-act="v3-news">${ic('star')}Nouveautés de la V3</button>
@@ -695,7 +805,7 @@
     wheelN = vis.length;
     const nodes = vis.map((i) => {
       const s = stageDef(i), cls = '';
-      return `<button type="button" class="node ${cls}" data-act="stage" data-i="${i}" style="background:${STAGE_COLORS[i]}" aria-label="${esc(s.title)} · ${esc(stageView(i) === 'etape' ? 'suivi' : VIEW_LABELS[ui.profile][stageView(i)])}" tabindex="${ui.wheelOpen ? 0 : -1}">${ic(s.icon)}${stageBadge(i)}</button>`;
+      return `<button type="button" class="node ${cls}" data-act="stage" data-i="${i}" style="background:${STAGE_COLORS[i]}" aria-label="${esc(s.title)} · ${esc(stageView(i) === 'etape' ? 'suivi' : VIEW_LABELS[ui.profile][stageView(i)])}">${ic(s.icon)}${stageBadge(i)}</button>`;
     }).join('');
     const labels = vis.map((i, k) => {
       const s = stageDef(i), p = nodePos(k, W.LR), c = Math.cos(ang(k)), sn = Math.sin(ang(k));
@@ -709,11 +819,9 @@
       : ui.profile === 'manager' ? `<small>MON ÉQUIPE</small><b>${esc(m.dept)}</b><span class="hub-n num">${plural(scopeEmployees().filter(isEmployed).length, 'personne', 'personnes')}</span>`
         : `<small>NOVA STUDIO</small><b>Collaborateurs</b><span class="hub-n num">${plural(db.employees.filter(isEmployed).length, 'collaborateur', 'collaborateurs')}</span>`;
     return `<div class="wheel-box" id="wheel-box"><div class="wheel" id="wheel">${labels}${nodes}
-      <button type="button" class="hub" data-act="hub" aria-expanded="${ui.wheelOpen}" aria-label="${ui.wheelOpen ? 'Replier' : 'Déplier'} le menu">${hubText}</button></div></div>
-      <p class="wheel-hint" id="wheel-hint">${ui.wheelOpen ? HINT_OPEN : HINT_CLOSED}</p>`;
+      <div class="hub">${hubText}</div></div></div>
+      <p class="wheel-hint" id="wheel-hint">${ui.profile === 'salarie' ? 'Clique sur une rubrique pour l’ouvrir' : 'Cliquez sur une rubrique pour l’ouvrir'}</p>`;
   }
-  const HINT_OPEN = 'Cliquez sur une rubrique pour l’ouvrir';
-  const HINT_CLOSED = 'Survolez ou touchez la roue pour afficher le menu';
   function stepsList(arr, steps, editable, empId, stage) {
     return `<div class="steps">${steps.map((t, k) => `<div class="step ${arr[k] ? 'done' : ''}">${editable
       ? `<button type="button" class="ckbox" role="checkbox" aria-checked="${arr[k]}" data-act="jcheck" data-id="${empId}" data-s="${stage}" data-k="${k}" aria-label="${esc(t)}">${ic('check')}</button>`
@@ -756,7 +864,20 @@
       ${i === 14 ? exitStats() : ''}${i === 4 && rh ? planConfig() : ''}${people.length ? '' : `<div class="card"><div class="card-h"><h3>Points à suivre</h3></div><div class="card-b">${stepsList(steps.map(() => false), steps, false)}</div></div>`}${moduleBtn(i)}`;
     return `<div class="card card-b">${stageHead(i)}</div>${body}`;
   }
-  const viewHome = () => `<div class="home-bg" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="home">${wheelHTML()}</div>`;
+  // Accueil « Aujourd'hui » : les 5 actions les plus urgentes avec leur date ; la roue, toujours ouverte, sert de menu à côté.
+  function todayPanel() {
+    const all = todoTasks(), n = (k) => all.filter((t) => urgency(t) === k).length, late = n('late'), week = n('week'), later = all.length - late - week, top = all.slice(0, 5), tu = ui.profile === 'salarie';
+    const sum = [late ? `<b class="u-late">${plural(late, 'action en retard', 'actions en retard')}</b>` : '', week ? `${week} cette semaine` : '', later ? `${later} plus tard` : ''].filter(Boolean).join(' · ');
+    return `<section class="today card" aria-label="Aujourd’hui"><header class="today-h"><div><small>${esc(fmtDate(TODAY, { weekday: 'long', day: 'numeric', month: 'long' }))}</small><h2>Aujourd’hui</h2></div>
+        ${all.length ? `<button type="button" class="btn ghost sm" data-act="todo-open">Tout voir<span class="count num">${all.length}</span></button>` : ''}</header>
+      ${sum ? `<p class="today-sum">${sum}</p>` : ''}
+      <div class="today-list">${top.length ? top.map((t) => { const r = taskRub(t), who = t.who ? fullName(t.who) : t.name;
+        return `<button type="button" class="task compact u-${urgency(t)}" data-act="todo-do" data-k="${esc(t.k)}"><span class="stage-dot" style="background:${r.c}">${ic(r.icon)}</span>
+          <span class="t"><b>${esc(t.l)}</b><small>${esc([r.name, who, t.sub].filter(Boolean).join(' · '))}</small></span>${dueChip(t)}${ic('arrow')}</button>`; }).join('')
+        : `<p class="today-ok">${ic('check')}${tu ? 'Rien ne t’attend : tout est à jour.' : 'Rien à traiter : tout est à jour.'}</p>`}</div>
+      ${all.length > top.length ? `<button type="button" class="linkish today-more" data-act="todo-open">Voir les ${all.length - top.length} autres actions</button>` : ''}</section>`;
+  }
+  const viewHome = () => `<div class="home-bg" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="home">${todayPanel()}<div class="home-wheel">${wheelHTML()}</div></div>`;
   // Stage page (pre-hire, hiring, onboarding, departure…): who is at this stage and their tasks.
   const viewStage = () => `<div class="panel stage-page" id="panel">${stagePanel(ui.stage)}</div>`;
 
@@ -774,26 +895,13 @@
     applyPlain(el, vars);
   }
   function setNode(el, vars) { if (window.gsap) window.gsap.set(el, vars); else applyPlain(el, vars); }
+  // La roue reste ouverte : son ouverture se joue une fois à l'arrivée sur l'accueil, pas à chaque rendu.
+  let wheelIntro = true;
   function placeWheel() {
-    const nodes = document.querySelectorAll('.node'), labs = document.querySelectorAll('.lab-in');
-    nodes.forEach((n, i) => { const p = nodePos(i); setNode(n, ui.wheelOpen ? { x: p.x, y: p.y, opacity: 1, scale: 1 } : { x: 0, y: 0, opacity: 0, scale: 0.4 }); });
-    labs.forEach((l) => { l.style.opacity = ui.wheelOpen ? 1 : 0; });
-  }
-  let closeTimer = null, openedAt = 0;
-  function openWheel() {
-    if (ui.wheelOpen) return; ui.wheelOpen = true; openedAt = Date.now();
-    document.querySelectorAll('.node').forEach((n, i) => { const p = nodePos(i); n.tabIndex = 0; tw(n, { x: p.x, y: p.y, opacity: 1, scale: 1, duration: 0.75, delay: i * 0.035, ease: 'back.out(1.5)' }); });
-    document.querySelectorAll('.lab-in').forEach((l, i) => tw(l, { opacity: 1, duration: 0.35, delay: 0.35 + i * 0.035 }));
-    const hint = document.getElementById('wheel-hint'); if (hint) hint.textContent = HINT_OPEN;
-    const hub = document.querySelector('.hub'); if (hub) { hub.setAttribute('aria-expanded', 'true'); tw(hub, { scale: 1.03, duration: 0.4 }); }
-  }
-  function closeWheel() {
-    if (!ui.wheelOpen) return; ui.wheelOpen = false;
-    const nodes = [...document.querySelectorAll('.node')];
-    nodes.forEach((n, i) => { n.tabIndex = -1; tw(n, { x: 0, y: 0, opacity: 0, scale: 0.4, duration: 0.45, delay: (nodes.length - 1 - i) * 0.02, ease: 'power3.in' }); });
-    document.querySelectorAll('.lab-in').forEach((l) => tw(l, { opacity: 0, duration: 0.2 }));
-    const hint = document.getElementById('wheel-hint'); if (hint) hint.textContent = HINT_CLOSED;
-    const hub = document.querySelector('.hub'); if (hub) { hub.setAttribute('aria-expanded', 'false'); tw(hub, { scale: 1, duration: 0.4 }); }
+    const nodes = [...document.querySelectorAll('.node')], labs = [...document.querySelectorAll('.lab-in')], intro = wheelIntro && !reduce; wheelIntro = false;
+    if (!intro) { nodes.forEach((n, i) => { const p = nodePos(i); setNode(n, { x: p.x, y: p.y, opacity: 1, scale: 1 }); }); labs.forEach((l) => { l.style.opacity = 1; }); return; }
+    nodes.forEach((n, i) => { const p = nodePos(i); setNode(n, { x: 0, y: 0, opacity: 0, scale: 0.4 }); tw(n, { x: p.x, y: p.y, opacity: 1, scale: 1, duration: 0.75, delay: i * 0.035, ease: 'back.out(1.5)' }); });
+    labs.forEach((l, i) => { l.style.opacity = 0; tw(l, { opacity: 1, duration: 0.35, delay: 0.35 + i * 0.035 }); });
   }
   function fitWheel() { const box = document.getElementById('wheel-box'), w = document.getElementById('wheel'); if (box && w) w.style.transform = `scale(${box.clientWidth / 860})`; }
   function bindWheel() {
@@ -804,9 +912,6 @@
       n.addEventListener('mouseenter', () => tw(n, { scale: 1.14, duration: 0.2, overwrite: 'auto' }));
       n.addEventListener('mouseleave', () => tw(n, { scale: 1, duration: 0.2, overwrite: 'auto' }));
     });
-    box.addEventListener('mouseenter', () => { clearTimeout(closeTimer); openWheel(); });
-    box.addEventListener('mouseleave', () => { closeTimer = setTimeout(closeWheel, 700); });
-    box.addEventListener('focusin', () => { clearTimeout(closeTimer); openWheel(); });
   }
 
   // ---------------------------------------------------------------- Collaborateurs
@@ -1451,12 +1556,13 @@
       { title: 'À toi de jouer', text: 'La gestion RH et manager se découvre sur ordinateur. Tu peux revoir cette visite depuis le menu « Plus ».' }];
     return [
       { title: 'Bonjour, je suis Teamo', text: 'Je te fais visiter Teamora en deux minutes. Tu es dans la peau d’Olivia, responsable RH de Nova Studio, une entreprise fictive.', go: tourGo({ profile: 'rh', view: 'accueil', stage: null }) },
-      { sel: '.home', title: 'La roue du collaborateur', text: 'Chaque secteur est une étape de la vie du collaborateur, du besoin de recrutement au départ. Clique sur une étape pour ouvrir son module ; les pastilles indiquent ce qui attend une action.' },
+      { sel: '.today', title: 'Aujourd’hui', text: 'En arrivant, tu vois les cinq actions les plus urgentes, avec leur date. Un clic ouvre l’écran où faire l’action.' },
+      { sel: '.home-wheel', title: 'La roue du collaborateur', text: 'Chaque rubrique est un moment de la vie du collaborateur, du besoin de recrutement au départ. Clique sur une rubrique pour l’ouvrir ; une pastille rouge signale des actions en retard.' },
       { sel: '.persona', title: 'Change de point de vue', text: 'Teamora s’adapte à chaque rôle. Passe de la RH au manager ou au salarié pour voir ce que chacun voit et fait.' },
       { sel: '.space-sw', title: 'Gestion ou espace personnel', text: 'La RH et les managers ont aussi leur propre espace salarié : leurs absences, leurs bulletins, leurs entretiens.' },
-      { sel: '.todo-btn', title: 'À traiter', text: 'Toutes les actions qui t’attendent, rassemblées en un seul endroit : validations, relances, échéances légales.' },
+      { sel: '.todo-btn', title: 'À traiter', text: 'Toutes les actions qui t’attendent, classées par urgence : en retard, cette semaine, plus tard. Une ligne et un bouton par action.' },
       { sel: '[data-act="notif"]', title: 'Les notifications', text: 'Les nouvelles du jour : une demande d’absence, un document déposé, une obligation qui approche.' },
-      { sel: '.rail', title: 'Passer d’un module à l’autre', text: 'Dans un module, cette barre permet de changer de rubrique ; la maison ramène à la roue. Ici, nous sommes dans les absences.', go: tourGo({ profile: 'rh', view: 'absences', stage: 6 }) },
+      { sel: '.rail', title: 'Passer d’une rubrique à l’autre', text: 'Dans une rubrique, ce menu donne accès à toutes les autres, regroupées en quatre familles : recruter, gérer, développer, départ. « Accueil » ramène à la roue. Ici, nous sommes dans les absences.', go: tourGo({ profile: 'rh', view: 'absences', stage: 6 }) },
       { sel: '#view .tabs', title: 'Les onglets', text: 'Chaque module est organisé en onglets : clique sur un onglet pour passer des demandes à valider au planning ou aux compteurs.' },
       { sel: '.rail [data-v="obligations"]', title: 'Les obligations selon l’effectif', text: 'Le cœur de Teamora : l’effectif est calculé automatiquement et les obligations légales apparaissent à chaque seuil (11, 20, 50, 250 salariés), avec des alertes avant.' },
       { sel: '.avis-fab', title: 'Ton avis compte', text: 'Après ton essai, dis-nous ce qui t’aide, ce qui manque ou ce qui bloque : deux minutes, sans ton nom.' },
@@ -1483,10 +1589,13 @@
     // Le bas de l'écran reste libre : la plateforme peut y afficher son propre bandeau (« Connectez-vous… »).
     const th = tip.offsetHeight, safe = H - (isMob() ? 96 : 120); let top, left;
     if (!r) { top = Math.max(12, (safe - th) / 2); left = (W - tw) / 2; }
-    else { const below = r.bottom + 14, above = r.top - th - 14;
-      top = below + th <= safe ? below : above >= 12 ? above : Math.max(12, Math.min(r.top + 24, safe - th));
-      top = Math.max(12, Math.min(top, safe - th));
-      left = Math.min(Math.max(16, r.left + r.width / 2 - tw / 2), W - tw - 16); }
+    else { const below = r.bottom + 14, above = r.top - th - 14, tall = below + th > safe && above < 12, beside = Math.max(12, Math.min(r.top + 8, safe - th));
+      // Cible haute (menu des rubriques, bloc « Aujourd'hui », roue) : la bulle se place à côté plutôt que par-dessus.
+      if (tall && r.right + 14 + tw <= W - 16) { left = r.right + 14; top = beside; }
+      else if (tall && r.left - 14 - tw >= 16) { left = r.left - 14 - tw; top = beside; }
+      else { top = below + th <= safe ? below : above >= 12 ? above : Math.max(12, Math.min(r.top + 24, safe - th));
+        top = Math.max(12, Math.min(top, safe - th));
+        left = Math.min(Math.max(16, r.left + r.width / 2 - tw / 2), W - tw - 16); } }
     tip.style.top = `${Math.round(top)}px`; tip.style.left = `${Math.round(left)}px`;
     const nx = box.querySelector('[data-tour="next"]'); if (nx && !box.contains(document.activeElement)) nx.focus({ preventScroll: true });
   }
@@ -2048,7 +2157,7 @@
     const dispOk = DISPLAYS.every(([k]) => c.displays[k]);
     add(0, 'any', 'dpae', 'DPAE avant chaque embauche', 'Déclaration préalable à l’embauche auprès de l’Urssaf, au plus tôt 8 jours avant l’arrivée.', { s: 'ok', l: 'Intégrée aux arrivées' }, { v: 'arrivees' });
     add(0, 'any', 'registre', 'Registre unique du personnel', 'Tenu à jour à chaque entrée et sortie, consultable par l’inspection du travail.', { s: 'ok', l: 'Tenu automatiquement' }, { v: 'collaborateurs' });
-    add(0, 'any', 'duerp', 'Document unique d’évaluation des risques', 'Mis à jour au moins une fois par an à partir de 11 salariés, et à chaque changement important.', isOn(11, 'now') && duerpLate ? { s: 'todo', l: `Mise à jour annuelle en retard${dl ? ` (dernière : ${fmtDate(dl)})` : ''}` } : { s: 'ok', l: dl ? `Mis à jour le ${fmtDate(dl)}` : 'À rédiger' }, { v: 'sante' });
+    add(0, 'any', 'duerp', 'Document unique d’évaluation des risques', 'Mis à jour au moins une fois par an à partir de 11 salariés, et à chaque changement important.', isOn(11, 'now') && duerpLate ? { s: 'todo', l: `Mise à jour annuelle en retard${dl ? ` (dernière : ${fmtDate(dl)})` : ''}`, due: dl ? addDays(dl, 365) : TODAY } : { s: 'ok', l: dl ? `Mis à jour le ${fmtDate(dl)}` : 'À rédiger' }, { v: 'sante' });
     add(0, 'any', 'affichages', 'Affichages obligatoires', 'Informations à afficher ou à diffuser par tout moyen aux salariés.', dispOk ? { s: 'ok', l: 'Tous en place' } : { s: 'todo', l: `${DISPLAYS.filter(([k]) => !c.displays[k]).length} sur ${DISPLAYS.length} à faire` }, { tab: 'conformite' });
     add(0, 'any', 'medical', 'Suivi médical des salariés', 'Visite d’information et de prévention à l’embauche, puis suivi périodique.', { s: 'ok', l: 'Suivi dans Santé & QVT' }, { v: 'sante' });
     add(0, 'any', 'entretienpro', 'Entretien de parcours professionnel et état des lieux', 'Entretien tous les 4 ans (loi du 24 octobre 2025) ; tous les 8 ans d’ancienneté, un état des lieux vérifie les entretiens et les formations suivies.',
@@ -2065,12 +2174,12 @@
     add(20, 'y5', 'oeth', 'Obligation d’emploi des travailleurs handicapés (6 %)', 'Déclaration annuelle dans la DSN ; contribution pour chaque bénéficiaire manquant.', oe.miss ? { s: 'todo', l: `${oe.have} sur ${oe.due} · contribution estimée ${eur0(oe.contrib)}` } : { s: 'ok', l: `${oe.have} bénéficiaire${oe.have > 1 ? 's' : ''} pour ${oe.due} requis` }, { tab: 'handicap' });
     const cons = c.cse.consult[y] || {}, consDone = ['strategie', 'eco', 'social'].filter((x) => cons[x]).length;
     add(50, 'm12', 'cse50', 'CSE aux attributions élargies', 'Personnalité morale, budgets (fonctionnement 0,20 % et activités sociales), 3 consultations annuelles, BDESE, au moins 6 réunions par an.',
-      !cseOn() ? { s: 'todo', l: 'CSE à élire' } : consDone < 3 ? { s: 'todo', l: `${consDone} consultation${consDone > 1 ? 's' : ''} sur 3 en ${y}` } : { s: 'ok', l: `3 consultations faites en ${y}` }, { tab: 'social' });
+      !cseOn() ? { s: 'todo', l: 'CSE à élire' } : consDone < 3 ? { s: 'todo', l: `${consDone} consultation${consDone > 1 ? 's' : ''} sur 3 en ${y}`, due: `${y}-12-31` } : { s: 'ok', l: `3 consultations faites en ${y}` }, { tab: 'social' });
     const nao = c.cse.nao[y] || {};
     add(50, 'm12', 'nao', 'Délégué syndical et négociations obligatoires', 'Un syndicat représentatif peut désigner un délégué ; négociations annuelles sur la rémunération et sur l’égalité professionnelle et la qualité de vie au travail.',
-      !c.cse.ds ? { s: 'info', l: 'Aucun délégué syndical désigné' } : nao.remu && nao.egalite ? { s: 'ok', l: `Négociations ${y} faites` } : { s: 'todo', l: `Négociations ${y} à ouvrir` }, { tab: 'social' });
+      !c.cse.ds ? { s: 'info', l: 'Aucun délégué syndical désigné' } : nao.remu && nao.egalite ? { s: 'ok', l: `Négociations ${y} faites` } : { s: 'todo', l: `Négociations ${y} à ouvrir`, due: `${y}-12-31` }, { tab: 'social' });
     const ix = c.index[y];
-    add(50, 'now', 'index', 'Index de l’égalité professionnelle', 'Calculé et publié chaque année au plus tard le 1er mars ; mesures de correction sous 75 points.', ix && ix.publishedAt ? { s: 'ok', l: `Publié le ${fmtDate(ix.publishedAt)}${ix.score !== null && ix.score !== undefined ? ` · ${ix.score}/100` : ''}` } : { s: 'todo', l: `Index ${y} à publier avant le 1er mars ${YEAR + (TODAY.slice(5) > '03-01' ? 1 : 0)}` }, { tab: 'index' });
+    add(50, 'now', 'index', 'Index de l’égalité professionnelle', 'Calculé et publié chaque année au plus tard le 1er mars ; mesures de correction sous 75 points.', ix && ix.publishedAt ? { s: 'ok', l: `Publié le ${fmtDate(ix.publishedAt)}${ix.score !== null && ix.score !== undefined ? ` · ${ix.score}/100` : ''}` } : { s: 'todo', l: `Index ${y} à publier avant le 1er mars ${YEAR + (TODAY.slice(5) > '03-01' ? 1 : 0)}`, due: `${YEAR + (TODAY.slice(5) > '03-01' ? 1 : 0)}-03-01` }, { tab: 'index' });
     const riSteps = ['redaction', 'cse', 'greffe', 'inspection', 'affichage'], riDone = riSteps.filter((x) => c.ri[x]).length;
     add(50, 'y5', 'ri', 'Règlement intérieur', 'Hygiène et sécurité, discipline et sanctions, harcèlement, lanceurs d’alerte ; consultation du CSE, dépôt au greffe du conseil de prud’hommes, envoi à l’inspection, affichage.', riDone === 5 ? { s: 'ok', l: `En vigueur depuis le ${fmtDate(c.ri.affichage)}` } : { s: 'todo', l: `${riDone} étape${riDone > 1 ? 's' : ''} sur 5` }, { tab: 'conformite' });
     add(50, 'y5', 'participation', 'Participation aux résultats', 'Accord de participation à conclure dans l’année qui suit l’obligation.', c.accords.participation ? { s: 'ok', l: `Accord conclu le ${fmtDate(c.accords.participation)}` } : { s: 'todo', l: 'Accord à conclure' }, { tab: 'conformite' });
@@ -2095,10 +2204,11 @@
   function complianceTodo() {
     if (!db.compliance || ui.profile !== 'rh' || ui.selfOf) return [];
     const out = [], st = effState(), mand = db.compliance.cse.mandate, obl = obligations();
-    obl.filter((x) => x.on && x.state.s === 'todo').forEach((x) => out.push({ k: x.k, l: x.title, sub: x.state.l, go: x.go }));
-    SEUILS.filter((n) => st.avg12 < n).forEach((n) => { const x = projCross(n, st); if (x) out.push({ k: `seuil${n}`, l: `Seuil de ${n} salariés en ${monthLabel(x.m).toLowerCase()}`, sub: `${x.why} : ${plural(obl.filter((o) => o.seuil === n).length, 'obligation', 'obligations')} à préparer`, go: { tab: 'apercu' } }); });
-    if (mand && mand.end >= TODAY && mand.end <= addMonths(TODAY, 6)) out.push({ k: 'mandat', l: 'Fin des mandats du CSE', sub: `Le ${fmtDate(mand.end)} : lancer les élections au moins 90 jours avant`, go: { tab: 'social' } });
-    db.compliance.alerts.filter((a) => !a.ackAt && dayDiff(a.date, TODAY) >= 5).forEach((a) => out.push({ k: `al${a.id}`, l: 'Signalement à accuser réception', sub: `Reçu le ${fmtDate(a.date)} · accusé de réception sous 7 jours`, go: { tab: 'alerte' } }));
+    // due : échéance connue (date limite de publication, fin d'année, franchissement prévu…) ; absente quand la loi n'en fixe pas.
+    obl.filter((x) => x.on && x.state.s === 'todo').forEach((x) => out.push({ k: x.k, l: x.title, sub: x.state.l, go: x.go, due: x.state.due || null }));
+    SEUILS.filter((n) => st.avg12 < n).forEach((n) => { const x = projCross(n, st); if (x) out.push({ k: `seuil${n}`, l: `Seuil de ${n} salariés en ${monthLabel(x.m).toLowerCase()}`, sub: `${x.why} : ${plural(obl.filter((o) => o.seuil === n).length, 'obligation', 'obligations')} à préparer`, go: { tab: 'apercu' }, due: `${x.m}-01` }); });
+    if (mand && mand.end >= TODAY && mand.end <= addMonths(TODAY, 6)) out.push({ k: 'mandat', l: 'Fin des mandats du CSE', sub: `Le ${fmtDate(mand.end)} : lancer les élections au moins 90 jours avant`, go: { tab: 'social' }, due: addDays(mand.end, -90) });
+    db.compliance.alerts.filter((a) => !a.ackAt && dayDiff(a.date, TODAY) >= 5).forEach((a) => out.push({ k: `al${a.id}`, l: 'Signalement à accuser réception', sub: `Reçu le ${fmtDate(a.date)} · accusé de réception sous 7 jours`, go: { tab: 'alerte' }, due: addDays(a.date, 7) }));
     return out;
   }
   // Une obligation qui entre en vigueur prévient les RH et la Direction (une seule fois).
@@ -2292,13 +2402,13 @@
     return '';
   }
   // ---- V2 · liste « À traiter » et nouveautés de la version
-  MODALS.todo = (m, shell) => { const items = todoItems(), comp = complianceTodo();
-    const compHtml = comp.length ? `<div class="todo-sec"><div class="todo-sec-h"><span class="stage-dot" style="background:#475569">${ic('docCheck')}</span><b>Obligations selon l’effectif</b><span class="pill warn num">${comp.length}</span><button type="button" class="btn ghost sm" data-act="todo-obl" data-t="apercu">Ouvrir${ic('arrow')}</button></div>
-      <ul class="todo-people">${comp.map((x) => `<li><button type="button" class="linkish" ${x.go.tab ? `data-act="todo-obl" data-t="${x.go.tab}"` : `data-act="obl-view" data-v="${x.go.v}"`}>${esc(x.l)}</button> · ${esc(x.sub)}</li>`).join('')}</ul></div>` : '';
-    return shell('À traiter', `<div class="modal-b">${compHtml}${items.length || comp.length ? items.map((x) => `<div class="todo-sec"><div class="todo-sec-h"><span class="stage-dot" style="background:${STAGE_COLORS[x.i]}">${ic(stageDef(x.i).icon)}</span><b>${esc(x.name)}</b><span class="badge-dot">${x.n}</span>
-        <button type="button" class="btn ghost sm" data-act="todo-go" data-i="${x.i}">Ouvrir${ic('arrow')}</button></div>
-        ${x.people.length ? `<ul class="todo-people">${x.people.map(([e, acts]) => `<li><button type="button" class="linkish" data-act="todo-person" data-id="${e.id}">${esc(fullName(e))}</button> · ${esc(acts.join(', '))}</li>`).join('')}</ul>` : ''}</div>`).join('')
-      : '<p class="muted" style="margin:0">Rien ne t’attend pour le moment.</p>'}</div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>'); };
+  MODALS.todo = (m, shell) => { const all = todoTasks();
+    const body = all.length ? URGENCY.map(([k, title, hint]) => { const list = all.filter((t) => urgency(t) === k); if (!list.length) return '';
+      const cut = k === 'later' && !m.all && list.length > 6 ? 6 : list.length;
+      return `<section class="task-g u-${k}"><header><h3>${title}<span class="count num">${list.length}</span></h3><small>${hint}</small></header>${list.slice(0, cut).map(taskRow).join('')}
+        ${cut < list.length ? `<button type="button" class="btn ghost sm todo-more" data-act="todo-all">Afficher les ${list.length - cut} autres</button>` : ''}</section>`; }).join('')
+      : `<p class="muted" style="margin:0">${ui.profile === 'salarie' ? 'Rien ne t’attend pour le moment.' : 'Rien à traiter pour le moment.'}</p>`;
+    return shell('À traiter', `<div class="modal-b task-list">${body}</div>`, '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true); };
   const V2_NEWS = [
     ['Organisation', [['Arrivées et Départs regroupés', 'Pré-embauche, embauche et intégration forment un seul dossier par recrue, en onglets ; idem pour les trois temps du départ. La roue passe de 16 à 12 rubriques.', 'arrivees'],
       ['Liste « À traiter »', 'Un bouton en haut rassemble tout ce qui t’attend, rubrique par rubrique et personne par personne.', null],
@@ -2324,6 +2434,9 @@
       ['Obligations selon l’effectif', 'Pictogramme dans le bandeau (RH) : chaque obligation avec son seuil, sa règle de franchissement (immédiat, 12 mois consécutifs, 5 ans), son état et l’écran où la traiter.', 'apercu'],
       ['Alertes', 'Seuil qui approche, obligation qui entre en vigueur (notification aux RH et à la Direction), échéances : elles arrivent dans « À traiter ».', 'apercu'],
       ['Simulation', 'Pour la démo : simuler un effectif (60, 300, 1 200…) et voir le logiciel s’adapter.', 'apercu']]],
+    ['Accueil et menu', [['Aujourd’hui', 'L’accueil affiche les 5 actions les plus urgentes avec leur date ; la roue reste ouverte à côté et sert de menu.', ''],
+      ['À traiter par urgence', 'Une ligne et un bouton par action, en trois groupes : en retard, cette semaine, plus tard. Une pastille ne signale plus que les retards.', ''],
+      ['Menu avec les noms', 'Hors de l’accueil, chaque rubrique porte son nom dans un menu à gauche, en quatre familles : recruter, gérer, développer, départ.', '']]],
     ['Après le test du parcours', [['Recrutement', 'CDD motivé dès le besoin (cas de recours, motif, personne remplacée), salaire comparé au SMIC et au minimum Syntec, annonce sans terme discriminant, vivier avec consentement, proposition qui engage l’entreprise.', 'besoins'],
       ['Arrivée', 'Période d’essai bornée par la convention, CDD motivé dans le contrat, forfait jours signé, DPAE et registre contrôlés, signature de l’employeur, PDF téléchargeable, signature possible sur téléphone après lecture complète.', ''],
       ['Vie en poste', 'Jours fériés et jours ouvrés exacts, bulletins figés une fois diffusés, heures supplémentaires et maintien de salaire, avenants à signer, procédure disciplinaire guidée.', ''],
@@ -2346,6 +2459,15 @@
   Object.assign(MOD_ACT, {
     'todo-open'() { ui.modal = { type: 'todo' }; ui.notif = false; render(); },
     'todo-go'(d) { ui.modal = null; ACT.stage(d); },
+    'todo-all'() { if (ui.modal) ui.modal.all = true; render(); },
+    // Ouvre l'écran où faire l'action : le dossier de la personne, l'obligation, ou la rubrique sur le bon onglet.
+    'todo-do'(d) { TASKS.clear(); const t = todoTasks().find((x) => x.k === d.k); ui.modal = null; if (!t) { render(); return; }
+      if (t.go.person) { ACT['open-dossier']({ id: t.go.person }); return; }
+      if (t.go.obl) { if (t.go.obl.tab) ACT['obl-go']({ t: t.go.obl.tab }); else ACT['obl-view']({ v: t.go.obl.v, s: t.go.obl.sec }); return; }
+      const v = stageView(t.go.i); if (!v) { render(); return; }
+      Object.assign(ui, { view: v, stage: t.go.i, selPerson: null, notif: false, drawer: null, mobMore: false }, v === 'recrutement' ? { recTab: 'todo', recJob: null } : {}, t.go.ui || {});
+      if (ui.drawer) drawerAnim = true;
+      window.scrollTo(0, 0); render(); },
     'todo-person'(d) { ui.modal = null; ACT['open-dossier'](d); },
     'v2-news'() { ui.modal = { type: 'v2-news' }; render(); },
     'v3-news'() { ui.modal = { type: 'v3-news' }; render(); },
@@ -2368,10 +2490,11 @@
   const phaseOpen = (e, i) => (procOf(e) === 'arrivees' ? (i === 4 ? e.stage === 4 : true) : i <= e.stage);
   // Un temps déjà franchi est complet ; le temps en cours suit le dossier ; un temps à venir est vide.
   const phaseSteps = (e, i) => (curPhases(e).includes(i) ? journeyOf(e.id, i) : i < Math.min(...curPhases(e)) ? stageSteps(i).map(() => true) : stageSteps(i).map(() => false));
-  function procActions(e) {
-    if (procOf(e) === 'arrivees') return e.stage === 4 ? arrivalActions(e, 4) : arrivalActions(e, 2).concat(arrivalActions(e, 3));
-    return departActions(e);
+  function procTasks(e) {
+    if (procOf(e) === 'arrivees') return e.stage === 4 ? arrivalTasks(e, 4) : arrivalTasks(e, 2).concat(arrivalTasks(e, 3));
+    return departTasks(e);
   }
+  function procActions(e) { return procTasks(e).map((x) => x.l); }
   function procRow(e, k) {
     const sel = ui.procSel === e.id, todo = procActions(e);
     const bars = PROC[k].phases.map(([i, l]) => { const s = phaseSteps(e, i), n = s.filter(Boolean).length, cur = curPhases(e).includes(i);
@@ -4822,42 +4945,44 @@
   // Un point de suivi n'est fait qu'avec son compte rendu.
   const checkinDone = (c) => !!(c && typeof c === 'object' && c.note);
   // Actions qui attendent le profil courant pour une arrivée, sur la page de l'étape i (2 pré-embauche, 3 embauche, 4 intégration).
-  function arrivalActions(e, i = e.stage) {
-    const d = dossier(e), rh = ui.profile === 'rh', mine = (o) => (rh ? o === 'rh' : o !== 'rh'), out = [], start = e.startDate;
+  // Actions d'arrivée, chacune avec son échéance : la liste « À traiter » les classe par urgence.
+  function arrivalTasks(e, i = e.stage) {
+    const d = dossier(e), rh = ui.profile === 'rh', mine = (o) => (rh ? o === 'rh' : o !== 'rh'), out = [], start = e.startDate, A = (l, due) => out.push({ l, due: due || null });
     if (i === 2 && e.stage === 2) {
       const check = reqDocs(e).filter(([k]) => docState(d, k) === 'check').length, miss = reqDocs(e).filter(([k]) => ['missing', 'refused'].includes(docState(d, k))).length;
-      if (rh && check) out.push(plural(check, 'pièce à vérifier', 'pièces à vérifier'));
-      if (rh && miss && dayDiff(TODAY, start) <= 10) out.push(`${plural(miss, 'pièce manquante', 'pièces manquantes')} à moins de 10 jours de l’arrivée`);
-      if (rh && !e.nationality) out.push('nationalité à renseigner');
-      if (rh && needsTitre(e) && !d.titreCheck) out.push(`vérifier le titre de séjour avant le ${fmtShort(subWorkDays(start, 2))}`);
-      if (rh && ['À préparer', 'Prêt'].includes(d.contract.status)) out.push(d.contract.status === 'Prêt' ? 'contrat à envoyer pour signature' : 'contrat à préparer');
+      if (rh && check) A(plural(check, 'pièce à vérifier', 'pièces à vérifier'), start);
+      if (rh && miss && dayDiff(TODAY, start) <= 10) A(`${plural(miss, 'pièce manquante', 'pièces manquantes')} à moins de 10 jours de l’arrivée`, start);
+      if (rh && !e.nationality) A('nationalité à renseigner', start);
+      if (rh && needsTitre(e) && !d.titreCheck) A(`vérifier le titre de séjour avant le ${fmtShort(subWorkDays(start, 2))}`, subWorkDays(start, 2));
+      if (rh && ['À préparer', 'Prêt'].includes(d.contract.status)) A(d.contract.status === 'Prêt' ? 'contrat à envoyer pour signature' : 'contrat à préparer', start);
       const prep = PREP_TASKS.filter(([k, , o]) => !d.prep[k] && mine(o)).length + (!d.buddy && !rh ? 1 : 0);
-      if (prep) out.push(plural(prep, 'tâche de préparation', 'tâches de préparation'));
+      if (prep) A(plural(prep, 'tâche de préparation', 'tâches de préparation'), start);
     } else if (i === 3 && e.stage === 2 && rh && isIntern(e)) {
-      if (!d.convention && TODAY >= addDays(start, -10)) out.push(TODAY > start ? 'convention de stage manquante' : 'convention de stage à récupérer signée');
-      if (!e.registeredAt && TODAY >= start) out.push('inscription au registre');
-      if (!d.assignedAt && TODAY >= addDays(start, -8)) out.push('affectation à confirmer');
+      if (!d.convention && TODAY >= addDays(start, -10)) A(TODAY > start ? 'convention de stage manquante' : 'convention de stage à récupérer signée', start);
+      if (!e.registeredAt && TODAY >= start) A('inscription au registre', start);
+      if (!d.assignedAt && TODAY >= addDays(start, -8)) A('affectation à confirmer', start);
     } else if (i === 3 && e.stage === 2 && rh) {
-      if (!d.dpae && TODAY >= addDays(start, -8)) out.push(TODAY > start ? 'DPAE en retard' : 'DPAE à faire');
-      if (!e.registeredAt && TODAY >= start) out.push('inscription au registre');
-      if (!d.info7 && TODAY >= start) out.push(`informations à remettre avant le ${fmtShort(addDays(start, 7))}`);
-      else if (d.info7 && !d.info1m && TODAY >= addDays(start, 7)) out.push(`informations complémentaires avant le ${fmtShort(addMonths(start, 1))}`);
-      if (!d.mutuelle && TODAY >= addDays(start, -8)) out.push('mutuelle');
-      if (e.category === 'Cadre' && !d.prevoyance && TODAY >= addDays(start, -8)) out.push('prévoyance des cadres');
-      if (!d.assignedAt && TODAY >= addDays(start, -8)) out.push('affectation à confirmer');
+      if (!d.dpae && TODAY >= addDays(start, -8)) A(TODAY > start ? 'DPAE en retard' : 'DPAE à faire', start);
+      if (!e.registeredAt && TODAY >= start) A('inscription au registre', start);
+      if (!d.info7 && TODAY >= start) A(`informations à remettre avant le ${fmtShort(addDays(start, 7))}`, addDays(start, 7));
+      else if (d.info7 && !d.info1m && TODAY >= addDays(start, 7)) A(`informations complémentaires avant le ${fmtShort(addMonths(start, 1))}`, addMonths(start, 1));
+      if (!d.mutuelle && TODAY >= addDays(start, -8)) A('mutuelle', start);
+      if (e.category === 'Cadre' && !d.prevoyance && TODAY >= addDays(start, -8)) A('prévoyance des cadres', start);
+      if (!d.assignedAt && TODAY >= addDays(start, -8)) A('affectation à confirmer', start);
     } else if (i === 4 && e.stage === 4) {
-      const late = planList().filter(([k, , day, o]) => !d.plan[k] && TODAY >= addDays(start, day) && mine(o)).length;
-      if (late) out.push(plural(late, 'action du programme', 'actions du programme'));
-      CHECKINS.forEach(([k, l, day]) => { if (!checkinDone(d.checkins[k]) && TODAY >= addDays(start, day) && TODAY <= addDays(start, day + 30)) out.push(l.toLowerCase()); });
+      const late = planList().filter(([k, , day, o]) => !d.plan[k] && TODAY >= addDays(start, day) && mine(o));
+      if (late.length) A(plural(late.length, 'action du programme', 'actions du programme'), addDays(start, Math.min(...late.map(([, , day]) => day))));
+      CHECKINS.forEach(([k, l, day]) => { if (!checkinDone(d.checkins[k]) && TODAY >= addDays(start, day) && TODAY <= addDays(start, day + 30)) A(l.toLowerCase(), addDays(start, day)); });
       const t = trialInfo(e);
-      if (rh && t && !d.trialDecision && trialOver(e, t)) out.push(`essai terminé le ${fmtShort(t.end)} : contrat définitif`);
-      else if (rh && t && !d.trialDecision && dayDiff(TODAY, t.decideBy) <= 14) out.push(`décision sur la période d’essai avant le ${fmtShort(t.decideBy)}`);
+      if (rh && t && !d.trialDecision && trialOver(e, t)) A(`essai terminé le ${fmtShort(t.end)} : contrat définitif`, t.end);
+      else if (rh && t && !d.trialDecision && dayDiff(TODAY, t.decideBy) <= 14) A(`décision sur la période d’essai avant le ${fmtShort(t.decideBy)}`, t.decideBy);
       const vip = arrVip(e);
-      if (rh && (!vip || vip.status !== 'Réalisée') && TODAY > addMonths(start, 3)) out.push('visite d’information et de prévention en retard');
-      if (rh && arrivalSteps(e, 4).every(Boolean)) out.push('intégration à clôturer');
+      if (rh && (!vip || vip.status !== 'Réalisée') && TODAY > addMonths(start, 3)) A('visite d’information et de prévention en retard', addMonths(start, 3));
+      if (rh && arrivalSteps(e, 4).every(Boolean)) A('intégration à clôturer');
     }
     return out;
   }
+  function arrivalActions(e, i = e.stage) { return arrivalTasks(e, i).map((x) => x.l); }
   const arrVip = (e) => db.visits.find((v) => v.empId === e.id && /information/i.test(v.kind) && v.date >= addDays(e.startDate, -30));
   // Pièces que la recrue doit encore déposer depuis son espace.
   const myArrivalTodo = (e) => (e.stage === 2 ? reqDocs(e).filter(([k]) => ['missing', 'refused'].includes(docState(dossier(e), k))).length : 0);
@@ -5498,11 +5623,11 @@
   const pendingChanges = () => (db.changeReqs || []).filter((r) => r.status === 'En attente' && (ui.profile === 'rh' || r.empId === me().id));
   // Échéancier : tout ce qui arrive à expiration dans les 120 prochains jours (ou déjà dépassé).
   function adminDeadlines(people) {
-    const out = [], horizon = addDays(TODAY, 120), push = (e, date, label, sub) => { if (date <= horizon) out.push({ e, date, label, sub }); };
+    const out = [], horizon = addDays(TODAY, 120), push = (e, date, label, sub, hard) => { if (date <= horizon) out.push({ e, date, label, sub, hard: hard || date }); };
     people.filter((e) => e.stage >= 2 && e.stage < 15).forEach((e) => {
-      if (e.titreEnd) push(e, addDays(e.titreEnd, -90), `Titre de séjour : expire le ${fmtDate(e.titreEnd)}`, 'Demander le justificatif de renouvellement et vérifier l’autorisation de travail');
-      if (e.contract === 'CDD' && e.endDate) push(e, addDays(e.endDate, -30), `Fin de CDD le ${fmtDate(e.endDate)}`, 'Renouvellement, embauche en CDI ou fin du contrat (indemnité de fin de contrat de 10 %)');
-      if (e.contract === 'Alternance' && e.endDate) push(e, addDays(e.endDate, -60), `Fin du contrat d’alternance le ${fmtDate(e.endDate)}`, 'Préparer la suite : embauche ou fin de contrat');
+      if (e.titreEnd) push(e, addDays(e.titreEnd, -90), `Titre de séjour : expire le ${fmtDate(e.titreEnd)}`, 'Demander le justificatif de renouvellement et vérifier l’autorisation de travail', e.titreEnd);
+      if (e.contract === 'CDD' && e.endDate) push(e, addDays(e.endDate, -30), `Fin de CDD le ${fmtDate(e.endDate)}`, 'Renouvellement, embauche en CDI ou fin du contrat (indemnité de fin de contrat de 10 %)', e.endDate);
+      if (e.contract === 'Alternance' && e.endDate) push(e, addDays(e.endDate, -60), `Fin du contrat d’alternance le ${fmtDate(e.endDate)}`, 'Préparer la suite : embauche ou fin de contrat', e.endDate);
       if (e.stage === 4) { const t = trialInfo(e), d = dossier(e); if (t && !d.trialDecision) push(e, t.decideBy, `Période d’essai : fin le ${fmtDate(t.end)}`, 'Décision à notifier en respectant le délai de prévenance'); }
       if (e.stage === 3) { const d = dossier(e); if (!d.info7) push(e, addDays(e.startDate, 7), 'Informations essentielles à remettre', 'Décret du 30 octobre 2023'); }
     });
@@ -6113,15 +6238,18 @@
     // « Gestion des demandes » : faite quand les demandes reçues sont traitées, ou quand le dossier est archivé sans demande.
     return [!!d.archivedAt, !!d.retentionOk, !d.requests.some((x) => x.status === 'En attente') && (d.requests.length > 0 || !!d.archivedAt), d.rehire !== undefined && d.rehire !== null];
   }
-  function departActions(e) {
+  // Actions de départ avec leur échéance : le dernier jour du contrat (aucune échéance une fois le salarié sorti et le dossier archivé).
+  function departTasks(e) {
     if (ui.profile !== 'rh') return [];
     const s = departSteps(e, e.stage), d = offb(e), x = e.exit || {}, late = x.lastDay && x.lastDay < TODAY ? ` · en retard depuis le ${fmtShort(x.lastDay)}` : '';
     const labels = { 13: ['', isLic(x.reason) && !d.proc.letterAt ? 'procédure de licenciement' : 'préavis à valider', 'indemnités à chiffrer', 'documents de sortie à préparer', 'restitution à planifier'], 14: ['entretien de départ', 'passation', 'matériel à récupérer', 'accès et portabilité', `documents à remettre${late}`], 15: ['dossier à archiver', 'durées de conservation', 'demande d’un ancien salarié', 'décision de réembauche'] }[e.stage];
-    const out = s.map((v, k) => (v ? '' : labels[k])).filter(Boolean);
-    if (e.stage === 14 && x.lastDay && x.lastDay <= TODAY && !d.accessOff) out.unshift(x.lastDay < TODAY ? `accès à couper${late}` : 'accès à couper aujourd’hui');
-    if (e.stage === 14 && x.lastDay && x.lastDay <= TODAY && !d.dsnFin && x.reason !== 'Fin de stage') out.push('signalement DSN de fin de contrat');
+    const due = e.stage === 15 ? null : x.lastDay || null;
+    const out = s.map((v, k) => (v ? '' : labels[k])).filter(Boolean).map((l) => ({ l, due }));
+    if (e.stage === 14 && x.lastDay && x.lastDay <= TODAY && !d.accessOff) out.unshift({ l: x.lastDay < TODAY ? `accès à couper${late}` : 'accès à couper aujourd’hui', due });
+    if (e.stage === 14 && x.lastDay && x.lastDay <= TODAY && !d.dsnFin && x.reason !== 'Fin de stage') out.push({ l: 'signalement DSN de fin de contrat', due });
     return out;
   }
+  function departActions(e) { return departTasks(e).map((x) => x.l); }
   // Procédure de licenciement (RH) : convocation, entretien préalable, lettre ; repères de délai et dispositifs du licenciement économique.
   function licProcedure(e, d) {
     const p = d.proc, x = e.exit || {}, r = x.reason, eco = r === 'Licenciement économique';
@@ -7191,13 +7319,14 @@
     try { renderNow(); } finally { rendering = false; }
   }
   function renderNow() {
-    route();
+    route(); TASKS.clear();
     if (ui.orgPreview && !orgDrag && !(ui.modal && ui.modal.type === 'org-move')) ui.orgPreview = null;
-    const scrollY = window.scrollY;
+    const scrollY = window.scrollY, railWas = document.querySelector('.rail-in'), railTop = railWas ? railWas.scrollTop : 0;
+    if (ui.view !== 'accueil') wheelIntro = true;
     const mob = isMob(); if (!mob || ui.profile !== 'salarie') ui.mobMore = false;
     document.getElementById('app').innerHTML = mob && (ui.view === 'setup' || ui.profile !== 'salarie') ? mobGate()
       : mob ? `<div class="app mob">${mobTop()}<main class="view" id="view">${ui.view === 'accueil' || MOB_OFF.includes(ui.view) ? mobHome() : VIEWS[ui.view]()}</main>${footer()}${mobNav()}</div>`
-      : ui.view === 'setup' ? `<div class="app setup">${viewSetup()}${footer()}${avisFab()}</div>` : `<div class="app">${topbar()}${stageRail()}<main class="view" id="view">${VIEWS[ui.view]()}</main>${footer()}${avisFab()}</div>`;
+      : ui.view === 'setup' ? `<div class="app setup">${viewSetup()}${footer()}${avisFab()}</div>` : `<div class="app">${topbar()}<div class="shell">${stageRail()}<div class="shell-main"><main class="view" id="view">${VIEWS[ui.view]()}</main>${footer()}</div></div>${avisFab()}</div>`;
     let ov = '';
     if (ui.drawer) {
       const dt = ui.drawer.type, cs = dt === 'case' && db.cases.find((c) => c.id === ui.drawer.id);
@@ -7211,7 +7340,12 @@
     document.getElementById('overlay').innerHTML = ov;
     if (drawerAnim) { drawerAnim = false; requestAnimationFrame(() => requestAnimationFrame(() => document.querySelectorAll('.scrim, .drawer').forEach((el) => el.classList.add('on')))); }
     window.scrollTo(0, scrollY);
-    const cur = document.querySelector('.rail [aria-current]'); if (cur) cur.parentElement.scrollLeft = cur.offsetLeft - 80;
+    const top = document.querySelector('.top'); if (top) document.documentElement.style.setProperty('--top-h', `${top.offsetHeight}px`);
+    // Menu des rubriques : on garde sa position de défilement d'un rendu à l'autre, et la rubrique ouverte reste visible.
+    const rail = document.querySelector('.rail-in'), cur = rail && rail.querySelector('[aria-current]');
+    if (rail) { rail.scrollTop = railTop;
+      if (cur && rail.scrollWidth > rail.clientWidth) rail.scrollLeft = cur.offsetLeft - 80;
+      if (cur && (cur.offsetTop < rail.scrollTop || cur.offsetTop + cur.offsetHeight > rail.scrollTop + rail.clientHeight)) rail.scrollTop = cur.offsetTop - 80; }
     if (ui.view === 'accueil' && !mob) bindWheel();
     if (ui.view === 'recrutement') bindBoard();
     bindSignature(); bindTplEditor(); bindDocEditor(); bindOrg(); if (tour) requestAnimationFrame(tourPlace);
@@ -7309,9 +7443,6 @@
       if (f) { f.scrollIntoView({ block: 'start' }); window.scrollBy(0, -70); }
     },
     'notif-read'() { db.notifications.forEach((n) => { if (n.to === me().id) n.read = true; }); commit(); },
-    hub() { if (ui.wheelOpen && Date.now() - openedAt < 500) return; // a tap fires mouseenter (opens) then click
-      if (ui.wheelOpen) closeWheel(); else openWheel(); },
-    // A stage of the wheel (or of the strip) opens its module.
     stage(d) {
       const i = Number(d.i), v = stageView(i); if (!v) return;
       if (v === 'recrutement') Object.assign(ui, { recTab: 'todo', recJob: null });

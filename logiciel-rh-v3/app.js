@@ -87,7 +87,11 @@
   const pad = (n) => String(n).padStart(2, '0');
   const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const parse = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d || 1); };
-  const TODAY = iso(new Date());
+  // Date du jour. Les données fictives de Nova Studio sont datées : la démo vit à leur date (TEAMORA_DEMO_DATE, dans data.js),
+  // sinon tout paraîtrait en retard dès le mois suivant. Une « nouvelle entreprise » vit à la date réelle.
+  const clockDay = () => (TENANT === 'nova' && window.TEAMORA_DEMO_DATE) || iso(new Date());
+  const demoDay = () => TENANT === 'nova' && !!window.TEAMORA_DEMO_DATE;
+  let TODAY = clockDay();
   const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
   const fmtDate = (s, o = { day: 'numeric', month: 'short', year: 'numeric' }) => (s ? new Intl.DateTimeFormat('fr-FR', o).format(parse(s)) : '—');
   // Date courte (« 3 nov. ») ; l'année s'ajoute quand la date n'est pas dans l'année en cours (« 3 nov. 2027 »).
@@ -569,7 +573,8 @@
   // ---------------------------------------------------------------- À traiter : une action par ligne, classée par urgence
   // Chaque action : { k, i (rubrique ou 'obl'), l (libellé), who (salarié), name (autre personne : candidat), sub, due (date ISO ou null), btn, go }.
   // due : l'échéance que l'application connaît déjà ; pour une demande sans échéance, REPLY_DAYS jours après la demande (délai interne de réponse).
-  const REPLY_DAYS = 7, WEEK_END = addDays(TODAY, 7), TASKS = new Map();
+  const REPLY_DAYS = 7, TASKS = new Map();
+  let WEEK_END = addDays(TODAY, 7);
   function todoTasks() {
     const key = `${ui.profile}|${ui.selfOf || ''}|${me().id}`; if (TASKS.has(key)) return TASKS.get(key);
     const p = ui.profile, rh = p === 'rh', m = me(), out = [], vis = visibleStages(), iOf = (v) => vis.find((i) => stageView(i) === v), has = (v) => iOf(v) !== undefined;
@@ -868,7 +873,7 @@
   function todayPanel() {
     const all = todoTasks(), n = (k) => all.filter((t) => urgency(t) === k).length, late = n('late'), week = n('week'), later = all.length - late - week, top = all.slice(0, 5), tu = ui.profile === 'salarie';
     const sum = [late ? `<b class="u-late">${plural(late, 'action en retard', 'actions en retard')}</b>` : '', week ? `${week} cette semaine` : '', later ? `${later} plus tard` : ''].filter(Boolean).join(' · ');
-    return `<section class="today card" aria-label="Aujourd’hui"><header class="today-h"><div><small>${esc(fmtDate(TODAY, { weekday: 'long', day: 'numeric', month: 'long' }))}</small><h2>Aujourd’hui</h2></div>
+    return `<section class="today card" aria-label="Aujourd’hui"><header class="today-h"><div><small>${esc(fmtDate(TODAY, demoDay() ? { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' } : { weekday: 'long', day: 'numeric', month: 'long' }))}${demoDay() ? '<span class="demo-day" title="Les données fictives de Nova Studio sont datées de début octobre 2026 : la démo se déroule toujours à cette date.">date de la démo</span>' : ''}</small><h2>Aujourd’hui</h2></div>
         ${all.length ? `<button type="button" class="btn ghost sm" data-act="todo-open">Tout voir<span class="count num">${all.length}</span></button>` : ''}</header>
       ${sum ? `<p class="today-sum">${sum}</p>` : ''}
       <div class="today-list">${top.length ? top.map((t) => { const r = taskRub(t), who = t.who ? fullName(t.who) : t.name;
@@ -2062,7 +2067,7 @@
   const presentOn = (e, day) => e.startDate <= day && !(e.exit && e.exit.lastDay && e.exit.lastDay < day) && !(e.stage === 15 && !(e.exit && e.exit.lastDay));
   const etpAt = (day) => Math.round(db.employees.filter((e) => countsInEff(e) && presentOn(e, day)).reduce((s, e) => s + (e.quotite || 100) / 100, 0) * 10) / 10;
   const monthDay = (m) => (m === monthKey(TODAY) ? TODAY : monthEnd(m));
-  const YEAR = Number(TODAY.slice(0, 4));
+  let YEAR = Number(TODAY.slice(0, 4));
   function effState() {
     const c = db.compliance, sim = c.sim, cur = monthKey(TODAY);
     const months = Array.from({ length: 12 }, (_, i) => shiftMonth(cur, i - 11)).map((m) => ({ m, v: etpAt(monthDay(m)) }));
@@ -7869,6 +7874,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
   }
   function switchTenant(t, fresh) {
     save(); saveUI(); TENANT = t; try { localStorage.setItem('teamora-v3-tenant', t); } catch (e) { /* ignore */ } setStores();
+    TODAY = clockDay(); WEEK_END = addDays(TODAY, 7); YEAR = Number(TODAY.slice(0, 4)); TASKS.clear();
     db = fresh ? blankSeed() : load(); normalizeSettings(); applySettings(); normalizeCompliance(); normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); syncArrivals(); save();
     ui = Object.assign({ profile: 'rh', view: t === 'new' ? 'setup' : 'accueil', stage: null }, fresh ? {} : loadUI(), freshUI(), { modal: null, wizStep: fresh ? 'bienvenue' : (loadUI().wizStep || 'bienvenue') });
     ui.orgZoom = Number(ui.orgZoom) || 1; ui.orgFold = ui.orgFold || {}; if (!PROFILES[ui.profile]) ui.profile = 'rh';
@@ -7935,7 +7941,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
   if (DEMO && isMob() && ui.profile !== 'salarie') Object.assign(ui, { profile: 'salarie', selfOf: null, view: 'accueil', stage: null });
   render(); helpInit();
   // Tests automatisés seulement : fonctions pures du socle exposées si la page de test pose window.TEAMORA_TEST avant le chargement.
-  if (window.TEAMORA_TEST === true) window.__teamoraTest = { isHoliday, isOuvre, isOuvrable, addOuvres, addOuvrables, addCalendarDaysReport, countOuvres, countOuvrables, addWorkDays, subWorkDays, workDays, salaryCheck, dateGuard, fmtShort, fmtDateY, TODAY,
+  if (window.TEAMORA_TEST === true) window.__teamoraTest = { today: () => TODAY, isHoliday, isOuvre, isOuvrable, addOuvres, addOuvrables, addCalendarDaysReport, countOuvres, countOuvrables, addWorkDays, subWorkDays, workDays, salaryCheck, dateGuard, fmtShort, fmtDateY, TODAY,
     lintAd, lintFree, cddError, cddText, offerTrial, noHF, rgpdNote };
   if (window.TEAMORA_TEST === true) Object.assign(window.__teamoraTest, { nirCheck, trialNotice, breakQuote, sha256, arrivalCtx, docPDF, trialOver, trialInfo, dpaeChecks });
   // Tests du tronçon « vie en poste » : calcul des bulletins et des compteurs.

@@ -82,5 +82,21 @@ const { chromium, ouvrir, compteur } = require('./outils');
   p = await ouvrir(b, { page: 'demo.html', visite: true }); await p.waitForTimeout(900);
   let vu = false; for (let k = 0; k < 14 && !vu; k++) { vu = /Aujourd’hui/.test(await p.locator('#tour').innerText()); if (!vu) { await p.click('#tour [data-tour="next"], #tour .btn.primary'); await p.waitForTimeout(250); } }
   t.ok(vu && !p.erreurs.length, 'démo : la visite guidée présente « Aujourd’hui »');
+  await p.close();
+
+  // 9. La démo reste au 6 octobre 2026 quand la date réelle avance ; une « nouvelle entreprise » suit la date réelle.
+  for (const page of ['index.html', 'demo.html']) {
+    p = await ouvrir(b, { page, jour: '2026-11-16' });
+    const d = await p.evaluate(() => ({ jour: document.querySelector('.today-h small').textContent, resume: document.querySelector('.today-sum').textContent, etiquette: !!document.querySelector('.today-h .demo-day') }));
+    t.ok(/mardi 6 octobre 2026/i.test(d.jour) && d.etiquette && /22 actions en retard · 19 cette semaine · 21 plus tard/.test(d.resume), `${page} ouverte le 16 novembre : ${d.jour} · ${d.resume}`);
+    if (page === 'demo.html') { t.ok(!p.erreurs.length, 'démo : aucune erreur'); await p.close(); }
+  }
+  p = await ouvrir(b, { jour: '2026-11-16' });
+  await p.click('[data-act="tenant-new"]'); await p.click('[data-act="tenant-new-ok"]'); await p.waitForTimeout(300);
+  const neuve = await p.evaluate(() => window.__teamoraTest.today());
+  t.ok(neuve === '2026-11-16', `nouvelle entreprise : date réelle (${neuve})`);
+  await p.click('[data-act="tenant-nova"] >> nth=0'); await p.waitForTimeout(300);
+  const retour = await p.evaluate(() => ({ jour: window.__teamoraTest.today(), ecran: (document.querySelector('.today-h small') || {}).textContent || '' }));
+  t.ok(retour.jour === '2026-10-06' && /mardi 6 octobre 2026/i.test(retour.ecran) && !p.erreurs.length, `retour à la démo : ${retour.jour} · ${retour.ecran}`);
   await b.close(); t.fin();
 })();

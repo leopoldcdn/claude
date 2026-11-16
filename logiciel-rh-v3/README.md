@@ -37,14 +37,18 @@
 - **Menu** : hors de l'accueil, les rubriques sont dans une colonne à gauche, chacune avec son nom, regroupées en quatre
   familles (Recruter, Gérer, Développer, Départ ; « Piloter » pour les outils RH). Sous 1280 px, la colonne devient un bandeau
   horizontal. Dans l'espace salarié, les familles s'appellent Arrivée, Au quotidien, Évolution, Départ.
-- **Limite connue** : les données fictives de Nova Studio sont datées de début octobre 2026 et l'application utilise la date
-  réelle. Plus le temps passe, plus d'actions basculent « en retard » (22 sur 62 au 6 octobre 2026, 69 sur 83 au 16 novembre).
+- **Date de la démo** : les données fictives de Nova Studio sont toutes datées, écrites pour le 6 octobre 2026. Tant qu'on
+  reste dans la démo, l'application s'ouvre donc à cette date (`TEAMORA_DEMO_DATE` dans `data.js`, lue par `clockDay` dans
+  `app.js`) et l'accueil l'indique (« date de la démo »). Sans cela, presque tout basculait « en retard » au fil des
+  semaines (69 actions sur 83 au 16 novembre, contre 22 sur 62 au 6 octobre). Une « nouvelle entreprise » créée depuis la
+  version de travail vit, elle, à la date réelle. Pour faire avancer la démo, il faut changer cette date et les données
+  ensemble.
 
 ## Tests
 
 Les tests sont dans `tests/` et se lancent avec Node et Playwright : `node tests/parcours.js` (chaque profil ouvre l'accueil,
 « À traiter » et toutes ses rubriques, sans erreur) et `node tests/accueil_a_traiter.js` (accueil, urgence, pastilles, menu).
-Ils figent l'horloge au 6 octobre 2026, date pour laquelle la démo a été écrite. Les scripts de test des versions précédentes
+Ils vérifient aussi que la démo reste au 6 octobre 2026 quand la date réelle avance. Les scripts de test des versions précédentes
 étaient gardés dans un dossier temporaire, hors du dépôt, et n'existent plus.
 
 ## Téléchargements dans les artefacts

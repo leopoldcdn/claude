@@ -1,6 +1,10 @@
 // Teamora — données de démonstration (toutes fictives).
 // Chargées au premier lancement puis conservées dans le navigateur (localStorage).
 
+// Date à laquelle se déroule la démo Nova Studio : toutes les dates ci-dessous ont été écrites pour ce jour-là.
+// L'application s'ouvre à cette date tant qu'on reste dans la démo (voir clockDay dans app.js).
+window.TEAMORA_DEMO_DATE = '2026-10-06';
+
 window.TEAMORA_STAGES = [
   { short: 'Besoin RH', title: 'Expression du besoin RH', icon: 'target', module: 'recrutement',
     steps: ['Identification du besoin', 'Définition du poste et du profil recherché', 'Validation du besoin'] },

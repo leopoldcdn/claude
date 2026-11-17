@@ -12,7 +12,8 @@ const { chromium, ouvrir, compteur } = require('./outils');
     for (let k = 0; k < n; k++) {
       await p.evaluate(() => document.querySelector('[data-act="go"][data-v="accueil"]').click()); await p.waitForTimeout(120);
       const nom = await p.locator('.node').nth(k).getAttribute('aria-label');
-      await p.locator('.node').nth(k).click({ force: true }); await p.waitForTimeout(200);
+      await p.hover('.wheel-box', { position: { x: 30, y: 30 } }); await p.waitForTimeout(150); // la roue se déploie au survol
+      await p.locator('.node').nth(k).click(); await p.waitForTimeout(200);
       const etat = await p.evaluate(() => ({ texte: document.getElementById('view').innerText.trim().length, menu: !!document.querySelector('.rail [aria-current]'), large: document.documentElement.scrollWidth > innerWidth + 2 }));
       if (etat.texte < 20 || !etat.menu || etat.large) vides.push(`${nom} ${JSON.stringify(etat)}`);
     }

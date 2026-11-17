@@ -4,7 +4,7 @@ const { chromium, ouvrir, compteur } = require('./outils');
   const b = await chromium.launch(), t = compteur('accueil_a_traiter');
   let p = await ouvrir(b);
 
-  // 1. Accueil « Aujourd'hui » : 5 actions, les plus urgentes d'abord, la roue ouverte sans survol.
+  // 1. Accueil « Aujourd'hui » : 5 actions, les plus urgentes d'abord ; la roue, repliée au repos, se déploie au survol.
   const home = await p.evaluate(() => ({ lignes: [...document.querySelectorAll('.today .task')].map((x) => ({ texte: x.querySelector('.t b').textContent, date: x.querySelector('.due').textContent, classe: x.className })),
     resume: document.querySelector('.today-sum').textContent, jour: document.querySelector('.today-h small').textContent,
     noeuds: [...document.querySelectorAll('.node')].map((n) => getComputedStyle(n).opacity), labels: [...document.querySelectorAll('.lab-in')].map((l) => getComputedStyle(l).opacity), centreBouton: document.querySelector('.hub').tagName }));
@@ -12,14 +12,28 @@ const { chromium, ouvrir, compteur } = require('./outils');
   t.ok(/mardi 6 octobre/i.test(home.jour), `date du jour affichée : ${home.jour}`);
   t.ok(home.lignes.every((x) => /u-late/.test(x.classe)) && /retard de 219 jours/.test(home.lignes[0].date), `les plus en retard en premier : ${home.lignes[0].texte} · ${home.lignes[0].date}`);
   t.ok(/22 actions en retard · 19 cette semaine · 21 plus tard/.test(home.resume), `résumé : ${home.resume}`);
-  t.ok(home.noeuds.length === 12 && home.noeuds.every((o) => o === '1') && home.labels.every((o) => o === '1'), 'la roue est ouverte dès l’arrivée (12 rubriques et leurs noms visibles)');
-  t.ok(home.centreBouton === 'DIV', 'le centre de la roue ne replie plus le menu');
+  const roue = () => p.evaluate(() => ({ noeuds: [...document.querySelectorAll('.node')].map((n) => getComputedStyle(n).opacity), labels: [...document.querySelectorAll('.lab-in')].map((l) => getComputedStyle(l).opacity),
+    focus: [...document.querySelectorAll('.node')].map((n) => n.tabIndex), centre: document.querySelector('.hub').getAttribute('aria-expanded'), aide: document.getElementById('wheel-hint').textContent }));
+  t.ok(home.noeuds.length === 12 && home.noeuds.every((o) => o === '0') && home.labels.every((o) => o === '0') && home.centreBouton === 'BUTTON', 'au repos, la roue est repliée sur son centre');
+  t.ok(/Survolez/.test((await roue()).aide), 'une aide invite à survoler la roue');
+  await p.hover('.wheel-box', { position: { x: 30, y: 30 } }); await p.waitForTimeout(200);
+  let r = await roue();
+  t.ok(r.noeuds.every((o) => o === '1') && r.labels.every((o) => o === '1') && r.focus.every((x) => x === 0) && r.centre === 'true' && /Cliquez/.test(r.aide), 'au survol, la roue se déploie (12 rubriques et leurs noms)');
+  await p.mouse.move(5, 880); await p.waitForTimeout(1000);
+  r = await roue();
+  t.ok(r.noeuds.every((o) => o === '0') && r.focus.every((x) => x === -1) && r.centre === 'false', 'la souris partie, la roue se replie');
+  await p.click('.hub'); await p.waitForTimeout(600); // un toucher déclenche aussi le survol : le clic qui suit de près est ignoré
+  t.ok((await roue()).noeuds.every((o) => o === '1'), 'un clic (ou un toucher) sur le centre la déploie');
+  await p.click('.hub'); await p.waitForTimeout(700);
+  t.ok((await roue()).noeuds.every((o) => o === '0'), 'un second clic sur le centre la replie');
 
   // 2. Pastilles : seulement les retards, et leur total égale le nombre d'actions en retard.
   const past = await p.evaluate(() => ({ roue: [...document.querySelectorAll('.node .badge')].map((x) => Number(x.textContent)), bouton: document.querySelector('.todo-btn').getAttribute('aria-label'), pastille: document.querySelector('.todo-btn .todo-n').textContent }));
   const retards = Number(/(\d+) en retard/.exec(past.bouton)[1]);
   t.ok(retards === 22 && past.pastille === '22', `bouton « À traiter » : ${past.bouton}`);
-  await p.click('.node[data-i="6"]', { force: true }); await p.waitForTimeout(200);
+  await p.mouse.move(5, 880); await p.waitForTimeout(100);
+  await p.hover('.wheel-box', { position: { x: 30, y: 30 } }); await p.waitForTimeout(150);
+  await p.click('.node[data-i="6"]'); await p.waitForTimeout(200);
   const menu = await p.evaluate(() => ({ familles: [...document.querySelectorAll('.rail-t')].map((x) => x.textContent), items: [...document.querySelectorAll('.rail-i')].map((x) => ({ nom: x.querySelector('.rail-l').textContent.trim(), pastille: x.querySelector('.badge') ? Number(x.querySelector('.badge').textContent) : 0, courant: x.hasAttribute('aria-current') })) }));
   const somme = menu.items.reduce((s, x) => s + x.pastille, 0);
   t.ok(somme === retards, `total des pastilles du menu (${somme}) = actions en retard (${retards})`);
@@ -73,7 +87,8 @@ const { chromium, ouvrir, compteur } = require('./outils');
   t.ok(mgr.lignes > 0 && mgr.lignes <= 5, `manager : ${mgr.lignes} actions sur l’accueil (${mgr.bouton})`);
   t.ok(!p.erreurs.length, 'manager : aucune erreur'); await p.close();
   p = await ouvrir(b, { ui: { profile: 'salarie' } });
-  await p.click('.node >> nth=1', { force: true }); await p.waitForTimeout(200);
+  await p.hover('.wheel-box', { position: { x: 30, y: 30 } }); await p.waitForTimeout(150);
+  await p.click('.node >> nth=1'); await p.waitForTimeout(200);
   const sal = await p.evaluate(() => [...document.querySelectorAll('.rail-t')].map((x) => x.textContent));
   t.ok(sal.includes('Au quotidien') && !sal.includes('Piloter'), `salarié : familles ${sal.join(', ')}`);
   t.ok(!p.erreurs.length, 'salarié : aucune erreur'); await p.close();
@@ -82,6 +97,11 @@ const { chromium, ouvrir, compteur } = require('./outils');
   p = await ouvrir(b, { page: 'demo.html', visite: true }); await p.waitForTimeout(900);
   let vu = false; for (let k = 0; k < 14 && !vu; k++) { vu = /Aujourd’hui/.test(await p.locator('#tour').innerText()); if (!vu) { await p.click('#tour [data-tour="next"], #tour .btn.primary'); await p.waitForTimeout(250); } }
   t.ok(vu && !p.erreurs.length, 'démo : la visite guidée présente « Aujourd’hui »');
+  await p.click('#tour [data-tour="next"]'); await p.waitForTimeout(900);
+  const etape = await p.evaluate(() => ({ titre: document.getElementById('tour-t').textContent, noeuds: [...document.querySelectorAll('.node')].map((n) => getComputedStyle(n).opacity) }));
+  t.ok(/roue/.test(etape.titre) && etape.noeuds.length && etape.noeuds.every((o) => o === '1'), `visite : l’étape « ${etape.titre} » déploie la roue`);
+  await p.click('#tour [data-tour="next"]'); await p.waitForTimeout(300);
+  t.ok(await p.evaluate(() => [...document.querySelectorAll('.node')].every((n) => getComputedStyle(n).opacity === '0')) && !p.erreurs.length, 'visite : à l’étape suivante, la roue se replie');
   await p.close();
 
   // 9. La démo reste au 6 octobre 2026 quand la date réelle avance ; une « nouvelle entreprise » suit la date réelle.

@@ -72,7 +72,7 @@
     manager: { emp: 'e2', label: 'Manager' },
     salarie: { emp: 'e3', label: 'Salarié' },
   };
-  const freshUI = () => ({ tplSel: null, tplDraft: null, selPerson: null, q: '', fDept: '', fStatus: '', sort: 'name', sortDir: 1,
+  const freshUI = () => ({ tplSel: null, tplDraft: null, wheelOpen: false, selPerson: null, q: '', fDept: '', fStatus: '', sort: 'name', sortDir: 1,
     absTab: 'valider', histStatus: '', planMonth: null, payMonth: null, recJob: null, drawer: null, modal: null, notif: false,
     nSort: 'since', nDir: -1, recTab: 'todo', offerTab: 'cands', colOpen: {}, oSort: 'status', oDir: 1, nq: '', nDept: '', nStatus: 'auto', nFrom: '', rq: '', rDept: '', rStatus: '', rFrom: '', adminTab: 'annuaire', payTab: 'paie', payStep: null, procTab: 'cours', procSel: null, procPhase: null, orgQ: '', orgDept: '', orgSite: '', profTab: 'profil', tsWeek: null, revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
   // Deux versions : « travail » (index.html, toutes les options) et « démo » (demo.html, lien partagé aux PME testeuses).
@@ -810,7 +810,7 @@
     wheelN = vis.length;
     const nodes = vis.map((i) => {
       const s = stageDef(i), cls = '';
-      return `<button type="button" class="node ${cls}" data-act="stage" data-i="${i}" style="background:${STAGE_COLORS[i]}" aria-label="${esc(s.title)} · ${esc(stageView(i) === 'etape' ? 'suivi' : VIEW_LABELS[ui.profile][stageView(i)])}">${ic(s.icon)}${stageBadge(i)}</button>`;
+      return `<button type="button" class="node ${cls}" data-act="stage" data-i="${i}" style="background:${STAGE_COLORS[i]}" aria-label="${esc(s.title)} · ${esc(stageView(i) === 'etape' ? 'suivi' : VIEW_LABELS[ui.profile][stageView(i)])}" tabindex="${ui.wheelOpen ? 0 : -1}">${ic(s.icon)}${stageBadge(i)}</button>`;
     }).join('');
     const labels = vis.map((i, k) => {
       const s = stageDef(i), p = nodePos(k, W.LR), c = Math.cos(ang(k)), sn = Math.sin(ang(k));
@@ -824,9 +824,11 @@
       : ui.profile === 'manager' ? `<small>MON ÉQUIPE</small><b>${esc(m.dept)}</b><span class="hub-n num">${plural(scopeEmployees().filter(isEmployed).length, 'personne', 'personnes')}</span>`
         : `<small>NOVA STUDIO</small><b>Collaborateurs</b><span class="hub-n num">${plural(db.employees.filter(isEmployed).length, 'collaborateur', 'collaborateurs')}</span>`;
     return `<div class="wheel-box" id="wheel-box"><div class="wheel" id="wheel">${labels}${nodes}
-      <div class="hub">${hubText}</div></div></div>
-      <p class="wheel-hint" id="wheel-hint">${ui.profile === 'salarie' ? 'Clique sur une rubrique pour l’ouvrir' : 'Cliquez sur une rubrique pour l’ouvrir'}</p>`;
+      <button type="button" class="hub" data-act="hub" aria-expanded="${ui.wheelOpen}" aria-label="${ui.wheelOpen ? 'Replier' : 'Déplier'} le menu">${hubText}</button></div></div>
+      <p class="wheel-hint" id="wheel-hint">${wheelHint(ui.wheelOpen)}</p>`;
   }
+  const wheelHint = (open) => (ui.profile === 'salarie' ? (open ? 'Clique sur une rubrique pour l’ouvrir' : 'Survole ou touche la roue pour afficher le menu')
+    : (open ? 'Cliquez sur une rubrique pour l’ouvrir' : 'Survolez ou touchez la roue pour afficher le menu'));
   function stepsList(arr, steps, editable, empId, stage) {
     return `<div class="steps">${steps.map((t, k) => `<div class="step ${arr[k] ? 'done' : ''}">${editable
       ? `<button type="button" class="ckbox" role="checkbox" aria-checked="${arr[k]}" data-act="jcheck" data-id="${empId}" data-s="${stage}" data-k="${k}" aria-label="${esc(t)}">${ic('check')}</button>`
@@ -869,7 +871,7 @@
       ${i === 14 ? exitStats() : ''}${i === 4 && rh ? planConfig() : ''}${people.length ? '' : `<div class="card"><div class="card-h"><h3>Points à suivre</h3></div><div class="card-b">${stepsList(steps.map(() => false), steps, false)}</div></div>`}${moduleBtn(i)}`;
     return `<div class="card card-b">${stageHead(i)}</div>${body}`;
   }
-  // Accueil « Aujourd'hui » : les 5 actions les plus urgentes avec leur date ; la roue, toujours ouverte, sert de menu à côté.
+  // Accueil « Aujourd'hui » : les 5 actions les plus urgentes avec leur date ; la roue sert de menu à côté et se déploie au survol.
   function todayPanel() {
     const all = todoTasks(), n = (k) => all.filter((t) => urgency(t) === k).length, late = n('late'), week = n('week'), later = all.length - late - week, top = all.slice(0, 5), tu = ui.profile === 'salarie';
     const sum = [late ? `<b class="u-late">${plural(late, 'action en retard', 'actions en retard')}</b>` : '', week ? `${week} cette semaine` : '', later ? `${later} plus tard` : ''].filter(Boolean).join(' · ');
@@ -900,13 +902,27 @@
     applyPlain(el, vars);
   }
   function setNode(el, vars) { if (window.gsap) window.gsap.set(el, vars); else applyPlain(el, vars); }
-  // La roue reste ouverte : son ouverture se joue une fois à l'arrivée sur l'accueil, pas à chaque rendu.
-  let wheelIntro = true;
+  // La roue est repliée au repos et se déploie au survol (ou au toucher du centre) ; un rendu la remet dans son état courant, sans animation.
   function placeWheel() {
-    const nodes = [...document.querySelectorAll('.node')], labs = [...document.querySelectorAll('.lab-in')], intro = wheelIntro && !reduce; wheelIntro = false;
-    if (!intro) { nodes.forEach((n, i) => { const p = nodePos(i); setNode(n, { x: p.x, y: p.y, opacity: 1, scale: 1 }); }); labs.forEach((l) => { l.style.opacity = 1; }); return; }
-    nodes.forEach((n, i) => { const p = nodePos(i); setNode(n, { x: 0, y: 0, opacity: 0, scale: 0.4 }); tw(n, { x: p.x, y: p.y, opacity: 1, scale: 1, duration: 0.75, delay: i * 0.035, ease: 'back.out(1.5)' }); });
-    labs.forEach((l, i) => { l.style.opacity = 0; tw(l, { opacity: 1, duration: 0.35, delay: 0.35 + i * 0.035 }); });
+    const nodes = document.querySelectorAll('.node'), labs = document.querySelectorAll('.lab-in');
+    nodes.forEach((n, i) => { const p = nodePos(i); setNode(n, ui.wheelOpen ? { x: p.x, y: p.y, opacity: 1, scale: 1 } : { x: 0, y: 0, opacity: 0, scale: 0.4 }); });
+    labs.forEach((l) => { l.style.opacity = ui.wheelOpen ? 1 : 0; });
+  }
+  let closeTimer = null, openedAt = 0;
+  function openWheel() {
+    if (ui.wheelOpen) return; ui.wheelOpen = true; openedAt = Date.now();
+    document.querySelectorAll('.node').forEach((n, i) => { const p = nodePos(i); n.tabIndex = 0; tw(n, { x: p.x, y: p.y, opacity: 1, scale: 1, duration: 0.75, delay: i * 0.035, ease: 'back.out(1.5)' }); });
+    document.querySelectorAll('.lab-in').forEach((l, i) => tw(l, { opacity: 1, duration: 0.35, delay: 0.35 + i * 0.035 }));
+    const hint = document.getElementById('wheel-hint'); if (hint) hint.textContent = wheelHint(true);
+    const hub = document.querySelector('.hub'); if (hub) { hub.setAttribute('aria-expanded', 'true'); hub.setAttribute('aria-label', 'Replier le menu'); tw(hub, { scale: 1.03, duration: 0.4 }); }
+  }
+  function closeWheel() {
+    if (!ui.wheelOpen) return; ui.wheelOpen = false;
+    const nodes = [...document.querySelectorAll('.node')];
+    nodes.forEach((n, i) => { n.tabIndex = -1; tw(n, { x: 0, y: 0, opacity: 0, scale: 0.4, duration: 0.45, delay: (nodes.length - 1 - i) * 0.02, ease: 'power3.in' }); });
+    document.querySelectorAll('.lab-in').forEach((l) => tw(l, { opacity: 0, duration: 0.2 }));
+    const hint = document.getElementById('wheel-hint'); if (hint) hint.textContent = wheelHint(false);
+    const hub = document.querySelector('.hub'); if (hub) { hub.setAttribute('aria-expanded', 'false'); hub.setAttribute('aria-label', 'Déplier le menu'); tw(hub, { scale: 1, duration: 0.4 }); }
   }
   function fitWheel() { const box = document.getElementById('wheel-box'), w = document.getElementById('wheel'); if (box && w) w.style.transform = `scale(${box.clientWidth / 860})`; }
   function bindWheel() {
@@ -917,6 +933,9 @@
       n.addEventListener('mouseenter', () => tw(n, { scale: 1.14, duration: 0.2, overwrite: 'auto' }));
       n.addEventListener('mouseleave', () => tw(n, { scale: 1, duration: 0.2, overwrite: 'auto' }));
     });
+    box.addEventListener('mouseenter', () => { clearTimeout(closeTimer); openWheel(); });
+    box.addEventListener('mouseleave', () => { closeTimer = setTimeout(closeWheel, 700); });
+    box.addEventListener('focusin', () => { clearTimeout(closeTimer); openWheel(); });
   }
 
   // ---------------------------------------------------------------- Collaborateurs
@@ -1562,7 +1581,7 @@
     return [
       { title: 'Bonjour, je suis Teamo', text: 'Je te fais visiter Teamora en deux minutes. Tu es dans la peau d’Olivia, responsable RH de Nova Studio, une entreprise fictive.', go: tourGo({ profile: 'rh', view: 'accueil', stage: null }) },
       { sel: '.today', title: 'Aujourd’hui', text: 'En arrivant, tu vois les cinq actions les plus urgentes, avec leur date. Un clic ouvre l’écran où faire l’action.' },
-      { sel: '.home-wheel', title: 'La roue du collaborateur', text: 'Chaque rubrique est un moment de la vie du collaborateur, du besoin de recrutement au départ. Clique sur une rubrique pour l’ouvrir ; une pastille rouge signale des actions en retard.' },
+      { sel: '.home-wheel', wheel: true, title: 'La roue du collaborateur', text: 'Survole la roue : elle se déploie. Chaque rubrique est un moment de la vie du collaborateur, du besoin de recrutement au départ. Clique sur une rubrique pour l’ouvrir ; une pastille rouge signale des actions en retard.' },
       { sel: '.persona', title: 'Change de point de vue', text: 'Teamora s’adapte à chaque rôle. Passe de la RH au manager ou au salarié pour voir ce que chacun voit et fait.' },
       { sel: '.space-sw', title: 'Gestion ou espace personnel', text: 'La RH et les managers ont aussi leur propre espace salarié : leurs absences, leurs bulletins, leurs entretiens.' },
       { sel: '.todo-btn', title: 'À traiter', text: 'Toutes les actions qui t’attendent, classées par urgence : en retard, cette semaine, plus tard. Une ligne et un bouton par action.' },
@@ -1578,7 +1597,8 @@
   function tourEnd() { tour = null; try { localStorage.setItem(TOUR_KEY, '1'); } catch (e) { /* ignore */ } const el = document.getElementById('tour'); if (el) el.remove(); }
   function tourShow() {
     const st = tour.steps[tour.i]; if (st.go) st.go();
-    window.scrollTo(0, 0); render(); requestAnimationFrame(tourPlace);
+    // La visite bloque la souris : à l'étape de la roue, elle la déploie elle-même ; ailleurs, la roue reste repliée.
+    ui.wheelOpen = false; window.scrollTo(0, 0); render(); requestAnimationFrame(tourPlace); if (st.wheel) setTimeout(openWheel, 250);
   }
   function tourPlace() {
     if (!tour) return;
@@ -2439,7 +2459,7 @@
       ['Obligations selon l’effectif', 'Pictogramme dans le bandeau (RH) : chaque obligation avec son seuil, sa règle de franchissement (immédiat, 12 mois consécutifs, 5 ans), son état et l’écran où la traiter.', 'apercu'],
       ['Alertes', 'Seuil qui approche, obligation qui entre en vigueur (notification aux RH et à la Direction), échéances : elles arrivent dans « À traiter ».', 'apercu'],
       ['Simulation', 'Pour la démo : simuler un effectif (60, 300, 1 200…) et voir le logiciel s’adapter.', 'apercu']]],
-    ['Accueil et menu', [['Aujourd’hui', 'L’accueil affiche les 5 actions les plus urgentes avec leur date ; la roue reste ouverte à côté et sert de menu.', ''],
+    ['Accueil et menu', [['Aujourd’hui', 'L’accueil affiche les 5 actions les plus urgentes avec leur date ; la roue est à côté et se déploie au survol.', ''],
       ['À traiter par urgence', 'Une ligne et un bouton par action, en trois groupes : en retard, cette semaine, plus tard. Une pastille ne signale plus que les retards.', ''],
       ['Menu avec les noms', 'Hors de l’accueil, chaque rubrique porte son nom dans un menu à gauche, en quatre familles : recruter, gérer, développer, départ.', '']]],
     ['Après le test du parcours', [['Recrutement', 'CDD motivé dès le besoin (cas de recours, motif, personne remplacée), salaire comparé au SMIC et au minimum Syntec, annonce sans terme discriminant, vivier avec consentement, proposition qui engage l’entreprise.', 'besoins'],
@@ -7327,7 +7347,6 @@
     route(); TASKS.clear();
     if (ui.orgPreview && !orgDrag && !(ui.modal && ui.modal.type === 'org-move')) ui.orgPreview = null;
     const scrollY = window.scrollY, railWas = document.querySelector('.rail-in'), railTop = railWas ? railWas.scrollTop : 0;
-    if (ui.view !== 'accueil') wheelIntro = true;
     const mob = isMob(); if (!mob || ui.profile !== 'salarie') ui.mobMore = false;
     document.getElementById('app').innerHTML = mob && (ui.view === 'setup' || ui.profile !== 'salarie') ? mobGate()
       : mob ? `<div class="app mob">${mobTop()}<main class="view" id="view">${ui.view === 'accueil' || MOB_OFF.includes(ui.view) ? mobHome() : VIEWS[ui.view]()}</main>${footer()}${mobNav()}</div>`
@@ -7423,6 +7442,8 @@
   // ---------------------------------------------------------------- Actions
   const ACT = {
     noop() {},
+    hub() { if (ui.wheelOpen && Date.now() - openedAt < 500) return; // un toucher déclenche mouseenter (ouverture) puis click
+      if (ui.wheelOpen) closeWheel(); else openWheel(); },
     go(d) { ui.view = d.v; ui.stage = null; ui.notif = false; ui.drawer = null; ui.mobMore = false; window.scrollTo(0, 0); render(); },
     persona(d) {
       if (persona() === d.p && !ui.selfOf) return;
@@ -7726,7 +7747,7 @@
 
 PROFILS. En haut à droite : RH (Olivia Bennett), Manager (Thomas Petit par défaut ; un sélecteur permet de prendre les traits d'un autre manager, dont Claire Durand, Direction), Salarié (Léa Martin, ou une nouvelle recrue via le sélecteur). RH et managers ont un interrupteur « Salariés / Mon équipe » ↔ « Mon espace » pour voir leur propre espace salarié (leurs congés, bulletins, entretiens). Personne ne valide ses propres demandes : elles partent au responsable (la Direction pour Olivia).
 
-NAVIGATION. L'accueil est une roue : survoler ou toucher le cercle central affiche les rubriques ; cliquer une rubrique l'ouvre. Ailleurs, un bandeau de pictogrammes en haut reprend les rubriques ; la maison ramène à la roue. Les pastilles orange comptent ce qui attend le profil. Le bouton « À traiter » (en haut) liste tout ce qui attend, rubrique par rubrique et personne par personne. Le bandeau de gauche donne aussi accès au Reporting RH et aux Modèles de documents (RH). « Nouveautés de la V2 » est en bas de page.
+NAVIGATION. L'accueil montre à gauche le bloc « Aujourd'hui » (les 5 actions les plus urgentes, avec leur date) et à droite la roue : survoler la roue ou toucher son cercle central affiche les rubriques ; cliquer une rubrique l'ouvre. Ailleurs, une colonne à gauche liste les rubriques avec leur nom, en quatre familles (Recruter, Gérer, Développer, Départ) et « Piloter » pour la RH (Obligations, Reporting RH, Modèles de documents, Paramètres) ; « Accueil » ou le logo ramène à la roue. Les pastilles rouges ne comptent que les actions en retard. Le bouton « À traiter » (en haut) liste une action par ligne, en trois groupes : en retard, cette semaine, plus tard. « Nouveautés de la V2 » est en bas de page.
 
 RUBRIQUES ET ACTIONS
 - Besoin RH : un manager crée une demande de recrutement en 4 étapes (le besoin, la fiche de cadrage, la validation, l'envoi) ; brouillon enregistré automatiquement. Les RH valident, demandent une modification ou refusent. L'offre est ensuite rédigée à deux : le manager demandeur et les RH peuvent écrire et enregistrer le projet (onglet « Projet d'offre » du besoin), le manager l'envoie aux RH, et seuls les RH la valident et la publient. Référence BES-… puis OFF-… une fois publiée.

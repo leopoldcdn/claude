@@ -25,7 +25,8 @@
 ## Accueil « Aujourd'hui », « À traiter » par urgence, menu avec libellés (novembre 2026)
 
 - **Accueil** : à gauche, le bloc « Aujourd'hui » affiche les 5 actions les plus urgentes avec leur échéance ; un clic ouvre
-  l'écran où faire l'action. À droite, la roue reste ouverte (plus de survol nécessaire) et sert de menu. Sous 1180 px, les deux
+  l'écran où faire l'action. À droite, la roue garde son animation : repliée au repos, elle se déploie au survol (ou quand on
+  touche son centre) et se replie quand la souris s'en va. La visite guidée la déploie elle-même. Sous 1180 px, les deux
   blocs s'empilent. Chaque profil voit ses propres actions.
 - **« À traiter »** : une ligne et un bouton par action (plus de liste à virgules par personne), en trois groupes : en retard,
   cette semaine (d'aujourd'hui à 7 jours), plus tard (au-delà, ou sans échéance). `todoTasks()` construit cette liste ; chaque

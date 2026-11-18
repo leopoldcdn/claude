@@ -159,7 +159,7 @@ function go(C, idx) {
 }
 function frame(C, now) {
   if (!T) return;
-  const dt = Math.min(250, now - (T.last ?? now));
+  const dt = Math.min(1000, now - (T.last ?? now));   // temps réel, sauf retour d'un onglet en arrière-plan
   T.last = now;
   if (!T.paused) {
     T.elapsed += dt;

@@ -6,6 +6,12 @@
 <meta name="theme-color" content="#05070c">
 <title>Escapade — Choisis ta prochaine destination</title>
 <meta name="description" content="Explore le monde sur un globe 3D, du ciel jusqu'à la rue, et choisis ta prochaine destination de vacances.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Escapade — Choisis ta prochaine destination">
+<meta property="og:description" content="Un globe 3D pour explorer le monde, découvrir chaque lieu en photos et créer ton itinéraire de vacances.">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,7 +19,9 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="map"></div>
+<main id="app">
+<h1 class="sr-only">Escapade — explore le globe et choisis ta prochaine destination de vacances</h1>
+<div id="map" role="region" aria-label="Globe interactif : clique sur un lieu pour le découvrir"></div>
 
 <div id="loading">
   <div class="load-mark"></div>
@@ -35,22 +43,22 @@
 
 <button class="favs-btn glass" id="bFavs" aria-label="Mes voyages"><span data-i="heart"></span><span class="lbl">Mes voyages</span><span class="count" id="favCount">0</span></button>
 
-<div class="controls glass" role="toolbar" aria-label="Contrôles de la carte">
+<nav class="controls glass" role="toolbar" aria-label="Contrôles de la carte">
   <button class="cbtn" id="bGlobe" data-tip="Revenir au globe" aria-label="Revenir au globe" data-i="globe"></button>
   <button class="cbtn" id="b3d" data-tip="Vue 3D" aria-label="Vue 3D" data-i="cube"></button>
   <button class="cbtn" id="bRelief" data-tip="Relief des montagnes" aria-label="Relief" data-i="mountain"></button>
   <span class="cdiv"></span>
   <button class="cbtn" id="bSun" data-tip="Jour et nuit en temps réel" aria-label="Jour et nuit" data-i="daynight"></button>
   <button class="cbtn" id="bStyle" data-tip="Style de carte" aria-label="Style de carte" data-i="layers"></button>
-</div>
+</nav>
 
 <button class="surprise" id="bRandom" title="Destination au hasard (touche R)"><span data-i="sparkles"></span><span>Surprends-moi</span></button>
 
-<div class="infochip glass" id="info"><span id="rPhase"></span><span id="rCoords">—</span><span class="dot"></span><span id="rAlt">—</span></div>
+<div class="infochip glass" id="info" role="status" aria-label="Position sous la souris"><span id="rPhase"></span><span id="rCoords">—</span><span class="dot"></span><span id="rAlt">—</span></div>
 <div class="hint glass" id="hint"><span data-i="pin"></span>Clique n’importe où sur le globe pour découvrir un lieu</div>
 <div class="hoverlabel" id="rPlace"></div>
 
-<aside id="panel" aria-live="polite">
+<aside id="panel" aria-live="polite" aria-label="Fiche du lieu" tabindex="-1">
   <div class="grab" id="grab"></div>
   <button class="round close" id="pClose" aria-label="Fermer" data-i="close"></button>
   <div class="scroll" id="pBody"></div>
@@ -59,13 +67,14 @@
 
 <div id="viewer"><button class="round close" id="vClose" aria-label="Fermer" data-i="close"></button><button class="round nav prev" id="vPrev" aria-label="Précédente" data-i="back"></button><img id="vImg" alt=""><div class="cap" id="vCap"></div><button class="round nav next" id="vNext" aria-label="Suivante" data-i="next"></button></div>
 
-<div id="favs"><div class="modal glass-strong">
+<div id="favs"><div class="modal glass-strong" role="dialog" aria-modal="true" aria-labelledby="favsTitle">
   <button class="round close" id="fClose" aria-label="Fermer" data-i="close"></button>
-  <header><h2>Mes voyages</h2><p>Tes coups de cœur et tes itinéraires, pour choisir où partir.</p></header>
+  <header><h2 id="favsTitle">Mes voyages</h2><p>Tes coups de cœur et tes itinéraires, pour choisir où partir.</p></header>
   <div id="fBody"></div>
 </div></div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.1/dist/maplibre-gl.js"></script>
 <script type="module" src="app.js"></script>

@@ -1,6 +1,6 @@
 # Audit d'Escapade — fonctionnement, design, expérience utilisateur
 
-*Version finale — audit réalisé le 18 novembre 2026 sur la branche `claude/dreamy-cray-8oqcvr`, en suivant [`docs/prompt-audit.md`](prompt-audit.md). Les captures sont dans [`docs/audit/`](audit/).*
+*Audit réalisé le 18 novembre 2026, corrections appliquées le même jour (section 0) sur la branche `claude/dreamy-cray-8oqcvr`, en suivant [`docs/prompt-audit.md`](prompt-audit.md). Les captures sont dans [`docs/audit/`](audit/).*
 
 **Méthode.**
 - **Navigateur piloté (Playwright).** Sur ordinateur (1440 × 900) : 7 destinations recherchées, un clic en pleine mer, des clics rapides successifs, une recherche sans résultat, le formulaire, l'itinéraire, « Mes voyages ». La mémoire est mesurée après 8 tirages « Surprends-moi ». Viennent ensuite trois scénarios dégradés : réseau lent (3G), services externes coupés, stockage du navigateur indisponible. Sur téléphone (iPhone 13) : le parcours complet, la poignée du panneau, l'écran en paysage.
@@ -9,6 +9,51 @@
 - **Code.** Relecture de `app.js`, `itinerary.js`, `tour.js`, `sun.js`, `style.css` et vérification des conditions d'utilisation des services.
 
 **À savoir.** Les tests tournent dans un conteneur sans carte graphique (rendu logiciel lent), et Wikipédia comme Open-Meteo y limitent fortement les requêtes. Les temps mesurés sont donc pessimistes, et l'absence de météo sur certaines captures vient de ces limites, pas du site. Chaque constat est marqué **constaté** (vu dans un test, avec une capture ou une mesure) ou **supposé** (déduit de la lecture du code).
+
+---
+
+## 0. Corrections appliquées (18 novembre 2026)
+
+Après l'audit, toutes les actions du plan ont été réalisées, sauf celles qui demandent un choix d'hébergement ou un service payant. Les vérifications ont été refaites : algorithme d'itinéraire sur les 21 scénarios, parcours dans le navigateur sur ordinateur et sur téléphone (portrait et paysage). Les captures « après » sont dans [`docs/audit/apres/`](audit/apres/).
+
+| Constat | État | Ce qui a été fait | Vérifié |
+|---|---|---|---|
+| F1 Îles reliées en voiture | ✅ Corrigé | Nouveau masque terre/mer (`data/land.bin`, Natural Earth 1:10m, une terre par polygone, principaux ponts et tunnels comptés comme liaisons). Les étapes restent sur la même terre ; les îles voisines deviennent des **excursions « en bateau »** ; une île donne un séjour en étoile avec un message clair. | Santorin : Fira avec excursions (Akrotiri, Thirassía…). Ubud : Ubud › Singaraja › Negara, tout sur Bali |
+| F2 Étapes à l'étranger | ✅ Corrigé | Étapes et visites limitées au pays de la destination. | N'Djamena : Mao, Bol (Tchad) |
+| F3 Homonymes dans la recherche | ✅ Corrigé | Classement par type de lieu, taille de l'emprise et nom exact. | « N'Djamena » ouvre la capitale |
+| F4 Zoom inadapté | ✅ Corrigé | Cadrage sur l'emprise fournie par la recherche. | Santorin entière à l'écran (`apres/santorin.png`) |
+| F5 Noms administratifs | ✅ Corrigé | Kabupaten, District, Municipality… exclus des étapes, des visites et de « À voir » ; départ depuis le lieu qui porte le nom choisi. | Ubud démarre à Ubud |
+| F6 Envies peu prises en compte | ✅ Corrigé | Les envies pèsent sur le choix des villes (lieux correspondants à moins de 30 km). | Rome + plage : Monte Argentario ; Gordes + nature : La Grave (Écrins) |
+| F7 Trajets trop longs | 🟡 Amélioré | Vérification après la mise en ordre : un trajet de plus d'une très longue journée fait retirer l'étape la moins intéressante. Les trajets de 400 à 460 km restent possibles sur les très longs séjours. | 21 scénarios |
+| F8 Étapes banales | 🟡 Amélioré | Seuil de notoriété adaptatif (40 → 25 → 15 → 10 selon le choix disponible). Quelques excursions moyennes subsistent (New York → Trenton). | 21 scénarios |
+| F9 Transport | ✅ Corrigé | Les pays à trains rapides (Japon, France, Espagne…) gardent le train même sur de longs trajets ; le trajet depuis la ville de départ passe à l'avion ou au ferry s'il faut traverser la mer. | Tokyo : en train |
+| F10 Messages de budget | ✅ Corrigé | « Compte environ X € » ; quand le trajet aller-retour pèse lourd, il est chiffré. | 21 scénarios |
+| F11 Climat tropical | ✅ Corrigé | Indice de confort (température + jours de **forte** pluie ≥ 5 mm) ; quand aucun mois n'est confortable (Islande, Sahara), les meilleurs mois du lieu restent « corrects ». | Rome : idéal de mai à octobre ; Paris : mai à août |
+| F12 Mois du voyage | ✅ Corrigé | L'alerte de saison de l'itinéraire charge le climat si la fiche ne l'a pas encore fait. | Code |
+| F13 Requête climat lourde | ✅ Corrigé | 3 ans au lieu de 5, mise en cache par case de 0,5°. | Code |
+| F14 Fausses photos | ✅ Corrigé | Filtre des cartes, drapeaux, blasons, vues satellite (ASTER, MODIS, ISS…), schémas, dans la fiche et le survol. | Santorin : fresque d'Akrotiri au lieu d'une vue satellite |
+| F15 Descriptions | 🟡 Amélioré | Prononciations et écritures non latines retirées. Les articles pauvres restent pauvres (Ubud), faute de meilleure source gratuite. | Ubud, Santorin |
+| F16 Région en anglais | ✅ Corrigé | Traduction par la base de lieux (« Lisbon » → « Lisbonne »). | Code |
+| F17 Mode téléphone figé | ✅ Corrigé | Taille d'écran relue à chaque usage ; règles dédiées au paysage (fiche sur le côté). | `apres/mobile-paysage.png` |
+| F18 Conditions et crédits | 🟡 Amélioré | Crédits complets (GeoNames, Wikidata, Photon, OSRM, Open-Meteo, Wikimedia), en-tête `Api-User-Agent`, trajets OSRM mis en cache. **Reste à faire à la mise en ligne** : remplacer le serveur de démonstration OSRM par un service autorisé (le sien, ou openrouteservice avec une clé gratuite). | Code |
+| F19 Stockage indisponible | ✅ Corrigé | Message au démarrage si le navigateur bloque le stockage. | Code |
+| F20 Liens, icône, aperçu | ✅ Corrigé | Liens `#lieu=` et `#voyage=`, bouton **Partager** (fiche et itinéraire), bouton « précédent » du navigateur, icône d'onglet, balises de partage, titre H1. | Lien direct vers Paris, retour arrière, copie du lien |
+| D1 / D2 Nuit trop sombre | ✅ Corrigé | Ombre adoucie en zoomant (100 % vue de l'espace → 45 % en ville), lumières visibles jusqu'au zoom 10,6, noms clairs pendant le déplacement. | `apres/santorin.png`, `apres/ubud-nuit.png` |
+| D3 Zones vides | ⏸ Non traité | Dépend des données OpenStreetMap ; un fond sombre remplace le beige pendant le chargement. | — |
+| D4 Faits rapides coupés | ✅ Corrigé | Grille sur plusieurs lignes. | `apres/ubud-nuit.png` |
+| D5 Itinéraire sur téléphone | ✅ Corrigé | Fiche à moitié repliée, tracé visible, chiffres clés sur une ligne, bouton **Survoler** libellé. | `apres/mobile-itineraire.png` |
+| D6 Paysage | ✅ Corrigé | Aucun chevauchement mesuré. | Test automatique |
+| D7 Zones tactiles | ✅ Corrigé | 44 px. | Code |
+| D8 Icône | ✅ Corrigé | `favicon.svg`. | Code |
+| U1 Aide au choix | ⏸ Non traité | Grand chantier : voir l'idée « Où partir en… ? » (section 5). | — |
+| U2 Fonctions cachées | 🟡 Amélioré | Bouton « Survoler » libellé, raccourci « / » documenté par l'icône du champ. | — |
+| U3 Formulaire | ⏸ Non traité | Les valeurs par défaut restent celles du dernier itinéraire. | — |
+| U4 Retour arrière | ✅ Corrigé | Historique du navigateur (voir F20). | Test automatique |
+| U5 Accessibilité | ✅ Corrigé | Focus visible partout, zones repérables (`main`, `nav`, `aside`), focus déplacé dans la fiche après une recherche, focus retenu dans « Mes voyages », animations de caméra coupées si l'utilisateur a demandé moins de mouvements. | Test au clavier |
+| U6 Aucun résultat | ✅ Corrigé | Message avec suggestions. | `apres/aucun-resultat.png` |
+| U7 Chargement lent | ✅ Corrigé | Le globe s'affiche dès que la carte est prête, sans attendre toutes les images. | Code |
+
+**Encore ouvert** : les grands chantiers (« Où partir en… ? », comparateur, compte et synchronisation), le remplacement du serveur OSRM de démonstration au moment de la mise en ligne, et la qualité des descriptions là où Wikipédia est pauvre.
 
 ---
 

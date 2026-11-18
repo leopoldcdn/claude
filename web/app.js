@@ -10,7 +10,9 @@ document.querySelectorAll('[data-i]').forEach(el => el.insertAdjacentHTML('after
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const DEG = Math.PI / 180;
-const isMobile = matchMedia('(max-width:760px)').matches;
+const mqMobile = matchMedia('(max-width:760px)');
+const isMobile = () => mqMobile.matches;          // recalculé à chaque usage : suit la rotation et le redimensionnement
+const storageOk = (() => { try { localStorage.setItem('esc.t', '1'); localStorage.removeItem('esc.t'); return true; } catch { return false; } })();
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
@@ -26,7 +28,9 @@ async function getJSON(url, { timeout = 12000, signal } = {}) {
   const t = setTimeout(() => ctl.abort(), timeout);
   signal?.addEventListener('abort', () => ctl.abort());
   try {
-    const r = await fetch(url, { signal: ctl.signal });
+    // Wikimedia demande aux applications de s'identifier (en-tête autorisé par leur politique CORS)
+    const headers = /wiki(pedia|voyage|media)\.org/.test(url) ? { 'Api-User-Agent': 'Escapade/1.0 (site de voyage, globe 3D)' } : undefined;
+    const r = await fetch(url, { signal: ctl.signal, headers });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return await r.json();
   } finally { clearTimeout(t); }
@@ -195,11 +199,12 @@ async function buildStyle(mode = styleMode) {
 }
 function nightLayers() {
   return [
+    // ombre franche vue de l'espace, adoucie en zoomant pour qu'on puisse toujours explorer une région où il fait nuit
     { id: 'night-shade', type: 'raster', source: 'shade',
-      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 11, 1, 13.5, 0.82, 16, 0.72], 'raster-fade-duration': 0, 'raster-resampling': 'linear' } },
+      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 3, 1, 6, 0.78, 9, 0.62, 12, 0.52, 15, 0.45], 'raster-fade-duration': 0, 'raster-resampling': 'linear' } },
     // les lumières (1 km par pixel) s'effacent avant de devenir des pâtés
-    { id: 'night-lights', type: 'raster', source: 'lights', maxzoom: 9,
-      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.95, 7, 0.8, 8.6, 0], 'raster-fade-duration': 0, 'raster-resampling': 'linear' } }
+    { id: 'night-lights', type: 'raster', source: 'lights', maxzoom: 11,
+      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.95, 7, 0.8, 9, 0.55, 10.6, 0], 'raster-fade-duration': 0, 'raster-resampling': 'linear' } }
   ];
 }
 /* ---- polices de la carte : Inter (noms) et Fraunces italique (mers, fleuves) ----
@@ -268,18 +273,21 @@ async function initMap() {
   const homeLon = Math.max(-170, Math.min(170, -new Date().getTimezoneOffset() / 4));
   map = new maplibregl.Map({
     container: 'map', style,
-    center: [homeLon, 30], zoom: isMobile ? 1.0 : 2.0, pitch: 0, maxPitch: 78,
-    attributionControl: { compact: true },
+    center: [homeLon, 30], zoom: isMobile() ? 1.0 : 2.0, pitch: 0, maxPitch: 78,
+    attributionControl: { compact: true, customAttribution: 'Lieux <a href="https://www.geonames.org/">GeoNames</a> (CC BY 4.0) et <a href="https://www.wikidata.org/">Wikidata</a> · Recherche <a href="https://photon.komoot.io/">Photon</a> · Trajets <a href="https://project-osrm.org/">OSRM</a> · Météo <a href="https://open-meteo.com/">Open-Meteo</a> · Textes et photos Wikipédia, Wikivoyage, Wikimedia Commons (CC BY-SA)' },
     canvasContextAttributes: { antialias: true }
   });
   window.escapadeMap = map;   // accès pratique depuis la console du navigateur
+  const reveal = () => { const l = $('#loading'); if (!l || l.dataset.gone) return; l.dataset.gone = 1; l.style.opacity = 0; setTimeout(() => l.remove(), 900); };
+  map.once('style.load', () => setTimeout(reveal, 400));   // sans attendre toutes les images de la carte
   map.on('load', () => {
+    reveal();
+    if (!storageOk) setTimeout(() => toast('Stockage du navigateur désactivé : tes favoris ne seront pas conservés'), 1500);
+    openFromHash(true);
     document.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
     const c0 = map.getCenter(), ph0 = phase(c0.lat, c0.lng);
     $('#rCoords').textContent = fmtLL(c0.lat, c0.lng);
     $('#rPhase').textContent = ph0 === 'jour' ? '☀️ Jour' : ph0 === 'nuit' ? '🌙 Nuit' : '🌇 Crépuscule';
-    $('#loading').style.opacity = 0;
-    setTimeout(() => $('#loading').remove(), 900);
     updateReadout();
   });
   map.on('mousemove', e => {
@@ -291,9 +299,16 @@ async function initMap() {
   map.on('mouseout', () => $('#rPlace').classList.remove('show'));
   map.on('pitchend', () => $('#b3d').classList.toggle('on', map.getPitch() > 10));
   map.on('move', updateReadout);
+  // noms clairs en mode plan quand il fait nuit, mis à jour pendant le déplacement (pas seulement à la fin)
+  let nlT = 0;
+  map.on('move', () => {
+    const now = performance.now(); if (now - nlT < 250) return; nlT = now;
+    const c = map.getCenter();
+    nightLabels(dayNight && styleMode === 'realiste' && phase(c.lat, c.lng) !== 'jour' && map.getZoom() > 11.5);
+  });
   map.on('moveend', () => {
     const c = map.getCenter(), ph = phase(c.lat, c.lng);
-    nightLabels(dayNight && styleMode === 'realiste' && ph !== 'jour' && map.getZoom() > 11);
+    nightLabels(dayNight && styleMode === 'realiste' && ph !== 'jour' && map.getZoom() > 11.5);
     $('#rCoords').textContent = fmtLL(c.lat, c.lng);
     $('#rPhase').textContent = ph === 'jour' ? '☀️ Jour' : ph === 'nuit' ? '🌙 Nuit' : '🌇 Crépuscule';
   });
@@ -332,14 +347,20 @@ function onMapClick(e) {
   explore(lat, lng, { hint });
 }
 function panelPadding() {
-  return isMobile ? { top: 40, bottom: innerHeight * 0.7, left: 20, right: 20 } : { top: 60, bottom: 60, left: 60, right: 460 };
+  if (isMobile() && innerHeight <= 500 && innerWidth > innerHeight) return { top: 60, bottom: 20, left: 20, right: Math.min(380, innerWidth * 0.56) + 24 };   // téléphone en paysage
+  return isMobile() ? { top: 40, bottom: innerHeight * 0.7, left: 20, right: 20 } : { top: 60, bottom: 60, left: 60, right: 460 };
 }
 function goTo(lat, lon, opts = {}) {
   const z = map.getZoom();
+  if (opts.bounds) {
+    map.setPadding({ top: 0, bottom: 0, left: 0, right: 0 });     // sinon les marges des vols précédents s'ajoutent
+    const cam = map.cameraForBounds(opts.bounds, { padding: panelPadding(), maxZoom: Math.min(opts.zoom ?? 14, 13) });
+    if (cam) { map.flyTo({ ...cam, pitch: cam.zoom >= 10 ? 45 : 0, duration: z < 6 ? 3600 : 1800, curve: 1.5, essential: false }); return; }
+  }
   const target = opts.zoom ?? (z < 6 ? 10 : Math.max(z, 10));
   map.flyTo({
     center: [lon, lat], zoom: target, pitch: opts.pitch ?? (target >= 9 ? 50 : 0), bearing: opts.bearing ?? map.getBearing(),
-    padding: panelPadding(), duration: opts.duration ?? (z < 6 ? 3800 : 1600), essential: true, curve: 1.5
+    padding: panelPadding(), duration: opts.duration ?? (z < 6 ? 3800 : 1600), essential: false, curve: 1.5
   });
 }
 
@@ -500,14 +521,30 @@ async function commonsPhotos(lat, lon, signal) {
   const info = new Map((r2.query?.pages || []).map(p => [p.title, p]));
   return cand.map(c => {
     const ii = info.get(c.title)?.imageinfo?.[0];
-    if (!ii || ii.mime !== 'image/jpeg' || ii.width < 900 || ii.width < ii.height * 0.9 || !ii.thumburl) return null;
+    if (!ii || ii.mime !== 'image/jpeg' || ii.width < 900 || ii.width < ii.height * 0.9 || !ii.thumburl || !isTravelPhoto(ii.url || ii.thumburl)) return null;
     const artist = (ii.extmetadata?.Artist?.value || '').replace(/<[^>]+>/g, '').trim();
     return { lat: c.lat, lon: c.lon, src: ii.thumburl, thumb: ii.thumburl.replace(/\/\d+px-/, '/500px-'), page: ii.descriptionurl,
       title: c.title.replace(/^File:|\.jpe?g$/gi, ''), credit: [artist, ii.extmetadata?.LicenseShortName?.value].filter(Boolean).join(' · ') };
   }).filter(Boolean).slice(0, 12);
 }
+/* « Quand partir » : moyennes mensuelles sur 3 ans (requête allégée, mise en cache par case de 0,5°) et indice de
+ * confort qui combine température et pluie. La règle marche aussi sous les tropiques, où c'est la saison sèche
+ * qui compte (Bali : avril à octobre) et pas la température, toujours chaude. */
+const tempComfort = tx => tx >= 22 && tx <= 30 ? 1 : (tx >= 17 && tx < 22) || (tx > 30 && tx <= 33) ? 0.6 : (tx >= 12 && tx < 17) || (tx > 33 && tx <= 36) ? 0.3 : 0;
+// jours de forte pluie (≥ 5 mm) : le modèle météo compte presque tous les jours tropicaux comme « pluvieux » au seuil de 1 mm
+const rainComfort = d => d <= 4 ? 1 : d <= 7 ? 0.7 : d <= 11 ? 0.4 : 0.1;
+function scoreMonths(months) {
+  const comfort = months.map(m => m ? 0.55 * tempComfort(m.tx) + 0.45 * rainComfort(m.rainDays) + (m.sun > 7 ? 0.05 : 0) : -1);
+  const score = comfort.map(c => c >= 0.75 ? 2 : c >= 0.5 ? 1 : 0);
+  // climat rude toute l'année (Islande, Sahara…) : les meilleurs mois du lieu restent « corrects »
+  if (Math.max(...score) === 0) { const best = Math.max(...comfort); comfort.forEach((c, i) => { if (c >= 0 && c >= best - 0.08) score[i] = 1; }); }
+  return score;
+}
 async function climate(lat, lon, signal) {
-  const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&start_date=2019-01-01&end_date=2023-12-31&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration&timezone=UTC`;
+  const key = `${(Math.round(lat * 2) / 2).toFixed(1)},${(Math.round(lon * 2) / 2).toFixed(1)}`;
+  const cache = LS.get('esc.web.climate2', {});
+  if (cache[key]) return { ...cache[key], score: scoreMonths(cache[key].months) };
+  const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat.toFixed(2)}&longitude=${lon.toFixed(2)}&start_date=2021-01-01&end_date=2023-12-31&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration&timezone=UTC`;
   const r = await getJSON(url, { signal, timeout: 20000 });
   const d = r.daily; if (!d) return null;
   const acc = Array.from({ length: 12 }, () => ({ tx: 0, tn: 0, rain: 0, sun: 0, n: 0 }));
@@ -515,18 +552,14 @@ async function climate(lat, lon, signal) {
     const m = +d.time[i].slice(5, 7) - 1, a = acc[m];
     if (d.temperature_2m_max[i] == null) continue;
     a.tx += d.temperature_2m_max[i]; a.tn += d.temperature_2m_min[i];
-    a.rain += (d.precipitation_sum[i] ?? 0) >= 1 ? 1 : 0; a.sun += (d.sunshine_duration[i] ?? 0) / 3600; a.n++;
+    a.rain += (d.precipitation_sum[i] ?? 0) >= 5 ? 1 : 0; a.sun += (d.sunshine_duration[i] ?? 0) / 3600; a.n++;
   }
-  const years = 5;
-  const months = acc.map(a => a.n ? { tx: a.tx / a.n, tn: a.tn / a.n, rainDays: a.rain / years, sun: a.sun / a.n } : null);
-  const score = months.map(m => {
-    if (!m) return 0;
-    let s = m.tx >= 22 && m.tx <= 31 ? 2 : (m.tx >= 17 && m.tx <= 34 ? 1 : 0);
-    if (m.rainDays > 14) s -= 1.2; else if (m.rainDays > 9) s -= 0.6;
-    if (m.sun > 8) s += 0.3;
-    return Math.max(0, Math.min(2, Math.round(s)));
-  });
-  return { months, score, elevation: r.elevation };
+  const r1 = v => Math.round(v * 10) / 10;
+  const months = acc.map(a => a.n ? { tx: r1(a.tx / a.n), tn: r1(a.tn / a.n), rainDays: r1(a.rain / a.n * 30.4), sun: r1(a.sun / a.n) } : null);
+  const res = { months, elevation: r.elevation };
+  const keys = Object.keys(cache); if (keys.length > 80) delete cache[keys[0]];
+  cache[key] = res; LS.set('esc.web.climate2', cache);
+  return { ...res, score: scoreMonths(months) };
 }
 async function weatherNow(lat, lon, signal) {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&current=temperature_2m,weather_code,is_day&timezone=auto`;
@@ -546,7 +579,16 @@ function spread(list, minKm, max) {
   return out;
 }
 const ORG = /association|organisation|entreprise|société|parti politique|journal|équipe|fédération|syndicat|ministère|ambassade|personnalité|famille|groupe|label|festival|émission|film|album|chanson/i;
-const ADMIN = /province|commune|région|département|municipalit|circonscription|arrondissement|diocèse|canton|comté|frazione|gare|station|école|lycée|collège|université|entreprise|hôpital|cimetière|club|stade|aéroport|autoroute|route |rue |ligne |tribunal|prison|banque|hôtel de ville|paroisse/i;
+const ADMIN = /kabupaten|kelurahan|kecamatan|regency|province|commune|région|département|municipalit|circonscription|arrondissement|diocèse|canton|comté|frazione|gare|station|école|lycée|collège|université|entreprise|hôpital|cimetière|club|stade|aéroport|autoroute|route |rue |ligne |tribunal|prison|banque|hôtel de ville|paroisse/i;
+
+// fichiers qui ne sont pas des photos de voyage : cartes, drapeaux, blasons, vues satellite, schémas…
+const NOT_PHOTO = /(^|[\/_\- (])(map|maps|carte|karte|mapa|locator|location[_ ]map|flag|drapeau|coat[_ ]of[_ ]arms|blason|armoiries|wappen|escudo|satellite|landsat|sentinel|aster|modis|nasa|copernicus|from[_ ]space|orbit|iss\d|sts-\d|expedition[_ ]\d|diagram|schéma|logo|chart|graph|relief|topographic|admin)/i;
+const isTravelPhoto = u => !!u && /\.jpe?g/i.test(u) && !NOT_PHOTO.test(decodeURIComponent(u.split('/').slice(-2).join('/')));
+// retire les parenthèses de prononciation et d'écritures non latines (« Ubud (balinais : ᬳᬸᬩᬸᬤ᭄) »)
+function cleanText(t) {
+  return String(t || '').replace(/\s*\(([^()]|\([^()]*\))*\)/g, m => /[^\u0000-\u024F\u1E00-\u1EFF\u2000-\u206F\u20AC°’«»]|prononc|\[|API|écoute/i.test(m) ? '' : m)
+    .replace(/\s+([,.;])/g, '$1').replace(/\s{2,}/g, ' ').trim();
+}
 
 /* ============================ Exploration ============================ */
 let current = null, reqId = 0, abortCtl = null;
@@ -559,7 +601,7 @@ async function explore(lat, lon, opts = {}) {
   placeMarker(lat, lon);
   if (poiMarker) poiMarker.remove();
   if (!opts.noFly) goTo(lat, lon, opts);
-  if (isMobile && !panel.classList.contains('open')) panel.classList.add('peek');
+  if (isMobile() && !panel.classList.contains('open')) panel.classList.add('peek');
   openPanel();
   renderSkeleton(lat, lon, opts.label);
   await loadLocal;
@@ -599,7 +641,12 @@ async function explore(lat, lon, opts = {}) {
   const wikiTitle = match?.p[8] ? match.p[8].replace(/_/g, ' ') : null;
   const around = local.filter(x => x !== match && norm(pname(x.p)) !== np && x.d > 0.3)
     .map(x => ({ ...x, s: notability(x.p) - x.d / 12 })).sort((a, b) => b.s - a.s).slice(0, 8);
-  current = { lat, lon, name: placeName, country, cc, region: geo.state || match?.p[4] || '', ci, redirect, photos: [], climate: null, wiki: null, voy: null,
+  // région : nom français quand la base le connaît (« Lisbon » → « Lisbonne »)
+  let region = geo.state || match?.p[4] || '';
+  const regFr = local.find(x => x.p[1] && norm(x.p[0]) === norm(region));
+  if (regFr) region = regFr.p[1];
+  setRoute(`lieu=${lat.toFixed(4)},${lon.toFixed(4)},${placeName}`);
+  current = { lat, lon, name: placeName, country, cc, region, ci, redirect, photos: [], climate: null, wiki: null, voy: null,
     around, pop: match?.p[7] || 0 };
   renderPanel();
 
@@ -618,7 +665,7 @@ async function explore(lat, lon, opts = {}) {
     wikiNearby(lat, lon, signal).catch(() => []).then(async list => {
       list = list.filter(p => p.title !== placeName && p.title !== current.wiki?.title);
       current.nearby = list.slice(0, 8);
-      const fromWiki = list.filter(p => p.big && !/\.(svg|png)/i.test(p.big)).slice(0, 12)
+      const fromWiki = list.filter(p => isTravelPhoto(p.big)).slice(0, 12)
         .map(p => ({ src: p.big, thumb: p.big.replace(/\/\d+px-/, '/500px-'), page: p.url, title: p.title, credit: 'Image de l’article Wikipédia' }));
       current.photos = fromWiki;
       if (id === reqId) renderPanel();
@@ -635,6 +682,41 @@ async function explore(lat, lon, opts = {}) {
   if (id === reqId) { current.done = true; renderPanel(); }
 }
 
+/* ============================ Liens partageables ============================
+ * #lieu=lat,lon,Nom  ou  #voyage=<itinéraire encodé>. Chaque lieu ouvert crée une entrée d'historique :
+ * le bouton « précédent » du navigateur revient au lieu d'avant au lieu de quitter le site. */
+function setRoute(hash) {
+  const cur = decodeURIComponent(location.hash.slice(1));
+  if (cur === hash) return;
+  const key = h => h.split(',').slice(0, 2).join(',');            // mêmes coordonnées : on remplace au lieu d'empiler
+  const replace = hash && cur && key(cur) === key(hash);
+  history[replace ? 'replaceState' : 'pushState'](null, '', location.pathname + location.search + (hash ? '#' + encodeURIComponent(hash).replace(/%2C/g, ',').replace(/%3D/g, '=') : ''));
+}
+const encodeTrip = (dest, input) => btoa(unescape(encodeURIComponent(JSON.stringify({ d: { name: dest.name, lat: +dest.lat.toFixed(4), lon: +dest.lon.toFixed(4), cc: dest.cc },
+  i: { days: input.days, travelers: input.travelers, budget: input.budget, month: input.month, fromName: input.fromName, mode: input.mode, shape: input.shape, pace: input.pace, likes: input.likes } })))).replace(/=+$/, '');
+function openFromHash(first) {
+  const h = decodeURIComponent(location.hash.slice(1));
+  try {
+    if (h.startsWith('lieu=')) {
+      const [la, lo, ...n] = h.slice(5).split(',');
+      if (isFinite(+la) && isFinite(+lo) && (!current || Math.abs(current.lat - la) > 1e-3 || Math.abs(current.lon - lo) > 1e-3 || panelMode !== 'place'))
+        explore(+la, +lo, { hint: n.join(',') || null, label: n.join(',') || null, zoom: 11 });
+    } else if (h.startsWith('voyage=')) {
+      const t = JSON.parse(decodeURIComponent(escape(atob(h.slice(7)))));
+      replan(t.d, t.i);
+    } else if (!first && panel.classList.contains('open')) closePanel(true);
+  } catch (e) { console.warn('Adresse non reconnue', e); }
+}
+addEventListener('popstate', () => openFromHash(false));
+async function share(title) {
+  const url = location.href;
+  try {
+    if (navigator.share && isMobile()) { await navigator.share({ title: `${title} — Escapade`, url }); return; }
+    await navigator.clipboard.writeText(url);
+    toast('Lien copié : colle-le pour partager');
+  } catch (e) { if (e?.name !== 'AbortError') toast('Copie impossible : le lien est dans la barre d’adresse'); }
+}
+
 /* ============================ Panneau ============================ */
 const panel = $('#panel');
 let panelMode = 'place';     // 'place' : fiche du lieu, 'trip' : itinéraire
@@ -642,9 +724,9 @@ function openPanel() {
   panel.classList.add('open'); document.body.classList.add('panel-open');
   $('#hint').classList.add('gone'); LS.set('esc.web.hinted', true);
 }
-function closePanel() { panel.classList.remove('open', 'peek'); document.body.classList.remove('panel-open'); wpMarker?.remove(); poiMarker?.remove(); abortCtl?.abort(); reqId++; clearTrip(); panelMode = 'place'; }
+function closePanel(fromRoute) { if (fromRoute !== true) setRoute(''); panel.classList.remove('open', 'peek'); document.body.classList.remove('panel-open'); wpMarker?.remove(); poiMarker?.remove(); abortCtl?.abort(); reqId++; clearTrip(); panelMode = 'place'; }
 if (LS.get('esc.web.hinted', false)) $('#hint').classList.add('gone');
-if (isMobile) $('#hint').lastChild.textContent = 'Touche le globe pour découvrir un lieu';
+if (isMobile()) $('#hint').lastChild.textContent = 'Touche le globe pour découvrir un lieu';
 // téléphone : la poignée replie, déplie ou ferme le panneau
 {
   let y0 = null;
@@ -665,7 +747,7 @@ function setPanel(body, actions) {
   $('#panel .scroll').scrollTop = 0;
   openPanel();
 }
-$('#pClose').onclick = closePanel;
+$('#pClose').onclick = () => closePanel();
 $('#panel .scroll').addEventListener('scroll', e => {
   const tabs = $('#pBody .tabs');
   panel.classList.toggle('stuck', !!tabs && e.target.scrollTop > tabs.offsetTop - 20);
@@ -697,8 +779,9 @@ function clip(t, n) {
   return (i > n * 0.5 ? cut.slice(0, i + 1) : cut + '…').replace(/\s*\([^)]*$/, '');
 }
 function heroImage() {
-  return current.wiki?.original?.source && /\.jpe?g$/i.test(current.wiki.original.source) && current.wiki.original.width >= 600 ? current.wiki.thumbnail?.source || current.wiki.original.source
-    : current.photos[0]?.src || current.wiki?.thumbnail?.source || '';
+  const w = current.wiki;
+  if (w?.original?.source && isTravelPhoto(w.original.source) && w.original.width >= 600) return w.thumbnail?.source || w.original.source;
+  return current.photos[0]?.src || (isTravelPhoto(w?.thumbnail?.source) ? w.thumbnail.source : '');
 }
 let tab = 'apercu';
 const distTxt = d => d < 1 ? Math.round(d * 1000) + ' m' : d < 10 ? d.toFixed(1).replace('.', ',') + ' km' : Math.round(d) + ' km';
@@ -716,8 +799,8 @@ function renderPanel() {
     diffTxt = diff === 0 ? 'même heure' : (diff > 0 ? '+' : '') + String(diff).replace('.', ',') + ' h';
   }
   const HATNOTE = /^(pour (les autres|l['’]article|des articles)|ne doit pas être confondu|cet article|voir aussi|« .* » redirige)/i;
-  const voyParas = c.voy?.extract ? c.voy.extract.split('\n').map(x => x.trim()).filter(x => x.length > 30 && !HATNOTE.test(x)).slice(0, 2) : [];
-  const wikiText = c.wiki?.extract ? clip(c.wiki.extract.split('\n').map(x => x.trim()).filter(x => x && !HATNOTE.test(x))[0] || '', 520) : '';
+  const voyParas = c.voy?.extract ? c.voy.extract.split('\n').map(x => cleanText(x)).filter(x => x.length > 30 && !HATNOTE.test(x)).slice(0, 2) : [];
+  const wikiText = c.wiki?.extract ? clip(cleanText(c.wiki.extract.split('\n').map(x => x.trim()).filter(x => x && !HATNOTE.test(x))[0] || ''), 520) : '';
   const clim = c.climate, m = new Date().getMonth();
   const best = clim ? bestMonthsText(clim.score) : '';
   const q = encodeURIComponent(c.name + (c.country ? ', ' + c.country : ''));
@@ -749,9 +832,9 @@ function renderPanel() {
             <table class="clim"><tr><td class="l"></td>${MOIS.map(x => `<th>${x}</th>`).join('')}</tr>
               <tr><td class="l">Max °C</td>${clim.months.map(x => `<td class="${x && x.tx >= 28 ? 'hot' : x && x.tx < 10 ? 'cold' : ''}">${x ? Math.round(x.tx) : '–'}</td>`).join('')}</tr>
               <tr><td class="l">Min °C</td>${clim.months.map(x => `<td>${x ? Math.round(x.tn) : '–'}</td>`).join('')}</tr>
-              <tr><td class="l">Pluie (j)</td>${clim.months.map(x => `<td>${x ? Math.round(x.rainDays) : '–'}</td>`).join('')}</tr>
+              <tr><td class="l" title="Jours avec au moins 5 mm de pluie">Forte pluie (j)</td>${clim.months.map(x => `<td>${x ? Math.round(x.rainDays) : '–'}</td>`).join('')}</tr>
               <tr><td class="l">Soleil (h)</td>${clim.months.map(x => `<td>${x ? Math.round(x.sun) : '–'}</td>`).join('')}</tr></table>
-            <p class="src" style="margin-top:8px">Moyennes 2019-2023, <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></p></details></div>`
+            <p class="src" style="margin-top:8px">Moyennes 2021-2023, <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></p></details></div>`
         : clim === false ? '<p class="muted">Climat indisponible pour ce point.</p>' : '<div class="skel" style="width:100%;height:70px;border-radius:16px"></div>'}
       </div>
       ${nPhotos ? `<div class="sec"><h3>En images <button class="more" data-tab="photos">Tout voir ${I.next}</button></h3><div class="gallery">${c.photos.slice(0, 4).map((p, i) => `<button data-ph="${i}"><img src="${esc(p.thumb)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer"></button>`).join('')}</div></div>` : ''}
@@ -801,8 +884,8 @@ function renderPanel() {
   body.querySelectorAll('[data-poi]').forEach(b => b.onclick = () => {
     const p = c.nearby[+b.dataset.poi];
     placePoi(p.lat, p.lon);
-    if (isMobile) panel.classList.add('peek');
-    map.flyTo({ center: [p.lon, p.lat], zoom: 16.3, pitch: 62, bearing: map.getBearing() - 20, padding: panelPadding(), duration: 2600, essential: true });
+    if (isMobile()) panel.classList.add('peek');
+    map.flyTo({ center: [p.lon, p.lat], zoom: 16.3, pitch: 62, bearing: map.getBearing() - 20, padding: panelPadding(), duration: 2600, essential: false });
   });
   renderActions();
 }
@@ -831,7 +914,8 @@ function saveFavs() {
 function renderActions() {
   const c = current; if (!c || panelMode !== 'place') return;
   const on = favs.has(favKey(c));
-  $('#pActions').innerHTML = `<button class="btn icon fav ${on ? 'on' : ''}" id="aFav" aria-label="${on ? 'Retirer de mes voyages' : 'Enregistrer'}" title="${on ? 'Retirer de mes voyages' : 'Enregistrer dans mes voyages'}">${on ? I.heartFill : I.heart}</button><button class="btn primary" id="aTrip">${I.route}Créer un itinéraire</button>`;
+  $('#pActions').innerHTML = `<button class="btn icon fav ${on ? 'on' : ''}" id="aFav" aria-label="${on ? 'Retirer de mes voyages' : 'Enregistrer'}" title="${on ? 'Retirer de mes voyages' : 'Enregistrer dans mes voyages'}">${on ? I.heartFill : I.heart}</button><button class="btn icon" id="aShare" aria-label="Partager ce lieu" title="Copier le lien de ce lieu">${I.share}</button><button class="btn primary" id="aTrip">${I.route}Créer un itinéraire</button>`;
+  $('#aShare').onclick = () => share(c.name);
   $('#aTrip').onclick = () => openPlanner({ name: c.name, lat: c.lat, lon: c.lon, cc: c.cc, monthScores: c.climate?.score });
   $('#aFav').onclick = () => {
     const k = favKey(c);
@@ -872,14 +956,39 @@ function renderFavs() {
     $('#favs').classList.remove('open'); replan(t.dest, t.input);
   });
 }
-$('#bFavs').onclick = () => { renderFavs(); $('#favs').classList.add('open'); };
-$('#fClose').onclick = () => $('#favs').classList.remove('open');
-$('#favs').onclick = e => { if (e.target.id === 'favs') $('#favs').classList.remove('open'); };
+function openFavs() { renderFavs(); $('#favs').classList.add('open'); $('#fClose').focus(); }
+function closeFavs() { $('#favs').classList.remove('open'); $('#bFavs').focus({ preventScroll: true }); }
+$('#bFavs').onclick = openFavs;
+$('#fClose').onclick = closeFavs;
+$('#favs').onclick = e => { if (e.target.id === 'favs') closeFavs(); };
+// la tabulation reste dans la fenêtre « Mes voyages » tant qu'elle est ouverte
+$('#favs').addEventListener('keydown', e => {
+  if (e.key !== 'Tab') return;
+  const f = [...$('#favs').querySelectorAll('button, [tabindex="0"], a[href]')].filter(x => x.offsetParent);
+  if (!f.length) return;
+  if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+  else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+});
 saveFavs();
 
 /* ============================ Recherche ============================ */
 const q = $('#q'), sugg = $('#sugg');
 let results = [], sel = -1, searchT, searchCtl, pendingEnter = false;
+// importance d'un résultat : capitales et grandes villes avant les villages homonymes (N'Djamena la capitale avant
+// les villages du même nom), grâce au type de lieu et à la taille de son emprise
+const TYPE_W = { country: 9, state: 6, region: 6, city: 5, island: 5, archipelago: 4.5, town: 3, county: 3, national_park: 4, peak: 3, volcano: 3,
+  beach: 3, lake: 3, village: 1, municipality: 2, district: 1, suburb: 0.5, hamlet: 0, locality: 0.3, neighbourhood: 0.2, residential: 0 };
+function searchRank(p, q) {
+  let r = TYPE_W[p.osm_value] ?? TYPE_W[p.type] ?? 1.5;
+  if (p.extent) {
+    const [x0, y1, x1, y0] = p.extent;
+    const area = Math.abs((x1 - x0) * (y1 - y0)) * 111 * 111 * Math.cos(((y0 + y1) / 2) * DEG);
+    r += Math.log10(area + 1) * 1.1;
+  }
+  if (norm(p.name) === norm(q)) r += 1.5;
+  if (p.countrycode === 'FR') r += 0.3;
+  return r;
+}
 q.addEventListener('input', () => {
   clearTimeout(searchT);
   const s = q.value.trim();
@@ -888,10 +997,12 @@ q.addEventListener('input', () => {
   searchT = setTimeout(async () => {
     searchCtl?.abort(); searchCtl = new AbortController();
     try {
-      const r = await getJSON(`https://photon.komoot.io/api?q=${encodeURIComponent(s)}&lang=fr&limit=7`, { signal: searchCtl.signal });
+      const r = await getJSON(`https://photon.komoot.io/api?q=${encodeURIComponent(s)}&lang=fr&limit=12`, { signal: searchCtl.signal });
       const seen = new Set();
       results = (r.features || []).map(f => ({ p: f.properties, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }))
-        .filter(x => { const k = norm([x.p.name, x.p.state, x.p.country].join('|')); if (seen.has(k)) return false; seen.add(k); return true; });
+        .filter(x => { const k = norm([x.p.name, x.p.state, x.p.country].join('|')); if (seen.has(k)) return false; seen.add(k); return true; })
+        .map((x, i) => ({ ...x, rank: searchRank(x.p, s) - i * 0.15 }))
+        .sort((a, b) => b.rank - a.rank).slice(0, 7);
     } catch { results = []; }
     if (!results.length) {
       const n = norm(s), top = await loadTop();
@@ -899,6 +1010,11 @@ q.addEventListener('input', () => {
         .map(p => ({ p: { name: pname(p), state: p[4], country: countryInfo(p[3])?.name || p[3], type: kindOf(p) === 'ville' || kindOf(p) === 'capitale' ? 'city' : 'poi' }, lat: p[5], lon: p[6] }));
     }
     sel = -1;
+    if (!results.length) {
+      sugg.innerHTML = `<div class="sugg-empty">${I.search}<span><b>Aucun lieu trouvé pour « ${esc(s)} »</b><small>Vérifie l’orthographe, essaie le nom d’une ville proche, ou clique directement sur le globe.</small></span></div>`;
+      sugg.style.display = 'block';
+      return;
+    }
     sugg.innerHTML = results.map((r, i) => `<button data-i="${i}" role="option">${I.pin}<span><b>${esc(r.p.name)}</b><small>${esc([r.p.state, r.p.country].filter(x => x && x !== r.p.name).join(', ') || 'Lieu')}</small></span></button>`).join('');
     sugg.style.display = results.length ? 'block' : 'none';
     sugg.querySelectorAll('button').forEach(b => b.onclick = () => choose(results[+b.dataset.i]));
@@ -913,10 +1029,15 @@ q.addEventListener('keydown', e => {
   else if (e.key === 'Escape') { sugg.style.display = 'none'; q.blur(); }
 });
 function choose(r) {
-  sugg.style.display = 'none'; q.value = r.p.name; q.blur();
+  if (!r) return;
+  sugg.style.display = 'none'; q.value = r.p.name;
+  panel.focus({ preventScroll: true });          // au clavier, on continue dans la fiche
   const t = r.p.osm_value || r.p.type;
   const zoom = t === 'country' ? 5 : t === 'state' ? 7 : ['city', 'town'].includes(t) ? 11 : 14;
-  explore(r.lat, r.lon, { zoom, hint: r.p.name, label: r.p.name, pitch: zoom >= 11 ? 50 : 0 });
+  // l'emprise fournie par la recherche cadre le lieu entier (une île, une région, un parc), sinon zoom selon le type
+  const e = r.p.extent;
+  const bounds = e && Math.abs(e[2] - e[0]) > 0.005 ? [[e[0], e[3]], [e[2], e[1]]] : null;
+  explore(r.lat, r.lon, { zoom, bounds, hint: r.p.name, label: r.p.name, pitch: zoom >= 11 ? 50 : 0 });
 }
 
 /* ============================ Boutons ============================ */
@@ -989,18 +1110,19 @@ $('#bStyle').onclick = async () => {
   map.once('style.load', () => { if (relief) map.setTerrain({ source: 'dem3d', exaggeration: 1.4 }); redrawAfterStyle(); });
 };
 syncButtons();
-$('#bGlobe').onclick = () => { closePanel(); map.flyTo({ center: map.getCenter(), zoom: isMobile ? 1.0 : 2.0, pitch: 0, bearing: 0, duration: 2600, padding: { top: 0, bottom: 0, left: 0, right: 0 } }); };
+$('#bGlobe').onclick = () => { closePanel(); map.flyTo({ center: map.getCenter(), zoom: isMobile() ? 1.0 : 2.0, pitch: 0, bearing: 0, duration: 2600, padding: { top: 0, bottom: 0, left: 0, right: 0 } }); };
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'Escape') { if ($('#viewer').classList.contains('open')) $('#viewer').classList.remove('open'); else if ($('#favs').classList.contains('open')) $('#favs').classList.remove('open'); else closePanel(); }
+  if (e.key === 'Escape') { if ($('#viewer').classList.contains('open')) $('#viewer').classList.remove('open'); else if ($('#favs').classList.contains('open')) closeFavs(); else closePanel(); }
   if ($('#viewer').classList.contains('open')) { if (e.key === 'ArrowLeft') $('#vPrev').click(); if (e.key === 'ArrowRight') $('#vNext').click(); return; }
   if (e.key === 'r' || e.key === 'R') randomTrip();
   if (e.key === '/') { e.preventDefault(); q.focus(); }
 });
 
 initItinerary({
-  getJSON, haversine, placesAround, kindOf, pname, notability, norm, LS, esc, toast, KIND_ICON, KIND_LABEL,
-  map: () => map, padding: panelPadding, setPanel, onSaved: () => saveFavs(),
+  getJSON, getBuffer: async u => { const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); }, haversine, placesAround, kindOf, pname, notability, norm, LS, esc, toast, KIND_ICON, KIND_LABEL,
+  map: () => map, padding: panelPadding, setPanel, onSaved: () => saveFavs(), share, isMobile,
+  route: (dest, input) => setRoute('voyage=' + encodeTrip(dest, input)), climate,
   backToPlace: () => { clearTrip(); panelMode = 'place'; renderPanel(); },
 });
 initMap().catch(err => {

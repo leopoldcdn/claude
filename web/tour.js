@@ -7,7 +7,8 @@ import { I } from './icons.js';
 const WIKI = 'https://fr.wikipedia.org/w/api.php?format=json&formatversion=2&origin=*&redirects=1&';
 const STAGE_MS = 9000;          // durée d'une étape
 const FLY_MS = 3000;            // vol de la caméra au début de l'étape
-const isPhoto = u => u && /\.jpe?g/i.test(u);
+const NOT_PHOTO = /(^|[\/_\- (])(map|maps|carte|karte|mapa|locator|flag|drapeau|coat[_ ]of[_ ]arms|blason|armoiries|wappen|satellite|landsat|sentinel|aster|modis|nasa|copernicus|from[_ ]space|orbit|iss\d|sts-\d|diagram|logo|relief|topographic)/i;
+const isPhoto = u => !!u && /\.jpe?g/i.test(u) && !NOT_PHOTO.test(decodeURIComponent(u.split('/').slice(-2).join('/')));
 
 let T = null;                   // survol en cours
 
@@ -125,7 +126,7 @@ function renderStage(C) {
   track.querySelectorAll('.tb-ph').forEach(btn => btn.onclick = () => {
     const p = st.photos[+btn.dataset.k];
     pause(C);
-    if (p.lat != null) C.map().flyTo({ center: [p.lon, p.lat], zoom: 15.5, pitch: 60, padding: pad(), duration: 2200, essential: true });
+    if (p.lat != null) C.map().flyTo({ center: [p.lon, p.lat], zoom: 15.5, pitch: 60, padding: pad(), duration: 2200, essential: false });
   });
   requestAnimationFrame(() => track.classList.remove('entering'));
   if (old) { old.classList.add('leaving'); setTimeout(() => old.remove(), 600); }
@@ -138,7 +139,7 @@ const pad = () => (innerWidth < 760 ? { top: 60, bottom: 300, left: 20, right: 2
 function fly(C, st) {
   const map = C.map();
   T.bearing = (T.bearing ?? map.getBearing()) - 35;
-  map.flyTo({ center: [st.stop.lon, st.stop.lat], zoom: 11.2, pitch: 58, bearing: T.bearing, padding: pad(), duration: FLY_MS, essential: true, curve: 1.6 });
+  map.flyTo({ center: [st.stop.lon, st.stop.lat], zoom: 11.2, pitch: 58, bearing: T.bearing, padding: pad(), duration: FLY_MS, essential: false, curve: 1.6 });
   map.once('moveend', () => orbit(C));
 }
 function orbit(C) {
@@ -146,7 +147,7 @@ function orbit(C) {
   const left = Math.max(0, STAGE_MS - T.elapsed);
   if (left < 400) return;
   T.bearing -= left / 1000 * 3;          // lente rotation autour de l'étape
-  C.map().easeTo({ bearing: T.bearing, duration: left, easing: t => t, essential: true });
+  C.map().easeTo({ bearing: T.bearing, duration: left, easing: t => t, essential: false });
 }
 function go(C, idx) {
   if (!T) return;

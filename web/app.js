@@ -3,6 +3,7 @@
  * Infos : Photon (géocodage), Wikipédia, Wikivoyage, Wikimedia Commons, Open-Meteo
  */
 import { registerProtocol, setCartoonBase, nightGrid, phase } from './sun.js';
+import { initItinerary, openPlanner, clearTrip, redrawAfterStyle, replan } from './itinerary.js';
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -436,6 +437,7 @@ let current = null, reqId = 0, abortCtl = null;
 async function explore(lat, lon, opts = {}) {
   const id = ++reqId;
   abortCtl?.abort(); abortCtl = new AbortController();
+  clearTrip(); panelMode = 'place';
   const signal = abortCtl.signal;
   placeMarker(lat, lon);
   if (poiMarker) poiMarker.remove();
@@ -511,8 +513,15 @@ async function explore(lat, lon, opts = {}) {
 
 /* ============================ Panneau ============================ */
 const panel = $('#panel');
+let panelMode = 'place';     // 'place' : fiche du lieu, 'trip' : itinéraire
 function openPanel() { panel.classList.add('open'); }
-function closePanel() { panel.classList.remove('open'); wpMarker?.remove(); poiMarker?.remove(); abortCtl?.abort(); reqId++; }
+function closePanel() { panel.classList.remove('open'); wpMarker?.remove(); poiMarker?.remove(); abortCtl?.abort(); reqId++; clearTrip(); panelMode = 'place'; }
+function setPanel(body, actions) {
+  panelMode = 'trip';
+  $('#pBody').innerHTML = body; $('#pActions').innerHTML = actions;
+  $('#panel .scroll').scrollTop = 0;
+  openPanel();
+}
 $('#pClose').onclick = closePanel;
 function renderSkeleton(lat, lon, label) {
   $('#pBody').innerHTML = `<div class="hero"><div class="kicker">${esc(fmtLL(lat, lon))}</div><h2>${esc(label || 'Analyse…')}</h2><div class="sub">Recherche des infos de voyage</div></div>
@@ -544,7 +553,7 @@ function heroImage() {
     : current.photos[0]?.src || current.wiki?.thumbnail?.source || '';
 }
 function renderPanel() {
-  const c = current; if (!c) return;
+  const c = current; if (!c || panelMode !== 'place') return;
   const img = heroImage();
   const w = c.weather?.current;
   const wx = w ? WMO[w.weather_code] || ['🌡', ''] : null;
@@ -633,7 +642,8 @@ function saveFavs() { LS.set('esc.web.favs', Object.fromEntries(favs)); $('#favC
 function renderActions() {
   const c = current; if (!c) return;
   const on = favs.has(favKey(c));
-  $('#pActions').innerHTML = `<button class="btn fav ${on ? 'on' : ''}" id="aFav">${on ? '✓ Dans mes destinations' : '★ Ajouter à mes destinations'}</button>`;
+  $('#pActions').innerHTML = `<button class="btn fav ${on ? 'on' : ''}" id="aFav">${on ? '✓ Enregistré' : '★ Enregistrer'}</button><button class="btn primary" id="aTrip">🧭 Itinéraire</button>`;
+  $('#aTrip').onclick = () => openPlanner({ name: c.name, lat: c.lat, lon: c.lon, cc: c.cc, monthScores: c.climate?.score });
   $('#aFav').onclick = () => {
     const k = favKey(c);
     if (favs.has(k)) { favs.delete(k); toast('Retiré de tes destinations'); }
@@ -647,9 +657,25 @@ function renderActions() {
     saveFavs(); renderActions();
   };
 }
+function renderTrips() {
+  const trips = LS.get('esc.web.trips', []);
+  if (!trips.length) return '';
+  return `<h3 class="mtitle">Mes itinéraires</h3><div style="overflow-x:auto"><table class="cmp"><tbody>${trips.map((t, i) => `<tr>
+    <td class="name" data-trip="${i}"><span><b>🧭 ${esc(t.name)}</b><small>${t.days} jours · ${esc(t.stops.join(' › '))}</small></span></td>
+    <td>${t.total.toLocaleString('fr-FR')} €</td><td><button class="rm" data-rmtrip="${i}" title="Supprimer">✕</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+function bindTrips() {
+  $('#fBody').querySelectorAll('[data-trip]').forEach(b => b.onclick = () => {
+    const t = LS.get('esc.web.trips', [])[+b.dataset.trip]; if (!t) return;
+    $('#favs').classList.remove('open'); replan(t.dest, t.input);
+  });
+  $('#fBody').querySelectorAll('[data-rmtrip]').forEach(b => b.onclick = () => {
+    const trips = LS.get('esc.web.trips', []); trips.splice(+b.dataset.rmtrip, 1); LS.set('esc.web.trips', trips); renderFavs();
+  });
+}
 function renderFavs() {
   const arr = [...favs.entries()].sort((a, b) => b[1].added - a[1].added);
-  if (!arr.length) { $('#fBody').innerHTML = '<div class="empty">Aucune destination pour l’instant. Clique sur la carte, puis sur « ★ Ajouter à mes destinations ».</div>'; return; }
+  if (!arr.length) { $('#fBody').innerHTML = renderTrips() + '<div class="empty">Aucune destination enregistrée pour l’instant. Clique sur la carte, puis sur « ★ Enregistrer ».</div>'; bindTrips(); return; }
   const m = new Date().getMonth();
   $('#fBody').innerHTML = `<div style="overflow-x:auto"><table class="cmp"><thead><tr><th>Destination</th><th>Météo par mois</th><th>Ce mois-ci</th><th>Températures</th><th></th></tr></thead><tbody>
     ${arr.map(([k, d]) => `<tr><td class="name" data-k="${esc(k)}">${d.img ? `<img src="${esc(d.img)}" alt="" referrerpolicy="no-referrer">` : ''}<span><b>${esc(d.flag)} ${esc(d.name)}</b><small>${esc(d.country)}</small></span></td>
@@ -657,7 +683,8 @@ function renderFavs() {
       <td>${d.score ? ['😕 Bof', '🙂 Correct', '😎 Idéal'][d.score[m]] : '—'}</td>
       <td>${d.tmin != null ? `${d.tmin}° à ${d.tmax}°` : '—'}</td>
       <td><button class="rm" data-rm="${esc(k)}" title="Retirer">✕</button></td></tr>`).join('')}
-    </tbody></table></div>`;
+    </tbody></table></div>` + renderTrips();
+  bindTrips();
   $('#fBody').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { favs.delete(b.dataset.rm); saveFavs(); renderFavs(); });
   $('#fBody').querySelectorAll('[data-k]').forEach(b => b.onclick = () => { const d = favs.get(b.dataset.k); $('#favs').classList.remove('open'); explore(d.lat, d.lon, { hint: d.name }); });
 }
@@ -668,10 +695,11 @@ saveFavs();
 
 /* ============================ Recherche ============================ */
 const q = $('#q'), sugg = $('#sugg');
-let results = [], sel = -1, searchT, searchCtl;
+let results = [], sel = -1, searchT, searchCtl, pendingEnter = false;
 q.addEventListener('input', () => {
   clearTimeout(searchT);
   const s = q.value.trim();
+  pendingEnter = false; results = [];
   if (s.length < 2) { sugg.style.display = 'none'; return; }
   searchT = setTimeout(async () => {
     searchCtl?.abort(); searchCtl = new AbortController();
@@ -688,13 +716,14 @@ q.addEventListener('input', () => {
     sugg.innerHTML = results.map((r, i) => `<button data-i="${i}">${esc(r.p.name)}<small>${esc([r.p.state, r.p.country].filter(x => x && x !== r.p.name).join(', '))}</small></button>`).join('');
     sugg.style.display = results.length ? 'block' : 'none';
     sugg.querySelectorAll('button').forEach(b => b.onclick = () => choose(results[+b.dataset.i]));
+    if (pendingEnter && results.length) { pendingEnter = false; choose(results[0]); }
   }, 250);
 });
 q.addEventListener('keydown', e => {
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault(); sel = Math.max(0, Math.min(results.length - 1, sel + (e.key === 'ArrowDown' ? 1 : -1)));
     sugg.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', i === sel));
-  } else if (e.key === 'Enter' && results.length) choose(results[Math.max(0, sel)]);
+  } else if (e.key === 'Enter') { if (results.length) choose(results[Math.max(0, sel)]); else pendingEnter = true; }
   else if (e.key === 'Escape') { sugg.style.display = 'none'; q.blur(); }
 });
 function choose(r) {
@@ -751,7 +780,7 @@ $('#bStyle').onclick = async () => {
   styleMode = styleMode === 'realiste' ? 'cartoon' : 'realiste'; LS.set('esc.web.style', styleMode); syncButtons();
   toast(styleMode === 'realiste' ? 'Vue satellite réaliste' : 'Vue cartoon');
   map.setStyle(await buildStyle(styleMode));
-  if (relief) map.once('style.load', () => map.setTerrain({ source: 'dem3d', exaggeration: 1.4 }));
+  map.once('style.load', () => { if (relief) map.setTerrain({ source: 'dem3d', exaggeration: 1.4 }); redrawAfterStyle(); });
 };
 syncButtons();
 $('#bGlobe').onclick = () => { closePanel(); map.flyTo({ center: map.getCenter(), zoom: isMobile ? 1.0 : 2.0, pitch: 0, bearing: 0, duration: 2600, padding: { top: 0, bottom: 0, left: 0, right: 0 } }); };
@@ -762,6 +791,11 @@ addEventListener('keydown', e => {
   if (e.key === 'r' || e.key === 'R') randomTrip();
 });
 
+initItinerary({
+  getJSON, haversine, placesAround, kindOf, pname, notability, norm, LS, esc, toast, KIND_ICON, KIND_LABEL,
+  map: () => map, padding: panelPadding, setPanel,
+  backToPlace: () => { clearTrip(); panelMode = 'place'; renderPanel(); },
+});
 initMap().catch(err => {
   console.error(err);
   $('#loading').innerHTML = `<div class="logo">Esca<span>pade</span></div><p style="color:#ccc;font-family:var(--hud);letter-spacing:.06em">Impossible de charger la carte (${esc(err.message)}). Vérifie ta connexion et recharge la page.</p>`;

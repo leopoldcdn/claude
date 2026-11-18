@@ -14,10 +14,16 @@ La notoriété vient de Wikidata (nombre d'articles Wikipédia, toutes langues) 
   SELECT ?gn ?sl ?fr WHERE { ?item wdt:P1566 ?gn ; wikibase:sitelinks ?sl . FILTER(?sl >= 3)
     OPTIONAL { ?fr schema:about ?item ; schema:isPartOf <https://fr.wikipedia.org/> } }
 sur https://qlever.cs.uni-freiburg.de/api/wikidata (format TSV).
+L'identifiant GeoNames de Wikidata pointe parfois vers une autre fiche (commune administrative au lieu de la ville) :
+un second fichier wdgeo.tsv (éléments Wikidata avec coordonnées, libellé anglais et article français) permet de
+rapprocher les lieux par nom et position (même nom, moins de 10 km ; 25 km pour les îles, montagnes, parcs…) :
+  SELECT ?sl ?lat ?lon ?en ?fr WHERE { ?item wikibase:sitelinks ?sl . FILTER(?sl >= 6) ?item wdt:P625 ?c .
+    ?item rdfs:label ?en . FILTER(LANG(?en) = "en") OPTIONAL { ?fr schema:about ?item ; schema:isPartOf <https://fr.wikipedia.org/> }
+    BIND(geof:latitude(?c) AS ?lat) BIND(geof:longitude(?c) AS ?lon) }
 
 Usage : python3 web/tools/build_places.py <dossier contenant allCountries.zip, alternateNamesV2.zip, admin1CodesASCII.txt, ql.tsv>
 """
-import sys, os, io, json, zipfile, collections, math, re
+import sys, os, io, json, zipfile, collections, math, re, unicodedata
 from urllib.parse import unquote
 
 SRC = sys.argv[1]
@@ -83,6 +89,46 @@ for gid, (sl, t) in sitelinks.items():
         wiki_fr[gid] = t
 print('  notoriété wikidata', len(sitelinks), flush=True)
 
+def nrm(t):
+    t = unicodedata.normalize('NFD', t.lower())
+    return re.sub(r'[^a-z0-9]+', ' ', ''.join(ch for ch in t if not unicodedata.combining(ch))).strip()
+
+# rapprochement par nom et position
+geo_idx = collections.defaultdict(lambda: collections.defaultdict(list))
+for line in open(os.path.join(SRC, 'wdgeo.tsv'), encoding='utf-8'):
+    c = line.rstrip('\n').split('\t')
+    if len(c) < 4 or not c[0].isdigit():
+        continue
+    try:
+        sl, la, lo = int(c[0]), float(c[1]), float(c[2])
+    except ValueError:
+        continue
+    label = c[3].rsplit('@', 1)[0].strip('"')
+    fr = unquote(c[4].strip('<>').split('/wiki/', 1)[1]) if len(c) > 4 and '/wiki/' in c[4] else ''
+    rec = (la, lo, sl, fr)
+    geo_idx[(math.floor(la * 2), math.floor(lo * 2))][nrm(label)].append(rec)
+    if fr:
+        frn = nrm(re.sub(r'\s*\(.*\)$', '', fr.replace('_', ' ')))
+        if frn != nrm(label):
+            geo_idx[(math.floor(la * 2), math.floor(lo * 2))][frn].append(rec)
+print('  wikidata géolocalisé', sum(len(v) for v in geo_idx.values()), flush=True)
+
+def geo_match(names, la, lo, radius):
+    best = (0, '')
+    ci, cj = math.floor(la * 2), math.floor(lo * 2)
+    coslat = math.cos(math.radians(la))
+    for di in (-1, 0, 1):
+        for dj in (-1, 0, 1):
+            cell = geo_idx.get((ci + di, cj + dj))
+            if not cell:
+                continue
+            for n in names:
+                for (a, b, sl, fr) in cell.get(n, ()):
+                    if sl > best[0] and math.hypot((a - la) * 111, (b - lo) * 111 * coslat) < radius:
+                        best = (sl, fr)
+    return best
+NATURAL = {'ISL', 'ISLS', 'ATOL', 'MT', 'MTS', 'PK', 'VLC', 'PRK', 'RESN', 'RESW', 'LK', 'LKS', 'GLCR', 'DSRT', 'CNYN', 'BAY', 'LGN'}
+
 admin1 = {}
 for line in open(os.path.join(SRC, 'admin1CodesASCII.txt'), encoding='utf-8'):
     c = line.rstrip('\n').split('\t')
@@ -99,6 +145,15 @@ with zipfile.ZipFile(os.path.join(SRC, 'allCountries.zip')) as z:
             fcl, fco = c[6], c[7]
             gid = int(c[0])
             sl = sitelinks.get(gid, (0, ''))[0]
+            if (fcl == 'P' and fco not in P_SKIP) or fco in FCODE:
+                names = {nrm(c[1]), nrm(c[2])}
+                if gid in fr_name: names.add(nrm(fr_name[gid]))
+                names.discard('')
+                msl, mfr = geo_match(names, float(c[4]), float(c[5]), 25 if fco in NATURAL else 10)
+                if msl > sl:
+                    sl = msl
+                    if mfr and gid not in wiki_fr:
+                        wiki_fr[gid] = mfr
             linked = sl >= 3 or gid in wiki_fr or gid in wiki_en
             pop = int(c[14] or 0)
             kind = None

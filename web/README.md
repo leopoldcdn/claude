@@ -1,6 +1,9 @@
 # Escapade — version web
 
 Globe 3D pour choisir une destination de vacances : on part de l'espace et on zoome jusqu'aux rues, avec les bâtiments en 3D.
+Le bouton « Itinéraire » d'une fiche propose un parcours autour de la destination selon la durée, le budget
+(vol compris), le nombre de voyageurs, le mois, la ville de départ, le transport, le type de parcours, le rythme et les envies.
+
 Le jour et la nuit s'affichent en temps réel, avec les lumières des villes côté nuit.
 Un clic n'importe où ouvre une fiche avec une description, les photos, les lieux à voir, la météo par mois et les infos pratiques.
 
@@ -26,12 +29,15 @@ Puis ouvrir http://localhost:8000.
 | Description | Wikivoyage et Wikipédia (français) |
 | Photos et lieux à voir | Wikipédia (classés par popularité) et Wikimedia Commons |
 | Climat par mois, météo du moment | [Open-Meteo](https://open-meteo.com/) |
+| Temps de route des itinéraires | [OSRM](https://project-osrm.org/) (OpenStreetMap) |
+| Niveau des prix par pays (budget) | Banque mondiale, PPA / taux de change (CC BY 4.0) — `tools/build_prices.py` |
 | Monnaie, langue, capitale | paquet npm `world-countries` |
 | Base de lieux (770 000 villes, villages et sites) | [GeoNames](https://www.geonames.org/) (CC BY 4.0), notoriété et articles français via [Wikidata](https://www.wikidata.org/) |
 
 ## Fichiers
 
 - `index.html`, `style.css`, `app.js` : l'application
+- `itinerary.js` : générateur d'itinéraire (étapes, ordre, programme jour par jour, budget)
 - `sun.js` : position du soleil en temps réel, ombre de la nuit et lumières des villes
 - `data/` : base de lieux (villes, villages, sites — GeoNames + Wikidata) et infos pays
 - `tiles/cartoon/` : globe cartoon en tuiles (zooms 0 à 4)

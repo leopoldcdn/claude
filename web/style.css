@@ -417,3 +417,58 @@ details.day[open] summary .chev{transform:rotate(90deg)}
   .empty{margin:8px 20px}
   .pcard .rm{opacity:1}
 }
+
+/* =====================================================================
+   Survol de l'itinéraire : bande de photos en bas
+   ===================================================================== */
+#panel.open.away{transform:translateX(calc(100% + 24px))}
+body.touring .surprise,body.touring .controls,body.touring .hint,body.touring .infochip,body.touring .topbar,body.touring .favs-btn{opacity:0;pointer-events:none;transition:opacity .4s}
+.btn.play{color:var(--acc)}
+#tourbar{position:fixed;z-index:30;left:50%;bottom:calc(20px + var(--safe-b));width:min(1080px,calc(100vw - 32px));border-radius:var(--r-lg);overflow:hidden;
+  transform:translate(-50%,30px);opacity:0;transition:transform .5s var(--ease),opacity .4s}
+#tourbar.show{transform:translate(-50%,0);opacity:1}
+.tb-prog{display:flex;gap:4px;padding:12px 16px 0}
+.tb-prog span{flex:1;height:3px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden}
+.tb-prog i{display:block;height:100%;background:var(--acc-grad);transform-origin:left;transform:scaleX(0)}
+.tb-prog span.done i{transform:scaleX(1)!important}
+.tb-body{display:flex;gap:18px;align-items:stretch;padding:12px 16px 16px}
+.tb-info{flex:none;width:230px;display:flex;flex-direction:column;justify-content:center}
+.tb-step{display:flex;align-items:center;gap:10px}
+.tb-num{width:30px;height:30px;border-radius:50%;background:var(--acc-grad);color:#2a1300;font:700 14px var(--sans);display:flex;align-items:center;justify-content:center}
+.tb-count{font:600 12px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.tb-name{margin:8px 0 2px;font:600 30px/1.05 var(--serif);letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-sub{margin:0 0 12px;color:var(--mut);font-size:14px}
+.tb-ctrl{display:flex;gap:8px}
+.tb-ctrl .round{width:38px;height:38px}
+.tb-ctrl .ico{width:18px;height:18px}
+.tb-play{background:var(--acc-grad)!important;color:#2a1300}
+.tb-strip{position:relative;flex:1;min-width:0;height:150px;overflow:hidden;border-radius:16px;
+  -webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}
+.tb-track{position:absolute;left:0;top:0;bottom:0;display:flex;gap:10px;transition:opacity .55s var(--ease);will-change:transform}
+.tb-track.entering{opacity:0}
+.tb-track.leaving{opacity:0}
+.tb-ph{position:relative;flex:none;height:150px;width:210px;padding:0;border:0;border-radius:14px;overflow:hidden;cursor:pointer;background:rgba(255,255,255,.06)}
+.tb-ph.main{width:250px}
+.tb-ph img{width:100%;height:100%;object-fit:cover;display:block;animation:kb 9s linear both}
+@keyframes kb{from{transform:scale(1.02)}to{transform:scale(1.12)}}
+#tourbar.paused .tb-ph img{animation-play-state:paused}
+.tb-ph::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 50%,rgba(6,9,14,.85))}
+.tb-ph span{position:absolute;z-index:1;left:10px;right:10px;bottom:8px;font:600 13px/1.25 var(--sans);text-align:left;color:#fff;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tb-ph:hover img{filter:brightness(1.12)}
+.tb-empty{display:flex;align-items:center;gap:10px;height:150px;padding:0 20px;color:var(--mut)}
+.tb-load{display:flex;gap:10px}
+.tb-load i{width:210px;height:150px;border-radius:14px;background:linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.12),rgba(255,255,255,.05));background-size:200% 100%;animation:sk 1.4s infinite}
+@media (max-width:760px){
+  #panel.open.away{transform:translateY(105%)}
+  #tourbar{width:calc(100vw - 16px);bottom:calc(8px + var(--safe-b));border-radius:22px}
+  .tb-body{flex-direction:column;gap:10px;padding:10px 12px 12px}
+  .tb-info{width:auto;flex-direction:row;align-items:center;flex-wrap:wrap;gap:4px 10px}
+  .tb-step{order:1}.tb-name{order:2;flex:1;min-width:0;margin:0;font-size:22px}.tb-sub{order:4;width:100%;margin:0;font-size:13px}.tb-ctrl{order:3}
+  .tb-ctrl [data-a=prev],.tb-ctrl [data-a=next]{display:none}
+  .tb-count{display:none}
+  .tb-strip{flex:none;width:100%}
+  .tb-strip,.tb-ph,.tb-empty{height:118px}
+  .tb-ph{width:160px}.tb-ph.main{width:190px}
+  .tb-load i{width:160px;height:118px}
+}

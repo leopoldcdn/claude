@@ -81,7 +81,7 @@ const LABEL_MINZOOM = { label_village: 11.5, label_other: 13, poi_r1: 15.5, poi_
 function realisticLayer(l) {
   const id = l.id;
   if (/^(natural_earth|road_area_pattern|park_outline|road_one_way)/.test(id)) return null;
-  if (id === 'background') { l.paint = { 'background-color': PLAN.background }; return l; }
+  if (id === 'background') { l.paint = { 'background-color': byZoom('#0b1622', PLAN.background) }; return l; }   // sombre tant que le satellite charge
   // surfaces du plan, qui apparaissent en zoomant
   const fill = { water: PLAN.water, park: PLAN.park, landcover_wood: PLAN.wood, landcover_grass: PLAN.grass, landcover_sand: PLAN.sand,
     landcover_ice: PLAN.ice, landcover_wetland: PLAN.grass, landuse_residential: PLAN.residential, landuse_pitch: PLAN.pitch, landuse_track: PLAN.pitch,

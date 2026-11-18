@@ -38,6 +38,7 @@ Puis ouvrir http://localhost:8000.
 
 - `index.html`, `style.css`, `app.js` : l'application (interface « verre » translucide au-dessus du globe)
 - `icons.js` : icônes au trait de l'interface
+- `tour.js` : survol animé d'un itinéraire, avec une bande de photos de chaque étape
 - `itinerary.js` : générateur d'itinéraire (étapes, ordre, programme jour par jour, budget)
 - `sun.js` : position du soleil en temps réel, ombre de la nuit et lumières des villes
 - `data/` : base de lieux (villes, villages, sites — GeoNames + Wikidata) et infos pays

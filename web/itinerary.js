@@ -13,6 +13,7 @@
  */
 
 import { I } from './icons.js';
+import { startTour, stopTour } from './tour.js';
 
 let C = null;          // contexte fourni par app.js
 export function initItinerary(ctx) { C = ctx; }
@@ -288,7 +289,7 @@ export async function planTrip(o, signal) {
 function activity(p, d) {
   const k = C.kindOf(p);
   const town = BASE_KINDS.has(k);
-  return { icon: C.KIND_ICON[k] || '📍', text: town ? `Excursion à ${C.pname(p)}` : C.pname(p), sub: `${C.KIND_LABEL[k] || k} · ${d < 1 ? 'sur place' : Math.round(d) + ' km'}`, lat: p[5], lon: p[6], wiki: p[8] || null };
+  return { name: C.pname(p), icon: C.KIND_ICON[k] || '📍', text: town ? `Excursion à ${C.pname(p)}` : C.pname(p), sub: `${C.KIND_LABEL[k] || k} · ${d < 1 ? 'sur place' : Math.round(d) + ' km'}`, lat: p[5], lon: p[6], wiki: p[8] || null };
 }
 function legItem(l, mode, a, b) {
   const h = Math.floor(l.h), m = Math.round((l.h - h) * 60 / 5) * 5;
@@ -296,7 +297,7 @@ function legItem(l, mode, a, b) {
 }
 
 /* ------------------------------------------------------------------ interface */
-let trip = null, markers = [], tourT = null;
+let trip = null, markers = [];
 const fmtE = v => Math.round(v).toLocaleString('fr-FR') + ' €';
 
 export function openPlanner(dest, prefill = {}) {
@@ -401,7 +402,7 @@ function renderTrip() {
     <div class="sec"><h3>Jour par jour</h3>${t.days.map((d, k) => `<details class="day" ${k === 0 ? 'open' : ''}><summary><span class="dn">Jour<b>${d.n}</b></span><span class="dt">${C.esc(d.title)}<small>${visits(d) ? visits(d) + ' visite' + (visits(d) > 1 ? 's' : '') : d.items.find(it => /→/.test(it.text)) ? 'Trajet' : 'Journée libre'}</small></span><span class="chev">${I.next}</span></summary>
       <div class="items">${d.items.map(it => `<div class="it ${it.lat != null ? 'go' : ''}" ${it.lat != null ? `data-lat="${it.lat}" data-lon="${it.lon}"` : ''}><span class="ic">${it.icon}</span><span>${C.esc(it.text)}${it.sub ? `<small>${C.esc(it.sub)}</small>` : ''}${it.wiki ? `<a href="https://fr.wikipedia.org/wiki/${encodeURIComponent(it.wiki)}" target="_blank" rel="noopener">Wikipédia</a>` : ''}</span></div>`).join('')}</div></details>`).join('')}
       <p class="src">${t.routed ? 'Trajets routiers calculés avec OSRM (OpenStreetMap). ' : ''}Étapes et visites tirées de GeoNames et Wikidata.</p></div>`,
-    `<button class="btn icon" id="tEdit" aria-label="Modifier" title="Modifier">${I.edit}</button><button class="btn icon" id="tTour" aria-label="Survoler" title="Survoler le parcours">${I.play}</button><button class="btn primary" id="tSave">${I.heart}Enregistrer</button>`);
+    `<button class="btn icon" id="tEdit" aria-label="Modifier" title="Modifier">${I.edit}</button><button class="btn icon play" id="tTour" aria-label="Survoler le parcours en images" title="Survoler le parcours en images">${I.play}</button><button class="btn primary" id="tSave">${I.heart}Enregistrer</button>`);
   const panel = document.getElementById('pBody');
   panel.querySelectorAll('[data-stop]').forEach(b => b.onclick = () => { const s = t.stops[+b.dataset.stop]; C.map().flyTo({ center: [s.lon, s.lat], zoom: 11, pitch: 50, padding: C.padding(), duration: 2200 }); });
   panel.querySelectorAll('.it.go').forEach(b => b.onclick = () => C.map().flyTo({ center: [+b.dataset.lon, +b.dataset.lat], zoom: 13.5, pitch: 55, padding: C.padding(), duration: 2200 }));
@@ -439,29 +440,23 @@ export function drawTrip() {
     return new maplibregl.Marker({ element: el }).setLngLat([s.lon, s.lat]).addTo(map);
   });
   const lons = trip.geometry.coordinates.map(c => c[0]), lats = trip.geometry.coordinates.map(c => c[1]);
-  map.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: { ...C.padding(), top: 90, bottom: 90, left: 90 }, maxZoom: 9, pitch: 30, duration: 2200 });
+  // cadrage sur tout le parcours ; les marges laissent la place au panneau (à droite, ou en bas sur téléphone)
+  const bounds = [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]];
+  const mobile = innerWidth < 760;
+  const want = mobile ? { top: 70, bottom: Math.round(innerHeight * 0.62), left: 30, right: 30 } : { top: 90, bottom: 90, left: 110, right: 490 };
+  map.setPadding({ top: 0, bottom: 0, left: 0, right: 0 });   // sinon les marges des vols précédents s'ajoutent
+  const cam = map.cameraForBounds(bounds, { padding: want, maxZoom: 9 }) || map.cameraForBounds(bounds, { padding: 20, maxZoom: 9 });
+  if (cam) map.flyTo({ ...cam, pitch: 30, bearing: 0, duration: 2200, essential: true });
 }
 export function clearTrip() {
   const map = C.map();
-  clearTimeout(tourT);
+  stopTour(C);
   markers.forEach(m => m.remove()); markers = [];
   for (const id of ['trip-line', 'trip-glow']) if (map?.getLayer(id)) map.removeLayer(id);
   if (map?.getSource(ROUTE_SRC)) map.removeSource(ROUTE_SRC);
   trip = null;
 }
 export function redrawAfterStyle() { if (trip) drawTrip(); }
-function tour() {
-  const map = C.map(); let i = 0;
-  clearTimeout(tourT);
-  const seq = trip.stops.concat(trip.input.shape !== 'oneway' && trip.stops.length > 1 ? [trip.stops[0]] : []);
-  const next = () => {
-    if (i >= seq.length) return;
-    const s = seq[i++];
-    map.flyTo({ center: [s.lon, s.lat], zoom: 11.5, pitch: 60, bearing: (i * 40) % 360 - 60, padding: C.padding(), duration: 3200, essential: true });
-    C.toast(`Étape ${Math.min(i, trip.stops.length)} · ${s.name}`);
-    tourT = setTimeout(next, 4600);
-  };
-  next();
-}
+function tour() { startTour(C, trip); }
 export const LIKE_KEYS = Object.keys(LIKES);
 export function replan(dest, input) { openPlanner(dest, { ...input, from: input.fromName ?? input.from }); submit(dest); }

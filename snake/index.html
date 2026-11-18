@@ -76,7 +76,7 @@
     <canvas id="c" width="480" height="480"></canvas>
     <div class="overlay" id="overlay">
       <h2 id="ov-title">Snake</h2>
-      <p id="ov-text">Mange les pommes, grandis, et ne te mords pas la queue.<br>La vitesse augmente à chaque pomme.</p>
+      <p id="ov-text">Mange les pommes, grandis, et ne te mords pas la queue.<br>Les murs te font ressortir de l'autre côté.<br>La vitesse augmente à chaque pomme.</p>
       <button id="ov-btn">Jouer</button>
     </div>
   </div>
@@ -158,12 +158,13 @@
   function step() {
     if (queue.length) dir = queue.shift();
     const [hx, hy] = snake[0];
-    const nx = hx + dir[0], ny = hy + dir[1];
+    // les bords se rejoignent : on ressort du côté opposé
+    const nx = (hx + dir[0] + N) % N, ny = (hy + dir[1] + N) % N;
 
     const eating = food && nx === food[0] && ny === food[1];
     // la queue bouge si on ne mange pas : on peut donc entrer dans la case qu'elle quitte
     const body = eating ? snake : snake.slice(0, -1);
-    if (nx < 0 || ny < 0 || nx >= N || ny >= N || body.some(([x, y]) => x === nx && y === ny)) {
+    if (body.some(([x, y]) => x === nx && y === ny)) {
       return gameOver();
     }
     snake.unshift([nx, ny]);

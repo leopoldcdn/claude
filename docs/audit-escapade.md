@@ -1,6 +1,6 @@
 # Audit d'Escapade — fonctionnement, design, expérience utilisateur
 
-*Audit réalisé le 18 novembre 2026 sur la branche `claude/dreamy-cray-8oqcvr`, en suivant [`docs/prompt-audit.md`](prompt-audit.md). Les captures sont dans [`docs/audit/`](audit/).*
+*Version finale — audit réalisé le 18 novembre 2026 sur la branche `claude/dreamy-cray-8oqcvr`, en suivant [`docs/prompt-audit.md`](prompt-audit.md). Les captures sont dans [`docs/audit/`](audit/).*
 
 **Méthode.**
 - **Navigateur piloté (Playwright).** Sur ordinateur (1440 × 900) : 7 destinations recherchées, un clic en pleine mer, des clics rapides successifs, une recherche sans résultat, le formulaire, l'itinéraire, « Mes voyages ». La mémoire est mesurée après 8 tirages « Surprends-moi ». Viennent ensuite trois scénarios dégradés : réseau lent (3G), services externes coupés, stockage du navigateur indisponible. Sur téléphone (iPhone 13) : le parcours complet, la poignée du panneau, l'écran en paysage.
@@ -36,13 +36,34 @@ S'y ajoutent des manques pour un futur site public : **aucun lien partageable**,
 |---|---|---|
 | Premier chargement : poids / requêtes | **3,2 Mo / 94 requêtes** | 72 requêtes rien que pour l'image satellite et les lumières de nuit |
 | Temps avant globe utilisable | 18 s (rendu logiciel) | Pessimiste : sur une vraie machine, probablement 2 à 4 s, à mesurer après mise en ligne |
-| Ouverture d'une fiche | ~25 à 40 requêtes vers 6 services | Voir le détail des destinations plus bas |
+| Ouverture d'une fiche | **80 à 150 requêtes, 0,3 à 5,8 Mo** | Surtout des tuiles de carte et des photos ; Santorin est la plus lourde (150 requêtes, 5,8 Mo) |
+| Délai avant que la fiche soit utilisable | 2 à 4 s (Santorin : 10 s) | Rendu logiciel : pessimiste |
+| Mémoire après 8 « Surprends-moi » | 71 → 94 Mo, 1 seul marqueur, 109 couches stables | Pas de fuite constatée |
 | Base de lieux | 57 Mo sur le serveur, ~0,4 Mo compressé par zone chargée | Chargement à la demande : bon choix |
 | Icône d'onglet / aperçu de partage / titre H1 | **absents** (0 / 0 / 0) | Constaté |
 | Accessibilité (axe, accueil) | 1 type d'anomalie : contenu hors des zones repérables par les lecteurs d'écran | Voir aussi le focus clavier |
 | Focus clavier | **invisible** sur la carte et la barre de recherche | Constaté au parcours avec Tab |
 
-<!--MESURES-->
+### Scénarios testés dans le navigateur
+
+| Scénario | Résultat | Verdict |
+|---|---|---|
+| Rome, Tokyo, Gordes, El Chaltén | Bon lieu, bonne description, photos et lieux à voir pertinents (Colisée, palais impérial, Fitz Roy…) | ✅ |
+| Santorin | Bon texte, mais zoom au niveau de la rue et carte satellite en photo principale (F4, F14) | ⚠️ |
+| Ubud (Bali) | Description administrative ; « Kabupaten de Gianyar » proposé dans « À voir » (F5, F15) | ⚠️ |
+| N'Djamena | **Mauvais lieu** : village du Kanem au lieu de la capitale ; photos noires ; 1 seul lieu à voir (F3, F14) | ❌ |
+| Clic en pleine mer (Atlantique) | Redirection vers São Miguel (Açores, à 276 km), avec un message clair | ✅ |
+| 4 clics rapides successifs | Seul le dernier lieu s'affiche, un seul marqueur : pas de mélange | ✅ |
+| Recherche sans résultat (« xqzwvvbn ») | La liste se ferme sans rien dire : **aucun message « aucun résultat »** | ⚠️ (U6) |
+| Climat dans les fiches | Absent pour 4 destinations sur 7 (Open-Meteo saturé depuis le conteneur, voir F13) | ⚠️ |
+| Échap ferme « Mes voyages » | Oui | ✅ |
+| Réseau lent (3G simulée) | Globe affiché après **45 s**, sans indication de progression au-delà de l'animation | ⚠️ (U7) |
+| Services externes coupés (recherche, Wikipédia, météo, routes) | La recherche se rabat sur la base locale (avec « Lyon Park, Erevan » en 2ᵉ proposition) ; fiche minimale sans photo ni texte ; itinéraire Lyon → Grenoble → Genève calculé avec des temps estimés et un avertissement | ✅ (dégradé mais utilisable) |
+| Stockage du navigateur indisponible | Le site fonctionne, aucune erreur ; les favoris ne sont simplement pas gardés, sans prévenir (F19) | ⚠️ |
+| Accessibilité automatique (axe) de la fiche et du formulaire | Aucune anomalie | ✅ |
+| Téléphone : poignée du panneau, survol, Mes voyages | Fonctionnent | ✅ |
+| Téléphone en paysage | Chevauchements (D6) | ⚠️ |
+| Erreurs JavaScript | Aucune erreur de code ; seulement des requêtes refusées (Open-Meteo, Wikipédia : limites du conteneur), une icône de bouclier routier américain manquante et un 404 (pas d'icône d'onglet) | ✅ |
 
 ---
 
@@ -97,7 +118,8 @@ Gravité : 🔴 Bloquant · 🟠 Majeur · 🟡 Mineur · ⚪ Cosmétique.
 | U3 | Formulaire | Valeurs par défaut arbitraires (départ de Paris, mois suivant, 2 000 €), pas de dates précises, et aucun repère pour savoir si un budget est réaliste avant de valider. | `10-formulaire.png` | 🟡 | Constaté |
 | U4 | Navigation | **Pas de retour arrière** : ouvrir un lieu proche depuis une fiche remplace la fiche sans possibilité de revenir. Le bouton « précédent » du navigateur quitte le site. | Parcours | 🟡 | Constaté |
 | U5 | Accessibilité | Focus clavier invisible sur la carte et la recherche. L'ouverture d'un panneau ne déplace pas le focus. La fenêtre « Mes voyages » ne retient pas le focus. Les vols de caméra ignorent la préférence « réduire les animations ». | Parcours au clavier, analyse axe | 🟡 | Constaté |
-| U6 | Robustesse | Voir les résultats des scénarios dégradés plus bas : réseau lent, services coupés, stockage indisponible. | Section 2 | — | — |
+| U6 | Recherche | **Aucun message quand une recherche ne trouve rien** : la liste disparaît simplement. | Scénario « xqzwvvbn » | 🟡 | Constaté |
+| U7 | Chargement | Sur réseau lent, **45 s avant le globe** sans progression visible ; le chargement attend toutes les données avant d'afficher quoi que ce soit. | `13-reseau-lent.png` | 🟡 | Constaté |
 
 ---
 
@@ -117,6 +139,7 @@ Gravité : 🔴 Bloquant · 🟠 Majeur · 🟡 Mineur · ⚪ Cosmétique.
 | **Icône d'onglet, aperçu de partage, titre** | D8, F20 | `favicon.svg` (le soleil du logo), balises `og:` et `twitter:`, un titre de niveau 1 caché visuellement. | 30 min | Nul |
 | **Focus visible et zones repérables** | U5, D7 | Style `:focus-visible` (anneau orange) sur tous les éléments interactifs, balises `main`, `nav` et `aside`, contrôles portés à 44 px. Déplacer le focus dans le panneau à son ouverture et le retenir dans « Mes voyages ». | 1 h 30 | Faible |
 | **Messages de budget utiles** | F10 | Si le vol dépasse 40 % du budget, proposer une destination plus proche. Sinon, afficher le budget conseillé (« Compte environ 3 100 € »), plutôt qu'un nombre de jours absurde. | 1 h | Faible |
+| **Message « aucun résultat » et chargement progressif** | U6, U7 | Afficher « Aucun lieu trouvé » avec une suggestion ; montrer le globe dès que le style est prêt, sans attendre la base de lieux, avec une barre de progression réelle. | 1 h | Nul |
 | **Faits rapides lisibles** | D4 | Passer sur deux lignes (grille) au lieu d'un défilement horizontal caché. | 20 min | Nul |
 | **Mise en page qui suit l'écran** | F17, D6 | Remplacer la constante `isMobile` par une lecture à chaque besoin (`matchMedia` avec écoute du changement). Ajouter une règle pour les écrans peu hauts (`max-height: 500px`). | 1 h | Faible |
 

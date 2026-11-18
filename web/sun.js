@@ -127,8 +127,30 @@ function lightsOnly(img, z, x, y, n, date) {
   return cv;
 }
 
+/** Tuile transparente d'ombre nocturne, sans image source : dégradé lisse quel que soit le zoom. */
+function shadeOnly(z, x, y, n, date) {
+  const cv = canvas(n), ctx = cv.getContext('2d');
+  const im = ctx.createImageData(n, n), px = im.data, sun = subsolar(date);
+  const sinD = Math.sin(sun.lat * DEG), cosD = Math.cos(sun.lat * DEG), world = n * 2 ** z;
+  const cosCol = new Float32Array(n);
+  for (let i = 0; i < n; i++) cosCol[i] = Math.cos((((x * n + i + 0.5) / world) * 360 - 180 - sun.lon) * DEG);
+  for (let j = 0; j < n; j++) {
+    const lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y * n + j + 0.5) / world)));
+    const a = Math.sin(lat) * sinD, b = Math.cos(lat) * cosD;
+    for (let i = 0; i < n; i++) {
+      const s = a + b * cosCol[i], k = (j * n + i) * 4;
+      const dark = 1 - smooth(S_NIGHT, S_DAY, s);
+      const dusk = Math.exp(-(((s - 0.01) / 0.05) ** 2));
+      px[k] = 4 + 120 * dusk; px[k + 1] = 10 + 40 * dusk; px[k + 2] = 30;
+      px[k + 3] = Math.max(dark * 228, dusk * 45);
+    }
+  }
+  ctx.putImageData(im, 0, 0);
+  return cv;
+}
+
 /**
- * dn://<sat|cartoon|lights>/{z}/{x}/{y}?t=<horodatage>&on=<0|1>
+ * dn://<sat|cartoon|lights|shade>/{z}/{x}/{y}?t=<horodatage>&on=<0|1>
  * Les tuiles de zoom ≤ darkMax sont assombries ici ; au-delà, c'est la grille d'ombre qui s'en charge.
  */
 export function registerProtocol(maplibregl, darkMax = 5) {
@@ -139,13 +161,17 @@ export function registerProtocol(maplibregl, darkMax = 5) {
     const on = u.searchParams.get('on') !== '0';
     const date = new Date(+u.searchParams.get('t') || Date.now());
     const signal = abortController.signal;
+    if (kind === 'shade') {
+      if (!on) return { data: await encode(canvas(1), 'image/png') };
+      return { data: await encode(shadeOnly(z, x, y, 256, date), 'image/png') };
+    }
     if (kind === 'lights') {
       if (!on) return { data: await encode(canvas(1), 'image/png') };
       const img = await loadBitmap(SOURCES.lights(z, x, y), signal);
       return { data: await encode(lightsOnly(img, z, x, y, 256, date), 'image/png') };
     }
     const url = kind === 'cartoon' ? `${cartoonBase}${z}/${x}/${y}.jpg` : SOURCES.sat(z, x, y);
-    const zMax = kind === 'cartoon' ? 99 : darkMax;
+    const zMax = darkMax;
     if (!on || z > zMax) {
       const r = await fetch(url, { signal });
       if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -159,3 +185,4 @@ export function registerProtocol(maplibregl, darkMax = 5) {
     return { data: await encode(shade(dayImg, lightsImg, z, x, y, n, date), 'image/jpeg') };
   });
 }
+

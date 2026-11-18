@@ -2,7 +2,7 @@
  * Carte : OpenFreeMap (OpenStreetMap / OpenMapTiles), relief : Terrain Tiles (AWS Open Data)
  * Infos : Photon (géocodage), Wikipédia, Wikivoyage, Wikimedia Commons, Open-Meteo
  */
-import { registerProtocol, setCartoonBase, nightGrid, phase } from './sun.js';
+import { registerProtocol, setCartoonBase, phase } from './sun.js';
 import { initItinerary, openPlanner, clearTrip, redrawAfterStyle, replan } from './itinerary.js';
 import { I } from './icons.js';
 const $ = s => document.querySelector(s);
@@ -36,7 +36,8 @@ function toast(m) { const t = $('#toast'); t.textContent = m.replace(/^[★✓]\
 
 /* ============================ Style de carte "cartoon" ============================ */
 const BASE = new URL('.', location.href).href;
-const NAME_FR = ['coalesce', ['get', 'name:fr'], ['get', 'name:latin'], ['get', 'name']];
+// nom français, sinon transcription latine (évite le cyrillique, le thaï… quand le français manque)
+const NAME_FR = ['coalesce', ['get', 'name:fr'], ['get', 'name_int'], ['get', 'name:latin'], ['get', 'name']];
 const PAINT = {
   background: { 'background-color': '#c4e6a0' },
   water: { 'fill-color': '#3fc1d6' },
@@ -63,22 +64,78 @@ const PAINT = {
   boundary_2: { 'line-color': '#7a4fc7', 'line-width': ['interpolate', ['linear'], ['zoom'], 2, 1.2, 5, 1.8, 12, 3.5] },
   boundary_3: { 'line-color': '#a58ad8' },
 };
-/* ---- style réaliste : image satellite + routes, noms et bâtiments par-dessus ---- */
-const HIDE_REAL = /^(park|park_outline|landuse_|landcover_|water$|waterway_|aeroway_fill|road_area_pattern|building$|natural_earth)/;
+/* ---- style réaliste ----
+ * De loin : image satellite, routes discrètes, peu de noms.
+ * De près (zoom 12 → 14,5) : l'image satellite, floue à cette échelle, s'efface au profit d'un plan net
+ * aux couleurs douces, avec les bâtiments en 3D. Les textes passent du blanc au gris foncé en même temps. */
+const Z0 = 12, Z1 = 14.5;
+const fadeIn = v => ['interpolate', ['linear'], ['zoom'], Z0, 0, Z1, v];
+const byZoom = (a, b) => ['interpolate', ['linear'], ['zoom'], Z0, a, Z1, b];
+const PLAN = {
+  background: '#f3efe7', water: '#a9d3ec', park: '#cfe5bd', wood: '#bddcaa', grass: '#d6eac3', sand: '#f3e6c0', ice: '#f7fbfd',
+  residential: '#ece6da', building: '#e3dccf', pitch: '#cde7c2', cemetery: '#d9e4cf', hospital: '#f4dcdc', school: '#f2e9d4', aeroway: '#e4e0d8',
+};
+const LABEL_MINZOOM = { label_village: 11.5, label_other: 13, poi_r1: 15.5, poi_r7: 17, poi_r20: 18, poi_transit: 16, airport: 9,
+  'highway-name-major': 14, 'highway-name-minor': 15.5, 'highway-name-path': 16.5, 'highway-shield-non-us': 9, 'highway-shield-us-interstate': 8, road_shield_us: 9,
+  water_name_line_label: 11, waterway_line_label: 12, label_state: 5 };
 function realisticLayer(l) {
-  if (HIDE_REAL.test(l.id)) return null;
-  if (l.id === 'background') l.paint = { 'background-color': '#08131f' };
-  if (l.type === 'line' && /^(road|bridge|tunnel)_/.test(l.id)) {
-    l.paint = { ...l.paint, 'line-opacity': ['interpolate', ['linear'], ['zoom'], 6, /casing/.test(l.id) ? 0.25 : 0.45, 14, /casing/.test(l.id) ? 0.45 : 0.8] };
+  const id = l.id;
+  if (/^(natural_earth|road_area_pattern|park_outline|road_one_way)/.test(id)) return null;
+  if (id === 'background') { l.paint = { 'background-color': PLAN.background }; return l; }
+  // surfaces du plan, qui apparaissent en zoomant
+  const fill = { water: PLAN.water, park: PLAN.park, landcover_wood: PLAN.wood, landcover_grass: PLAN.grass, landcover_sand: PLAN.sand,
+    landcover_ice: PLAN.ice, landcover_wetland: PLAN.grass, landuse_residential: PLAN.residential, landuse_pitch: PLAN.pitch, landuse_track: PLAN.pitch,
+    landuse_cemetery: PLAN.cemetery, landuse_hospital: PLAN.hospital, landuse_school: PLAN.school, aeroway_fill: PLAN.aeroway, building: PLAN.building }[id];
+  if (fill) {
+    l.paint = { 'fill-color': fill, 'fill-opacity': fadeIn(id === 'water' ? 1 : 0.95), 'fill-antialias': true };
+    if (id === 'building') { l.minzoom = 13; l.maxzoom = 15; }
+    return l;
   }
-  if (/^boundary/.test(l.id)) l.paint = { ...l.paint, 'line-color': 'rgba(255,255,255,0.55)' };
-  if (l.id === 'building-3d') l.paint = { ...l.paint, 'fill-extrusion-color': '#d9d3c7', 'fill-extrusion-opacity': 0.88 };
-  if (l.type === 'symbol' && l.layout?.['text-field'] && JSON.stringify(l.layout['text-field']).includes('name')) l.layout['text-field'] = NAME_FR;
-  if (l.type === 'symbol' && !/shield/.test(l.id)) {
-    l.paint = { ...l.paint, 'text-color': /^water|waterway/.test(l.id) ? '#bfe3ff' : '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.75)', 'text-halo-width': 1.6, 'text-halo-blur': 0.5 };
+  if (l.type === 'line' && /^waterway_/.test(id)) { l.paint = { ...l.paint, 'line-color': PLAN.water, 'line-opacity': fadeIn(1) }; return l; }
+  if (/^aeroway_(runway|taxiway)/.test(id)) { l.paint = { ...l.paint, 'line-color': '#ffffff', 'line-opacity': byZoom(0.35, 1) }; return l; }
+  // routes : traits fins et translucides sur le satellite, puis plan classique
+  if (l.type === 'line' && /^(road|bridge|tunnel)_/.test(id)) {
+    const casing = /casing/.test(id), motorway = /motorway/.test(id), major = /trunk_primary|motorway/.test(id);
+    const minor = /minor|service|track|path|pedestrian|link/.test(id), rail = /rail/.test(id);
+    if (rail) { l.paint = { ...l.paint, 'line-opacity': byZoom(0, 0.6) }; return l; }
+    if (casing) l.paint = { ...l.paint, 'line-color': motorway ? '#e0a95e' : '#d7cfbf', 'line-opacity': fadeIn(1) };
+    else l.paint = { ...l.paint,
+      'line-color': motorway ? byZoom('rgba(255,222,170,0.85)', '#ffd68a') : byZoom('rgba(255,255,255,0.75)', '#ffffff'),
+      'line-opacity': minor ? ['interpolate', ['linear'], ['zoom'], 12.5, 0, 13.5, 1]
+        : ['interpolate', ['linear'], ['zoom'], 5, major ? 0.55 : 0, 9, major ? 0.6 : 0.3, Z1, 1] };
+    if (/^tunnel_/.test(id)) l.paint['line-opacity'] = fadeIn(0.5);
+    return l;
   }
-  if (/^label_country/.test(l.id)) { l.layout['text-transform'] = 'uppercase'; l.layout['text-letter-spacing'] = 0.08; }
-  if (/^label_(city|town|city_capital)/.test(l.id)) l.layout['text-font'] = ['Noto Sans Bold'];
+  if (/^boundary/.test(id)) {
+    l.paint = { ...l.paint, 'line-color': byZoom('rgba(255,255,255,0.6)', '#a89bc4'), 'line-dasharray': id === 'boundary_2' ? [1, 0] : [2, 2] };
+    return l;
+  }
+  if (id === 'building-3d') {
+    l.paint = { ...l.paint, 'fill-extrusion-color': ['interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 0], 0, '#ece6da', 60, '#e2dacb', 200, '#d4cab8'],
+      'fill-extrusion-opacity': 0.95, 'fill-extrusion-vertical-gradient': true };
+    return l;
+  }
+  if (l.type === 'symbol') {
+    if (LABEL_MINZOOM[id] != null) l.minzoom = Math.max(l.minzoom || 0, LABEL_MINZOOM[id]);
+    if (/shield/.test(id)) return l;
+    const water = /^water|waterway/.test(id), poi = /^poi_|airport/.test(id);
+    // petits libellés (commerces, rues, quartiers) : rien plutôt qu'un alphabet illisible
+    const small = poi || /^highway-name|^label_other|^label_village/.test(id);
+    if (l.layout?.['text-field'] && JSON.stringify(l.layout['text-field']).includes('name'))
+      l.layout['text-field'] = small ? ['coalesce', ['get', 'name:fr'], ['get', 'name_en'], ['get', 'name:en'], ''] : NAME_FR;
+    l.paint = { ...l.paint,
+      'text-color': water ? byZoom('#cfe9ff', '#3a7cab') : poi ? '#5b5f66' : byZoom('#ffffff', '#30343b'),
+      'text-halo-color': byZoom('rgba(5,10,20,0.6)', 'rgba(255,255,255,0.92)'), 'text-halo-width': 1.3, 'text-halo-blur': 0.6 };
+    if (/^label_country/.test(id)) {
+      l.layout['text-transform'] = 'uppercase'; l.layout['text-letter-spacing'] = 0.12;
+      l.layout['text-font'] = ['Noto Sans Regular'];
+      l.paint['text-color'] = 'rgba(255,255,255,0.88)';
+    }
+    if (/^label_(city|city_capital)$/.test(id)) { l.layout['text-font'] = ['Noto Sans Bold']; l.layout['icon-image'] = ''; }
+    if (/^label_(town|village|other|state)$/.test(id)) l.layout['icon-image'] = '';
+    if (/^label_state$/.test(id)) { l.layout['text-transform'] = 'uppercase'; l.layout['text-letter-spacing'] = 0.15; l.paint['text-color'] = 'rgba(255,255,255,0.55)'; }
+    if (/^label_other$/.test(id)) { l.layout['text-transform'] = 'none'; l.layout['text-font'] = ['Noto Sans Italic']; }
+  }
   return l;
 }
 let styleMode = LS.get('esc.web.style', 'realiste');
@@ -94,7 +151,7 @@ async function buildStyle(mode = styleMode) {
     attribution: '<a href="https://s2maps.eu">Sentinel-2 cloudless</a> by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016)' };
   style.sources.lights = { type: 'raster', tiles: ['dn://lights/{z}/{x}/{y}' + dnParams()], tileSize: 256, maxzoom: 8,
     attribution: 'Lumières nocturnes : NASA Black Marble' };
-  style.sources.night = { type: 'geojson', data: dayNight ? nightGrid() : { type: 'FeatureCollection', features: [] } };
+  style.sources.shade = { type: 'raster', tiles: ['dn://shade/{z}/{x}/{y}' + dnParams()], tileSize: 256, maxzoom: 7 };
   const dem = { type: 'raster-dem', tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
     encoding: 'terrarium', tileSize: 256, maxzoom: 14, attribution: '<a href="https://registry.opendata.aws/terrain-tiles/">Terrain Tiles</a>' };
   style.sources.dem = dem;
@@ -105,7 +162,8 @@ async function buildStyle(mode = styleMode) {
       const l = realisticLayer(l0);
       if (!l) continue;
       layers.push(l);
-      if (l.id === 'background') layers.push({ id: 'sat', type: 'raster', source: 'sat', paint: { 'raster-fade-duration': 150, 'raster-resampling': 'linear' } });
+      if (l.id === 'background') layers.push({ id: 'sat', type: 'raster', source: 'sat',
+        paint: { 'raster-fade-duration': 150, 'raster-resampling': 'linear', 'raster-opacity': byZoom(1, 0), 'raster-saturation': 0.08, 'raster-contrast': 0.06 } });
       if (l.id === 'building-3d') layers.push(...nightLayers());
     }
     style.layers = layers;
@@ -140,10 +198,11 @@ async function buildStyle(mode = styleMode) {
 }
 function nightLayers() {
   return [
-    { id: 'night-shade', type: 'fill', source: 'night', minzoom: 4.4,
-      paint: { 'fill-color': '#020817', 'fill-antialias': false, 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 4.4, 0, 5.2, ['*', ['get', 'o'], 0.8]] } },
-    { id: 'night-lights', type: 'raster', source: 'lights', minzoom: 4.4,
-      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 4.4, 0, 5.2, 1], 'raster-fade-duration': 0 } }
+    { id: 'night-shade', type: 'raster', source: 'shade',
+      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 11, 1, 13.5, 0.82, 16, 0.72], 'raster-fade-duration': 0, 'raster-resampling': 'linear' } },
+    // les lumières (1 km par pixel) s'effacent avant de devenir des pâtés
+    { id: 'night-lights', type: 'raster', source: 'lights', maxzoom: 9,
+      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.95, 7, 0.8, 8.6, 0], 'raster-fade-duration': 0, 'raster-resampling': 'linear' } }
   ];
 }
 function finishStyle(style, mode) {
@@ -163,10 +222,12 @@ function finishStyle(style, mode) {
 /* ============================ Carte ============================ */
 let map;
 let relief = false;
-registerProtocol(maplibregl, 5);
+registerProtocol(maplibregl, -1);   // la nuit vient d'une couche d'ombre unique (dégradé lisse à tous les zooms)
 setCartoonBase(BASE + 'tiles/cartoon/');
+let baseStyle = null;
 async function initMap() {
   const style = await buildStyle();
+  baseStyle = structuredClone(style);
   // on démarre au-dessus de la longitude de l'utilisateur, déduite de son fuseau horaire
   const homeLon = Math.max(-170, Math.min(170, -new Date().getTimezoneOffset() / 4));
   map = new maplibregl.Map({
@@ -194,6 +255,12 @@ async function initMap() {
   map.on('mouseout', () => $('#rPlace').classList.remove('show'));
   map.on('pitchend', () => $('#b3d').classList.toggle('on', map.getPitch() > 10));
   map.on('move', updateReadout);
+  map.on('moveend', () => {
+    const c = map.getCenter(), ph = phase(c.lat, c.lng);
+    nightLabels(dayNight && styleMode === 'realiste' && ph !== 'jour' && map.getZoom() > 11);
+    $('#rCoords').textContent = fmtLL(c.lat, c.lng);
+    $('#rPhase').textContent = ph === 'jour' ? '☀️ Jour' : ph === 'nuit' ? '🌙 Nuit' : '🌇 Crépuscule';
+  });
   map.on('click', e => onMapClick(e));
 }
 function altitudeKm() {
@@ -497,10 +564,12 @@ async function explore(lat, lon, opts = {}) {
   renderPanel();
 
   // 2. Infos en parallèle, affichées au fil de l'eau
-  const titles = [wikiTitle, opts.hint, placeName, geo.city, geo.county, geo.state, country];
+  // seulement le lieu lui-même (et sa ville) : jamais la page du pays ou de la région à la place du lieu
+  const isAdmin = t => t && (norm(t) === norm(country) || norm(t) === norm(geo.state));
+  const titles = [wikiTitle, opts.hint, placeName, geo.city].filter(t => t && (!isAdmin(t) || norm(t) === norm(placeName)));
   const jobs = [
     wikiPages(WIKI, titles, signal).then(pages => {
-      const ok = pages.find(p => !p.coordinates || haversine(lat, lon, p.coordinates[0].lat, p.coordinates[0].lon) < (p.title === country ? 3000 : 120));
+      const ok = pages.find(p => !p.coordinates || haversine(lat, lon, p.coordinates[0].lat, p.coordinates[0].lon) < 60);
       current.wiki = ok || null;
     }).catch(() => {}),
     wikiPages(WIKIVOY, titles, signal, false).then(pages => {
@@ -832,17 +901,34 @@ $('#bRelief').onclick = () => {
   if (relief && map.getPitch() < 30) map.easeTo({ pitch: 60, duration: 1200 });
   toast(relief ? 'Relief 3D activé : incline la vue pour voir les montagnes' : 'Relief 3D désactivé');
 };
+/* ---- libellés clairs quand on regarde de près une ville où il fait nuit ---- */
+let labelsNight = false;
+function nightLabels(on) {
+  if (on === labelsNight || !map?.isStyleLoaded()) return;
+  labelsNight = on;
+  for (const l of map.getStyle().layers) {
+    if (l.type !== 'symbol' || /shield/.test(l.id)) continue;
+    if (on) {
+      map.setPaintProperty(l.id, 'text-color', /^water|waterway/.test(l.id) ? '#9fd0f5' : '#eef1f6');
+      map.setPaintProperty(l.id, 'text-halo-color', 'rgba(8,12,22,0.8)');
+    } else {
+      const orig = baseStyle?.layers.find(x => x.id === l.id)?.paint || {};
+      map.setPaintProperty(l.id, 'text-color', orig['text-color'] ?? '#333');
+      map.setPaintProperty(l.id, 'text-halo-color', orig['text-halo-color'] ?? '#fff');
+    }
+  }
+}
+
 /* ---- jour / nuit et style ---- */
 let lastBucket = timeBucket();
 function refreshDayNight(force) {
-  if (!map?.getSource('night')) return;
-  map.getSource('night').setData(dayNight ? nightGrid() : { type: 'FeatureCollection', features: [] });
+  if (!map) return;
   if (force || timeBucket() !== lastBucket) {
     lastBucket = timeBucket();
-    for (const [id, kind] of [['sat', 'sat'], ['cartoon', 'cartoon'], ['lights', 'lights']]) map.getSource(id)?.setTiles([`dn://${kind}/{z}/{x}/{y}` + dnParams()]);
+    for (const kind of ['sat', 'cartoon', 'lights', 'shade']) map.getSource(kind)?.setTiles([`dn://${kind}/{z}/{x}/{y}` + dnParams()]);
   }
 }
-setInterval(() => refreshDayNight(false), 60000);
+setInterval(() => refreshDayNight(false), 60000);   // l'ombre avance d'environ 2,5° en 10 min
 function syncButtons() {
   $('#bSun').classList.toggle('on', dayNight);
   $('#bSun').dataset.tip = dayNight ? 'Jour et nuit en temps réel (activé)' : 'Toujours en plein jour';
@@ -850,12 +936,15 @@ function syncButtons() {
 }
 $('#bSun').onclick = () => {
   dayNight = !dayNight; LS.set('esc.web.daynight', dayNight); syncButtons(); refreshDayNight(true);
+  const c = map.getCenter(); nightLabels(dayNight && styleMode === 'realiste' && phase(c.lat, c.lng) !== 'jour' && map.getZoom() > 11);
   toast(dayNight ? 'Jour et nuit en temps réel' : 'Toujours en plein jour');
 };
 $('#bStyle').onclick = async () => {
   styleMode = styleMode === 'realiste' ? 'cartoon' : 'realiste'; LS.set('esc.web.style', styleMode); syncButtons();
   toast(styleMode === 'realiste' ? 'Vue satellite réaliste' : 'Vue cartoon');
-  map.setStyle(await buildStyle(styleMode));
+  const st = await buildStyle(styleMode);
+  baseStyle = structuredClone(st); labelsNight = false;
+  map.setStyle(st);
   map.once('style.load', () => { if (relief) map.setTerrain({ source: 'dem3d', exaggeration: 1.4 }); redrawAfterStyle(); });
 };
 syncButtons();

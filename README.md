@@ -1,5 +1,10 @@
 # Escapade — Globe des vacances
 
+Deux versions :
+
+- **`web/`** : version web complète (MapLibre). Globe 3D jusqu'aux rues, infos de voyage tirées de sources ouvertes (Wikipédia, Wikivoyage, Open-Meteo…). Voir [web/README.md](web/README.md).
+- **`globe/`** : première version, pensée comme artefact claude.ai, avec des fiches rédigées par Claude (décrite ci-dessous).
+
 Globe terrestre 3D (style jeu vidéo réaliste) pour explorer le monde et choisir une destination de vacances.
 
 - `globe/index.html` : l'application (Three.js, sans build).

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Escapade — Choisis ta prochaine destination</title>
+<meta name="description" content="Explore le monde sur un globe 3D, du ciel jusqu'à la rue, et choisis ta prochaine destination de vacances.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.1/dist/maplibre-gl.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="map"></div>
+
+<div id="loading"><div class="logo">Esca<span>pade</span></div><div class="bar"><i></i></div></div>
+
+<div class="hud box brand"><div class="logo">Esca<span>pade</span></div><div class="tag">Choisis ta<br>prochaine destination</div></div>
+
+<div class="hud search">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+  <input id="q" placeholder="Rechercher une ville, un pays, un lieu…" autocomplete="off" spellcheck="false" aria-label="Rechercher un lieu">
+  <div class="sugg" id="sugg"></div>
+</div>
+
+<div class="hud box readout"><div class="place" id="rPlace">Planète Terre</div><div class="coords" id="rCoords">—</div><div class="alt" id="rAlt">—</div></div>
+
+<div class="hud toolbar">
+  <button class="btn primary" id="bRandom" title="Destination au hasard (touche R)">🎲 Au hasard <span class="k">R</span></button>
+  <button class="btn" id="bFavs">★ Mes destinations <span class="count" id="favCount">0</span></button>
+  <button class="btn" id="b3d" title="Incliner la caméra">🏙 Vue 3D</button>
+  <button class="btn" id="bRelief" title="Montagnes en relief">⛰ Relief</button>
+  <button class="btn" id="bGlobe" title="Revenir au globe">🌍 Globe</button>
+</div>
+
+<aside id="panel" aria-live="polite"><button class="close" id="pClose" aria-label="Fermer">✕</button><div class="scroll" id="pBody"></div><div class="actions" id="pActions"></div></aside>
+
+<div id="viewer"><button class="close" id="vClose" aria-label="Fermer">✕</button><button class="nav prev" id="vPrev" aria-label="Précédente">‹</button><img id="vImg" alt=""><div class="cap" id="vCap"></div><button class="nav next" id="vNext" aria-label="Suivante">›</button></div>
+
+<div id="favs"><div class="modal"><button class="close" id="fClose" aria-label="Fermer">✕</button>
+  <header><h2>Mes destinations</h2><p>Compare tes coups de cœur et choisis où partir.</p></header>
+  <div id="fBody"></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.1/dist/maplibre-gl.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

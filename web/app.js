@@ -4,7 +4,9 @@
  */
 import { registerProtocol, setCartoonBase, nightGrid, phase } from './sun.js';
 import { initItinerary, openPlanner, clearTrip, redrawAfterStyle, replan } from './itinerary.js';
+import { I } from './icons.js';
 const $ = s => document.querySelector(s);
+document.querySelectorAll('[data-i]').forEach(el => el.insertAdjacentHTML('afterbegin', I[el.dataset.i] || ''));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const DEG = Math.PI / 180;
@@ -30,7 +32,7 @@ async function getJSON(url, { timeout = 12000, signal } = {}) {
   } finally { clearTimeout(t); }
 }
 let toastT;
-function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2400); }
+function toast(m) { const t = $('#toast'); t.textContent = m.replace(/^[★✓]\s*/, ''); t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2400); }
 
 /* ============================ Style de carte "cartoon" ============================ */
 const BASE = new URL('.', location.href).href;
@@ -175,15 +177,22 @@ async function initMap() {
   });
   window.escapadeMap = map;   // accès pratique depuis la console du navigateur
   map.on('load', () => {
+    document.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
+    const c0 = map.getCenter(), ph0 = phase(c0.lat, c0.lng);
+    $('#rCoords').textContent = fmtLL(c0.lat, c0.lng);
+    $('#rPhase').textContent = ph0 === 'jour' ? '☀️ Jour' : ph0 === 'nuit' ? '🌙 Nuit' : '🌇 Crépuscule';
     $('#loading').style.opacity = 0;
     setTimeout(() => $('#loading').remove(), 900);
     updateReadout();
   });
   map.on('mousemove', e => {
     const ph = phase(e.lngLat.lat, e.lngLat.lng);
-    $('#rCoords').textContent = fmtLL(e.lngLat.lat, e.lngLat.lng) + '  ' + (ph === 'jour' ? '☀️' : ph === 'nuit' ? '🌙' : '🌇');
+    $('#rCoords').textContent = fmtLL(e.lngLat.lat, e.lngLat.lng);
+    $('#rPhase').textContent = ph === 'jour' ? '☀️ Jour' : ph === 'nuit' ? '🌙 Nuit' : '🌇 Crépuscule';
     hoverPlace(e.point);
   });
+  map.on('mouseout', () => $('#rPlace').classList.remove('show'));
+  map.on('pitchend', () => $('#b3d').classList.toggle('on', map.getPitch() > 10));
   map.on('move', updateReadout);
   map.on('click', e => onMapClick(e));
 }
@@ -194,7 +203,7 @@ function altitudeKm() {
 }
 function updateReadout() {
   const a = altitudeKm();
-  $('#rAlt').textContent = 'ALT ' + (a > 10 ? Math.round(a).toLocaleString('fr-FR') + ' KM' : Math.round(a * 1000).toLocaleString('fr-FR') + ' M');
+  $('#rAlt').textContent = 'Altitude ' + (a > 10 ? Math.round(a).toLocaleString('fr-FR') + ' km' : Math.round(a * 1000).toLocaleString('fr-FR') + ' m');
 }
 let hoverRaf = 0;
 function hoverPlace(pt) {
@@ -202,8 +211,12 @@ function hoverPlace(pt) {
   hoverRaf = requestAnimationFrame(() => {
     hoverRaf = 0;
     const f = map.queryRenderedFeatures(pt, { layers: map.getStyle().layers.filter(l => /^label_|^poi_/.test(l.id)).map(l => l.id) })[0];
-    if (f) { $('#rPlace').textContent = f.properties['name:fr'] || f.properties['name:latin'] || f.properties.name || ''; map.getCanvas().style.cursor = 'pointer'; }
-    else map.getCanvas().style.cursor = '';
+    const hl = $('#rPlace');
+    if (f) {
+      hl.textContent = f.properties['name:fr'] || f.properties['name:latin'] || f.properties.name || '';
+      hl.style.transform = `translate(${pt.x + 14}px, ${pt.y + 14}px)`;
+      hl.classList.add('show'); map.getCanvas().style.cursor = 'pointer';
+    } else { hl.classList.remove('show'); map.getCanvas().style.cursor = ''; }
   });
 }
 function onMapClick(e) {
@@ -437,11 +450,13 @@ let current = null, reqId = 0, abortCtl = null;
 async function explore(lat, lon, opts = {}) {
   const id = ++reqId;
   abortCtl?.abort(); abortCtl = new AbortController();
-  clearTrip(); panelMode = 'place';
+  clearTrip(); panelMode = 'place'; tab = 'apercu';
+  $('#panel .scroll').scrollTop = 0;
   const signal = abortCtl.signal;
   placeMarker(lat, lon);
   if (poiMarker) poiMarker.remove();
   if (!opts.noFly) goTo(lat, lon, opts);
+  if (isMobile && !panel.classList.contains('open')) panel.classList.add('peek');
   openPanel();
   renderSkeleton(lat, lon, opts.label);
   await loadLocal;
@@ -514,8 +529,27 @@ async function explore(lat, lon, opts = {}) {
 /* ============================ Panneau ============================ */
 const panel = $('#panel');
 let panelMode = 'place';     // 'place' : fiche du lieu, 'trip' : itinéraire
-function openPanel() { panel.classList.add('open'); }
-function closePanel() { panel.classList.remove('open'); wpMarker?.remove(); poiMarker?.remove(); abortCtl?.abort(); reqId++; clearTrip(); panelMode = 'place'; }
+function openPanel() {
+  panel.classList.add('open'); document.body.classList.add('panel-open');
+  $('#hint').classList.add('gone'); LS.set('esc.web.hinted', true);
+}
+function closePanel() { panel.classList.remove('open', 'peek'); document.body.classList.remove('panel-open'); wpMarker?.remove(); poiMarker?.remove(); abortCtl?.abort(); reqId++; clearTrip(); panelMode = 'place'; }
+if (LS.get('esc.web.hinted', false)) $('#hint').classList.add('gone');
+if (isMobile) $('#hint').lastChild.textContent = 'Touche le globe pour découvrir un lieu';
+// téléphone : la poignée replie, déplie ou ferme le panneau
+{
+  let y0 = null;
+  const g = $('#grab');
+  g.addEventListener('pointerdown', e => { y0 = e.clientY; g.setPointerCapture(e.pointerId); });
+  g.addEventListener('pointerup', e => {
+    if (y0 == null) return;
+    const dy = e.clientY - y0; y0 = null;
+    if (dy > 120 && panel.classList.contains('peek')) closePanel();
+    else if (dy > 40) panel.classList.add('peek');
+    else if (dy < -40) panel.classList.remove('peek');
+    else panel.classList.toggle('peek');
+  });
+}
 function setPanel(body, actions) {
   panelMode = 'trip';
   $('#pBody').innerHTML = body; $('#pActions').innerHTML = actions;
@@ -523,9 +557,14 @@ function setPanel(body, actions) {
   openPanel();
 }
 $('#pClose').onclick = closePanel;
+$('#panel .scroll').addEventListener('scroll', e => {
+  const tabs = $('#pBody .tabs');
+  panel.classList.toggle('stuck', !!tabs && e.target.scrollTop > tabs.offsetTop - 20);
+}, { passive: true });
 function renderSkeleton(lat, lon, label) {
-  $('#pBody').innerHTML = `<div class="hero"><div class="kicker">${esc(fmtLL(lat, lon))}</div><h2>${esc(label || 'Analyse…')}</h2><div class="sub">Recherche des infos de voyage</div></div>
-    <div class="sec"><div class="skel" style="width:90%"></div><div class="skel" style="width:75%"></div><div class="skel" style="width:85%"></div><div class="skel" style="width:55%"></div></div>`;
+  $('#pBody').innerHTML = `<div class="hero"><div class="kicker">${esc(fmtLL(lat, lon))}</div><h2>${esc(label || 'Exploration…')}</h2><div class="sub">Recherche des infos de voyage</div></div>
+    <div class="facts">${'<div class="fact" style="width:110px;height:48px"></div>'.repeat(3)}</div>
+    <div class="sec"><div class="skel" style="width:92%"></div><div class="skel" style="width:78%"></div><div class="skel" style="width:85%"></div><div class="skel" style="width:60%"></div></div>`;
   $('#pActions').innerHTML = '';
 }
 const MOIS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
@@ -552,71 +591,107 @@ function heroImage() {
   return current.wiki?.original?.source && /\.jpe?g$/i.test(current.wiki.original.source) && current.wiki.original.width >= 600 ? current.wiki.thumbnail?.source || current.wiki.original.source
     : current.photos[0]?.src || current.wiki?.thumbnail?.source || '';
 }
+let tab = 'apercu';
+const distTxt = d => d < 1 ? Math.round(d * 1000) + ' m' : d < 10 ? d.toFixed(1).replace('.', ',') + ' km' : Math.round(d) + ' km';
 function renderPanel() {
   const c = current; if (!c || panelMode !== 'place') return;
+  const scrollEl = $('#panel .scroll'), keep = scrollEl.scrollTop;
   const img = heroImage();
   const w = c.weather?.current;
   const wx = w ? WMO[w.weather_code] || ['🌡', ''] : null;
-  let decal = '';
+  let localTime = '', diffTxt = '';
   if (c.weather?.utc_offset_seconds != null) {
     const diff = Math.round((c.weather.utc_offset_seconds / 60 + new Date().getTimezoneOffset()) / 60 * 2) / 2;
     const local = new Date(Date.now() + (c.weather.utc_offset_seconds + new Date().getTimezoneOffset() * 60) * 1000);
-    decal = `${local.getHours().toString().padStart(2, '0')}:${local.getMinutes().toString().padStart(2, '0')} sur place · ${diff === 0 ? 'même heure que toi' : (diff > 0 ? '+' : '') + diff + ' h'}`;
+    localTime = `${String(local.getHours()).padStart(2, '0')}:${String(local.getMinutes()).padStart(2, '0')}`;
+    diffTxt = diff === 0 ? 'même heure' : (diff > 0 ? '+' : '') + String(diff).replace('.', ',') + ' h';
   }
-  const voyText = c.voy?.extract ? c.voy.extract.split('\n').filter(s => s.trim().length > 30).slice(0, 2).join('\n\n') : '';
+  const voyParas = c.voy?.extract ? c.voy.extract.split('\n').filter(s => s.trim().length > 30).slice(0, 2) : [];
   const wikiText = c.wiki?.extract ? clip(c.wiki.extract.split('\n').filter(s => s.trim())[0] || '', 520) : '';
-  const clim = c.climate;
+  const clim = c.climate, m = new Date().getMonth();
+  const best = clim ? bestMonthsText(clim.score) : '';
   const q = encodeURIComponent(c.name + (c.country ? ', ' + c.country : ''));
+  const nPhotos = c.photos.length, nSee = (c.nearby?.length || 0) + (c.around?.length || 0);
+  const facts = [
+    wx && [I.thermo, 'Maintenant', `${wx[0]} ${Math.round(w.temperature_2m)}°`],
+    localTime && [I.clock, 'Heure locale', `${localTime} · ${diffTxt}`],
+    clim && [I.calendar, 'Ce mois-ci', ['À éviter', 'Correct', 'Idéal'][clim.score[m]]],
+    c.ci?.cur && [I.coins, 'Monnaie', c.ci.cur.split(' (')[0]],
+    c.ci?.lang && [I.chat, 'Langue', c.ci.lang.split(',')[0]],
+  ].filter(Boolean);
+  const placeRow = (x, i) => `<button class="row" data-near="${i}"><span class="th">${KIND_ICON[kindOf(x.p)] || '📍'}</span><span class="tx"><b>${esc(pname(x.p))}</b><small>${esc(KIND_LABEL[kindOf(x.p)] || kindOf(x.p))}${x.p[7] ? ' · ' + x.p[7].toLocaleString('fr-FR') + ' hab.' : ''}</small></span><span class="dist">${distTxt(x.d)}</span></button>`;
+  const poiRow = (p, i) => `<button class="row" data-poi="${i}">${p.thumb ? `<img class="th" src="${esc(p.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="th">📍</span>'}<span class="tx"><b>${esc(p.title)}</b><small>${esc(p.desc)}</small></span><span class="dist">${distTxt(p.d)}</span></button>`;
+  const panes = {
+    apercu: `
+      ${c.redirect ? `<div class="note info">${I.pin}<span>${c.redirect}</span></div>` : ''}
+      <div class="sec">
+        ${voyParas[0] ? `<p class="lead">${esc(voyParas[0])}</p>${voyParas[1] ? `<p>${esc(voyParas[1])}</p>` : ''}` : ''}
+        ${wikiText ? `<p>${esc(wikiText)}</p>` : ''}
+        ${voyParas.length || wikiText ? `<p class="src">Sources : ${c.voy ? `<a href="${esc(c.voy.fullurl)}" target="_blank" rel="noopener">Wikivoyage</a>` : ''}${c.voy && c.wiki ? ' · ' : ''}${c.wiki ? `<a href="${esc(c.wiki.fullurl)}" target="_blank" rel="noopener">Wikipédia</a>` : ''}</p>`
+          : c.done ? '<p class="muted">Pas de description pour ce point précis. Regarde l’onglet « À voir » pour les lieux autour.</p>' : '<div class="skel" style="width:92%"></div><div class="skel" style="width:74%"></div><div class="skel" style="width:84%"></div>'}
+      </div>
+      <div class="sec"><h3>Quand partir</h3>
+        ${clim ? `<div class="card">
+          <div class="months">${clim.score.map((sc, i) => `<div class="${i === m ? 'now' : ''}"><i class="s${sc}" title="${MOIS_L[i]}"></i>${MOIS[i]}</div>`).join('')}</div>
+          <div class="legend"><span><i style="background:var(--ok)"></i>Idéal</span><span><i style="background:rgba(255,181,71,.55)"></i>Correct</span><span><i style="background:rgba(255,255,255,.12)"></i>Moins bien</span></div>
+          <p class="best">${esc(best)}</p>
+          <details class="more-clim"><summary>Températures, pluie et soleil mois par mois</summary>
+            <table class="clim"><tr><td class="l"></td>${MOIS.map(x => `<th>${x}</th>`).join('')}</tr>
+              <tr><td class="l">Max °C</td>${clim.months.map(x => `<td class="${x && x.tx >= 28 ? 'hot' : x && x.tx < 10 ? 'cold' : ''}">${x ? Math.round(x.tx) : '–'}</td>`).join('')}</tr>
+              <tr><td class="l">Min °C</td>${clim.months.map(x => `<td>${x ? Math.round(x.tn) : '–'}</td>`).join('')}</tr>
+              <tr><td class="l">Pluie (j)</td>${clim.months.map(x => `<td>${x ? Math.round(x.rainDays) : '–'}</td>`).join('')}</tr>
+              <tr><td class="l">Soleil (h)</td>${clim.months.map(x => `<td>${x ? Math.round(x.sun) : '–'}</td>`).join('')}</tr></table>
+            <p class="src" style="margin-top:8px">Moyennes 2019-2023, <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></p></details></div>`
+        : clim === false ? '<p class="muted">Climat indisponible pour ce point.</p>' : '<div class="skel" style="width:100%;height:70px;border-radius:16px"></div>'}
+      </div>
+      ${nPhotos ? `<div class="sec"><h3>En images <button class="more" data-tab="photos">Tout voir ${I.next}</button></h3><div class="gallery">${c.photos.slice(0, 4).map((p, i) => `<button data-ph="${i}"><img src="${esc(p.thumb)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer"></button>`).join('')}</div></div>` : ''}
+      ${c.nearby?.length ? `<div class="sec"><h3>Incontournables <button class="more" data-tab="voir">Tout voir ${I.next}</button></h3><div class="list">${c.nearby.slice(0, 3).map(poiRow).join('')}</div></div>` : ''}`,
+    photos: nPhotos ? `<div class="sec"><div class="gallery">${c.photos.map((p, i) => `<button data-ph="${i}"><img src="${esc(p.thumb)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer"></button>`).join('')}</div>
+      <p class="src">Photos des lieux dans un rayon de 10 km · Wikipédia et <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a></p></div>`
+      : `<div class="sec"><p class="muted">${c.done ? 'Pas de photo trouvée autour de ce point.' : 'Recherche des photos…'}</p></div>`,
+    voir: `${c.nearby?.length ? `<div class="sec"><h3>Incontournables <small>les plus consultés sur Wikipédia</small></h3><div class="list">${c.nearby.map(poiRow).join('')}</div></div>` : ''}
+      ${c.around?.length ? `<div class="sec"><h3>Villes, villages et sites proches</h3><div class="list">${c.around.map(placeRow).join('')}</div></div>` : ''}
+      ${!nSee ? `<div class="sec"><p class="muted">${c.done ? 'Rien de notable trouvé autour.' : 'Recherche des lieux…'}</p></div>` : ''}`,
+    infos: `<div class="sec"><h3>En pratique</h3><div class="grid2">
+        ${c.ci ? `<div class="stat">${I.coins}<span>Monnaie<b>${esc(c.ci.cur || '—')}</b></span></div><div class="stat">${I.chat}<span>Langue<b>${esc(c.ci.lang || '—')}</b></span></div>` : ''}
+        ${localTime ? `<div class="stat">${I.clock}<span>Heure locale<b>${localTime} (${esc(diffTxt)})</b></span></div>` : ''}
+        ${c.pop ? `<div class="stat">${I.people}<span>Population<b>${c.pop.toLocaleString('fr-FR')} hab.</b></span></div>` : ''}
+        ${c.ci?.cap ? `<div class="stat">${I.star}<span>Capitale du pays<b>${esc(c.ci.cap)}</b></span></div>` : ''}
+        ${clim?.elevation != null ? `<div class="stat">${I.mountain}<span>Altitude<b>${Math.round(clim.elevation)} m</b></span></div>` : ''}
+      </div></div>
+      <div class="sec"><h3>Préparer le voyage</h3><div class="links">
+        <a href="https://www.google.com/travel/flights?q=${encodeURIComponent('Vols vers ' + c.name)}" target="_blank" rel="noopener">${I.plane}Vols</a>
+        <a href="https://www.booking.com/searchresults.fr.html?ss=${q}" target="_blank" rel="noopener">${I.bed}Hébergement</a>
+        <a href="https://fr.wikivoyage.org/w/index.php?search=${encodeURIComponent(c.name)}" target="_blank" rel="noopener">${I.book}Guide Wikivoyage</a>
+        <a href="https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lon}" target="_blank" rel="noopener">${I.map}Google Maps</a>
+        <a href="https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/" target="_blank" rel="noopener">${I.shield}Conseils aux voyageurs</a>
+      </div></div>`,
+  };
+  const TABS = [['apercu', 'Aperçu'], ['photos', 'Photos', nPhotos], ['voir', 'À voir', nSee], ['infos', 'Infos']];
   $('#pBody').innerHTML = `
     <div class="hero">${img ? `<img class="bg" src="${esc(img)}" alt="" referrerpolicy="no-referrer">` : ''}
-      <div class="kicker">${esc(c.ci?.flag || '')} ${esc(c.country)}${c.region && c.region !== c.name ? ' · ' + esc(c.region) : ''}</div>
+      <div class="kicker"><span class="flag">${esc(c.ci?.flag || '')}</span>${esc(c.country)}${c.region && c.region !== c.name && c.region !== c.country ? ' · ' + esc(c.region) : ''}</div>
       <h2>${esc(c.name)}</h2>
-      <div class="sub">${esc(fmtLL(c.lat, c.lon))}${clim?.elevation != null ? ' · ' + Math.round(clim.elevation) + ' m' : ''}</div>
-      ${wx ? `<div class="wx"><b>${wx[0]} ${Math.round(w.temperature_2m)}°</b><span>${esc(wx[1])} en ce moment</span></div>` : ''}
+      <div class="sub">${esc(fmtLL(c.lat, c.lon))}</div>
     </div>
-    ${c.redirect ? `<div class="redir">📍 ${c.redirect}</div>` : ''}
-    <div class="sec">
-      ${voyText ? `<p class="lead">${esc(voyText.split('\n\n')[0])}</p>${voyText.split('\n\n')[1] ? `<p>${esc(voyText.split('\n\n')[1])}</p>` : ''}<p class="src">Source : <a href="${esc(c.voy.fullurl)}" target="_blank" rel="noopener">Wikivoyage</a></p>` : ''}
-      ${wikiText ? `<p>${esc(wikiText)}</p><p class="src">Source : <a href="${esc(c.wiki.fullurl)}" target="_blank" rel="noopener">Wikipédia</a></p>` : ''}
-      ${!voyText && !wikiText ? (c.done ? '<p class="muted">Pas de description trouvée pour ce lieu précis. Regarde les lieux à voir autour ou clique sur la ville la plus proche.</p>' : '<div class="skel" style="width:90%"></div><div class="skel" style="width:70%"></div>') : ''}
-    </div>
-    <div class="sec"><h3>Quand partir</h3>
-      ${clim ? `<div class="months">${clim.score.map((s, i) => `<div><i class="s${s}" title="${MOIS_L[i]}"></i>${MOIS[i]}</div>`).join('')}</div>
-        <div class="legend"><span><i style="background:var(--acc2)"></i>Idéal</span><span><i style="background:#8a6b1f"></i>Correct</span><span><i style="background:#2a2f37"></i>Bof</span></div>
-        <p>${esc(bestMonthsText(clim.score))}</p>
-        <table class="clim"><tr><td class="l"></td>${MOIS.map(m => `<th>${m}</th>`).join('')}</tr>
-          <tr><td class="l">Max °C</td>${clim.months.map(m => `<td class="${m && m.tx >= 28 ? 'hot' : m && m.tx < 10 ? 'cold' : ''}">${m ? Math.round(m.tx) : '–'}</td>`).join('')}</tr>
-          <tr><td class="l">Min °C</td>${clim.months.map(m => `<td>${m ? Math.round(m.tn) : '–'}</td>`).join('')}</tr>
-          <tr><td class="l">Jours pluie</td>${clim.months.map(m => `<td>${m ? Math.round(m.rainDays) : '–'}</td>`).join('')}</tr>
-          <tr><td class="l">Soleil h/j</td>${clim.months.map(m => `<td>${m ? Math.round(m.sun) : '–'}</td>`).join('')}</tr></table>
-        <p class="src" style="margin-top:6px">Moyennes 2019-2023, <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></p>`
-      : clim === false ? '<p class="muted">Climat indisponible pour ce point.</p>' : '<div class="skel" style="width:100%;height:40px"></div>'}
-    </div>
-    ${c.photos.length ? `<div class="sec"><h3>Photos</h3><div class="gallery">${c.photos.slice(0, 9).map((p, i) => `<button data-ph="${i}"><img src="${esc(p.thumb)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer"></button>`).join('')}</div>
-      <p class="src" style="margin-top:6px">Lieux dans un rayon de 10 km · <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a></p></div>` : ''}
-    ${c.nearby?.length ? `<div class="sec"><h3>À voir autour</h3>${c.nearby.map((p, i) => `<button class="poi" data-poi="${i}">${p.thumb ? `<img src="${esc(p.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="ph">📍</span>'}<span><b>${esc(p.title)}</b><small>${esc(p.desc)}</small><em>${p.d < 1 ? Math.round(p.d * 1000) + ' m' : p.d.toFixed(1) + ' km'}</em></span></button>`).join('')}</div>` : ''}
-    ${c.around?.length ? `<div class="sec"><h3>Villes, villages et sites proches</h3>${c.around.map((x, i) => `<button class="poi" data-near="${i}"><span class="ph">${KIND_ICON[kindOf(x.p)] || '📍'}</span><span><b>${esc(pname(x.p))}</b><small>${esc(KIND_LABEL[kindOf(x.p)] || kindOf(x.p))}${x.p[7] ? ' · ' + x.p[7].toLocaleString('fr-FR') + ' hab.' : ''}</small><em>${x.d < 1 ? Math.round(x.d * 1000) + ' m' : x.d.toFixed(1) + ' km'}</em></span></button>`).join('')}</div>` : ''}
-    <div class="sec"><h3>Infos pratiques</h3><div class="grid2">
-      ${c.ci ? `<div class="stat"><span>Monnaie</span><b>${esc(c.ci.cur || '—')}</b></div><div class="stat"><span>Langue</span><b>${esc(c.ci.lang || '—')}</b></div>` : ''}
-      ${c.pop ? `<div class="stat" style="grid-column:1/-1"><span>Population</span><b>${c.pop.toLocaleString('fr-FR')} habitants</b></div>` : ''}
-      ${decal ? `<div class="stat" style="grid-column:1/-1"><span>Heure locale</span><b>${esc(decal)}</b></div>` : ''}
-      ${c.ci?.cap ? `<div class="stat" style="grid-column:1/-1"><span>Capitale du pays</span><b>${esc(c.ci.cap)}</b></div>` : ''}
-    </div></div>
-    <div class="sec"><h3>Préparer le voyage</h3><div class="links">
-      <a href="https://www.google.com/travel/flights?q=${encodeURIComponent('Vols vers ' + c.name)}" target="_blank" rel="noopener">✈ Vols</a>
-      <a href="https://www.booking.com/searchresults.fr.html?ss=${q}" target="_blank" rel="noopener">🛏 Hébergement</a>
-      <a href="https://fr.wikivoyage.org/w/index.php?search=${encodeURIComponent(c.name)}" target="_blank" rel="noopener">🧭 Guide Wikivoyage</a>
-      <a href="https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lon}" target="_blank" rel="noopener">🗺 Google Maps</a>
-      <a href="https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/" target="_blank" rel="noopener">🛂 Conseils aux voyageurs</a>
-    </div></div>`;
-  $('#pBody').querySelectorAll('[data-ph]').forEach(b => b.onclick = () => openViewer(+b.dataset.ph));
-  $('#pBody').querySelectorAll('[data-near]').forEach(b => b.onclick = () => {
+    ${facts.length ? `<div class="facts">${facts.map(([ic, k, v]) => `<div class="fact">${ic}<span><small>${k}</small><b>${esc(v)}</b></span></div>`).join('')}</div>` : ''}
+    <div class="tabs" role="tablist">${TABS.map(([id, lab, n]) => `<button class="tab ${tab === id ? 'on' : ''}" role="tab" data-tab="${id}">${lab}${n ? `<sup>${n}</sup>` : ''}</button>`).join('')}</div>
+    <div class="pane" data-pane="${tab}">${panes[tab]}</div>`;
+  scrollEl.scrollTop = keep;
+  const body = $('#pBody');
+  body.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => {
+    tab = b.dataset.tab; renderPanel();
+    const tabs = body.querySelector('.tabs'); if (scrollEl.scrollTop > tabs.offsetTop) scrollEl.scrollTop = tabs.offsetTop;
+  });
+  body.querySelectorAll('[data-ph]').forEach(b => b.onclick = () => openViewer(+b.dataset.ph));
+  body.querySelectorAll('[data-near]').forEach(b => b.onclick = () => {
     const x = c.around[+b.dataset.near];
     explore(x.p[5], x.p[6], { hint: pname(x.p), label: pname(x.p), zoom: kindOf(x.p) === 'village' ? 13 : 12 });
   });
-  $('#pBody').querySelectorAll('[data-poi]').forEach(b => b.onclick = () => {
+  body.querySelectorAll('[data-poi]').forEach(b => b.onclick = () => {
     const p = c.nearby[+b.dataset.poi];
     placePoi(p.lat, p.lon);
+    if (isMobile) panel.classList.add('peek');
     map.flyTo({ center: [p.lon, p.lat], zoom: 16.3, pitch: 62, bearing: map.getBearing() - 20, padding: panelPadding(), duration: 2600, essential: true });
   });
   renderActions();
@@ -638,55 +713,54 @@ $('#viewer').onclick = e => { if (e.target.id === 'viewer') $('#viewer').classLi
 /* ============================ Favoris ============================ */
 const favs = new Map(Object.entries(LS.get('esc.web.favs', {})));
 const favKey = c => norm(c.name + '-' + c.country).replace(/[^a-z0-9]+/g, '-');
-function saveFavs() { LS.set('esc.web.favs', Object.fromEntries(favs)); $('#favCount').textContent = favs.size; }
+function saveFavs() {
+  LS.set('esc.web.favs', Object.fromEntries(favs));
+  const n = favs.size + LS.get('esc.web.trips', []).length;
+  $('#favCount').textContent = n || ''; $('#favCount').dataset.n = n;
+}
 function renderActions() {
-  const c = current; if (!c) return;
+  const c = current; if (!c || panelMode !== 'place') return;
   const on = favs.has(favKey(c));
-  $('#pActions').innerHTML = `<button class="btn fav ${on ? 'on' : ''}" id="aFav">${on ? '✓ Enregistré' : '★ Enregistrer'}</button><button class="btn primary" id="aTrip">🧭 Itinéraire</button>`;
+  $('#pActions').innerHTML = `<button class="btn icon fav ${on ? 'on' : ''}" id="aFav" aria-label="${on ? 'Retirer de mes voyages' : 'Enregistrer'}" title="${on ? 'Retirer de mes voyages' : 'Enregistrer dans mes voyages'}">${on ? I.heartFill : I.heart}</button><button class="btn primary" id="aTrip">${I.route}Créer un itinéraire</button>`;
   $('#aTrip').onclick = () => openPlanner({ name: c.name, lat: c.lat, lon: c.lon, cc: c.cc, monthScores: c.climate?.score });
   $('#aFav').onclick = () => {
     const k = favKey(c);
-    if (favs.has(k)) { favs.delete(k); toast('Retiré de tes destinations'); }
+    if (favs.has(k)) { favs.delete(k); toast('Retiré de tes voyages'); }
     else {
       const cm = c.climate?.months?.filter(Boolean) || [];
-      favs.set(k, { name: c.name, country: c.country, flag: c.ci?.flag || '', lat: c.lat, lon: c.lon, img: c.photos[0]?.thumb || c.wiki?.thumbnail?.source || '',
-        score: c.climate?.score || null, tmax: cm.length ? Math.round(Math.max(...cm.map(m => m.tx))) : null, tmin: cm.length ? Math.round(Math.min(...cm.map(m => m.tn))) : null,
+      favs.set(k, { name: c.name, country: c.country, flag: c.ci?.flag || '', lat: c.lat, lon: c.lon, img: c.photos[0]?.src || heroImage() || '',
+        score: c.climate?.score || null, tmax: cm.length ? Math.round(Math.max(...cm.map(x => x.tx))) : null, tmin: cm.length ? Math.round(Math.min(...cm.map(x => x.tn))) : null,
         added: Date.now() });
-      toast('★ Ajouté à tes destinations');
+      toast('Ajouté à tes voyages');
     }
     saveFavs(); renderActions();
   };
 }
-function renderTrips() {
+function renderFavs() {
+  const arr = [...favs.entries()].sort((a, b) => b[1].added - a[1].added);
   const trips = LS.get('esc.web.trips', []);
-  if (!trips.length) return '';
-  return `<h3 class="mtitle">Mes itinéraires</h3><div style="overflow-x:auto"><table class="cmp"><tbody>${trips.map((t, i) => `<tr>
-    <td class="name" data-trip="${i}"><span><b>🧭 ${esc(t.name)}</b><small>${t.days} jours · ${esc(t.stops.join(' › '))}</small></span></td>
-    <td>${t.total.toLocaleString('fr-FR')} €</td><td><button class="rm" data-rmtrip="${i}" title="Supprimer">✕</button></td></tr>`).join('')}</tbody></table></div>`;
-}
-function bindTrips() {
-  $('#fBody').querySelectorAll('[data-trip]').forEach(b => b.onclick = () => {
+  const m = new Date().getMonth();
+  const SEASON = ['Pas idéal ce mois-ci', 'Correct ce mois-ci', 'Idéal ce mois-ci'];
+  $('#fBody').innerHTML = (!arr.length && !trips.length)
+    ? `<div class="empty">${I.heart}<b>Rien pour l’instant</b>Clique sur un lieu du globe, puis sur le cœur pour l’enregistrer, ou crée un itinéraire.</div>`
+    : `${arr.length ? `<h3 class="mtitle">Destinations</h3><div class="cards">${arr.map(([k, d]) => `<div class="pcard" data-k="${esc(k)}" role="button" tabindex="0">
+          ${d.img ? `<img src="${esc(d.img)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}
+          <button class="round rm" data-rm="${esc(k)}" aria-label="Retirer" title="Retirer">${I.trash}</button>
+          <div class="pc-tx"><b>${esc(d.name)}</b><small>${esc(d.flag)} ${esc(d.country)}${d.tmin != null ? ` · ${d.tmin}° à ${d.tmax}°` : ''}</small>
+          ${d.score ? `<span class="season s${d.score[m]}">${SEASON[d.score[m]]}</span>` : ''}</div></div>`).join('')}</div>` : ''}
+      ${trips.length ? `<h3 class="mtitle">Itinéraires</h3><div class="trips">${trips.map((t, i) => `<div class="trip-row" data-trip="${i}" role="button" tabindex="0">${I.route}
+          <span class="tx"><b>${esc(t.name)} · ${t.days} jours</b><small>${esc(t.stops.join(' › '))}</small></span><span class="price">${t.total.toLocaleString('fr-FR')} €</span>
+          <button class="round rm" data-rmtrip="${i}" aria-label="Supprimer" title="Supprimer">${I.trash}</button></div>`).join('')}</div>` : ''}`;
+  const fb = $('#fBody');
+  fb.querySelectorAll('[data-rm]').forEach(b => b.onclick = e => { e.stopPropagation(); favs.delete(b.dataset.rm); saveFavs(); renderFavs(); });
+  fb.querySelectorAll('[data-rmtrip]').forEach(b => b.onclick = e => {
+    e.stopPropagation(); const t = LS.get('esc.web.trips', []); t.splice(+b.dataset.rmtrip, 1); LS.set('esc.web.trips', t); saveFavs(); renderFavs();
+  });
+  fb.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { const d = favs.get(b.dataset.k); $('#favs').classList.remove('open'); explore(d.lat, d.lon, { hint: d.name }); });
+  fb.querySelectorAll('[data-trip]').forEach(b => b.onclick = () => {
     const t = LS.get('esc.web.trips', [])[+b.dataset.trip]; if (!t) return;
     $('#favs').classList.remove('open'); replan(t.dest, t.input);
   });
-  $('#fBody').querySelectorAll('[data-rmtrip]').forEach(b => b.onclick = () => {
-    const trips = LS.get('esc.web.trips', []); trips.splice(+b.dataset.rmtrip, 1); LS.set('esc.web.trips', trips); renderFavs();
-  });
-}
-function renderFavs() {
-  const arr = [...favs.entries()].sort((a, b) => b[1].added - a[1].added);
-  if (!arr.length) { $('#fBody').innerHTML = renderTrips() + '<div class="empty">Aucune destination enregistrée pour l’instant. Clique sur la carte, puis sur « ★ Enregistrer ».</div>'; bindTrips(); return; }
-  const m = new Date().getMonth();
-  $('#fBody').innerHTML = `<div style="overflow-x:auto"><table class="cmp"><thead><tr><th>Destination</th><th>Météo par mois</th><th>Ce mois-ci</th><th>Températures</th><th></th></tr></thead><tbody>
-    ${arr.map(([k, d]) => `<tr><td class="name" data-k="${esc(k)}">${d.img ? `<img src="${esc(d.img)}" alt="" referrerpolicy="no-referrer">` : ''}<span><b>${esc(d.flag)} ${esc(d.name)}</b><small>${esc(d.country)}</small></span></td>
-      <td>${d.score ? `<div class="mini">${d.score.map(s => `<i class="s${s}"></i>`).join('')}</div>` : '—'}</td>
-      <td>${d.score ? ['😕 Bof', '🙂 Correct', '😎 Idéal'][d.score[m]] : '—'}</td>
-      <td>${d.tmin != null ? `${d.tmin}° à ${d.tmax}°` : '—'}</td>
-      <td><button class="rm" data-rm="${esc(k)}" title="Retirer">✕</button></td></tr>`).join('')}
-    </tbody></table></div>` + renderTrips();
-  bindTrips();
-  $('#fBody').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { favs.delete(b.dataset.rm); saveFavs(); renderFavs(); });
-  $('#fBody').querySelectorAll('[data-k]').forEach(b => b.onclick = () => { const d = favs.get(b.dataset.k); $('#favs').classList.remove('open'); explore(d.lat, d.lon, { hint: d.name }); });
 }
 $('#bFavs').onclick = () => { renderFavs(); $('#favs').classList.add('open'); };
 $('#fClose').onclick = () => $('#favs').classList.remove('open');
@@ -705,7 +779,9 @@ q.addEventListener('input', () => {
     searchCtl?.abort(); searchCtl = new AbortController();
     try {
       const r = await getJSON(`https://photon.komoot.io/api?q=${encodeURIComponent(s)}&lang=fr&limit=7`, { signal: searchCtl.signal });
-      results = (r.features || []).map(f => ({ p: f.properties, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
+      const seen = new Set();
+      results = (r.features || []).map(f => ({ p: f.properties, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }))
+        .filter(x => { const k = norm([x.p.name, x.p.state, x.p.country].join('|')); if (seen.has(k)) return false; seen.add(k); return true; });
     } catch { results = []; }
     if (!results.length) {
       const n = norm(s), top = await loadTop();
@@ -713,7 +789,7 @@ q.addEventListener('input', () => {
         .map(p => ({ p: { name: pname(p), state: p[4], country: countryInfo(p[3])?.name || p[3], type: kindOf(p) === 'ville' || kindOf(p) === 'capitale' ? 'city' : 'poi' }, lat: p[5], lon: p[6] }));
     }
     sel = -1;
-    sugg.innerHTML = results.map((r, i) => `<button data-i="${i}">${esc(r.p.name)}<small>${esc([r.p.state, r.p.country].filter(x => x && x !== r.p.name).join(', '))}</small></button>`).join('');
+    sugg.innerHTML = results.map((r, i) => `<button data-i="${i}" role="option">${I.pin}<span><b>${esc(r.p.name)}</b><small>${esc([r.p.state, r.p.country].filter(x => x && x !== r.p.name).join(', ') || 'Lieu')}</small></span></button>`).join('');
     sugg.style.display = results.length ? 'block' : 'none';
     sugg.querySelectorAll('button').forEach(b => b.onclick = () => choose(results[+b.dataset.i]));
     if (pendingEnter && results.length) { pendingEnter = false; choose(results[0]); }
@@ -768,9 +844,9 @@ function refreshDayNight(force) {
 }
 setInterval(() => refreshDayNight(false), 60000);
 function syncButtons() {
-  $('#bSun').textContent = dayNight ? '🌗 Jour/nuit : réel' : '☀️ Toujours jour';
   $('#bSun').classList.toggle('on', dayNight);
-  $('#bStyle').textContent = styleMode === 'realiste' ? '🎨 Style cartoon' : '🛰 Style réaliste';
+  $('#bSun').dataset.tip = dayNight ? 'Jour et nuit en temps réel (activé)' : 'Toujours en plein jour';
+  $('#bStyle').dataset.tip = styleMode === 'realiste' ? 'Passer en style cartoon' : 'Passer en vue satellite';
 }
 $('#bSun').onclick = () => {
   dayNight = !dayNight; LS.set('esc.web.daynight', dayNight); syncButtons(); refreshDayNight(true);
@@ -789,11 +865,12 @@ addEventListener('keydown', e => {
   if (e.key === 'Escape') { if ($('#viewer').classList.contains('open')) $('#viewer').classList.remove('open'); else if ($('#favs').classList.contains('open')) $('#favs').classList.remove('open'); else closePanel(); }
   if ($('#viewer').classList.contains('open')) { if (e.key === 'ArrowLeft') $('#vPrev').click(); if (e.key === 'ArrowRight') $('#vNext').click(); return; }
   if (e.key === 'r' || e.key === 'R') randomTrip();
+  if (e.key === '/') { e.preventDefault(); q.focus(); }
 });
 
 initItinerary({
   getJSON, haversine, placesAround, kindOf, pname, notability, norm, LS, esc, toast, KIND_ICON, KIND_LABEL,
-  map: () => map, padding: panelPadding, setPanel,
+  map: () => map, padding: panelPadding, setPanel, onSaved: () => saveFavs(),
   backToPlace: () => { clearTrip(); panelMode = 'place'; renderPanel(); },
 });
 initMap().catch(err => {

@@ -12,6 +12,8 @@
  *           7. budget estimé (niveau des prix du pays) et choix du niveau de confort qui rentre dans le budget
  */
 
+import { I } from './icons.js';
+
 let C = null;          // contexte fourni par app.js
 export function initItinerary(ctx) { C = ctx; }
 
@@ -301,28 +303,44 @@ export function openPlanner(dest, prefill = {}) {
   const saved = C.LS.get('esc.web.plan', {});
   const m = new Date(); m.setMonth(m.getMonth() + 1);
   const v = { days: 7, budget: 2000, travelers: 2, month: m.getMonth(), from: 'Paris', mode: 'auto', shape: 'loop', pace: 'equilibre', likes: [], ...saved, ...prefill };
-  const opt = (name, list, cur) => list.map(([val, lab]) => `<label class="chip"><input type="radio" name="${name}" value="${val}" ${String(cur) === String(val) ? 'checked' : ''}><span>${lab}</span></label>`).join('');
+  const seg = (name, list, cur) => `<div class="seg" role="radiogroup">${list.map(([val, lab, ic]) => `<label><input type="radio" name="${name}" value="${val}" ${String(cur) === String(val) ? 'checked' : ''}><span>${ic ? I[ic] : ''}${lab}</span></label>`).join('')}</div>`;
+  const stepper = (name, val, min, max, unit) => `<div class="stepper" data-stepper="${name}" data-min="${min}" data-max="${max}">
+      <button type="button" data-d="-1" aria-label="Moins">${I.minus}</button><output><span>${val}</span><small>${unit}</small></output><button type="button" data-d="1" aria-label="Plus">${I.plus}</button>
+      <input type="hidden" name="${name}" value="${val}"></div>`;
   C.setPanel(`
-    <div class="hero" style="min-height:160px"><div class="kicker">Itinéraire</div><h2>${C.esc(dest.name)}</h2><div class="sub">Dis-moi comment tu voyages, je te propose un parcours.</div></div>
-    <form class="planner" id="planForm">
+    <div class="hero short"><div class="kicker">${I.route} Nouvel itinéraire</div><h2>${C.esc(dest.name)}</h2><div class="sub">Dis-moi comment tu voyages, je te propose un parcours.</div></div>
+    <form class="planner" id="planForm" autocomplete="off">
       <div class="row2">
-        <label class="fld"><span>Durée</span><div class="num"><input type="number" name="days" min="2" max="30" value="${v.days}"> jours</div></label>
-        <label class="fld"><span>Voyageurs</span><div class="num"><input type="number" name="travelers" min="1" max="8" value="${v.travelers}"> pers.</div></label>
+        <div class="fld"><span>Durée</span>${stepper('days', v.days, 2, 30, 'jours')}</div>
+        <div class="fld"><span>Voyageurs</span>${stepper('travelers', v.travelers, 1, 8, v.travelers > 1 ? 'personnes' : 'personne')}</div>
       </div>
+      <div class="fld"><div class="budget-val"><span>Budget total, vol compris</span><em><input type="number" name="budget" min="200" max="20000" step="50" value="${v.budget}" aria-label="Budget en euros"> €</em></div>
+        <input type="range" id="budgetRange" min="300" max="10000" step="50" value="${Math.min(10000, v.budget)}" aria-label="Budget"></div>
       <div class="row2">
-        <label class="fld"><span>Budget total (vol compris)</span><div class="num"><input type="number" name="budget" min="100" step="50" value="${v.budget}"> €</div></label>
-        <label class="fld"><span>Mois de départ</span><select name="month">${MOIS_L.map((mm, i) => `<option value="${i}" ${+v.month === i ? 'selected' : ''}>${mm}</option>`).join('')}</select></label>
+        <label class="fld"><span>Départ en</span><div class="textin">${I.calendar}<select name="month">${MOIS_L.map((mm, i) => `<option value="${i}" ${+v.month === i ? 'selected' : ''}>${mm}</option>`).join('')}</select></div></label>
+        <label class="fld"><span>Depuis</span><div class="textin">${I.plane}<input type="text" name="from" value="${C.esc(v.from)}" placeholder="Ta ville"></div></label>
       </div>
-      <label class="fld"><span>Ville de départ</span><input type="text" name="from" value="${C.esc(v.from)}" placeholder="ex. Lyon, Bruxelles…"></label>
-      <div class="fld"><span>Transport sur place</span><div class="chips">${opt('mode', [['auto', '✨ Propose-moi'], ['car', '🚗 Voiture'], ['transit', '🚆 Transports en commun']], v.mode)}</div></div>
-      <div class="fld"><span>Parcours</span><div class="chips">${opt('shape', [['loop', '🔁 Boucle (retour au départ)'], ['oneway', '➡️ Aller simple']], v.shape)}</div></div>
-      <div class="fld"><span>Rythme</span><div class="chips">${opt('pace', Object.entries(PACE).map(([k, p]) => [k, p.label]), v.pace)}</div></div>
-      <div class="fld"><span>Envies (facultatif)</span><div class="chips">${Object.entries(LIKES).map(([k, l]) => `<label class="chip"><input type="checkbox" name="likes" value="${k}" ${v.likes.includes(k) ? 'checked' : ''}><span>${l.label}</span></label>`).join('')}</div></div>
+      <div class="fld"><span>Sur place</span>${seg('mode', [['auto', 'Propose-moi', 'sparkles'], ['car', 'Voiture', 'car'], ['transit', 'Train, bus', 'train']], v.mode)}</div>
+      <div class="fld"><span>Parcours</span>${seg('shape', [['loop', 'Boucle'], ['oneway', 'Aller simple']], v.shape)}</div>
+      <div class="fld"><span>Rythme</span>${seg('pace', Object.entries(PACE).map(([k, p]) => [k, p.label]), v.pace)}</div>
+      <div class="fld"><span>Envies <small style="color:var(--faint);font-weight:500">facultatif</small></span><div class="chips">${Object.entries(LIKES).map(([k, l]) => `<label class="chip"><input type="checkbox" name="likes" value="${k}" ${v.likes.includes(k) ? 'checked' : ''}><span>${l.label}</span></label>`).join('')}</div></div>
     </form>`,
-    `<button class="btn" id="planBack">← Fiche</button><button class="btn primary" id="planGo">🧭 Créer l’itinéraire</button>`);
+    `<button class="btn icon" id="planBack" aria-label="Retour à la fiche" title="Retour à la fiche">${I.back}</button><button class="btn primary" id="planGo">${I.sparkles}Créer l’itinéraire</button>`);
+  const form = document.getElementById('planForm');
+  form.querySelectorAll('[data-stepper]').forEach(st => st.querySelectorAll('button').forEach(b => b.onclick = () => {
+    const inp = st.querySelector('input'), out = st.querySelector('output span');
+    const val = clamp(+inp.value + +b.dataset.d, +st.dataset.min, +st.dataset.max);
+    inp.value = val; out.textContent = val;
+    if (st.dataset.stepper === 'travelers') st.querySelector('output small').textContent = val > 1 ? 'personnes' : 'personne';
+  }));
+  const range = document.getElementById('budgetRange'), num = form.budget;
+  const paint = () => range.style.setProperty('--p', ((range.value - range.min) / (range.max - range.min) * 100) + '%');
+  range.oninput = () => { num.value = range.value; paint(); };
+  num.oninput = () => { range.value = clamp(+num.value || 0, 300, 10000); paint(); };
+  paint();
   document.getElementById('planBack').onclick = () => C.backToPlace();
   document.getElementById('planGo').onclick = () => submit(dest);
-  document.getElementById('planForm').onsubmit = e => { e.preventDefault(); submit(dest); };
+  form.onsubmit = e => { e.preventDefault(); submit(dest); };
 }
 
 let planCtl = null;
@@ -334,7 +352,8 @@ async function submit(dest) {
   };
   C.LS.set('esc.web.plan', { ...o, from: o.fromName });
   planCtl?.abort(); planCtl = new AbortController();
-  C.setPanel(`<div class="hero" style="min-height:160px"><div class="kicker">Itinéraire</div><h2>${C.esc(dest.name)}</h2><div class="sub">Calcul du meilleur parcours…</div></div>
+  C.setPanel(`<div class="hero short"><div class="kicker">${I.route} Itinéraire</div><h2>${C.esc(dest.name)}</h2><div class="sub">Je cherche le meilleur parcours…</div></div>
+    <div class="kpis">${'<div class="kpi" style="height:64px"></div>'.repeat(4)}</div>
     <div class="sec"><div class="skel" style="width:90%"></div><div class="skel" style="width:70%"></div><div class="skel" style="width:80%"></div></div>`, '');
   try {
     const from = o.fromName ? await geocodeCity(o.fromName, planCtl.signal).catch(() => null) : null;
@@ -346,7 +365,7 @@ async function submit(dest) {
   } catch (e) {
     if (e.name === 'AbortError') return;
     console.error(e);
-    C.setPanel(`<div class="sec"><p>Impossible de calculer l’itinéraire (${C.esc(e.message)}).</p></div>`, `<button class="btn" id="planBack2">← Réessayer</button>`);
+    C.setPanel(`<div class="hero short"><div class="kicker">Itinéraire</div><h2>${C.esc(dest.name)}</h2></div><div class="note warn">${I.warn}<span>Impossible de calculer l’itinéraire (${C.esc(e.message)}). Vérifie ta connexion et réessaie.</span></div>`, `<button class="btn primary" id="planBack2">${I.back}Revenir au formulaire</button>`);
     document.getElementById('planBack2').onclick = () => openPlanner(dest, o);
   }
 }
@@ -355,25 +374,34 @@ function renderTrip() {
   const t = trip, b = t.budget;
   const hours = t.totals.hours, hh = Math.floor(hours), mm = Math.round((hours - hh) * 60);
   const lines = Object.entries(b.tier.lines).filter(([, v]) => v > 0);
-  const max = Math.max(b.tier.total, b.budget);
+  const max = Math.max(b.tier.total, b.budget) * 1.04;
+  const loop = t.input.shape !== 'oneway' && t.stops.length > 1;
+  const visits = d => d.items.filter(it => it.lat != null).length;
   C.setPanel(`
-    <div class="hero" style="min-height:190px"><div class="kicker">Itinéraire · ${t.input.days} jours · ${t.input.travelers} pers.</div><h2>${C.esc(t.dest.name)}</h2>
-      <div class="sub">${t.stops.length} étape${t.stops.length > 1 ? 's' : ''} · ${t.totals.km.toLocaleString('fr-FR')} km · ${hh} h ${String(mm).padStart(2, '0')} de trajets · ${t.input.shape === 'oneway' ? 'aller simple' : 'boucle'}</div></div>
-    ${t.warnings.map(w => `<div class="redir warn">⚠️ ${C.esc(w)}</div>`).join('')}
+    <div class="hero short"><div class="kicker">${I.route} Itinéraire · ${t.input.travelers} voyageur${t.input.travelers > 1 ? 's' : ''}</div><h2>${C.esc(t.dest.name)}</h2>
+      <div class="sub">${loop ? 'En boucle' : 'Aller simple'} · ${MOIS_L[t.input.month]}${t.from ? ' · depuis ' + C.esc(t.from.name) : ''}</div></div>
+    <div class="kpis">
+      <div class="kpi"><b>${t.input.days}</b><span>jours</span></div>
+      <div class="kpi"><b>${t.stops.length}</b><span>étape${t.stops.length > 1 ? 's' : ''}</span></div>
+      <div class="kpi"><b>${t.totals.km.toLocaleString('fr-FR')}</b><span>km</span></div>
+      <div class="kpi"><b>${hh}h${String(mm).padStart(2, '0')}</b><span>de trajets</span></div>
+    </div>
+    ${t.warnings.map(w => `<div class="note warn">${I.warn}<span>${C.esc(w)}</span></div>`).join('')}
     <div class="sec"><h3>Le parcours</h3>
-      <div class="stops">${t.stops.map((s, i) => `<button class="stop" data-stop="${i}"><b>${i + 1}</b><span>${C.esc(s.name)}<small>${s.nights} nuit${s.nights > 1 ? 's' : ''}</small></span></button>`).join('<i>›</i>')}${t.input.shape !== 'oneway' && t.stops.length > 1 ? `<i>›</i><button class="stop" data-stop="0"><b>↩</b><span>${C.esc(t.stops[0].name)}</span></button>` : ''}</div>
-      <p class="mode">${t.mode === 'car' ? '🚗 En voiture' : '🚆 En transports en commun'}${t.modeReason ? ' — ' + C.esc(t.modeReason) : ''}</p>
+      <div class="route">${t.stops.map((s, i) => `<button class="stop" data-stop="${i}"><b>${i + 1}</b><span>${C.esc(s.name)}<small>${s.nights} nuit${s.nights > 1 ? 's' : ''}</small></span></button>`).join('')}
+        ${loop ? `<button class="stop" data-stop="0"><b>↩</b><span>${C.esc(t.stops[0].name)}<small>retour</small></span></button>` : ''}</div>
+      <div class="mode">${t.mode === 'car' ? I.car : I.train}<span><b>${t.mode === 'car' ? 'En voiture' : 'En train et en bus'}</b>${t.modeReason ? '<br>' + C.esc(t.modeReason) : ''}</span></div>
     </div>
-    <div class="sec"><h3>Budget estimé · ${b.tier.label}</h3>
-      <div class="bbar"><div class="fill ${b.ok ? '' : 'over'}" style="width:${Math.min(100, b.tier.total / max * 100)}%"></div><div class="mark" style="left:${b.budget / max * 100}%"></div></div>
-      <p class="btot"><b>${fmtE(b.tier.total)}</b> pour un budget de ${fmtE(b.budget)} ${b.ok ? `<span class="okk">✓ il reste ${fmtE(b.budget - b.tier.total)}</span>` : `<span class="ko">dépassement de ${fmtE(b.over)}</span>`}</p>
+    <div class="sec"><h3>Budget estimé</h3><div class="card">
+      <p class="btot"><b>${fmtE(b.tier.total)}</b><span class="tier">${b.tier.label}</span>${b.ok ? `<span class="okk">il reste ${fmtE(b.budget - b.tier.total)}</span>` : `<span class="ko">${fmtE(b.over)} de trop</span>`}</p>
+      <div class="bbar"><div class="fill ${b.ok ? '' : 'over'}" style="width:${b.tier.total / max * 100}%"></div><div class="mark" style="left:${b.budget / max * 100}%" title="Ton budget"></div></div>
       <table class="blines">${lines.map(([k, v]) => `<tr><td>${C.esc(k)}</td><td>${fmtE(v)}</td></tr>`).join('')}</table>
-      <p class="src">Estimation à partir du niveau des prix du pays (Banque mondiale) et de la distance du vol, pas de prix réels. Niveau de confort choisi : le plus confortable qui rentre dans ton budget.</p>
-    </div>
-    <div class="sec"><h3>Jour par jour</h3>${t.days.map(d => `<div class="day"><div class="dh"><b>Jour ${d.n}</b><span>${C.esc(d.title)}</span></div>
-      ${d.items.map(it => `<div class="it ${it.lat != null ? 'go' : ''}" ${it.lat != null ? `data-lat="${it.lat}" data-lon="${it.lon}"` : ''}><span class="ic">${it.icon}</span><span>${C.esc(it.text)}${it.sub ? `<small>${C.esc(it.sub)}</small>` : ''}${it.wiki ? `<a href="https://fr.wikipedia.org/wiki/${encodeURIComponent(it.wiki)}" target="_blank" rel="noopener">Wikipédia</a>` : ''}</span></div>`).join('')}</div>`).join('')}
-      <p class="src">${t.routed ? 'Trajets routiers calculés avec OSRM (OpenStreetMap).' : ''} Étapes et visites tirées de GeoNames et Wikidata.</p></div>`,
-    `<button class="btn" id="tEdit">✎ Modifier</button><button class="btn" id="tTour">▶ Survoler</button><button class="btn primary" id="tSave">★ Enregistrer</button>`);
+      <p class="src" style="margin:0">Estimation selon le niveau des prix du pays (Banque mondiale) et la distance du vol, pas des prix réels. Le niveau de confort est le plus élevé qui rentre dans ton budget.</p>
+    </div></div>
+    <div class="sec"><h3>Jour par jour</h3>${t.days.map((d, k) => `<details class="day" ${k === 0 ? 'open' : ''}><summary><span class="dn">Jour<b>${d.n}</b></span><span class="dt">${C.esc(d.title)}<small>${visits(d) ? visits(d) + ' visite' + (visits(d) > 1 ? 's' : '') : d.items.find(it => /→/.test(it.text)) ? 'Trajet' : 'Journée libre'}</small></span><span class="chev">${I.next}</span></summary>
+      <div class="items">${d.items.map(it => `<div class="it ${it.lat != null ? 'go' : ''}" ${it.lat != null ? `data-lat="${it.lat}" data-lon="${it.lon}"` : ''}><span class="ic">${it.icon}</span><span>${C.esc(it.text)}${it.sub ? `<small>${C.esc(it.sub)}</small>` : ''}${it.wiki ? `<a href="https://fr.wikipedia.org/wiki/${encodeURIComponent(it.wiki)}" target="_blank" rel="noopener">Wikipédia</a>` : ''}</span></div>`).join('')}</div></details>`).join('')}
+      <p class="src">${t.routed ? 'Trajets routiers calculés avec OSRM (OpenStreetMap). ' : ''}Étapes et visites tirées de GeoNames et Wikidata.</p></div>`,
+    `<button class="btn icon" id="tEdit" aria-label="Modifier" title="Modifier">${I.edit}</button><button class="btn icon" id="tTour" aria-label="Survoler" title="Survoler le parcours">${I.play}</button><button class="btn primary" id="tSave">${I.heart}Enregistrer</button>`);
   const panel = document.getElementById('pBody');
   panel.querySelectorAll('[data-stop]').forEach(b => b.onclick = () => { const s = t.stops[+b.dataset.stop]; C.map().flyTo({ center: [s.lon, s.lat], zoom: 11, pitch: 50, padding: C.padding(), duration: 2200 }); });
   panel.querySelectorAll('.it.go').forEach(b => b.onclick = () => C.map().flyTo({ center: [+b.dataset.lon, +b.dataset.lat], zoom: 13.5, pitch: 55, padding: C.padding(), duration: 2200 }));
@@ -383,7 +411,8 @@ function renderTrip() {
     const trips = C.LS.get('esc.web.trips', []);
     trips.unshift({ id: Date.now(), name: t.dest.name, days: t.input.days, stops: t.stops.map(s => s.name), total: Math.round(b.tier.total), dest: t.dest, input: t.input });
     C.LS.set('esc.web.trips', trips.slice(0, 30));
-    C.toast('★ Itinéraire enregistré dans « Mes destinations »');
+    C.onSaved?.();
+    C.toast('Itinéraire enregistré dans « Mes voyages »');
   };
 }
 

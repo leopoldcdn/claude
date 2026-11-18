@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Escapade — Globe des vacances</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=IM+Fell+English+SC&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg: rgba(8,10,14,.84);
@@ -36,13 +36,13 @@
 
   /* ---------- HUD ---------- */
   .hud{position:fixed;z-index:5;font-family:var(--hud)}
-  .brand{top:18px;left:20px;display:flex;align-items:center;gap:12px;pointer-events:none}
+  .brand{top:18px;left:20px;display:flex;align-items:center;gap:12px;pointer-events:none;background:var(--bg);padding:8px 14px;border-radius:4px;border:1px solid var(--line)}
   .brand .logo{font:700 30px/1 var(--title);letter-spacing:.04em;text-transform:uppercase;
     color:#fff;text-shadow:0 2px 0 #000, 0 0 18px rgba(255,178,30,.35)}
   .brand .logo span{color:var(--acc)}
   .brand .tag{font:600 12px/1.1 var(--hud);color:var(--mut);letter-spacing:.18em;text-transform:uppercase;border-left:2px solid var(--acc);padding-left:10px}
 
-  .search{top:70px;left:20px;width:min(360px,calc(100vw - 40px))}
+  .search{top:78px;left:20px;width:min(360px,calc(100vw - 40px))}
   .search input{width:100%;padding:12px 14px 12px 40px;border-radius:4px;border:1px solid var(--line);
     background:var(--bg);color:var(--txt);font:600 16px var(--hud);letter-spacing:.03em;outline:none;backdrop-filter:blur(6px)}
   .search input:focus{border-color:var(--acc)}
@@ -53,7 +53,7 @@
   .sugg button small{color:var(--mut);font-weight:500}
   .sugg button:hover,.sugg button.on{background:rgba(255,178,30,.14)}
 
-  .readout{top:18px;right:20px;text-align:right;pointer-events:none}
+  .readout{top:18px;right:20px;text-align:right;pointer-events:none;background:var(--bg);padding:10px 14px;border-radius:4px;border:1px solid var(--line);backdrop-filter:blur(6px)}
   .readout .country{font:700 22px/1 var(--title);text-transform:uppercase;letter-spacing:.05em;text-shadow:0 2px 0 #000}
   .readout .coords{margin-top:6px;font:600 14px var(--hud);color:var(--acc2);letter-spacing:.1em;text-shadow:0 1px 0 #000}
   .readout .alt{font:600 12px var(--hud);color:var(--mut);letter-spacing:.14em;margin-top:3px}
@@ -70,6 +70,18 @@
   .keys{bottom:22px;right:20px;color:var(--mut);font:600 12px var(--hud);letter-spacing:.12em;text-transform:uppercase;text-align:right;pointer-events:none;line-height:1.8}
   .keys b{color:#fff;background:rgba(255,255,255,.12);border-radius:3px;padding:1px 6px;margin:0 2px}
 
+  .styles{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--bg);backdrop-filter:blur(6px)}
+  .styles button{padding:10px 12px;border:0;background:none;color:var(--mut);font:700 13px var(--hud);letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border-right:1px solid var(--line)}
+  .styles button:last-child{border-right:0}
+  .styles button:hover{color:#fff}
+  .styles button.on{background:var(--acc);color:#111}
+  body.s-vintage .clabel{font-family:'IM Fell English SC',Georgia,serif;font-weight:400;font-size:14px;letter-spacing:.02em;text-transform:none;color:#3b2a17;
+    text-shadow:0 0 3px #f3e6c8,0 0 6px #f3e6c8,0 0 10px rgba(243,230,200,.8)}
+  body.s-vintage .clabel.big{font-size:17px}
+  body.s-vintage .clabel::before{background:#5a3e24;box-shadow:none}
+  body.s-carte .clabel{color:#e8eef3;font-size:12px}
+  body.s-carte .clabel::before{background:#c9d6df}
+  body.s-cartoon .clabel{font-weight:700;text-shadow:0 0 2px #10283a,0 1px 0 #10283a,1px 0 0 #10283a,-1px 0 0 #10283a,0 -1px 0 #10283a,0 0 8px rgba(0,0,0,.5)}
   .toast{position:fixed;left:50%;top:24px;transform:translate(-50%,-30px);opacity:0;z-index:30;padding:10px 18px;border-radius:4px;
     background:var(--bg2);border-left:3px solid var(--acc);font:600 15px var(--hud);letter-spacing:.06em;transition:.3s}
   .toast.show{opacity:1;transform:translate(-50%,0)}
@@ -202,6 +214,9 @@
   <button class="btn primary" id="bRandom" title="Destination au hasard">🎲 Au hasard <span class="k">R</span></button>
   <button class="btn" id="bFavs">★ Mes destinations <span class="count" id="favCount">0</span></button>
   <button class="btn" id="bSun" title="Éclairage">☀ Jour permanent</button>
+  <div class="styles" id="styles" role="group" aria-label="Style de carte">
+    <button data-s="cartoon">Cartoon</button><button data-s="carte">Carte de jeu</button><button data-s="vintage">Vintage</button><button data-s="realiste">Réaliste</button>
+  </div>
 </div>
 <div class="hud keys">Clic : explorer un lieu<br><b>←↑↓→</b> tourner · <b>+</b><b>−</b> zoom · <b>Échap</b> fermer</div>
 
@@ -274,7 +289,8 @@ const sunDir = new THREE.Vector3(1, 0.3, 0.6).normalize();
 const earthMat = new THREE.ShaderMaterial({
   uniforms: {
     dayMap:{value:null}, nightMap:{value:null}, waterMap:{value:null}, bumpMap:{value:null},
-    sunDir:{value:sunDir}, bumpScale:{value:1.6}
+    sunDir:{value:sunDir}, bumpScale:{value:1.6},
+    styleMap:{value:null}, stylized:{value:1}, toon:{value:1}, outline:{value:1}
   },
   vertexShader: /* glsl */`
     varying vec2 vUv; varying vec3 vN; varying vec3 vW;
@@ -287,6 +303,7 @@ const earthMat = new THREE.ShaderMaterial({
   fragmentShader: /* glsl */`
     uniform sampler2D dayMap, nightMap, waterMap, bumpMap;
     uniform vec3 sunDir; uniform float bumpScale;
+    uniform sampler2D styleMap; uniform float stylized, toon, outline;
     varying vec2 vUv; varying vec3 vN; varying vec3 vW;
     vec3 sat(vec3 c, float s){ float l = dot(c, vec3(0.2126,0.7152,0.0722)); return mix(vec3(l), c, s); }
     vec3 perturb(vec3 n, vec3 p, vec2 uv){
@@ -304,6 +321,19 @@ const earthMat = new THREE.ShaderMaterial({
       vec3 n0 = normalize(vN);
       vec3 V = normalize(cameraPosition - vW);
       float water = texture2D(waterMap, vUv).r;
+      if (stylized > 0.5) {
+        vec3 base = texture2D(styleMap, vUv).rgb;
+        float l = dot(n0, sunDir);
+        float light = toon > 0.5
+          ? (l > 0.2 ? 1.0 : (l > -0.08 ? 0.8 : 0.58))
+          : mix(0.62, 1.0, smoothstep(-0.25, 0.45, l));
+        vec3 col = base * light;
+        float edge = 1.0 - max(dot(n0, V), 0.0);
+        col = mix(col, col * 0.35, smoothstep(0.86, 0.93, edge) * outline);
+        gl_FragColor = vec4(col, 1.0);
+        #include <colorspace_fragment>
+        return;
+      }
       vec3 n = mix(perturb(n0, vW, vUv), n0, water);
       float ndl0 = dot(n0, sunDir);
       float ndl = max(dot(n, sunDir), 0.0);
@@ -347,10 +377,17 @@ scene.add(earth);
 /* --- Nuages --- */
 const cloudMat = new THREE.ShaderMaterial({
   transparent:true, depthWrite:false,
-  uniforms:{ map:{value:null}, sunDir:{value:sunDir}, opacity:{value:0.85} },
+  uniforms:{ map:{value:null}, sunDir:{value:sunDir}, opacity:{value:0.85}, toon:{value:0} },
   vertexShader:`varying vec2 vUv; varying vec3 vN; void main(){ vUv=uv; vN=normalize(mat3(modelMatrix)*normal); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
-  fragmentShader:`uniform sampler2D map; uniform vec3 sunDir; uniform float opacity; varying vec2 vUv; varying vec3 vN;
+  fragmentShader:`uniform sampler2D map; uniform vec3 sunDir; uniform float opacity, toon; varying vec2 vUv; varying vec3 vN;
     void main(){ float a = texture2D(map, vUv).r; float l = dot(normalize(vN), sunDir);
+      if (toon > 0.5) {
+        float m = smoothstep(0.42, 0.47, a);
+        vec3 c = l > 0.05 ? vec3(1.0) : vec3(0.78, 0.84, 0.92);
+        gl_FragColor = vec4(c, m * opacity * 0.92);
+        #include <colorspace_fragment>
+        return;
+      }
       float lit = smoothstep(-0.2, 0.3, l);
       vec3 c = mix(vec3(0.03,0.04,0.06), vec3(1.0,0.98,0.94)*1.4, lit) + vec3(1.0,0.5,0.2)*exp(-pow(l*5.0,2.0))*0.25;
       gl_FragColor = vec4(c, a * opacity * mix(0.35, 1.0, lit));
@@ -364,14 +401,14 @@ scene.add(clouds);
 /* --- Halo atmosphérique --- */
 const atmo = new THREE.Mesh(new THREE.SphereGeometry(1.13, 96, 64), new THREE.ShaderMaterial({
   side:THREE.BackSide, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false,
-  uniforms:{ sunDir:{value:sunDir} },
+  uniforms:{ sunDir:{value:sunDir}, strength:{value:2.6}, tint:{value:new THREE.Color(1,1,1)} },
   vertexShader:`varying vec3 vNv; varying vec3 vW; void main(){ vNv=normalize(normalMatrix*normal); vec4 w=modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
-  fragmentShader:`uniform vec3 sunDir; varying vec3 vNv; varying vec3 vW;
+  fragmentShader:`uniform vec3 sunDir; uniform float strength; uniform vec3 tint; varying vec3 vNv; varying vec3 vW;
     void main(){ float i = pow(clamp(-vNv.z * 2.1, 0.0, 1.0), 3.0);
       float sl = dot(normalize(vW), sunDir);
       float l = smoothstep(-0.35, 0.5, sl);
       vec3 c = mix(vec3(0.02,0.04,0.1), vec3(0.3,0.58,1.0), l) + vec3(1.0,0.45,0.15)*exp(-pow(sl*4.0,2.0))*0.35;
-      gl_FragColor = vec4(c * i * 2.6, 1.0); }`
+      gl_FragColor = vec4(c * tint * i * strength, 1.0); }`
 }));
 scene.add(atmo);
 
@@ -954,17 +991,62 @@ $('#bRandom').onclick = randomTrip;
 let toastT;
 function toast(m){ const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200); }
 
+/* ======================= Styles de carte ======================= */
+const STYLES = {
+  cartoon:  { toon:1, outline:1, clouds:1, cloudToon:1, atmo:2.2, tint:[0.75,0.95,1.1], stars:0x6f7a90, bg:0x070b16, border:[0xffffff, 0.5], minD:1.07 },
+  carte:    { toon:0, outline:0.6, clouds:0, atmo:0.9, tint:[0.6,0.8,1.0], stars:0x2a3038, bg:0x0b1117, border:[0xd6e2ea, 0.4], minD:1.07 },
+  vintage:  { toon:0, outline:0.5, clouds:0, atmo:0.0, tint:[1,1,1], stars:0x000000, bg:0x1b140d, border:[0x5a3e24, 0.75], minD:1.07 },
+  realiste: { realistic:1, clouds:1, cloudToon:0, atmo:2.6, tint:[1,1,1], stars:0x8a8f99, bg:0x000000, border:[0xffffff, 0.4], minD:1.15 }
+};
+const hiRes = renderer.capabilities.maxTextureSize >= 16384 && Math.min(screen.width, screen.height) > 700;
+const styleTex = {};
+let realLoaded = null;
+let style = LS.get('esc.style', 'cartoon');
+if (!STYLES[style]) style = 'cartoon';
+let borderBase = 0.5;
+async function setStyle(name, first){
+  if (!STYLES[name]) return;
+  const st = STYLES[name];
+  if (st.realistic) {
+    if (!realLoaded) realLoaded = Promise.all([tex('assets/earth-blue-marble.jpg'), tex('assets/earth-night.jpg'), tex('assets/earth-topology.png', false)])
+      .then(([day, night, bump]) => { earthMat.uniforms.dayMap.value = day; earthMat.uniforms.nightMap.value = night; earthMat.uniforms.bumpMap.value = bump; });
+    if (!first) toast('Chargement du style…');
+    await realLoaded;
+  } else {
+    if (!styleTex[name]) {
+      if (!first) toast('Chargement du style…');
+      styleTex[name] = tex(`assets/style-${name}-${hiRes ? '8k' : '4k'}.jpg`);
+    }
+    earthMat.uniforms.styleMap.value = await styleTex[name];
+  }
+  style = name; LS.set('esc.style', name);
+  const u = earthMat.uniforms;
+  u.stylized.value = st.realistic ? 0 : 1;
+  u.toon.value = st.toon || 0; u.outline.value = st.outline || 0;
+  earthMat.toneMapped = !!st.realistic; earthMat.needsUpdate = true;
+  clouds.visible = !!st.clouds;
+  cloudMat.uniforms.toon.value = st.cloudToon || 0;
+  cloudMat.toneMapped = !st.cloudToon; cloudMat.needsUpdate = true;
+  atmo.visible = st.atmo > 0; atmo.material.uniforms.strength.value = st.atmo; atmo.material.uniforms.tint.value.setRGB(...st.tint);
+  stars.visible = st.stars !== 0x000000; stars.material.color.setHex(st.stars);
+  scene.background = new THREE.Color(st.bg);
+  borderMat.color.setHex(st.border[0]); borderBase = st.border[1];
+  controls.minDistance = st.minD;
+  document.body.className = 's-' + name;
+  document.querySelectorAll('#styles button').forEach(b => b.classList.toggle('on', b.dataset.s === name));
+}
+document.querySelectorAll('#styles button').forEach(b => b.onclick = () => setStyle(b.dataset.s));
+
 /* ======================= Chargement ======================= */
 async function init(){
   const msg = $('#loadmsg');
-  const [day, night, water, bump, cl, sky, topo, pl] = await Promise.all([
-    tex('assets/earth-blue-marble.jpg'), tex('assets/earth-night.jpg'), tex('assets/earth-water.png', false), tex('assets/earth-topology.png', false),
-    tex('assets/clouds.jpg', false), tex('assets/night-sky.jpg'),
-    fetch('assets/countries-50m.json').then(r => r.json()), fetch('assets/places.json').then(r => r.json())
+  const [water, cl, sky, topo, pl] = await Promise.all([
+    tex('assets/earth-water.png', false), tex('assets/clouds.jpg', false), tex('assets/night-sky.jpg'),
+    fetch('assets/countries-50m.json').then(r => r.json()), fetch('assets/places.json').then(r => r.json()),
+    setStyle(style, true)
   ]);
   msg.textContent = 'Tracé des frontières…';
-  earthMat.uniforms.dayMap.value = day; earthMat.uniforms.nightMap.value = night;
-  earthMat.uniforms.waterMap.value = water; earthMat.uniforms.bumpMap.value = bump;
+  earthMat.uniforms.waterMap.value = water;
   cloudMat.uniforms.map.value = cl; stars.material.map = sky; stars.material.needsUpdate = true;
 
   // pays
@@ -1025,8 +1107,8 @@ function loop(){
   controls.update();
   updateSun();
   clouds.rotation.y = t * 0.004;
-  cloudMat.uniforms.opacity.value = THREE.MathUtils.smoothstep(d, 1.12, 1.7) * 0.85;
-  borderMat.opacity = THREE.MathUtils.clamp(0.4 - (d - 1) * 0.08, 0.14, 0.4);
+  cloudMat.uniforms.opacity.value = THREE.MathUtils.smoothstep(d, 1.12, 1.7) * (STYLES[style].cloudToon ? 0.75 : 0.85);
+  borderMat.opacity = borderBase * THREE.MathUtils.clamp(1.05 - (d - 1) * 0.2, 0.4, 1);
   if (marker.visible) {
     const s = THREE.MathUtils.clamp((d - 1) * 1.25, 0.03, 1.6);
     marker.scale.setScalar(s);

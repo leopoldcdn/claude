@@ -1,6 +1,8 @@
 # Escapade — version web
 
 Globe 3D pour choisir une destination de vacances : on part de l'espace et on zoome jusqu'aux rues, avec les bâtiments en 3D.
+Le bouton **« Où partir ? »** propose les meilleures destinations pour un mois, un budget, une durée et des envies : le globe s'allume sur les lieux idéaux.
+
 Le bouton « Itinéraire » d'une fiche propose un parcours autour de la destination selon la durée, le budget
 (vol compris), le nombre de voyageurs, le mois, la ville de départ, le transport, le type de parcours, le rythme et les envies.
 
@@ -29,6 +31,7 @@ Puis ouvrir http://localhost:8000.
 | Description | Wikivoyage et Wikipédia (français) |
 | Photos et lieux à voir | Wikipédia (classés par popularité) et Wikimedia Commons |
 | Climat par mois, météo du moment | [Open-Meteo](https://open-meteo.com/) |
+| Climat mois par mois (« Où partir ? ») | [WorldClim 2.1](https://www.worldclim.org/), normales 1970-2000 (CC BY 4.0) |
 | Terres et mers (itinéraires) | [Natural Earth](https://www.naturalearthdata.com/) 1:10m, domaine public |
 | Temps de route des itinéraires | [OSRM](https://project-osrm.org/) (OpenStreetMap) |
 | Niveau des prix par pays (budget) | Banque mondiale, PPA / taux de change (CC BY 4.0) — `tools/build_prices.py` |
@@ -39,6 +42,7 @@ Puis ouvrir http://localhost:8000.
 
 - `index.html`, `style.css`, `app.js` : l'application (interface « verre » translucide au-dessus du globe)
 - `icons.js` : icônes au trait de l'interface
+- `discover.js` : « Où partir ? » — note de chaque destination selon le mois, les envies et le budget, et globe allumé
 - `tour.js` : survol animé d'un itinéraire, avec une bande de photos de chaque étape
 - `itinerary.js` : générateur d'itinéraire (étapes, ordre, programme jour par jour, budget)
 - `land.js` : masque terre/mer (une terre par île ou continent) pour que les itinéraires ne traversent pas la mer en voiture
@@ -46,6 +50,7 @@ Puis ouvrir http://localhost:8000.
 - `data/` : base de lieux (villes, villages, sites — GeoNames + Wikidata) et infos pays
 - `tiles/cartoon/` : globe cartoon en tuiles (zooms 0 à 4)
 - `tools/build_data.py` : régénère `data/countries.json` et `tiles/`
+- `tools/build_destinations.py` : régénère `data/destinations.json` (≈ 5 200 destinations, climat mois par mois)
 - `tools/build_landmask.py` : régénère `data/land.bin` à partir de Natural Earth 1:10m
 - `tools/build_glyphs.mjs` : polices de la carte (Inter, Fraunces)
 - `tools/build_prices.py` : niveaux de prix par pays

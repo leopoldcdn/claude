@@ -52,10 +52,13 @@
   <button class="cbtn" id="bStyle" data-tip="Style de carte" aria-label="Style de carte" data-i="layers"></button>
 </nav>
 
-<button class="surprise" id="bRandom" title="Destination au hasard (touche R)"><span data-i="sparkles"></span><span>Surprends-moi</span></button>
+<div class="cta">
+  <button class="discover-btn glass" id="bDiscover" title="Trouver où partir selon le mois, le budget et tes envies (touche O)"><span data-i="calendar"></span><span>Où partir ?</span></button>
+  <button class="surprise" id="bRandom" title="Destination au hasard (touche R)" aria-label="Surprends-moi : une destination au hasard"><span data-i="sparkles"></span><span>Surprends-moi</span></button>
+</div>
 
 <div class="infochip glass" id="info" role="status" aria-label="Position sous la souris"><span id="rPhase"></span><span id="rCoords">—</span><span class="dot"></span><span id="rAlt">—</span></div>
-<div class="hint glass" id="hint"><span data-i="pin"></span>Clique n’importe où sur le globe pour découvrir un lieu</div>
+<div class="hint glass" id="hint"><span data-i="pin"></span>Clique sur le globe pour découvrir un lieu, ou demande « Où partir ? »</div>
 <div class="hoverlabel" id="rPlace"></div>
 
 <aside id="panel" aria-live="polite" aria-label="Fiche du lieu" tabindex="-1">

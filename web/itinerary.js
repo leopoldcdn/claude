@@ -81,7 +81,7 @@ async function osrm(points, signal) {
   cache[coords] = res; C.LS.set('esc.web.routes', cache);
   return res;
 }
-async function geocodeCity(q, signal) {
+export async function geocodeCity(q, signal) {
   const cache = C.LS.get('esc.web.geocache', {});
   if (cache[q]) return cache[q];
   const r = await C.getJSON(`https://photon.komoot.io/api?q=${encodeURIComponent(q)}&lang=fr&limit=1`, { signal });

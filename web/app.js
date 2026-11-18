@@ -3,7 +3,8 @@
  * Infos : Photon (géocodage), Wikipédia, Wikivoyage, Wikimedia Commons, Open-Meteo
  */
 import { registerProtocol, setCartoonBase, phase } from './sun.js';
-import { initItinerary, openPlanner, clearTrip, redrawAfterStyle, replan } from './itinerary.js';
+import { initItinerary, openPlanner, clearTrip, redrawAfterStyle, replan, geocodeCity } from './itinerary.js';
+import { initDiscover, openDiscover, clearDiscover, redrawDiscover, discoverActive, backToResults, decodeState, hitDestination } from './discover.js';
 import { I } from './icons.js';
 const $ = s => document.querySelector(s);
 document.querySelectorAll('[data-i]').forEach(el => el.insertAdjacentHTML('afterbegin', I[el.dataset.i] || ''));
@@ -274,17 +275,23 @@ async function initMap() {
   map = new maplibregl.Map({
     container: 'map', style,
     center: [homeLon, 30], zoom: isMobile() ? 1.0 : 2.0, pitch: 0, maxPitch: 78,
-    attributionControl: { compact: true, customAttribution: 'Lieux <a href="https://www.geonames.org/">GeoNames</a> (CC BY 4.0) et <a href="https://www.wikidata.org/">Wikidata</a> · Recherche <a href="https://photon.komoot.io/">Photon</a> · Trajets <a href="https://project-osrm.org/">OSRM</a> · Météo <a href="https://open-meteo.com/">Open-Meteo</a> · Textes et photos Wikipédia, Wikivoyage, Wikimedia Commons (CC BY-SA)' },
+    attributionControl: { compact: true, customAttribution: 'Lieux <a href="https://www.geonames.org/">GeoNames</a> (CC BY 4.0) et <a href="https://www.wikidata.org/">Wikidata</a> · Recherche <a href="https://photon.komoot.io/">Photon</a> · Trajets <a href="https://project-osrm.org/">OSRM</a> · Météo <a href="https://open-meteo.com/">Open-Meteo</a> et <a href="https://www.worldclim.org/">WorldClim</a> · Textes et photos Wikipédia, Wikivoyage, Wikimedia Commons (CC BY-SA)' },
     canvasContextAttributes: { antialias: true }
   });
   window.escapadeMap = map;   // accès pratique depuis la console du navigateur
+  // crédits repliés par défaut (ils sont longs) ; seul un clic sur « i » les déplie
+  const attrib = document.querySelector('.maplibregl-ctrl-attrib');
+  let attribOpen = false;
+  attrib?.querySelector('summary, .maplibregl-ctrl-attrib-button')?.addEventListener('click', () => { attribOpen = !(attrib.open || attrib.classList.contains('maplibregl-compact-show')); });
+  const fold = () => { if (attribOpen || !attrib) return; attrib.classList.remove('maplibregl-compact-show'); if (attrib.open) attrib.open = false; };
+  fold(); map.on('data', fold); map.on('resize', fold);
   const reveal = () => { const l = $('#loading'); if (!l || l.dataset.gone) return; l.dataset.gone = 1; l.style.opacity = 0; setTimeout(() => l.remove(), 900); };
   map.once('style.load', () => setTimeout(reveal, 400));   // sans attendre toutes les images de la carte
   map.on('load', () => {
     reveal();
     if (!storageOk) setTimeout(() => toast('Stockage du navigateur désactivé : tes favoris ne seront pas conservés'), 1500);
     openFromHash(true);
-    document.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
+
     const c0 = map.getCenter(), ph0 = phase(c0.lat, c0.lng);
     $('#rCoords').textContent = fmtLL(c0.lat, c0.lng);
     $('#rPhase').textContent = ph0 === 'jour' ? '☀️ Jour' : ph0 === 'nuit' ? '🌙 Nuit' : '🌇 Crépuscule';
@@ -338,6 +345,7 @@ function hoverPlace(pt) {
   });
 }
 function onMapClick(e) {
+  if (hitDestination(e.point)) return;          // clic sur une destination allumée par « Où partir ? »
   const f = map.queryRenderedFeatures(e.point, { layers: map.getStyle().layers.filter(l => /^label_|^poi_/.test(l.id)).map(l => l.id) })[0];
   let lng = e.lngLat.lng, lat = e.lngLat.lat, hint = null;
   if (f && f.geometry.type === 'Point') {
@@ -701,6 +709,8 @@ function openFromHash(first) {
       const [la, lo, ...n] = h.slice(5).split(',');
       if (isFinite(+la) && isFinite(+lo) && (!current || Math.abs(current.lat - la) > 1e-3 || Math.abs(current.lon - lo) > 1e-3 || panelMode !== 'place'))
         explore(+la, +lo, { hint: n.join(',') || null, label: n.join(',') || null, zoom: 11 });
+    } else if (h.startsWith('partir=')) {
+      openDiscover(decodeState(h.slice(7)));
     } else if (h.startsWith('voyage=')) {
       const t = JSON.parse(decodeURIComponent(escape(atob(h.slice(7)))));
       replan(t.d, t.i);
@@ -724,9 +734,9 @@ function openPanel() {
   panel.classList.add('open'); document.body.classList.add('panel-open');
   $('#hint').classList.add('gone'); LS.set('esc.web.hinted', true);
 }
-function closePanel(fromRoute) { if (fromRoute !== true) setRoute(''); panel.classList.remove('open', 'peek'); document.body.classList.remove('panel-open'); wpMarker?.remove(); poiMarker?.remove(); abortCtl?.abort(); reqId++; clearTrip(); panelMode = 'place'; }
+function closePanel(fromRoute) { if (fromRoute !== true) setRoute(''); clearDiscover(); panel.classList.remove('open', 'peek'); document.body.classList.remove('panel-open'); wpMarker?.remove(); poiMarker?.remove(); abortCtl?.abort(); reqId++; clearTrip(); panelMode = 'place'; }
 if (LS.get('esc.web.hinted', false)) $('#hint').classList.add('gone');
-if (isMobile()) $('#hint').lastChild.textContent = 'Touche le globe pour découvrir un lieu';
+if (isMobile()) $('#hint').lastChild.textContent = 'Touche le globe, ou demande « Où partir ? »';
 // téléphone : la poignée replie, déplie ou ferme le panneau
 {
   let y0 = null;
@@ -914,8 +924,9 @@ function saveFavs() {
 function renderActions() {
   const c = current; if (!c || panelMode !== 'place') return;
   const on = favs.has(favKey(c));
-  $('#pActions').innerHTML = `<button class="btn icon fav ${on ? 'on' : ''}" id="aFav" aria-label="${on ? 'Retirer de mes voyages' : 'Enregistrer'}" title="${on ? 'Retirer de mes voyages' : 'Enregistrer dans mes voyages'}">${on ? I.heartFill : I.heart}</button><button class="btn icon" id="aShare" aria-label="Partager ce lieu" title="Copier le lien de ce lieu">${I.share}</button><button class="btn primary" id="aTrip">${I.route}Créer un itinéraire</button>`;
+  $('#pActions').innerHTML = (discoverActive() ? `<button class="btn icon" id="aBack" aria-label="Retour aux suggestions" title="Retour aux suggestions « Où partir ? »">${I.back}</button>` : '') + `<button class="btn icon fav ${on ? 'on' : ''}" id="aFav" aria-label="${on ? 'Retirer de mes voyages' : 'Enregistrer'}" title="${on ? 'Retirer de mes voyages' : 'Enregistrer dans mes voyages'}">${on ? I.heartFill : I.heart}</button><button class="btn icon" id="aShare" aria-label="Partager ce lieu" title="Copier le lien de ce lieu">${I.share}</button><button class="btn primary" id="aTrip">${I.route}Créer un itinéraire</button>`;
   $('#aShare').onclick = () => share(c.name);
+  $('#aBack')?.addEventListener('click', backToResults);
   $('#aTrip').onclick = () => openPlanner({ name: c.name, lat: c.lat, lon: c.lon, cc: c.cc, monthScores: c.climate?.score });
   $('#aFav').onclick = () => {
     const k = favKey(c);
@@ -1052,6 +1063,7 @@ async function randomTrip() {
   explore(p[5], p[6], { hint: pname(p), label: pname(p), zoom: ['ville', 'capitale'].includes(kindOf(p)) ? 11 : 12 });
 }
 $('#bRandom').onclick = randomTrip;
+$('#bDiscover').onclick = () => openDiscover();
 $('#b3d').onclick = () => {
   const tilted = map.getPitch() > 10;
   map.easeTo({ pitch: tilted ? 0 : 60, bearing: tilted ? 0 : map.getBearing() - 20, zoom: tilted ? map.getZoom() : Math.max(map.getZoom(), 14), duration: 1400 });
@@ -1107,7 +1119,7 @@ $('#bStyle').onclick = async () => {
   const st = await buildStyle(styleMode);
   baseStyle = structuredClone(st); labelsNight = false;
   map.setStyle(st);
-  map.once('style.load', () => { if (relief) map.setTerrain({ source: 'dem3d', exaggeration: 1.4 }); redrawAfterStyle(); });
+  map.once('style.load', () => { if (relief) map.setTerrain({ source: 'dem3d', exaggeration: 1.4 }); redrawAfterStyle(); redrawDiscover(); });
 };
 syncButtons();
 $('#bGlobe').onclick = () => { closePanel(); map.flyTo({ center: map.getCenter(), zoom: isMobile() ? 1.0 : 2.0, pitch: 0, bearing: 0, duration: 2600, padding: { top: 0, bottom: 0, left: 0, right: 0 } }); };
@@ -1116,9 +1128,14 @@ addEventListener('keydown', e => {
   if (e.key === 'Escape') { if ($('#viewer').classList.contains('open')) $('#viewer').classList.remove('open'); else if ($('#favs').classList.contains('open')) closeFavs(); else closePanel(); }
   if ($('#viewer').classList.contains('open')) { if (e.key === 'ArrowLeft') $('#vPrev').click(); if (e.key === 'ArrowRight') $('#vNext').click(); return; }
   if (e.key === 'r' || e.key === 'R') randomTrip();
+  if (e.key === 'o' || e.key === 'O') openDiscover();
   if (e.key === '/') { e.preventDefault(); q.focus(); }
 });
 
+initDiscover({
+  getJSON, LS, esc, haversine, countryInfo, isTravelPhoto, geocodeCity, isMobile, setPanel,
+  map: () => map, padding: panelPadding, explore: (lat, lon, o) => explore(lat, lon, o), route: h => setRoute(h),
+});
 initItinerary({
   getJSON, getBuffer: async u => { const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); }, haversine, placesAround, kindOf, pname, notability, norm, LS, esc, toast, KIND_ICON, KIND_LABEL,
   map: () => map, padding: panelPadding, setPanel, onSaved: () => saveFavs(), share, isMobile,

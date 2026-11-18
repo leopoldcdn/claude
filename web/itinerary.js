@@ -73,7 +73,7 @@ async function geocodeCity(q, signal) {
   const r = await C.getJSON(`https://photon.komoot.io/api?q=${encodeURIComponent(q)}&lang=fr&limit=1`, { signal });
   const f = r.features?.[0];
   if (!f) return null;
-  const res = { name: f.properties.name, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] };
+  const res = { name: f.properties.name, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], cc: (f.properties.countrycode || '').toUpperCase() };
   cache[q] = res; C.LS.set('esc.web.geocache', cache);
   return res;
 }
@@ -339,7 +339,7 @@ async function submit(dest) {
   try {
     const from = o.fromName ? await geocodeCity(o.fromName, planCtl.signal).catch(() => null) : null;
     if (o.fromName && !from) C.toast(`Ville de départ « ${o.fromName} » introuvable : vol non compté`);
-    trip = await planTrip({ ...o, from, lat: dest.lat, lon: dest.lon, name: dest.name, cc: dest.cc, monthScore: dest.monthScores?.[o.month] }, planCtl.signal);
+    trip = await planTrip({ ...o, from, fromCc: from?.cc, lat: dest.lat, lon: dest.lon, name: dest.name, cc: dest.cc, monthScore: dest.monthScores?.[o.month] }, planCtl.signal);
     trip.dest = dest;
     renderTrip();
     drawTrip();

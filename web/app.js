@@ -2,6 +2,7 @@
  * Carte : OpenFreeMap (OpenStreetMap / OpenMapTiles), relief : Terrain Tiles (AWS Open Data)
  * Infos : Photon (géocodage), Wikipédia, Wikivoyage, Wikimedia Commons, Open-Meteo
  */
+import { registerProtocol, setCartoonBase, nightGrid, phase } from './sun.js';
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -59,16 +60,55 @@ const PAINT = {
   boundary_2: { 'line-color': '#7a4fc7', 'line-width': ['interpolate', ['linear'], ['zoom'], 2, 1.2, 5, 1.8, 12, 3.5] },
   boundary_3: { 'line-color': '#a58ad8' },
 };
-async function buildStyle() {
+/* ---- style réaliste : image satellite + routes, noms et bâtiments par-dessus ---- */
+const HIDE_REAL = /^(park|park_outline|landuse_|landcover_|water$|waterway_|aeroway_fill|road_area_pattern|building$|natural_earth)/;
+function realisticLayer(l) {
+  if (HIDE_REAL.test(l.id)) return null;
+  if (l.id === 'background') l.paint = { 'background-color': '#08131f' };
+  if (l.type === 'line' && /^(road|bridge|tunnel)_/.test(l.id)) {
+    l.paint = { ...l.paint, 'line-opacity': ['interpolate', ['linear'], ['zoom'], 6, /casing/.test(l.id) ? 0.25 : 0.45, 14, /casing/.test(l.id) ? 0.45 : 0.8] };
+  }
+  if (/^boundary/.test(l.id)) l.paint = { ...l.paint, 'line-color': 'rgba(255,255,255,0.55)' };
+  if (l.id === 'building-3d') l.paint = { ...l.paint, 'fill-extrusion-color': '#d9d3c7', 'fill-extrusion-opacity': 0.88 };
+  if (l.type === 'symbol' && l.layout?.['text-field'] && JSON.stringify(l.layout['text-field']).includes('name')) l.layout['text-field'] = NAME_FR;
+  if (l.type === 'symbol' && !/shield/.test(l.id)) {
+    l.paint = { ...l.paint, 'text-color': /^water|waterway/.test(l.id) ? '#bfe3ff' : '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.75)', 'text-halo-width': 1.6, 'text-halo-blur': 0.5 };
+  }
+  if (/^label_country/.test(l.id)) { l.layout['text-transform'] = 'uppercase'; l.layout['text-letter-spacing'] = 0.08; }
+  if (/^label_(city|town|city_capital)/.test(l.id)) l.layout['text-font'] = ['Noto Sans Bold'];
+  return l;
+}
+let styleMode = LS.get('esc.web.style', 'realiste');
+let dayNight = LS.get('esc.web.daynight', true);
+const timeBucket = () => Math.floor(Date.now() / 6e5) * 6e5;   // les tuiles jour/nuit sont recalculées toutes les 10 min
+const dnParams = () => `?t=${timeBucket()}&on=${dayNight ? 1 : 0}`;
+async function buildStyle(mode = styleMode) {
   const style = await getJSON('https://tiles.openfreemap.org/styles/liberty', { timeout: 20000 });
   delete style.sources.ne2_shaded;
-  style.sources.cartoon = { type: 'raster', tiles: [BASE + 'tiles/cartoon/{z}/{x}/{y}.jpg'], tileSize: 512, maxzoom: 4,
+  style.sources.cartoon = { type: 'raster', tiles: ['dn://cartoon/{z}/{x}/{y}' + dnParams()], tileSize: 512, maxzoom: 4,
     attribution: 'Globe : NASA Blue Marble, Natural Earth' };
+  style.sources.sat = { type: 'raster', tiles: ['dn://sat/{z}/{x}/{y}' + dnParams()], tileSize: 256, maxzoom: 15,
+    attribution: '<a href="https://s2maps.eu">Sentinel-2 cloudless</a> by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016)' };
+  style.sources.lights = { type: 'raster', tiles: ['dn://lights/{z}/{x}/{y}' + dnParams()], tileSize: 256, maxzoom: 8,
+    attribution: 'Lumières nocturnes : NASA Black Marble' };
+  style.sources.night = { type: 'geojson', data: dayNight ? nightGrid() : { type: 'FeatureCollection', features: [] } };
   const dem = { type: 'raster-dem', tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
     encoding: 'terrarium', tileSize: 256, maxzoom: 14, attribution: '<a href="https://registry.opendata.aws/terrain-tiles/">Terrain Tiles</a>' };
   style.sources.dem = dem;
   style.sources.dem3d = { ...dem };
   const layers = [];
+  if (mode === 'realiste') {
+    for (const l0 of style.layers) {
+      const l = realisticLayer(l0);
+      if (!l) continue;
+      layers.push(l);
+      if (l.id === 'background') layers.push({ id: 'sat', type: 'raster', source: 'sat', paint: { 'raster-fade-duration': 150, 'raster-resampling': 'linear' } });
+      if (l.id === 'building-3d') layers.push(...nightLayers());
+    }
+    style.layers = layers;
+    finishStyle(style, mode);
+    return style;
+  }
   for (const l of style.layers) {
     if (l.id === 'natural_earth') continue;
     if (PAINT[l.id]) l.paint = { ...l.paint, ...PAINT[l.id] };
@@ -89,36 +129,58 @@ async function buildStyle() {
       l.layout['text-font'] = ['Noto Sans Bold'];
     }
     layers.push(l);
+    if (l.id === 'building-3d') layers.push(...nightLayers());
   }
   style.layers = layers;
+  finishStyle(style, mode);
+  return style;
+}
+function nightLayers() {
+  return [
+    { id: 'night-shade', type: 'fill', source: 'night', minzoom: 4.4,
+      paint: { 'fill-color': '#020817', 'fill-antialias': false, 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 4.4, 0, 5.2, ['*', ['get', 'o'], 0.8]] } },
+    { id: 'night-lights', type: 'raster', source: 'lights', minzoom: 4.4,
+      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 4.4, 0, 5.2, 1], 'raster-fade-duration': 0 } }
+  ];
+}
+function finishStyle(style, mode) {
   style.projection = { type: 'globe' };
-  style.sky = {
+  style.sky = mode === 'realiste' ? {
+    'sky-color': '#2a6fd6', 'horizon-color': '#a9d4ff', 'fog-color': '#cfe6ff',
+    'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.5, 'fog-ground-blend': 0.7,
+    'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0]
+  } : {
     'sky-color': '#5fb4ff', 'horizon-color': '#cdeeff', 'fog-color': '#e6f6ff',
     'sky-horizon-blend': 0.5, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.6,
     'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0]
   };
   style.light = { anchor: 'viewport', color: '#ffffff', intensity: 0.32, position: [1.4, 200, 35] };
-  return style;
 }
 
 /* ============================ Carte ============================ */
 let map;
 let relief = false;
+registerProtocol(maplibregl, 5);
+setCartoonBase(BASE + 'tiles/cartoon/');
 async function initMap() {
   const style = await buildStyle();
+  // on démarre au-dessus de la longitude de l'utilisateur, déduite de son fuseau horaire
+  const homeLon = Math.max(-170, Math.min(170, -new Date().getTimezoneOffset() / 4));
   map = new maplibregl.Map({
     container: 'map', style,
-    center: [8, 32], zoom: isMobile ? 1.0 : 2.0, pitch: 0, maxPitch: 78,
+    center: [homeLon, 30], zoom: isMobile ? 1.0 : 2.0, pitch: 0, maxPitch: 78,
     attributionControl: { compact: true },
     canvasContextAttributes: { antialias: true }
   });
+  window.escapadeMap = map;   // accès pratique depuis la console du navigateur
   map.on('load', () => {
     $('#loading').style.opacity = 0;
     setTimeout(() => $('#loading').remove(), 900);
     updateReadout();
   });
   map.on('mousemove', e => {
-    $('#rCoords').textContent = fmtLL(e.lngLat.lat, e.lngLat.lng);
+    const ph = phase(e.lngLat.lat, e.lngLat.lng);
+    $('#rCoords').textContent = fmtLL(e.lngLat.lat, e.lngLat.lng) + '  ' + (ph === 'jour' ? '☀️' : ph === 'nuit' ? '🌙' : '🌇');
     hoverPlace(e.point);
   });
   map.on('move', updateReadout);
@@ -665,6 +727,33 @@ $('#bRelief').onclick = () => {
   if (relief && map.getPitch() < 30) map.easeTo({ pitch: 60, duration: 1200 });
   toast(relief ? 'Relief 3D activé : incline la vue pour voir les montagnes' : 'Relief 3D désactivé');
 };
+/* ---- jour / nuit et style ---- */
+let lastBucket = timeBucket();
+function refreshDayNight(force) {
+  if (!map?.getSource('night')) return;
+  map.getSource('night').setData(dayNight ? nightGrid() : { type: 'FeatureCollection', features: [] });
+  if (force || timeBucket() !== lastBucket) {
+    lastBucket = timeBucket();
+    for (const [id, kind] of [['sat', 'sat'], ['cartoon', 'cartoon'], ['lights', 'lights']]) map.getSource(id)?.setTiles([`dn://${kind}/{z}/{x}/{y}` + dnParams()]);
+  }
+}
+setInterval(() => refreshDayNight(false), 60000);
+function syncButtons() {
+  $('#bSun').textContent = dayNight ? '🌗 Jour/nuit : réel' : '☀️ Toujours jour';
+  $('#bSun').classList.toggle('on', dayNight);
+  $('#bStyle').textContent = styleMode === 'realiste' ? '🎨 Style cartoon' : '🛰 Style réaliste';
+}
+$('#bSun').onclick = () => {
+  dayNight = !dayNight; LS.set('esc.web.daynight', dayNight); syncButtons(); refreshDayNight(true);
+  toast(dayNight ? 'Jour et nuit en temps réel' : 'Toujours en plein jour');
+};
+$('#bStyle').onclick = async () => {
+  styleMode = styleMode === 'realiste' ? 'cartoon' : 'realiste'; LS.set('esc.web.style', styleMode); syncButtons();
+  toast(styleMode === 'realiste' ? 'Vue satellite réaliste' : 'Vue cartoon');
+  map.setStyle(await buildStyle(styleMode));
+  if (relief) map.once('style.load', () => map.setTerrain({ source: 'dem3d', exaggeration: 1.4 }));
+};
+syncButtons();
 $('#bGlobe').onclick = () => { closePanel(); map.flyTo({ center: map.getCenter(), zoom: isMobile ? 1.0 : 2.0, pitch: 0, bearing: 0, duration: 2600, padding: { top: 0, bottom: 0, left: 0, right: 0 } }); };
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;

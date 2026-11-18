@@ -1,6 +1,7 @@
 # Escapade — version web
 
 Globe 3D pour choisir une destination de vacances : on part de l'espace et on zoome jusqu'aux rues, avec les bâtiments en 3D.
+Le jour et la nuit s'affichent en temps réel, avec les lumières des villes côté nuit.
 Un clic n'importe où ouvre une fiche avec une description, les photos, les lieux à voir, la météo par mois et les infos pratiques.
 
 Site statique (HTML, CSS et JavaScript, sans build) : il suffit de servir ce dossier.
@@ -17,6 +18,8 @@ Puis ouvrir http://localhost:8000.
 |---|---|
 | Moteur de carte et globe | [MapLibre GL JS](https://maplibre.org/) |
 | Carte détaillée (rues, bâtiments, noms) | [OpenFreeMap](https://openfreemap.org/) — données © OpenStreetMap |
+| Vue satellite (style réaliste, par défaut) | [Sentinel-2 cloudless 2016](https://s2maps.eu) par EOX (CC BY 4.0) |
+| Lumières des villes la nuit | NASA Black Marble (VIIRS), via [NASA GIBS](https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api) |
 | Globe cartoon des zooms éloignés | tuiles générées par `tools/build_data.py` (NASA Blue Marble, Natural Earth) |
 | Relief | [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (AWS Open Data) |
 | Nom du lieu cliqué, recherche | [Photon](https://photon.komoot.io/) (OpenStreetMap) |
@@ -29,6 +32,7 @@ Puis ouvrir http://localhost:8000.
 ## Fichiers
 
 - `index.html`, `style.css`, `app.js` : l'application
+- `sun.js` : position du soleil en temps réel, ombre de la nuit et lumières des villes
 - `data/` : base de lieux (villes, villages, sites — GeoNames + Wikidata) et infos pays
 - `tiles/cartoon/` : globe cartoon en tuiles (zooms 0 à 4)
 - `tools/build_data.py` : régénère `data/countries.json` et `tiles/`

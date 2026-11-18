@@ -181,19 +181,56 @@ function placePoi(lat, lon) {
 }
 
 /* ============================ Données locales ============================ */
-let places = [], countries = {};
+/* Base de lieux (GeoNames + notoriété Wikidata), découpée en cases de 5° chargées à la demande.
+ * Un lieu : [nom, nom_fr, type, pays, région, lat, lon, population, article_wikipedia_fr, notoriété] */
+let countries = {}, meta = null;
 const loadLocal = Promise.all([
-  getJSON('data/places.json').then(d => { places = d; }),
-  getJSON('data/countries.json').then(d => { countries = d; })
+  getJSON('data/countries.json').then(d => { countries = d; }),
+  getJSON('data/places-meta.json').then(d => { meta = d; })
 ]).catch(() => {});
-function nearestPlace(lat, lon, minPop = 0) {
-  let best = null, bd = 1e9;
-  for (const p of places) {
-    if (p[5] < minPop) continue;
-    const d = haversine(lat, lon, p[3], p[4]);
-    if (d < bd) { bd = d; best = p; }
+const cellCache = new Map();
+function loadCell(key) {
+  if (!cellCache.has(key)) cellCache.set(key, getJSON(`data/places/${key}.json`, { timeout: 25000 }).catch(() => []));
+  return cellCache.get(key);
+}
+async function placesAround(lat, lon, km) {
+  await loadLocal;
+  if (!meta) return [];
+  const C = meta.cell, cells = new Set(meta.cells);
+  const dLat = km / 111, dLon = Math.min(180, km / (111 * Math.max(0.05, Math.cos(lat * DEG))));
+  const keys = new Set();
+  for (let a = Math.floor((lat - dLat) / C) * C; a <= lat + dLat; a += C)
+    for (let b = Math.floor((lon - dLon) / C) * C; b <= lon + dLon; b += C) {
+      const k = `${a}_${((b + 180) % 360 + 360) % 360 - 180}`;
+      if (cells.has(k)) keys.add(k);
+    }
+  const lists = await Promise.all([...keys].slice(0, 12).map(loadCell));
+  const out = [];
+  for (const l of lists) for (const p of l) {
+    if (Math.abs(p[5] - lat) > dLat) continue;
+    const d = haversine(lat, lon, p[5], p[6]);
+    if (d <= km) out.push({ p, d });
   }
-  return best ? { p: best, d: bd } : null;
+  return out.sort((a, b) => a.d - b.d);
+}
+let topPromise = null;
+const loadTop = () => topPromise ||= getJSON('data/top.json', { timeout: 30000 }).catch(() => []);
+const pname = p => p[1] || p[0];
+const kindOf = p => meta?.kinds?.[p[2]] || '';
+const KIND_ICON = { ville: '🏙', village: '🏡', capitale: '⭐', ile: '🏝', plage: '🏖', montagne: '⛰', volcan: '🌋', parc: '🌳', lac: '💧', cascade: '💦',
+  gorge: '🏞', desert: '🏜', glacier: '🧊', cap: '🧭', chateau: '🏰', palais: '🏛', 'site antique': '🏺', monument: '🗿', 'site historique': '📜',
+  musee: '🖼', temple: '⛩', monastere: '⛪', station: '⛷', 'parc attractions': '🎢', zoo: '🦁', phare: '🗼', 'point de vue': '👀', lagune: '🌊', grotte: '🕳', baie: '⚓' };
+const KIND_LABEL = { ile: 'île', musee: 'musée', monastere: 'monastère', chateau: 'château', desert: 'désert', station: 'station touristique', 'parc attractions': "parc d'attractions" };
+const notability = p => Math.log1p(p[9]) * 2.2 + Math.log10(p[7] + 10) * 0.8 + (kindOf(p) === 'capitale' ? 3 : 0);
+async function bestDestination(lat, lon) {
+  let cand = (await placesAround(lat, lon, 150)).filter(x => x.p[9] >= 5 || x.p[7] >= 20000);
+  if (!cand.length) {
+    const top = await loadTop();
+    cand = top.map(p => ({ p, d: haversine(lat, lon, p[5], p[6]) })).sort((a, b) => a.d - b.d).slice(0, 60);
+  }
+  if (!cand.length) return null;
+  const sc = x => notability(x.p) - x.d / 40;
+  return cand.reduce((b, x) => sc(x) > sc(b) ? x : b);
 }
 const dnCurrency = (() => { try { return new Intl.DisplayNames(['fr'], { type: 'currency' }); } catch { return null; } })();
 const dnLang = (() => { try { return new Intl.DisplayNames(['fr'], { type: 'language' }); } catch { return null; } })();
@@ -346,31 +383,42 @@ async function explore(lat, lon, opts = {}) {
   await loadLocal;
 
   // 1. Où est-on ?
-  let geo = opts.geo || await reverseGeocode(lat, lon, signal);
+  let [geo, local] = await Promise.all([opts.geo || reverseGeocode(lat, lon, signal), placesAround(lat, lon, 40)]);
   if (id !== reqId) return;
   let redirect = null;
-  const near = nearestPlace(lat, lon);
   if (!geo || (!geo.city && !geo.county && !geo.state && geo.type !== 'city')) {
-    // en mer ou zone vide : on se rabat sur la ville la plus proche
-    const big = nearestPlace(lat, lon, 50000) || near;
-    if (big) {
-      redirect = `Pas grand-chose ici${geo ? '' : ' (en pleine mer)'}. Destination la plus proche : <b>${esc(big.p[0])}</b>, à ${Math.round(big.d)} km.`;
-      lat = big.p[3]; lon = big.p[4];
-      placeMarker(lat, lon); goTo(lat, lon, { zoom: Math.max(map.getZoom(), 8) });
-      geo = await reverseGeocode(lat, lon, signal) || { name: big.p[0], city: big.p[0], state: big.p[1], country: big.p[2] };
+    // en mer ou zone vide : on part vers la destination notable la plus proche
+    const best = await bestDestination(lat, lon);
+    if (id !== reqId) return;
+    if (best) {
+      const bp = best.p;
+      redirect = `Pas grand-chose ici${geo ? '' : ' (en pleine mer)'}. Destination la plus proche : <b>${esc(pname(bp))}</b> (${esc(KIND_LABEL[kindOf(bp)] || kindOf(bp))}), à ${Math.round(best.d)} km.`;
+      lat = bp[5]; lon = bp[6];
+      opts.hint = pname(bp);
+      placeMarker(lat, lon); goTo(lat, lon, { zoom: Math.max(map.getZoom(), kindOf(bp) === 'ile' ? 10 : 9) });
+      [geo, local] = await Promise.all([reverseGeocode(lat, lon, signal), placesAround(lat, lon, 40)]);
+      geo = geo || { name: pname(bp), state: bp[4], countrycode: bp[3] };
       if (id !== reqId) return;
     }
   }
   geo = geo || {};
-  const cc = (geo.countrycode || '').toUpperCase();
+  const near = local[0] ? { p: local[0].p, d: local[0].d } : null;
+  const cc = (geo.countrycode || near?.p[3] || '').toUpperCase();
   const ci = countryInfo(cc);
-  const placeName = opts.hint || (['city', 'town', 'village'].includes(geo.osm_value) || geo.type === 'city' ? geo.name : null) || geo.city || geo.name || near?.p[0] || 'Lieu inconnu';
+  const placeName = opts.hint || (['city', 'town', 'village'].includes(geo.osm_value) || geo.type === 'city' ? geo.name : null) || geo.city || geo.name || (near && pname(near.p)) || 'Lieu inconnu';
   const country = ci?.name || geo.country || '';
-  current = { lat, lon, name: placeName, country, cc, region: geo.state || '', ci, redirect, photos: [], climate: null, wiki: null, voy: null };
+  // l'entrée de la base qui correspond au lieu donne le titre exact de l'article Wikipédia
+  const np = norm(placeName);
+  const match = local.find(x => x.d < 25 && (norm(x.p[0]) === np || norm(x.p[1]) === np));
+  const wikiTitle = match?.p[8] ? match.p[8].replace(/_/g, ' ') : null;
+  const around = local.filter(x => x !== match && norm(pname(x.p)) !== np && x.d > 0.3)
+    .map(x => ({ ...x, s: notability(x.p) - x.d / 12 })).sort((a, b) => b.s - a.s).slice(0, 8);
+  current = { lat, lon, name: placeName, country, cc, region: geo.state || match?.p[4] || '', ci, redirect, photos: [], climate: null, wiki: null, voy: null,
+    around, pop: match?.p[7] || 0 };
   renderPanel();
 
   // 2. Infos en parallèle, affichées au fil de l'eau
-  const titles = [opts.hint, placeName, geo.city, geo.county, geo.state, country];
+  const titles = [wikiTitle, opts.hint, placeName, geo.city, geo.county, geo.state, country];
   const jobs = [
     wikiPages(WIKI, titles, signal).then(pages => {
       const ok = pages.find(p => !p.coordinates || haversine(lat, lon, p.coordinates[0].lat, p.coordinates[0].lon) < (p.title === country ? 3000 : 120));
@@ -476,8 +524,10 @@ function renderPanel() {
     ${c.photos.length ? `<div class="sec"><h3>Photos</h3><div class="gallery">${c.photos.slice(0, 9).map((p, i) => `<button data-ph="${i}"><img src="${esc(p.thumb)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer"></button>`).join('')}</div>
       <p class="src" style="margin-top:6px">Lieux dans un rayon de 10 km · <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a></p></div>` : ''}
     ${c.nearby?.length ? `<div class="sec"><h3>À voir autour</h3>${c.nearby.map((p, i) => `<button class="poi" data-poi="${i}">${p.thumb ? `<img src="${esc(p.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="ph">📍</span>'}<span><b>${esc(p.title)}</b><small>${esc(p.desc)}</small><em>${p.d < 1 ? Math.round(p.d * 1000) + ' m' : p.d.toFixed(1) + ' km'}</em></span></button>`).join('')}</div>` : ''}
+    ${c.around?.length ? `<div class="sec"><h3>Villes, villages et sites proches</h3>${c.around.map((x, i) => `<button class="poi" data-near="${i}"><span class="ph">${KIND_ICON[kindOf(x.p)] || '📍'}</span><span><b>${esc(pname(x.p))}</b><small>${esc(KIND_LABEL[kindOf(x.p)] || kindOf(x.p))}${x.p[7] ? ' · ' + x.p[7].toLocaleString('fr-FR') + ' hab.' : ''}</small><em>${x.d < 1 ? Math.round(x.d * 1000) + ' m' : x.d.toFixed(1) + ' km'}</em></span></button>`).join('')}</div>` : ''}
     <div class="sec"><h3>Infos pratiques</h3><div class="grid2">
       ${c.ci ? `<div class="stat"><span>Monnaie</span><b>${esc(c.ci.cur || '—')}</b></div><div class="stat"><span>Langue</span><b>${esc(c.ci.lang || '—')}</b></div>` : ''}
+      ${c.pop ? `<div class="stat" style="grid-column:1/-1"><span>Population</span><b>${c.pop.toLocaleString('fr-FR')} habitants</b></div>` : ''}
       ${decal ? `<div class="stat" style="grid-column:1/-1"><span>Heure locale</span><b>${esc(decal)}</b></div>` : ''}
       ${c.ci?.cap ? `<div class="stat" style="grid-column:1/-1"><span>Capitale du pays</span><b>${esc(c.ci.cap)}</b></div>` : ''}
     </div></div>
@@ -489,6 +539,10 @@ function renderPanel() {
       <a href="https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/" target="_blank" rel="noopener">🛂 Conseils aux voyageurs</a>
     </div></div>`;
   $('#pBody').querySelectorAll('[data-ph]').forEach(b => b.onclick = () => openViewer(+b.dataset.ph));
+  $('#pBody').querySelectorAll('[data-near]').forEach(b => b.onclick = () => {
+    const x = c.around[+b.dataset.near];
+    explore(x.p[5], x.p[6], { hint: pname(x.p), label: pname(x.p), zoom: kindOf(x.p) === 'village' ? 13 : 12 });
+  });
   $('#pBody').querySelectorAll('[data-poi]').forEach(b => b.onclick = () => {
     const p = c.nearby[+b.dataset.poi];
     placePoi(p.lat, p.lon);
@@ -564,9 +618,9 @@ q.addEventListener('input', () => {
       results = (r.features || []).map(f => ({ p: f.properties, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
     } catch { results = []; }
     if (!results.length) {
-      const n = norm(s);
-      results = places.filter(p => norm(p[0]).startsWith(n)).sort((a, b) => b[5] - a[5]).slice(0, 7)
-        .map(p => ({ p: { name: p[0], state: p[1], country: p[2], type: 'city' }, lat: p[3], lon: p[4] }));
+      const n = norm(s), top = await loadTop();
+      results = top.filter(p => norm(p[0]).startsWith(n) || norm(p[1]).startsWith(n)).slice(0, 7)
+        .map(p => ({ p: { name: pname(p), state: p[4], country: countryInfo(p[3])?.name || p[3], type: kindOf(p) === 'ville' || kindOf(p) === 'capitale' ? 'city' : 'poi' }, lat: p[5], lon: p[6] }));
     }
     sel = -1;
     sugg.innerHTML = results.map((r, i) => `<button data-i="${i}">${esc(r.p.name)}<small>${esc([r.p.state, r.p.country].filter(x => x && x !== r.p.name).join(', '))}</small></button>`).join('');
@@ -589,11 +643,15 @@ function choose(r) {
 }
 
 /* ============================ Boutons ============================ */
-function randomTrip() {
-  if (!places.length) return;
-  const pool = places.filter(p => p[5] > 200000 || p[6] <= 2);
-  const p = pool[Math.floor(Math.random() * pool.length)];
-  explore(p[3], p[4], { hint: p[0], label: p[0], zoom: 11 });
+async function randomTrip() {
+  const top = await loadTop();
+  if (!top.length) return;
+  // tirage pondéré par la notoriété : surtout des lieux connus, parfois une pépite
+  const w = top.map(p => Math.sqrt(p[9] + 1));
+  let r = Math.random() * w.reduce((a, b) => a + b, 0), i = 0;
+  while ((r -= w[i]) > 0 && i < top.length - 1) i++;
+  const p = top[i];
+  explore(p[5], p[6], { hint: pname(p), label: pname(p), zoom: ['ville', 'capitale'].includes(kindOf(p)) ? 11 : 12 });
 }
 $('#bRandom').onclick = randomTrip;
 $('#b3d').onclick = () => {

@@ -24,10 +24,12 @@ Puis ouvrir http://localhost:8000.
 | Photos et lieux à voir | Wikipédia (classés par popularité) et Wikimedia Commons |
 | Climat par mois, météo du moment | [Open-Meteo](https://open-meteo.com/) |
 | Monnaie, langue, capitale | paquet npm `world-countries` |
+| Base de lieux (770 000 villes, villages et sites) | [GeoNames](https://www.geonames.org/) (CC BY 4.0), notoriété et articles français via [Wikidata](https://www.wikidata.org/) |
 
 ## Fichiers
 
 - `index.html`, `style.css`, `app.js` : l'application
-- `data/` : villes (Natural Earth) et infos pays
+- `data/` : base de lieux (villes, villages, sites — GeoNames + Wikidata) et infos pays
 - `tiles/cartoon/` : globe cartoon en tuiles (zooms 0 à 4)
-- `tools/build_data.py` : régénère `data/` et `tiles/`
+- `tools/build_data.py` : régénère `data/countries.json` et `tiles/`
+- `tools/build_places.py` : régénère la base de lieux `data/places/`, `data/top.json`

@@ -1,7 +1,6 @@
 """Prépare les données statiques de la version web.
 
 - data/countries.json : infos pays (nom FR, monnaies, langues, capitale) depuis le paquet npm world-countries
-- data/places.json    : villes (Natural Earth), copié depuis globe/assets
 - tiles/cartoon/{z}/{x}/{y}.jpg : globe cartoon en tuiles Web Mercator (zooms 0 à 4, 512 px),
   reprojeté depuis globe/assets/style-cartoon-8k.jpg (généré par globe/tools/make_styles.py)
 
@@ -28,7 +27,6 @@ for c in wc:
         'f': c.get('flag', ''),
     }
 json.dump(out, open(os.path.join(ROOT, 'data', 'countries.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
-shutil.copy(os.path.join(GLOBE, 'places.json'), os.path.join(ROOT, 'data', 'places.json'))
 print('pays', len(out))
 
 # --- tuiles cartoon

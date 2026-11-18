@@ -128,13 +128,11 @@ function realisticLayer(l) {
       'text-halo-color': byZoom('rgba(5,10,20,0.6)', 'rgba(255,255,255,0.92)'), 'text-halo-width': 1.3, 'text-halo-blur': 0.6 };
     if (/^label_country/.test(id)) {
       l.layout['text-transform'] = 'uppercase'; l.layout['text-letter-spacing'] = 0.12;
-      l.layout['text-font'] = ['Noto Sans Regular'];
       l.paint['text-color'] = 'rgba(255,255,255,0.88)';
     }
-    if (/^label_(city|city_capital)$/.test(id)) { l.layout['text-font'] = ['Noto Sans Bold']; l.layout['icon-image'] = ''; }
+    if (/^label_(city|city_capital)$/.test(id)) l.layout['icon-image'] = '';
     if (/^label_(town|village|other|state)$/.test(id)) l.layout['icon-image'] = '';
     if (/^label_state$/.test(id)) { l.layout['text-transform'] = 'uppercase'; l.layout['text-letter-spacing'] = 0.15; l.paint['text-color'] = 'rgba(255,255,255,0.55)'; }
-    if (/^label_other$/.test(id)) { l.layout['text-transform'] = 'none'; l.layout['text-font'] = ['Noto Sans Italic']; }
   }
   return l;
 }
@@ -187,7 +185,6 @@ async function buildStyle(mode = styleMode) {
     }
     if (/^label_(city|town|city_capital)/.test(l.id)) {
       l.paint = { ...l.paint, 'text-color': '#1f2430', 'text-halo-color': '#fff', 'text-halo-width': 1.8 };
-      l.layout['text-font'] = ['Noto Sans Bold'];
     }
     layers.push(l);
     if (l.id === 'building-3d') layers.push(...nightLayers());
@@ -205,7 +202,46 @@ function nightLayers() {
       paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.95, 7, 0.8, 8.6, 0], 'raster-fade-duration': 0, 'raster-resampling': 'linear' } }
   ];
 }
+/* ---- polices de la carte : Inter (noms) et Fraunces italique (mers, fleuves) ----
+ * Glyphes fabriqués par tools/build_glyphs.mjs ; pour les écritures absentes (thaï, chinois…),
+ * le protocole « glyph » se rabat sur la police Noto d'OpenFreeMap. */
+const LOCAL_FONTS = { 'Inter Medium': 'Noto Sans Regular', 'Inter SemiBold': 'Noto Sans Bold', 'Fraunces Italic': 'Noto Sans Italic' };
+maplibregl.addProtocol('glyph', async (params, ctl) => {
+  const [, stack, range] = params.url.match(/^glyph:\/\/([^/]+)\/(.+)$/);
+  const font = decodeURIComponent(stack).split(',')[0];
+  if (LOCAL_FONTS[font]) {
+    const r = await fetch(`${BASE}fonts/${encodeURIComponent(font)}/${range}.pbf`, { signal: ctl.signal });
+    if (r.ok) return { data: await r.arrayBuffer() };
+  }
+  const r = await fetch(`https://tiles.openfreemap.org/fonts/${encodeURIComponent(LOCAL_FONTS[font] || font)}/${range}.pbf`, { signal: ctl.signal });
+  if (!r.ok) throw new Error('glyphes ' + r.status);
+  return { data: await r.arrayBuffer() };
+});
+function applyFonts(l, mode) {
+  if (l.type !== 'symbol' || !l.layout?.['text-field'] || /shield/.test(l.id)) return;
+  const id = l.id, water = /^water_name|^waterway_line_label/.test(id);
+  const sizeBy = (a, b, c, d) => ['interpolate', ['linear'], ['zoom'], a, b, c, d];
+  l.layout['text-font'] = [water ? 'Fraunces Italic' : /^label_(country|city|city_capital|state)/.test(id) ? 'Inter SemiBold' : 'Inter Medium'];
+  l.layout['text-letter-spacing'] = 0.02;
+  if (water) {
+    l.layout['text-transform'] = 'none'; l.layout['text-letter-spacing'] = 0.06;
+    if (id === 'water_name_point_label') l.layout['text-size'] = sizeBy(1, 13, 6, 18);
+  }
+  if (/^label_country/.test(id)) {
+    l.layout['text-transform'] = 'uppercase'; l.layout['text-letter-spacing'] = 0.16;
+    l.layout['text-size'] = id === 'label_country_1' ? sizeBy(1, 10.5, 5, 15) : id === 'label_country_2' ? sizeBy(2, 9.5, 6, 14) : sizeBy(3, 9, 7, 13);
+    l.layout['text-max-width'] = 7;
+  }
+  if (id === 'label_state') { l.layout['text-transform'] = 'uppercase'; l.layout['text-letter-spacing'] = 0.2; l.layout['text-size'] = sizeBy(4, 9, 8, 12); }
+  if (id === 'label_city_capital') l.layout['text-size'] = sizeBy(3, 12, 10, 19);
+  if (id === 'label_city') l.layout['text-size'] = sizeBy(3, 11, 10, 17);
+  if (id === 'label_other') { l.layout['text-transform'] = 'uppercase'; l.layout['text-letter-spacing'] = 0.14; l.layout['text-size'] = 10.5; }
+  if (/^poi_|^airport/.test(id)) l.layout['text-size'] = 12;
+  if (mode === 'realiste' && /^label_country/.test(id)) l.paint = { ...l.paint, 'text-halo-color': 'rgba(5,10,20,0.45)', 'text-halo-width': 1, 'text-halo-blur': 1 };
+}
 function finishStyle(style, mode) {
+  style.glyphs = 'glyph://{fontstack}/{range}';
+  for (const l of style.layers) applyFonts(l, mode);
   style.projection = { type: 'globe' };
   style.sky = mode === 'realiste' ? {
     'sky-color': '#2a6fd6', 'horizon-color': '#a9d4ff', 'fog-color': '#cfe6ff',
@@ -397,8 +433,8 @@ const COMMONS = 'https://commons.wikimedia.org/w/api.php?format=json&formatversi
 async function reverseGeocode(lat, lon, signal) {
   try {
     const r = await getJSON(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}&lang=fr&limit=1`, { signal });
-    return r.features?.[0]?.properties || null;
-  } catch { return null; }
+    return r.features?.[0]?.properties || null;      // null : rien ici (mer, désert…)
+  } catch { return undefined; }                       // undefined : service indisponible
 }
 async function wikiPages(api, titles, signal, withCoords = true) {
   const t = [...new Set(titles.filter(Boolean))].slice(0, 8);
@@ -532,13 +568,17 @@ async function explore(lat, lon, opts = {}) {
   let [geo, local] = await Promise.all([opts.geo || reverseGeocode(lat, lon, signal), placesAround(lat, lon, 40)]);
   if (id !== reqId) return;
   let redirect = null;
+  if (geo === undefined && local[0]?.d < 30) {
+    // service de localisation indisponible : on s'appuie sur la base locale, sans parler de pleine mer
+    const p = local[0].p; geo = { name: pname(p), city: pname(p), state: p[4], countrycode: p[3] };
+  }
   if (!geo || (!geo.city && !geo.county && !geo.state && geo.type !== 'city')) {
     // en mer ou zone vide : on part vers la destination notable la plus proche
     const best = await bestDestination(lat, lon);
     if (id !== reqId) return;
     if (best) {
       const bp = best.p;
-      redirect = `Pas grand-chose ici${geo ? '' : ' (en pleine mer)'}. Destination la plus proche : <b>${esc(pname(bp))}</b> (${esc(KIND_LABEL[kindOf(bp)] || kindOf(bp))}), à ${Math.round(best.d)} km.`;
+      redirect = `Pas grand-chose ici${geo === null ? ' (en pleine mer)' : ''}. Destination la plus proche : <b>${esc(pname(bp))}</b> (${esc(KIND_LABEL[kindOf(bp)] || kindOf(bp))}), à ${Math.round(best.d)} km.`;
       lat = bp[5]; lon = bp[6];
       opts.hint = pname(bp);
       placeMarker(lat, lon); goTo(lat, lon, { zoom: Math.max(map.getZoom(), kindOf(bp) === 'ile' ? 10 : 9) });
@@ -675,8 +715,9 @@ function renderPanel() {
     localTime = `${String(local.getHours()).padStart(2, '0')}:${String(local.getMinutes()).padStart(2, '0')}`;
     diffTxt = diff === 0 ? 'même heure' : (diff > 0 ? '+' : '') + String(diff).replace('.', ',') + ' h';
   }
-  const voyParas = c.voy?.extract ? c.voy.extract.split('\n').filter(s => s.trim().length > 30).slice(0, 2) : [];
-  const wikiText = c.wiki?.extract ? clip(c.wiki.extract.split('\n').filter(s => s.trim())[0] || '', 520) : '';
+  const HATNOTE = /^(pour (les autres|l['’]article|des articles)|ne doit pas être confondu|cet article|voir aussi|« .* » redirige)/i;
+  const voyParas = c.voy?.extract ? c.voy.extract.split('\n').map(x => x.trim()).filter(x => x.length > 30 && !HATNOTE.test(x)).slice(0, 2) : [];
+  const wikiText = c.wiki?.extract ? clip(c.wiki.extract.split('\n').map(x => x.trim()).filter(x => x && !HATNOTE.test(x))[0] || '', 520) : '';
   const clim = c.climate, m = new Date().getMonth();
   const best = clim ? bestMonthsText(clim.score) : '';
   const q = encodeURIComponent(c.name + (c.country ? ', ' + c.country : ''));

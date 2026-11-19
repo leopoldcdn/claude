@@ -1,0 +1,18 @@
+[
+ {"name":"Florence","cc":"IT","lat":43.7696,"lon":11.2558,"o":{"days":7,"likes":["culture"]},"expect":["Florence","Sienne|San Gimignano|Montepulciano|Volterra|Cortone","Pise|Lucques","Bologne|Arezzo|Sienne"]},
+ {"name":"Séville","cc":"ES","lat":37.3891,"lon":-5.9845,"o":{"days":10},"expect":["Séville","Grenade","Cordoue","Malaga|Ronda|Cadix"]},
+ {"name":"Tokyo","cc":"JP","lat":35.6812,"lon":139.7671,"o":{"days":10,"mode":"transit"},"expect":["Tokyo","Kyoto","Osaka|Nara","Hakone|Nikkō|Kamakura|Kanazawa|Matsumoto"]},
+ {"name":"Lisbonne","cc":"PT","lat":38.7223,"lon":-9.1393,"o":{"days":10,"shape":"oneway"},"expect":["Lisbonne","Porto","Coimbra|Óbidos|Nazaré","Sintra|Évora|Tomar"]},
+ {"name":"Avignon","cc":"FR","lat":43.9493,"lon":4.8055,"o":{"days":7},"expect":["Avignon","Arles|Nîmes","Aix-en-Provence|Marseille","Gordes|Orange|Uzès|Les Baux-de-Provence"]},
+ {"name":"Édimbourg","cc":"GB","lat":55.9533,"lon":-3.1883,"o":{"days":10},"expect":["Édimbourg","Glasgow|Stirling","Inverness","Fort William|Oban|Pitlochry|Aberdeen"]},
+ {"name":"Reykjavik","cc":"IS","lat":64.1466,"lon":-21.9426,"o":{"days":10,"likes":["nature"]},"expect":["Reykjavik","Vík í Mýrdal|Vik|Selfoss|Hella|Hveragerði","Höfn|Akureyri|Kirkjubæjarklaustur","Stykkishólmur|Borgarnes|Húsavík"]},
+ {"name":"Marrakech","cc":"MA","lat":31.6295,"lon":-7.9811,"o":{"days":10},"expect":["Marrakech","Essaouira","Ouarzazate|Fès|Aït-Ben-Haddou","Casablanca|Rabat|Agadir"]},
+ {"name":"Split","cc":"HR","lat":43.5081,"lon":16.4402,"o":{"days":10,"likes":["plage"]},"expect":["Split","Dubrovnik","Zadar|Šibenik|Trogir","Makarska|Hvar|Omiš|Šibenik"]},
+ {"name":"Athènes","cc":"GR","lat":37.9838,"lon":23.7275,"o":{"days":7,"likes":["histoire"]},"expect":["Athènes","Delphes|Nauplie|Nauplion","Corinthe|Mycènes|Olympie|Épidaure"]},
+ {"name":"Bangkok","cc":"TH","lat":13.7563,"lon":100.5018,"o":{"days":14},"expect":["Bangkok","Chiang Mai","Ayutthaya","Sukhothaï|Kanchanaburi|Lopburi|Hua Hin"]},
+ {"name":"San Francisco","cc":"US","lat":37.7749,"lon":-122.4194,"o":{"days":10,"shape":"oneway"},"expect":["San Francisco","Los Angeles|Santa Barbara","Monterey|Carmel-by-the-Sea|Santa Cruz","Yosemite|Sacramento|San Luis Obispo"]},
+ {"name":"Hanoï","cc":"VN","lat":21.0278,"lon":105.8342,"o":{"days":10},"expect":["Hanoï","Hạ Long|Halong","Ninh Bình","Sa Pa|Sapa|Hải Phòng|Mai Châu"]},
+ {"name":"Munich","cc":"DE","lat":48.1351,"lon":11.582,"o":{"days":7},"expect":["Munich","Füssen|Garmisch-Partenkirchen","Nuremberg|Ratisbonne|Augsbourg","Bamberg|Rothenburg ob der Tauber|Berchtesgaden"]},
+ {"name":"Palerme","cc":"IT","lat":38.1157,"lon":13.3615,"o":{"days":7},"expect":["Palerme","Catane|Syracuse|Taormine","Agrigente","Cefalù|Trapani|Raguse"]},
+ {"name":"Cusco","cc":"PE","lat":-13.5319,"lon":-71.9675,"o":{"days":7},"expect":["Cusco","Machu Picchu|Aguas Calientes|Ollantaytambo|Pisac","Puno|Arequipa"]}
+]

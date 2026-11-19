@@ -60,3 +60,15 @@ Puis ouvrir http://localhost:8000.
 - `tools/build_glyphs.mjs` : polices de la carte (Inter, Fraunces)
 - `tools/build_prices.py` : niveaux de prix par pays
 - `tools/build_places.py` : régénère la base de lieux `data/places/`, `data/top.json`
+
+## Banc d'essai de l'algorithme d'itinéraire
+
+```bash
+node web/tools/bench/bench.mjs            # ≈ 1 200 itinéraires (≈ 12 min)
+node web/tools/bench/bench.mjs --ref      # seulement les 16 itinéraires de référence (quelques secondes)
+node web/tools/bench/bench.mjs --save nom # enregistre docs/bench/nom.json pour comparer deux versions
+```
+
+Chaque itinéraire est contrôlé par des règles qui ne doivent jamais être enfreintes (nuits, doublons, étranger, mer
+traversée, trajets de plus de 6 h 30, visites lointaines, noms administratifs, budget) et reçoit une note de qualité.
+Les itinéraires de référence (Toscane, Andalousie, Japon, Écosse…) mesurent la part des étapes classiques retrouvées.

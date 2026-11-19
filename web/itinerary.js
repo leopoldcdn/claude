@@ -3,11 +3,14 @@
  * Entrées : destination, durée, budget (vol compris), voyageurs, mois, ville de départ,
  *           transport (proposition / voiture / transports en commun), parcours (boucle / aller simple),
  *           rythme et envies.
- * Étapes  : 1. candidats autour de la destination (base de lieux GeoNames + notoriété Wikidata)
- *           2. note de chaque ville étape : notoriété + sites intéressants à moins de 25 km, pondérés par les envies
- *           3. choix des étapes (écartées les unes des autres, reliables en voiture ou en train)
- *           4. ordre optimal (boucle ou aller simple, essai de tous les ordres possibles)
- *           5. répartition des nuits, programme jour par jour
+ * Étapes  : 1. candidats autour de la destination : même pays, même terre (pas de mer en voiture), pas de noms administratifs
+ *           2. intérêt de chaque ville étape : notoriété (Wikidata), guide de voyage (Wikivoyage), sites qui lui « appartiennent »
+ *              dans un rayon de 25 km, envies, même région, saison du mois (pluie, froid), variante choisie
+ *           3. recherche en faisceau sur des parcours complets : intérêt des étapes × nuits (rendement décroissant)
+ *              moins le temps de trajet ; jamais plus de 5 h de trajet par jour ; étapes verrouillées ou écartées
+ *           4. ordre le plus court parmi les étapes retenues (boucle ou aller simple)
+ *           5. nuits selon l'intérêt et le contenu de chaque étape, journées allégées après un long trajet
+ * Qualité  : mesurée par le banc d'essai tools/bench/bench.mjs (règles invariantes, note, itinéraires de référence).
  *           6. trajets réels en voiture (OSRM) ou estimés en transports en commun
  *           7. budget estimé (niveau des prix du pays) et choix du niveau de confort qui rentre dans le budget
  */
@@ -15,6 +18,7 @@
 import { I } from './icons.js';
 import { startTour, stopTour } from './tour.js';
 import { loadLand, sameLand, landReady } from './land.js';
+import { ADVISED_AGAINST } from './discover.js';
 import { transitPlan, flightPlan, describe, describeFlight, fmtDur, MODE_INFO } from './transit.js';
 
 let C = null;          // contexte fourni par app.js
@@ -99,11 +103,17 @@ function flightCost(km, month, rail) {
   return { kind: 'avion', perPerson: Math.round(rt), label: 'avion aller-retour' };
 }
 
+export const VARIANTS = { classique: 'Classique', nature: 'Nature', insolite: 'Hors des sentiers battus' };
 export async function planTrip(o, signal) {
   const pace = PACE[o.pace] || PACE.equilibre;
-  const likes = o.likes || [];
+  const variant = o.variant || 'classique';
+  // variante « nature » : grands espaces et montagne, peu de grandes villes ; « insolite » : moins de lieux très connus
+  const likes = variant === 'nature' && !(o.likes || []).length ? ['nature', 'montagne'] : (o.likes || []);
+  const exclude = new Set((o.exclude || []).map(x => C.norm(x))), lock = new Set((o.lock || []).map(x => C.norm(x)));
   const nights = Math.max(1, o.days - 1);
-  const R = clamp((35 + o.days * 28) * (o.pace === 'intense' ? 1.15 : o.pace === 'calme' ? 0.85 : 1), 60, 420);
+  // rayon de recherche : selon la durée et le rythme, plus large là où les trains rapides raccourcissent les distances
+  const fast = HSR.has(o.cc || '') && o.mode !== 'car' && o.mode !== 'bus';
+  const R = clamp((35 + o.days * 28) * (o.pace === 'intense' ? 1.15 : o.pace === 'calme' ? 0.85 : 1) * (fast ? 1.35 : 1), 60, fast ? 520 : 420);
   const warnings = [];
 
   // 1. candidats : même pays que la destination, pas de circonscriptions administratives
@@ -121,104 +131,165 @@ export async function planTrip(o, signal) {
     return ok;
   }).map(x => x.p);
 
-  // 2. notes
-  const toObj = p => ({ p, name: C.pname(p), lat: p[5], lon: p[6] });
-  const scoreBase = b => {
-    let siteScore = 0;
-    for (const s of sites) {
-      const d = C.haversine(b.lat, b.lon, s[5], s[6]);
-      if (d < 25) siteScore += Math.log1p(s[9]) * (1 + 1.3 * likeBonus(C.kindOf(s), likes)) * (1 - d / 35);
+  // 2. notes — intérêt d'une ville étape : notoriété, guide de voyage (Wikivoyage), sites autour, envies, saison
+  // grille spatiale des sites (cases de 0,25°) : le calcul reste rapide même avec des milliers de sites
+  const grid = new Map();
+  for (const sp of sites) { const k = `${Math.floor(sp[5] * 4)},${Math.floor(sp[6] * 4)}`; if (!grid.has(k)) grid.set(k, []); grid.get(k).push(sp); }
+  const sitesNear = (lat, lon, km) => {
+    const out = [], dl = Math.ceil(km / 27.7), y0 = Math.floor(lat * 4), x0 = Math.floor(lon * 4);
+    const dx = Math.ceil(dl / Math.max(0.2, Math.cos(lat * DEG)));
+    for (let y = y0 - dl; y <= y0 + dl; y++) for (let x = x0 - dx; x <= x0 + dx; x++) for (const sp of grid.get(`${y},${x}`) || []) {
+      const d = C.haversine(lat, lon, sp[5], sp[6]); if (d < km) out.push([sp, d]);
     }
-    // envies : une ville étape vaut d'autant plus qu'elle a, tout près, des lieux qui correspondent aux envies
-    let likeScore = 0;
-    if (likes.length) for (const s of sites) {
-      const bonus = likeBonus(C.kindOf(s), likes);
-      if (!bonus) continue;
-      const d = C.haversine(b.lat, b.lon, s[5], s[6]);
-      if (d < 30) likeScore += Math.log1p(s[9]) * bonus * (1 - d / 40);
+    return out;
+  };
+  const fameOf = p => Math.log1p(p[9]) + 1.8 * Math.log1p(p[10] || 0);          // notoriété + guide de voyage
+  const toObj = p => ({ p, name: C.pname(p), lat: p[5], lon: p[6] });
+  const clim = await stopClimate();
+  // chaque site « appartient » à la ville étape la plus pertinente autour de lui (la plus connue, à distance égale) :
+  // les banlieues ne profitent plus des monuments de la grande ville voisine
+  const owner = new Map();
+  const claim = (p) => { for (const [sp, d] of sitesNear(p[5], p[6], 25)) { const v = fameOf(p) - d / 6, cur = owner.get(sp); if (!cur || v > cur.v) owner.set(sp, { p, v }); } };
+  const scoreBase = b => {
+    let siteScore = 0, likeScore = 0, content = 0;
+    const top = [];
+    for (const [sp, d] of sitesNear(b.lat, b.lon, 30)) {
+      const ow = owner.get(sp); if (ow && ow.p !== b.p) continue;
+      const w = fameOf(sp) * (1 - d / 40), bonus = likeBonus(C.kindOf(sp), likes);
+      if (d < 25) { siteScore += w * (1 + 1.3 * bonus); content++; top.push([w * (1 + bonus), C.pname(sp), !!bonus]); }
+      if (bonus) likeScore += w * bonus;
     }
     const isCity = ['ville', 'capitale'].includes(C.kindOf(b.p));
-    return C.notability(b.p) * 1.4 + 0.35 * Math.min(siteScore, 25) + 0.9 * Math.min(likeScore, 22)
-      + (likes.includes('villes') && isCity ? 3 : 0)
-      + (likes.length && !likes.includes('villes') && b.p[7] > 1e6 ? -2 : 0);
+    const fameW = variant === 'insolite' ? 0.7 : 1.5;
+    let sc = fameOf(b.p) * fameW + 0.25 * Math.min(siteScore, 40) + (likes.length ? 0.7 * Math.min(likeScore, 30) : 0)
+      + (likes.includes('villes') && isCity ? 3 : 0) + (likes.length && !likes.includes('villes') && b.p[7] > 1e6 ? -2 : 0);
+    if (variant === 'insolite' && (b.p[9] > 120 || b.p[7] > 500000)) sc -= 5;                 // on évite les incontournables
+    if (variant === 'nature' && b.p[7] > 300000) sc -= 4;
+    // pourquoi cette étape : de quoi l'expliquer à l'utilisateur
+    top.sort((a, c) => c[0] - a[0]);
+    const why = [];
+    if ((b.p[10] || 0) >= 3) why.push(`guide de voyage dans ${b.p[10]} langues`);
+    if (top.length) why.push(`${top.length} lieu${top.length > 1 ? 'x' : ''} à voir autour, dont ${top.slice(0, 2).map(x => x[1]).join(' et ')}`);
+    const liked = top.filter(x => x[2]).length;
+    if (likes.length && liked) why.push(`${liked} correspond${liked > 1 ? 'ent' : ''} à tes envies`);
+    // saison de l'étape : forte pluie ou froid extrême ce mois-là (normales WorldClim des destinations voisines)
+    const c = clim(b.lat, b.lon);
+    if (c) { if (c.mm > 300) sc -= 4; else if (c.mm > 200) sc -= 2; if (c.tx < 0 && !(+c.prof[2] >= 6)) sc -= 3; }
+    return { score: sc, content, why };
   };
+  async function stopClimate() {
+    let D = null;
+    try { D = await C.getJSON('data/destinations.json'); } catch { return () => null; }
+    const near = D.filter(d => C.haversine(o.lat, o.lon, d[2], d[3]) < R + 80);
+    return (lat, lon) => {
+      let best = null, bd = 60;
+      for (const d of near) { const x = C.haversine(lat, lon, d[2], d[3]); if (x < bd) { bd = x; best = d; } }
+      return best ? { tx: best[7][o.month], mm: best[8][o.month], prof: best[6] } : null;
+    };
+  }
   // une banlieue ou un village collé à une ville plus connue n'est pas une étape : on garde la ville
   const all = bases.map(toObj);
-  const reach = x => 14 + (x.p[7] > 1e5 ? 10 * Math.log10(x.p[7] / 1e5) : 0);   // une mégapole « absorbe » ses quartiers
-  const dominated = b => all.some(x => x !== b && C.notability(x.p) > C.notability(b.p) + 1.5 && dist(x, b) < reach(x));
+  const reach = x => 14 + (x.p[7] > 1e5 ? 16 * Math.log10(x.p[7] / 1e5) : 0);   // une mégapole « absorbe » ses quartiers
+  const dominated = b => all.some(x => x !== b && fameOf(x.p) > fameOf(b.p) + 1 && dist(x, b) < reach(x));
   const free = all.filter(b => !dominated(b));
-  // seuil de notoriété adaptatif : on écarte les villes banales quand il y a assez de choix
-  let nStops = clamp(Math.round(nights / pace.nightsPerStop + 0.25), 1, 8);
-  const need = Math.max(6, nStops * 3);
-  const thr = [40, 25, 15, 10].find(t => free.filter(b => b.p[9] >= t).length >= need) ?? 0;
-  const cands = free.filter(b => b.p[9] >= thr || (b.p[7] >= 300000 && b.p[9] >= thr / 2)).map(b => ({ ...b, score: scoreBase(b) }));
+  for (const b of free) claim(b.p);
+  let nStops = clamp(Math.round(nights / pace.nightsPerStop + 0.25) + (o.stopDelta || 0), 1, 8);
+  // candidats : les plus intéressants (un vrai guide de voyage compte beaucoup), au plus 45
+  const scored = free.map(b => ({ ...b, ...scoreBase(b) }));
+  // même région que la destination : un voyage cohérent (Toscane, Andalousie, Provence…) plutôt qu'un saut de région en région
+  const nameN0 = C.norm(o.name || '');
+  const region = (all.find(b => dist(b, o) < 30 && C.norm(b.name) === nameN0) || free.filter(b => dist(b, o) < 30).sort((a, b) => dist(a, o) - dist(b, o))[0])?.p[4] || near0?.p[4] || '';
+  for (const b of scored) if (region && b.p[4] === region) { b.score += 2.5; b.why.push('même région'); }
+  for (const b of scored) if (lock.has(C.norm(b.name))) b.score += 100;          // étape verrouillée par l'utilisateur
+  const ranked = scored.filter(b => b.p[9] >= 8 || (b.p[10] || 0) >= 2).sort((a, b) => b.score - a.score);
+  // seuil d'intérêt : pas d'étape « de passage » sans intérêt (moins de 45 % de la note des meilleures)
+  const unlocked = ranked.filter(b => !lock.has(C.norm(b.name)));
+  const ref = unlocked[Math.min(3, unlocked.length - 1)]?.score || 0;
+  const cands = ranked.filter(b => !exclude.has(C.norm(b.name)) && (b.score >= ref * 0.45 || lock.has(C.norm(b.name)))).slice(0, 45);
 
-  // départ : la ville étape la plus proche de la destination choisie (de préférence celle qui porte son nom)
+  // départ : le lieu qui porte le nom choisi (même s'il est proche d'une ville plus grande), sinon une ville à moins
+  // de 8 km, sinon le point choisi lui-même
   const nameN = C.norm(o.name || '');
-  // le lieu qui porte le nom choisi (même s'il est proche d'une ville plus grande), sinon une ville à moins de 8 km,
-  // sinon le point choisi lui-même
   const named = all.filter(b => dist(b, o) < 30 && (C.norm(b.name) === nameN || C.norm(b.p[0]) === nameN)).sort((a, b) => dist(a, o) - dist(b, o))[0];
   const close = free.filter(b => dist(b, o) < 8).sort((a, b) => dist(a, o) - dist(b, o))[0];
   let start = named || close;
-  start = start ? { ...start, score: scoreBase(start) } : { p: null, name: o.name || 'Destination', lat: o.lat, lon: o.lon, score: 5 };
+  start = start ? { ...start, ...scoreBase(start) } : { p: null, name: o.name || 'Destination', lat: o.lat, lon: o.lon, score: 5, content: 3, why: [] };
+  start.why = ['ta destination', ...(start.why || [])];
   start = { ...start, score: start.score + 4 };     // la destination choisie reste le cœur du voyage
 
-  // 3. choix des étapes
-  const minSep = clamp(R / 5, 25, 90);
-  const maxLeg = o.mode === 'transit' || HSR.has(cc) ? 320 : 260;
-  const chosen = [start];
-  while (chosen.length < nStops) {
-    let best = null, bestS = -1e9;
-    for (const c of cands) {
-      if (c === start || C.norm(c.name) === C.norm(start.name)) continue;
-      if (chosen.some(s => dist(s, c) < minSep)) continue;
-      const nearest = Math.min(...chosen.map(s => dist(s, c)));
-      if (nearest > maxLeg) continue;
-      const s = c.score - (dist(c, start) / R) * (o.shape === 'oneway' ? 1 : 2.5) - nearest / maxLeg;
-      if (s > bestS) { bestS = s; best = c; }
+  // 3. parcours : on compare de nombreux parcours complets (recherche en faisceau) et on garde le meilleur compromis
+  //    entre l'intérêt des étapes, les nuits qu'elles méritent et le temps passé en transport.
+  const prelimMode = o.mode !== 'auto' ? o.mode : RAIL.has(cc) ? 'transit' : 'car';
+  const hoursFor = km => prelimMode === 'car' ? km * 1.3 / 70 + 0.3 : prelimMode === 'bus' ? km * 1.3 / 55 + 0.6
+    : HSR.has(cc) ? km * 1.25 / 120 + 0.6 : RAIL.has(cc) ? km * 1.3 / 75 + 0.6 : km * 1.3 / 50 + 0.8;
+  const MAX_H = o.pace === 'intense' ? 5.5 : 5;                 // jamais plus de 5 h de trajet dans une journée
+  const minSep = clamp(R / 8, 20, 45);
+  const legH = (a, b) => hoursFor(dist(a, b));
+  const gain = n => 1 - Math.pow(0.55, n);                      // une nuit de plus rapporte de moins en moins
+  const allocate = seq => {
+    const nn = seq.map(() => 1); let rest = nights - seq.length;
+    if (rest < 0) return null;
+    while (rest-- > 0) {
+      let bi = 0, bv = -1;
+      seq.forEach((x, k) => { const w = (Math.max(1, x.score) + x.content * 0.3) * (gain(nn[k] + 1) - gain(nn[k])); if (w > bv) { bv = w; bi = k; } });
+      nn[bi]++;
     }
-    if (!best) break;
-    chosen.push(best);
+    return nn;
+  };
+  const evaluate = seq => {
+    const nn = allocate(seq); if (!nn) return null;
+    let travel = 0;
+    const full = o.shape !== 'oneway' && seq.length > 1 ? [...seq, seq[0]] : seq;
+    for (let k = 1; k < full.length; k++) { const h = legH(full[k - 1], full[k]); if (h > MAX_H) return null; travel += h; }
+    const interest = seq.reduce((a, x, k) => a + Math.max(0.5, Math.min(x.score, 60)) * gain(nn[k]) + (lock.has(C.norm(x.name)) ? 50 : 0), 0);
+    // le nombre d'étapes visé par le rythme est un repère : s'en écarter coûte un peu
+    const pacePen = Math.abs(seq.length - nStops) * 1.2;
+    // le trajet coûte, d'autant plus que le séjour est court ; au-delà de 3 h par jour en moyenne, il coûte double
+    const w = (o.pace === 'calme' ? 2.2 : o.pace === 'intense' ? 1.3 : 1.7) * Math.sqrt(7 / Math.max(3, o.days));
+    const excess = Math.max(0, travel - 3 * o.days);
+    return { seq, nn, value: interest - travel * w - excess * w - pacePen, travel };
+  };
+  let beam = [[start]], best = evaluate([start]);
+  for (let depth = 2; depth <= Math.min(8, nStops + 1, nights); depth++) {
+    const next = [];
+    for (const seq of beam) {
+      const last = seq[seq.length - 1];
+      for (const c of cands) {
+        if (seq.includes(c) || C.norm(c.name) === C.norm(start.name)) continue;
+        if (seq.some(x => dist(x, c) < minSep)) continue;
+        if (legH(last, c) > MAX_H) continue;
+        const ev = evaluate([...seq, c]);
+        if (ev) next.push(ev);
+      }
+    }
+    if (!next.length) break;
+    next.sort((a, b) => b.value - a.value);
+    // faisceau : les 40 meilleurs parcours partiels, sans doublons d'ensemble d'étapes
+    const seen = new Set(); beam = [];
+    for (const ev of next) { const k = ev.seq.map(x => x.name).slice(1).sort().join('|'); if (seen.has(k)) continue; seen.add(k); beam.push(ev.seq); if (beam.length >= 40) break; }
+    if (next[0].value > best.value) best = next[0];
   }
-  // 4. ordre le plus court, puis vérification des trajets : un trajet trop long fait retirer l'étape la moins intéressante
+  // ordre final le plus court parmi les étapes retenues
   const bestOrder = list => {
     if (list.length <= 2) return list;
-    let best = null, bestD = 1e12;
+    let b = null, bd = 1e12;
     for (const perm of permutations(list.slice(1))) {
-      const seq = [list[0], ...perm];
-      let d = 0;
-      for (let i = 1; i < seq.length; i++) d += dist(seq[i - 1], seq[i]);
-      if (o.shape !== 'oneway') d += dist(seq[seq.length - 1], seq[0]);
-      if (d < bestD) { bestD = d; best = seq; }
+      const seq = [list[0], ...perm]; const ev = evaluate(seq); if (!ev) continue;
+      if (ev.travel < bd) { bd = ev.travel; b = seq; }
     }
-    return best;
+    return b || list;
   };
-  let order = bestOrder(chosen);
-  for (let guard = 0; guard < 6 && order.length > 1; guard++) {
-    const seq = o.shape !== 'oneway' ? [...order, order[0]] : order;
-    let worst = -1, worstD = 0;
-    for (let i = 1; i < seq.length; i++) { const d = dist(seq[i - 1], seq[i]) * 1.25; if (d > worstD) { worstD = d; worst = i; } }
-    if (worstD <= maxLeg * 1.6) break;      // au-delà d'une très longue journée de route
-    // on retire, parmi les deux extrémités du trajet trop long, celle qui n'est pas le départ et qui a la moins bonne note
-    const a = seq[worst - 1], b = seq[worst];
-    const drop = a === start ? b : b === start ? a : (a.score < b.score ? a : b);
-    order = bestOrder(order.filter(x => x !== drop));
-  }
+  const order = bestOrder(best.seq);
   if (order.length < nStops && nStops > 1) {
     warnings.push(otherShore >= 2 && cands.length < nStops + 3
       ? `Les autres destinations proches sont de l’autre côté de la mer : séjour en étoile depuis ${start.name}, avec des excursions en bateau.`
-      : `Peu de destinations notables à distance raisonnable : ${order.length} étape${order.length > 1 ? 's' : ''} au lieu de ${nStops}, avec plus d’excursions.`);
+      : `${order.length} étape${order.length > 1 ? 's' : ''} au lieu de ${nStops} : les autres destinations intéressantes demandent trop de trajet (plus de ${MAX_H} h par jour) ; plus d’excursions à la place.`);
   }
   nStops = order.length;
+  const ev = evaluate(order) || best;
 
-  // 5. nuits : au moins une par étape, le reste selon l'intérêt de l'étape
-  const stops = order.map(s => ({ ...s, nights: 1 }));
-  let rest = nights - stops.length;
-  if (rest < 0) { stops.length = nights; rest = 0; }
-  while (rest > 0) {
-    const w = stops.map(s => s.score / (s.nights + 0.5));
-    stops[w.indexOf(Math.max(...w))].nights++; rest--;
-  }
+  // 5. nuits : selon l'intérêt et le contenu de chaque étape
+  const stops = order.map((s, k) => ({ ...s, nights: ev.nn[k] ?? 1 }));
 
   // 6. trajets
   const pts = stops.map(s => ({ lat: s.lat, lon: s.lon }));
@@ -315,16 +386,18 @@ export async function planTrip(o, signal) {
   if (o.monthScore === 0) warnings.push(`${MOIS_L[o.month][0].toUpperCase() + MOIS_L[o.month].slice(1)} n’est pas la meilleure période ici (chaleur, froid ou pluie) : regarde le calendrier « Quand partir ».`);
 
   // 7. programme jour par jour
+  if (ADVISED_AGAINST.has(cc)) warnings.unshift('Voyages déconseillés dans ce pays (liste simplifiée des conseils du ministère des Affaires étrangères) : vérifie les conseils aux voyageurs avant de partir.');
   const used = new Set(stops.map(s => C.norm(s.name)));
+  if (o.days > 1 && ev.travel / o.days > 3) warnings.push(`Beaucoup de trajet : environ ${Math.round(ev.travel)} h au total pour ${o.days} jours.`);
   // visites : sites notables et villes ou villages connus trop proches pour être une étape (excursion à la journée)
-  const towns = basesAll.map(x => x.p).filter(p => p[9] >= Math.max(15, thr * 0.6) && !all.some(b => b.p === p && dominated(b)));
+  const towns = basesAll.map(x => x.p).filter(p => (p[9] >= 15 || (p[10] || 0) >= 2) && !all.some(b => b.p === p && dominated(b)));
   const activitiesFor = s => sites.concat(towns).map(p => ({ p, d: C.haversine(s.lat, s.lon, p[5], p[6]), boat: !sameLand(s, { lat: p[5], lon: p[6] }) }))
     // une île sur laquelle on se trouve déjà (Bali depuis Ubud) n'est pas une visite
     .filter(x => !(C.kindOf(x.p) === 'ile' && !x.boat))
     .filter(x => x.d < (x.boat ? 35 : BASE_KINDS.has(C.kindOf(x.p)) ? 75 : 40) && x.d > (BASE_KINDS.has(C.kindOf(x.p)) ? 8 : 0) && !used.has(C.norm(C.pname(x.p))))
     .map(x => ({ ...x, v: BASE_KINDS.has(C.kindOf(x.p))
-      ? Math.log1p(x.p[9]) * 1.15 + (likes.includes('villes') ? 1 : 0) - x.d / 25
-      : Math.log1p(x.p[9]) * (1 + 1.3 * likeBonus(C.kindOf(x.p), likes)) - x.d / 15 }))
+      ? fameOf(x.p) * 0.75 + (likes.includes('villes') ? 1 : 0) - x.d / 25
+      : fameOf(x.p) * (1 + 1.3 * likeBonus(C.kindOf(x.p), likes)) - x.d / 15 }))
     .sort((a, b) => b.v - a.v);
   const days = [];
   const usedTowns = stops.filter(x => x.p).map(x => x.p);
@@ -350,7 +423,9 @@ export async function planTrip(o, signal) {
         else items.push(legItem(legs[i - 1], mode, stops[i - 1].name, s.name));
       }
       if (k === 0 || dayN === 1) items.push({ icon: '🚶', text: `Découverte de ${s.name}`, lat: s.lat, lon: s.lon });
-      const n = Math.max(0, pace.perDay - (k === 0 ? 1 : 0) - (i === 0 && k === 0 ? 0 : 0));
+      // journée allégée après un long trajet : arrivée d'un vol long ou plus de 3 h de route ou de train
+      const travelH = k > 0 ? 0 : i === 0 ? (access?.plan?.h ?? (flight?.kind === 'avion' ? (flight.km / 780 + 1) : 0)) : (legs[i - 1]?.h || 0);
+      const n = Math.max(0, pace.perDay - (k === 0 ? 1 : 0) - (travelH > 6 ? 2 : travelH > 3 ? 1 : 0));
       const acts = take(n);
       items.push(...acts);
       if (!acts.length && k > 0) items.push({ icon: '🌿', text: 'Journée libre : détente, flânerie, marchés et cafés' });
@@ -365,7 +440,7 @@ export async function planTrip(o, signal) {
 
   return {
     debug: C.debug ? cands.slice().sort((a, b) => b.score - a.score).map(c => ({ name: c.name, score: c.score, d: dist(c, start) })) : undefined,
-    input: o, cc, stops, legs, days, mode, modeReason, routed, geometry, routeFC, access, warnings,
+    input: o, cc, variant, stops, legs, days, mode, modeReason, routed, geometry, routeFC, access, warnings,
     totals: { km: Math.round(totalKm), hours: legs.reduce((a, l) => a + l.h, 0) },
     budget: { tier, tiers, ok, over, budget: o.budget, pl }, flight, from,
   };
@@ -444,8 +519,18 @@ async function submit(dest) {
     month: +f.get('month'), fromName: String(f.get('from') || '').trim(), mode: f.get('mode'), shape: f.get('shape'), pace: f.get('pace'), likes: f.getAll('likes'),
   };
   C.LS.set('esc.web.plan', { ...o, from: o.fromName });
+  return run(dest, o);
+}
+/** Recalcule l'itinéraire affiché avec des changements (variante, étape verrouillée, retirée ou remplacée). */
+function recompute(patch) {
+  if (!trip) return;
+  const o = { ...trip.input, ...patch };
+  for (const k of ['from', 'fromCc', 'lat', 'lon', 'name', 'cc', 'monthScore']) delete o[k];
+  return run(trip.dest, o, true);
+}
+async function run(dest, o, keep) {
   planCtl?.abort(); planCtl = new AbortController();
-  C.setPanel(`<div class="hero short"><div class="kicker">${I.route} Itinéraire</div><h2>${C.esc(dest.name)}</h2><div class="sub">Je cherche le meilleur parcours…</div></div>
+  if (keep) { document.getElementById('pBody')?.classList.add('busy'); } else C.setPanel(`<div class="hero short"><div class="kicker">${I.route} Itinéraire</div><h2>${C.esc(dest.name)}</h2><div class="sub">Je cherche le meilleur parcours…</div></div>
     <div class="kpis">${'<div class="kpi" style="height:64px"></div>'.repeat(4)}</div>
     <div class="sec"><div class="skel" style="width:90%"></div><div class="skel" style="width:70%"></div><div class="skel" style="width:80%"></div></div>`, '');
   try {
@@ -455,12 +540,16 @@ async function submit(dest) {
     if (!scores && C.climate) scores = (await C.climate(dest.lat, dest.lon, planCtl.signal).catch(() => null))?.score;
     trip = await planTrip({ ...o, from, fromCc: from?.cc, lat: dest.lat, lon: dest.lon, name: dest.name, cc: dest.cc, monthScore: scores?.[o.month] }, planCtl.signal);
     trip.dest = dest;
+    const scrollEl = document.querySelector('#panel .scroll'), keepScroll = keep ? scrollEl.scrollTop : 0;
     renderTrip();
+    document.getElementById('pBody')?.classList.remove('busy');
+    if (keep) scrollEl.scrollTop = keepScroll;
     if (C.isMobile?.()) document.getElementById('panel').classList.add('peek');   // sur téléphone, on voit le tracé
     drawTrip();
     C.route?.(dest, o);
   } catch (e) {
     if (e.name === 'AbortError') return;
+    document.getElementById('pBody')?.classList.remove('busy');
     console.error(e);
     C.setPanel(`<div class="hero short"><div class="kicker">Itinéraire</div><h2>${C.esc(dest.name)}</h2></div><div class="note warn">${I.warn}<span>Impossible de calculer l’itinéraire (${C.esc(e.message)}). Vérifie ta connexion et réessaie.</span></div>`, `<button class="btn primary" id="planBack2">${I.back}Revenir au formulaire</button>`);
     document.getElementById('planBack2').onclick = () => openPlanner(dest, o);
@@ -485,13 +574,17 @@ function renderTrip() {
     </div>
     ${t.warnings.map(w => `<div class="note warn">${I.warn}<span>${C.esc(w)}</span></div>`).join('')}
     <div class="sec"><h3>Le parcours</h3>
-      <div class="route">${t.stops.map((s, i) => `<button class="stop" data-stop="${i}"><b>${i + 1}</b><span>${C.esc(s.name)}<small>${s.nights} nuit${s.nights > 1 ? 's' : ''}</small></span></button>`).join('')}
-        ${loop ? `<button class="stop" data-stop="0"><b>↩</b><span>${C.esc(t.stops[0].name)}<small>retour</small></span></button>` : ''}</div>
+      <div class="seg variants" role="radiogroup" aria-label="Variante">${Object.entries(VARIANTS).map(([k, l]) => `<label><input type="radio" name="variant" value="${k}" ${t.variant === k ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
+      <div class="route">${t.stops.map((s, i) => { const locked = (t.input.lock || []).some(x => C.norm(x) === C.norm(s.name));
+        return `<div class="stop-row"><button class="stop" data-stop="${i}"><b>${i + 1}</b><span>${C.esc(s.name)}<small>${s.nights} nuit${s.nights > 1 ? 's' : ''}${s.why?.length ? ' · ' + C.esc(s.why.slice(0, 2).join(' · ')) : ''}</small></span></button>
+          ${i > 0 ? `<span class="stop-act"><button class="mini ${locked ? 'on' : ''}" data-lock="${i}" title="${locked ? 'Déverrouiller' : 'Garder cette étape quoi qu’il arrive'}" aria-label="${locked ? 'Déverrouiller' : 'Verrouiller'} ${C.esc(s.name)}">${locked ? '🔒' : '🔓'}</button><button class="mini" data-swap="${i}" title="Proposer une autre étape à la place" aria-label="Remplacer ${C.esc(s.name)}">↻</button><button class="mini" data-drop="${i}" title="Retirer cette étape" aria-label="Retirer ${C.esc(s.name)}">✕</button></span>` : ''}</div>`; }).join('')}
+        ${loop ? `<div class="stop-row"><button class="stop" data-stop="0"><b>↩</b><span>${C.esc(t.stops[0].name)}<small>retour</small></span></button></div>` : ''}</div>
+      ${(t.input.exclude || []).length ? `<p class="src">Étapes écartées : ${t.input.exclude.map(C.esc).join(', ')} · <button class="more" id="tReset" type="button">tout rétablir</button></p>` : ''}
       <div class="mode">${t.mode === 'car' ? I.car : t.mode === 'bus' ? I.bus : I.train}<span><b>${t.mode === 'car' ? 'En voiture' : t.mode === 'bus' ? 'En bus et en car' : 'En train (et bus si besoin)'}</b>${t.modeReason ? '<br>' + C.esc(t.modeReason) : ''}</span></div>
       ${t.mode !== 'car' ? `<div class="legs">${t.legs.map((l, i) => { const a = t.stops[i].name, b = (t.stops[i + 1] || t.stops[0]).name;
         return `<div class="leg ${l.plan ? '' : 'est'}"><div class="leg-h"><b>${C.esc(a)} → ${C.esc(b)}</b><span>${fmtDur(l.h)}${l.plan ? '' : ' · estimé'}</span></div>
           ${l.plan ? l.plan.legs.map(x => `<div class="leg-l"><span class="ic">${MODE_INFO[x.mode]?.[0] || '🚆'}</span><span>${C.esc(x.name || MODE_INFO[x.mode]?.[1] || '')}${x.agency ? ` <small>${C.esc(x.agency)}</small>` : ''}<small>${C.esc(x.from)} → ${C.esc(x.to)} · ${fmtDur(x.h)}</small></span></div>`).join('')
-            : `<div class="leg-l muted"><span class="ic">❔</span><span><small>Pas d’horaires dans la base Transitous pour ce trajet.</small></span></div>`}</div>`; }).join('')}</div>` : ''}
+            : `<div class="leg-l muted"><span class="ic">❔</span><span><small>${l.unknown ? 'Service d’horaires indisponible : durée estimée.' : 'Pas d’horaires dans la base Transitous pour ce trajet.'}</small></span></div>`}</div>`; }).join('')}</div>` : ''}
     </div>
     ${accessHtml(t)}
     <div class="sec"><h3>Budget estimé</h3><div class="card">
@@ -505,8 +598,23 @@ function renderTrip() {
       <p class="src">${t.routed ? 'Trajets routiers calculés avec OSRM (OpenStreetMap). ' : ''}Étapes et visites tirées de GeoNames et Wikidata.</p></div>`,
     `<button class="btn icon" id="tEdit" aria-label="Modifier" title="Modifier">${I.edit}</button><button class="btn icon" id="tShare" aria-label="Partager l’itinéraire" title="Copier le lien de l’itinéraire">${I.share}</button><button class="btn grow play" id="tTour" title="Survoler le parcours en images">${I.play}Survoler</button><button class="btn primary" id="tSave" aria-label="Enregistrer">${I.heart}<span class="lbl">Enregistrer</span></button>`);
   document.getElementById('tAccess')?.addEventListener('click', () => showAccess());
-  document.getElementById('tShare').onclick = () => C.share?.(`Itinéraire ${t.dest.name}`);
   const panel = document.getElementById('pBody');
+  panel.querySelectorAll('input[name=variant]').forEach(r => r.onchange = () => recompute({ variant: r.value }));
+  const nameAt = i => t.stops[+i].name;
+  panel.querySelectorAll('[data-lock]').forEach(b => b.onclick = () => {
+    const n = nameAt(b.dataset.lock), lk = t.input.lock || [];
+    recompute({ lock: lk.some(x => C.norm(x) === C.norm(n)) ? lk.filter(x => C.norm(x) !== C.norm(n)) : [...lk, n] });
+  });
+  panel.querySelectorAll('[data-swap]').forEach(b => b.onclick = () => {
+    const n = nameAt(b.dataset.swap);
+    recompute({ exclude: [...(t.input.exclude || []), n], lock: (t.input.lock || []).filter(x => C.norm(x) !== C.norm(n)) });
+  });
+  panel.querySelectorAll('[data-drop]').forEach(b => b.onclick = () => {
+    const n = nameAt(b.dataset.drop);
+    recompute({ exclude: [...(t.input.exclude || []), n], lock: (t.input.lock || []).filter(x => C.norm(x) !== C.norm(n)), stopDelta: (t.input.stopDelta || 0) - 1 });
+  });
+  document.getElementById('tReset')?.addEventListener('click', () => recompute({ exclude: [], lock: [], stopDelta: 0 }));
+  document.getElementById('tShare').onclick = () => C.share?.(`Itinéraire ${t.dest.name}`);
   panel.querySelectorAll('[data-stop]').forEach(b => b.onclick = () => { const s = t.stops[+b.dataset.stop]; C.map().flyTo({ center: [s.lon, s.lat], zoom: 11, pitch: 50, padding: C.padding(), duration: 2200 }); });
   panel.querySelectorAll('.it.go').forEach(b => b.onclick = () => C.map().flyTo({ center: [+b.dataset.lon, +b.dataset.lat], zoom: 13.5, pitch: 55, padding: C.padding(), duration: 2200 }));
   document.getElementById('tEdit').onclick = () => openPlanner(t.dest, { ...t.input, from: t.input.fromName });

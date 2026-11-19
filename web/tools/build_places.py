@@ -127,6 +127,34 @@ def geo_match(names, la, lo, radius):
                     if sl > best[0] and math.hypot((a - la) * 111, (b - lo) * 111 * coslat) < radius:
                         best = (sl, fr)
     return best
+# Wikivoyage : nombre de langues dans lesquelles le lieu a un article de guide de voyage (signal touristique fort).
+# voy.tsv : par identifiant GeoNames ; voygeo.tsv : par nom anglais et coordonnées (rapprochement comme ci-dessus).
+voy = {}
+for line in open(os.path.join(SRC, 'voy.tsv'), encoding='utf-8'):
+    c = line.rstrip('\n').split('\t')
+    try: voy[int(c[0].strip('"'))] = int(c[1])
+    except (ValueError, IndexError): pass
+voy_idx = collections.defaultdict(lambda: collections.defaultdict(list))
+for line in open(os.path.join(SRC, 'voygeo.tsv'), encoding='utf-8'):
+    c = line.rstrip('\n').split('\t')
+    if len(c) < 4: continue
+    try: la, lo, nv = float(c[0]), float(c[1]), int(c[3])
+    except ValueError: continue
+    voy_idx[(math.floor(la * 2), math.floor(lo * 2))][nrm(c[2].rsplit('@', 1)[0].strip('"'))].append((la, lo, nv))
+print('  wikivoyage', len(voy), 'par id,', sum(len(v) for v in voy_idx.values()), 'par position', flush=True)
+def voy_match(names, la, lo, radius):
+    best = 0
+    ci, cj = math.floor(la * 2), math.floor(lo * 2)
+    coslat = math.cos(math.radians(la))
+    for di in (-1, 0, 1):
+        for dj in (-1, 0, 1):
+            cell = voy_idx.get((ci + di, cj + dj))
+            if not cell: continue
+            for n in names:
+                for (a, b, nv) in cell.get(n, ()):
+                    if nv > best and math.hypot((a - la) * 111, (b - lo) * 111 * coslat) < radius: best = nv
+    return best
+
 NATURAL = {'ISL', 'ISLS', 'ATOL', 'MT', 'MTS', 'PK', 'VLC', 'PRK', 'RESN', 'RESW', 'LK', 'LKS', 'GLCR', 'DSRT', 'CNYN', 'BAY', 'LGN'}
 
 admin1 = {}
@@ -145,11 +173,13 @@ with zipfile.ZipFile(os.path.join(SRC, 'allCountries.zip')) as z:
             fcl, fco = c[6], c[7]
             gid = int(c[0])
             sl = sitelinks.get(gid, (0, ''))[0]
+            nv = voy.get(gid, 0)
             if (fcl == 'P' and fco not in P_SKIP) or fco in FCODE:
                 names = {nrm(c[1]), nrm(c[2])}
                 if gid in fr_name: names.add(nrm(fr_name[gid]))
                 names.discard('')
                 msl, mfr = geo_match(names, float(c[4]), float(c[5]), 25 if fco in NATURAL else 10)
+                nv = max(nv, voy_match(names, float(c[4]), float(c[5]), 25 if fco in NATURAL else 10))
                 if msl > sl:
                     sl = msl
                     if mfr and gid not in wiki_fr:
@@ -174,7 +204,7 @@ with zipfile.ZipFile(os.path.join(SRC, 'allCountries.zip')) as z:
             nfr = nfr if nfr and nfr != name else 0
             adm = admin1.get(f'{c[8]}.{c[10]}', '')
             rows.append([name, nfr, K[kind], c[8], adm, round(float(c[4]), 3), round(float(c[5]), 3), pop,
-                         wiki_fr.get(gid, 0), sl])
+                         wiki_fr.get(gid, 0), sl, nv])
 print('  ', len(rows), dict(stats.most_common()), flush=True)
 
 # --- 3. écriture
@@ -205,7 +235,7 @@ with open(os.path.join(OUT, 'top.json'), 'w', encoding='utf-8') as f:
     json.dump(top, f, ensure_ascii=False, separators=(',', ':'))
 with open(os.path.join(OUT, 'places-meta.json'), 'w', encoding='utf-8') as f:
     json.dump({'cell': CELL, 'cells': sorted(cells), 'kinds': KINDS,
-               'fields': ['nom', 'nom_fr', 'type', 'pays', 'region', 'lat', 'lon', 'population', 'wiki_fr', 'notoriete'],
+               'fields': ['nom', 'nom_fr', 'type', 'pays', 'region', 'lat', 'lon', 'population', 'wiki_fr', 'notoriete', 'wikivoyage'],
                'source': 'GeoNames (CC BY 4.0), https://www.geonames.org/'}, f, ensure_ascii=False)
 print('cases', len(cells), 'max', max(len(v) for v in cells.values()), 'top', len(top),
       'top par type', dict(collections.Counter(KINDS[r[2]] for r in top).most_common()))

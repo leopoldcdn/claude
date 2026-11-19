@@ -14,5 +14,5 @@
  {"name":"Hanoï","cc":"VN","lat":21.0278,"lon":105.8342,"o":{"days":10},"expect":["Hanoï","Hạ Long|Halong","Ninh Bình","Sa Pa|Sapa|Hải Phòng|Mai Châu"]},
  {"name":"Munich","cc":"DE","lat":48.1351,"lon":11.582,"o":{"days":7},"expect":["Munich","Füssen|Garmisch-Partenkirchen","Nuremberg|Ratisbonne|Augsbourg","Bamberg|Rothenburg ob der Tauber|Berchtesgaden"]},
  {"name":"Palerme","cc":"IT","lat":38.1157,"lon":13.3615,"o":{"days":7},"expect":["Palerme","Catane|Syracuse|Taormine","Agrigente","Cefalù|Trapani|Raguse"]},
- {"name":"Cusco","cc":"PE","lat":-13.5319,"lon":-71.9675,"o":{"days":7},"expect":["Cusco","Machu Picchu|Aguas Calientes|Ollantaytambo|Pisac","Puno|Arequipa"]}
+ {"name":"Cusco","cc":"PE","lat":-13.5319,"lon":-71.9675,"o":{"days":7},"expect":["Cusco|Cuzco","Machu Picchu|Aguas Calientes|Ollantaytambo|Pisac","Puno|Arequipa"]}
 ]

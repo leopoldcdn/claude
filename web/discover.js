@@ -18,7 +18,7 @@ const ENVIES = [['plage', '🏖 Plage'], ['nature', '🌳 Nature'], ['montagne',
 const PROFILE = { plage: 0, nature: 1, montagne: 2, culture: 3, histoire: 4, villes: 5 };
 // Liste simplifiée des pays où les voyages sont déconseillés (conseils aux voyageurs du ministère français des Affaires
 // étrangères, à vérifier avant tout départ) : exclus par défaut, avec une option pour les inclure.
-const ADVISED_AGAINST = new Set(['AF', 'BY', 'BF', 'CF', 'HT', 'IQ', 'IR', 'KP', 'LB', 'LY', 'ML', 'MM', 'NE', 'PS', 'RU', 'SD', 'SO', 'SS', 'SY', 'UA', 'VE', 'YE']);
+export const ADVISED_AGAINST = new Set(['AF', 'BY', 'BF', 'CF', 'HT', 'IQ', 'IR', 'KP', 'LB', 'LY', 'ML', 'MM', 'NE', 'PS', 'RU', 'SD', 'SO', 'SS', 'SY', 'UA', 'VE', 'YE']);
 const RAIL = new Set(['FR', 'DE', 'IT', 'ES', 'CH', 'AT', 'NL', 'BE', 'LU', 'GB', 'JP', 'KR', 'CN', 'TW', 'CZ', 'DK', 'SE', 'PT', 'PL', 'SK', 'HU', 'SI']);
 
 let data = null, prices = null, state = null, results = [], timer = 0, from = null, thumbs = new Map();

@@ -587,3 +587,17 @@ body.panel-open .cta{left:calc((100vw - var(--panel-w) - 24px) / 2)}
 .leg-l small{display:block;color:var(--mut);font-size:12px}
 .leg-l span small:first-child{display:inline;margin-left:4px}
 .card.access .src{margin:8px 0 0!important}
+
+/* variantes et édition des étapes */
+.variants{margin-bottom:12px}
+.variants span{font-size:12px}
+.stop-row{position:relative;display:flex;align-items:center;gap:4px}
+.stop-row .stop{flex:1;min-width:0}
+.stop-row .stop small{white-space:normal}
+.stop-act{display:flex;gap:4px;flex:none;opacity:.55;transition:opacity .2s}
+.stop-row:hover .stop-act,.stop-act:focus-within{opacity:1}
+.mini{width:32px;height:32px;border:0;border-radius:10px;background:rgba(255,255,255,.07);color:var(--txt);cursor:pointer;font-size:13px}
+.mini:hover{background:rgba(255,255,255,.16)}
+.mini.on{background:rgba(255,181,71,.25)}
+#pBody.busy{opacity:.55;pointer-events:none;transition:opacity .2s}
+@media (max-width:760px){.stop-act{opacity:1}}

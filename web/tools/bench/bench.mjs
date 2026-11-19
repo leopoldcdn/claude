@@ -35,6 +35,7 @@ const SCEN = [
   { id: '21j-intense', o: { days: 21, pace: 'intense' } },
 ];
 const scen = QUICK ? SCEN.slice(0, 2) : SCEN;
+const ONLYREF = args.includes('--ref');
 
 function check(t, input) {
   const v = [], st = t.stops;
@@ -89,7 +90,7 @@ function quality(t, input) {
 const results = [];
 const t0 = Date.now();
 const runs = [];
-for (const [name, cc, lat, lon] of DEST) for (const s of scen) runs.push({ name, cc, lat, lon, sid: s.id, o: s.o });
+if (!ONLYREF) for (const [name, cc, lat, lon] of DEST) for (const s of scen) runs.push({ name, cc, lat, lon, sid: s.id, o: s.o });
 for (const r of REF) runs.push({ name: r.name, cc: r.cc, lat: r.lat, lon: r.lon, sid: 'ref', o: r.o, expect: r.expect });
 for (const r of runs) {
   const input = { days: 7, travelers: 2, budget: 2500, month: 5, from: PARIS, fromCc: 'FR', mode: 'auto', shape: 'loop', pace: 'equilibre', likes: [], ...r.o, lat: r.lat, lon: r.lon, name: r.name, cc: r.cc };

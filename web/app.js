@@ -262,7 +262,7 @@ async function initMap() {
   const homeLon = Math.max(-170, Math.min(170, -new Date().getTimezoneOffset() / 4));
   map = new maplibregl.Map({
     container: 'map', style,
-    center: [homeLon, 30], zoom: isMobile() ? 1.0 : 2.0, pitch: 0, maxPitch: 78,
+    center: [homeLon, 30], zoom: isMobile() ? 1.0 : 2.0, minZoom: isMobile() ? 0.4 : 1.2, pitch: 0, maxPitch: 78,   // en dessous, le globe n'est plus qu'un point
     attributionControl: { compact: true, customAttribution: 'Lieux <a href="https://www.geonames.org/">GeoNames</a> (CC BY 4.0) et <a href="https://www.wikidata.org/">Wikidata</a> · Recherche <a href="https://photon.komoot.io/">Photon</a> · Trajets <a href="https://project-osrm.org/">OSRM</a>, trains et bus <a href="https://transitous.org/sources/">Transitous</a>, vols <a href="https://openflights.org/data">OpenFlights</a> (ODbL) et <a href="https://ourairports.com/">OurAirports</a> · Météo <a href="https://open-meteo.com/">Open-Meteo</a> et <a href="https://www.worldclim.org/">WorldClim</a> · Textes et photos Wikipédia, Wikivoyage, Wikimedia Commons (CC BY-SA)' },
     canvasContextAttributes: { antialias: true }
   });
@@ -293,6 +293,11 @@ async function initMap() {
   map.on('pitchend', () => $('#b3d').classList.toggle('on', map.getPitch() > 10));
   map.on('move', updateReadout);
   map.on('zoom', () => document.body.classList.toggle('zoomed', map.getZoom() > 3.2));
+  // vue d'ensemble : on redresse la caméra (une inclinaison 3D gardée en dézoomant fait glisser le globe vers le bas)
+  map.on('zoomend', () => {
+    if (map.getZoom() < 4 && (map.getPitch() > 1 || Math.abs(map.getBearing()) > 1) && !map.isMoving() && !document.body.classList.contains('touring'))
+      map.easeTo({ pitch: 0, bearing: 0, duration: 900 });
+  });
   map.on('moveend', () => {
     const c = map.getCenter();
     $('#rCoords').textContent = fmtLL(c.lat, c.lng);
@@ -300,20 +305,11 @@ async function initMap() {
   map.on('click', e => onMapClick(e));
 }
 /* ---- accueil : coups de cœur du mois et globe qui tourne doucement ---- */
-// le globe se décale pour ne pas passer sous l'accueil (à droite sur ordinateur, vers le haut sur téléphone)
-function welcomePadding() {
-  const el = $('#welcome'), none = { top: 0, bottom: 0, left: 0, right: 0 };
-  if (!el || el.hidden || !el.classList.contains('show') || getComputedStyle(el).display === 'none') return none;
-  const r = el.getBoundingClientRect();
-  return isMobile() ? { ...none, bottom: Math.round(innerHeight - r.top) } : { ...none, left: Math.round(r.right) };
-}
 async function initWelcome() {
   const el = $('#welcome'); if (!el || LS.get('esc.web.welcomeOff', false)) return;
   el.hidden = false; el.classList.add('show');
-  if (!location.hash.slice(1)) map.easeTo({ padding: welcomePadding(), duration: 900 });
   $('#wClose').onclick = () => {
     el.classList.remove('show'); LS.set('esc.web.welcomeOff', true); setTimeout(() => { el.hidden = true; }, 500);
-    if (!document.body.classList.contains('panel-open')) map.easeTo({ padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 700 });
   };
   try {
     const { month, picks } = await seasonPicks(4);
@@ -757,7 +753,15 @@ function openPanel() {
   panel.classList.add('open'); document.body.classList.add('panel-open');
   $('#hint').classList.add('gone'); LS.set('esc.web.hinted', true);
 }
-function closePanel(fromRoute) { if (fromRoute !== true) setRoute(''); clearDiscover(); panel.classList.remove('open', 'peek'); document.body.classList.remove('panel-open'); wpMarker?.remove(); poiMarker?.remove(); abortCtl?.abort(); reqId++; clearTrip(); panelMode = 'place'; }
+const NO_PAD = { top: 0, bottom: 0, left: 0, right: 0 };
+// La place laissée au panneau (padding) reste mémorisée par la carte : sans cette remise à zéro, le globe resterait
+// décentré après la fermeture et tous les zooms se feraient autour d'un point excentré.
+function resetPadding() {
+  if (!map) return;
+  const p = map.getPadding();
+  if (p.top || p.bottom || p.left || p.right) map.easeTo({ padding: NO_PAD, duration: 600 });
+}
+function closePanel(fromRoute) { if (fromRoute !== true) setRoute(''); resetPadding(); clearDiscover(); panel.classList.remove('open', 'peek'); document.body.classList.remove('panel-open'); wpMarker?.remove(); poiMarker?.remove(); abortCtl?.abort(); reqId++; clearTrip(); panelMode = 'place'; }
 if (LS.get('esc.web.hinted', false)) $('#hint').classList.add('gone');
 if (isMobile()) $('#hint').lastChild.textContent = 'Touche le globe, ou demande « Où partir ? »';
 // téléphone : la poignée replie, déplie ou ferme le panneau
@@ -1110,7 +1114,7 @@ $('#bStyle').onclick = async () => {
   map.once('style.load', () => { if (relief) map.setTerrain({ source: 'dem3d', exaggeration: 1.4 }); redrawAfterStyle(); redrawDiscover(); });
 };
 syncButtons();
-$('#bGlobe').onclick = () => { closePanel(); map.flyTo({ center: map.getCenter(), zoom: isMobile() ? 1.0 : 2.0, pitch: 0, bearing: 0, duration: 2600, padding: welcomePadding() }); };
+$('#bGlobe').onclick = () => { closePanel(); map.flyTo({ center: map.getCenter(), zoom: isMobile() ? 1.0 : 2.0, pitch: 0, bearing: 0, duration: 2600, padding: NO_PAD }); };
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
   if (e.key === 'Escape') { if ($('#viewer').classList.contains('open')) $('#viewer').classList.remove('open'); else if ($('#favs').classList.contains('open')) closeFavs(); else closePanel(); }

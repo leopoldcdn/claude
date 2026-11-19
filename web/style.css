@@ -628,7 +628,7 @@ body.panel-open .cta{left:calc((100vw - var(--panel-w) - 24px) / 2)}
 /* =====================================================================
    Accueil : coups de cœur du mois
    ===================================================================== */
-.welcome{position:fixed;z-index:11;left:88px;top:96px;width:min(390px,calc(100vw - 120px));padding:20px 20px 18px;border-radius:var(--r-lg);
+.welcome{position:fixed;z-index:11;left:88px;top:96px;width:min(360px,calc(100vw - 120px));padding:20px 20px 18px;border-radius:var(--r-lg);
   transition:opacity .6s var(--ease),transform .6s var(--ease);animation:welcomeIn .8s var(--ease) both}
 @keyframes welcomeIn{from{opacity:0;transform:translateY(-10px)}}
 .welcome:not(.show){opacity:0;pointer-events:none}

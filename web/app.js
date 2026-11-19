@@ -2,7 +2,7 @@
  * Carte : OpenFreeMap (OpenStreetMap / OpenMapTiles), relief : Terrain Tiles (AWS Open Data)
  * Infos : Photon (géocodage), Wikipédia, Wikivoyage, Wikimedia Commons, Open-Meteo
  */
-import { registerProtocol, setCartoonBase, phase } from './sun.js';
+import { registerProtocol, setCartoonBase, phase, subsolar } from './sun.js';
 import { initItinerary, openPlanner, clearTrip, redrawAfterStyle, replan, geocodeCity } from './itinerary.js';
 import { initDiscover, openDiscover, clearDiscover, redrawDiscover, discoverActive, backToResults, decodeState, hitDestination } from './discover.js';
 import { I } from './icons.js';
@@ -246,6 +246,17 @@ function applyFonts(l, mode) {
   if (/^poi_|^airport/.test(id)) l.layout['text-size'] = 12;
   if (mode === 'realiste' && /^label_country/.test(id)) l.paint = { ...l.paint, 'text-halo-color': 'rgba(5,10,20,0.45)', 'text-halo-width': 1, 'text-halo-blur': 1 };
 }
+/* Lumière de la carte : en mode jour/nuit réel, elle vient du vrai soleil. MapLibre s'en sert pour le halo de
+ * l'atmosphère du globe (et l'ombrage des bâtiments 3D) : le halo brille côté jour et s'éteint côté nuit.
+ * Repère « map » de MapLibre : x vers la longitude 90° E, y vers le pôle Nord, z vers la longitude 0 ; la lumière
+ * est donnée par l'opposé de la direction du soleil, en coordonnées sphériques (azimut décalé de 90°). */
+function lightStyle() {
+  if (!dayNight) return { anchor: 'viewport', color: '#ffffff', intensity: 0.32, position: [1.4, 200, 35] };
+  const s = subsolar(), R = Math.PI / 180;
+  const x = -Math.cos(s.lat * R) * Math.sin(s.lon * R), y = -Math.sin(s.lat * R), z = -Math.cos(s.lat * R) * Math.cos(s.lon * R);
+  const az = ((Math.atan2(y, x) / R - 90) % 360 + 360) % 360, pol = Math.acos(Math.max(-1, Math.min(1, z))) / R;
+  return { anchor: 'map', color: '#fff6e8', intensity: 0.32, position: [1.5, az, pol] };
+}
 function finishStyle(style, mode) {
   style.glyphs = 'glyph://{fontstack}/{range}';
   for (const l of style.layers) applyFonts(l, mode);
@@ -253,13 +264,14 @@ function finishStyle(style, mode) {
   style.sky = mode === 'realiste' ? {
     'sky-color': '#2a6fd6', 'horizon-color': '#a9d4ff', 'fog-color': '#cfe6ff',
     'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.5, 'fog-ground-blend': 0.7,
-    'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0]
+    // halo plus léger : avec la lumière du vrai soleil, un halo plein voile toute la face éclairée
+    'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 0.55, 5, 0.45, 7, 0]
   } : {
     'sky-color': '#5fb4ff', 'horizon-color': '#cdeeff', 'fog-color': '#e6f6ff',
     'sky-horizon-blend': 0.5, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.6,
     'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0]
   };
-  style.light = { anchor: 'viewport', color: '#ffffff', intensity: 0.32, position: [1.4, 200, 35] };
+  style.light = lightStyle();
 }
 
 /* ============================ Carte ============================ */
@@ -297,6 +309,7 @@ async function initMap() {
     $('#rCoords').textContent = fmtLL(c0.lat, c0.lng);
     $('#rPhase').textContent = ph0 === 'jour' ? '☀️ Jour' : ph0 === 'nuit' ? '🌙 Nuit' : '🌇 Crépuscule';
     updateReadout();
+    placeSun();
   });
   map.on('mousemove', e => {
     const ph = phase(e.lngLat.lat, e.lngLat.lng);
@@ -1096,8 +1109,22 @@ function nightLabels(on) {
 
 /* ---- jour / nuit et style ---- */
 let lastBucket = timeBucket();
+// petit soleil posé là où il est au zénith : on le voit avancer d'environ 15° vers l'ouest chaque heure
+let sunMarker = null;
+function placeSun() {
+  if (!map) return;
+  if (!sunMarker) {
+    const el = document.createElement('div'); el.className = 'sun-mark'; el.title = 'Le soleil est au zénith ici';
+    sunMarker = new maplibregl.Marker({ element: el, anchor: 'center', opacityWhenCovered: '0' });
+  }
+  const s = subsolar();
+  sunMarker.setLngLat([s.lon, s.lat]);
+  if (dayNight) sunMarker.addTo(map); else sunMarker.remove();
+}
 function refreshDayNight(force) {
   if (!map) return;
+  placeSun();
+  if (map.isStyleLoaded?.() !== false) try { map.setLight(lightStyle()); } catch {}
   if (force || timeBucket() !== lastBucket) {
     lastBucket = timeBucket();
     for (const kind of ['sat', 'cartoon', 'lights', 'shade']) map.getSource(kind)?.setTiles([`dn://${kind}/{z}/{x}/{y}` + dnParams()]);

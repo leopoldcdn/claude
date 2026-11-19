@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.1/dist/maplibre-gl.css">
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 <main id="app">
@@ -60,11 +60,23 @@
 </div>
 
 <div class="infochip glass" id="info" role="status" aria-label="Position sous la souris"><span id="rCoords">—</span><span class="dot"></span><span id="rAlt">—</span></div>
+<div class="nomap glass" id="noMap" hidden role="status">
+  <div class="nomap-ic" aria-hidden="true">🌍</div>
+  <p><b>Le globe est en pause</b><span id="noMapWhy"></span> Tout le reste fonctionne : choisis ton départ, ta date et ton budget pour trouver ta destination.</p>
+  <button class="btn primary" id="noMapGo"><span data-i="search"></span>Explorer les destinations</button>
+</div>
 <section class="welcome glass" id="welcome" aria-labelledby="wTitle" hidden>
   <button class="w-close" id="wClose" aria-label="Masquer l’accueil" data-i="close"></button>
   <div class="w-kicker" id="wKicker">Bienvenue à bord</div>
-  <p class="w-title" id="wTitle">Le monde entier, <em>à portée de clic.</em></p>
-  <p class="w-sub" id="wSub">Fais tourner le globe, clique où tu veux : photos, météo et idées d’itinéraire.</p>
+  <p class="w-title" id="wTitle">Où part-on <em>ensuite ?</em></p>
+  <form class="w-form" id="wForm" autocomplete="off">
+    <label class="w-f w-from"><span>D’où pars-tu ?</span><input type="text" name="from" placeholder="Ta ville de départ"></label>
+    <label class="w-f"><span>Quand ?</span><select name="month"></select></label>
+    <label class="w-f"><span>Combien de temps ?</span><select name="days"></select></label>
+    <div class="w-f w-budget"><span>Quel budget total ?</span><div><input type="number" name="budget" min="200" max="20000" step="50" aria-label="Budget total en euros, vol compris"><i>€ pour</i><select name="travelers" aria-label="Nombre de voyageurs"></select></div></div>
+    <button class="btn primary w-go" type="submit"><span data-i="search"></span>Explorer les destinations</button>
+  </form>
+  <p class="w-sub" id="wSub">Ou laisse-toi inspirer :</p>
   <div class="w-cards" id="wCards"></div>
   <button class="w-prof" id="wProf" hidden><span data-i="people"></span><span>Crée ton profil pour des idées sur mesure</span><span data-i="next"></span></button>
 </section>
@@ -91,7 +103,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.1/dist/maplibre-gl.js"></script>
 <!-- numéro de version (v) : à augmenter à chaque mise à jour, pour que le navigateur recharge les fichiers -->
-<script type="importmap">{"imports":{"./app.js":"./app.js?v=7","./sun.js":"./sun.js?v=7","./itinerary.js":"./itinerary.js?v=7","./discover.js":"./discover.js?v=7","./icons.js":"./icons.js?v=7","./transit.js":"./transit.js?v=7","./tour.js":"./tour.js?v=7","./land.js":"./land.js?v=7","./profile.js":"./profile.js?v=7"}}</script>
+<script type="importmap">{"imports":{"./app.js":"./app.js?v=10","./sun.js":"./sun.js?v=10","./itinerary.js":"./itinerary.js?v=10","./discover.js":"./discover.js?v=10","./icons.js":"./icons.js?v=10","./transit.js":"./transit.js?v=10","./tour.js":"./tour.js?v=10","./land.js":"./land.js?v=10","./profile.js":"./profile.js?v=10","./cost.js":"./cost.js?v=10"}}</script>
 <script type="module">import "./app.js";</script>
 </body>
 </html>

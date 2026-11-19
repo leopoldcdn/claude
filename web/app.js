@@ -4,7 +4,7 @@
  */
 import { registerProtocol, setCartoonBase } from './sun.js';
 import { initItinerary, openPlanner, clearTrip, redrawAfterStyle, replan, geocodeCity } from './itinerary.js';
-import { initDiscover, seasonPicks, openDiscover, clearDiscover, redrawDiscover, discoverActive, backToResults, decodeState, hitDestination } from './discover.js';
+import { initDiscover, seasonPicks, searchSummary, openDiscover, clearDiscover, redrawDiscover, discoverActive, backToResults, decodeState, hitDestination } from './discover.js';
 import { I } from './icons.js';
 import { initTransit } from './transit.js';
 import { initProfile, openProfile, getProfile, firstName, syncProfileButton } from './profile.js';
@@ -274,10 +274,10 @@ async function initMap() {
   attrib?.querySelector('summary, .maplibregl-ctrl-attrib-button')?.addEventListener('click', () => { attribOpen = !(attrib.open || attrib.classList.contains('maplibregl-compact-show')); });
   const fold = () => { if (attribOpen || !attrib) return; attrib.classList.remove('maplibregl-compact-show'); if (attrib.open) attrib.open = false; };
   fold(); map.on('data', fold); map.on('resize', fold);
-  const reveal = () => { const l = $('#loading'); if (!l || l.dataset.gone) return; l.dataset.gone = 1; l.style.opacity = 0; setTimeout(() => l.remove(), 900); };
-  map.once('style.load', () => setTimeout(reveal, 400));   // sans attendre toutes les images de la carte
+  map.once('style.load', () => setTimeout(hideLoading, 400));   // sans attendre toutes les images de la carte
+  setTimeout(hideLoading, 12000);   // l'écran de chargement ne bloque jamais l'interface plus de 12 s
   map.on('load', () => {
-    reveal();
+    hideLoading();
     initWelcome(); autoSpin();
     if (!storageOk) setTimeout(() => toast('Stockage du navigateur désactivé : tes favoris ne seront pas conservés'), 1500);
     openFromHash(true);
@@ -314,13 +314,31 @@ function initWelcome() {
   };
   refreshWelcome();
 }
+// Les trois questions de l'accueil (départ, mois, budget pour N personnes) ouvrent « Où partir ? » avec ces réponses
+const MOIS_W = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+function fillWelcomeForm() {
+  const f = $('#wForm'); if (!f) return;
+  const prof = getProfile() || {}, last = LS.get('esc.web.discover', {});
+  const next = (new Date().getMonth() + 1) % 12;
+  const v = { fromName: prof.from || '', month: next, budget: prof.budget || 2000, travelers: prof.travelers || 2, days: prof.days || 7, ...last };
+  f.month.innerHTML = MOIS_W.map((m, i) => `<option value="${i}" ${i === +v.month ? 'selected' : ''}>${m.charAt(0).toUpperCase() + m.slice(1)}</option>`).join('');
+  f.travelers.innerHTML = Array.from({ length: 8 }, (_, i) => `<option value="${i + 1}" ${i + 1 === +v.travelers ? 'selected' : ''}>${i + 1} pers.</option>`).join('');
+  f.days.innerHTML = [2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 21, 30].map(n => `<option value="${n}" ${n === +v.days ? 'selected' : ''}>${n} jours</option>`).join('');
+  if (![...f.days.options].some(o => o.selected)) f.days.insertAdjacentHTML('afterbegin', `<option value="${+v.days}" selected>${+v.days} jours</option>`);
+  f.from.value = v.fromName || ''; f.budget.value = v.budget;
+  f.onsubmit = e => {
+    e.preventDefault();
+    openDiscover({ fromName: f.from.value.trim(), month: +f.month.value, days: +f.days.value, budget: Math.max(200, +f.budget.value || 2000), travelers: +f.travelers.value });
+  };
+}
 // Contenu de l'accueil, refait quand le profil change : salutation, coups de cœur selon les envies et le climat aimé
 let welcomeReq = 0;
 async function refreshWelcome() {
   const el = $('#welcome'); if (!el || el.hidden) return;
   const prof = getProfile(), name = firstName(), req = ++welcomeReq;
-  $('#wTitle').innerHTML = name ? `Bonjour ${esc(name)},<br><em>on part où ?</em>` : 'Le monde entier, <em>à portée de clic.</em>';
-  $('#wSub').textContent = prof ? 'Voici des idées choisies selon tes envies, pour le mois prochain.' : 'Fais tourner le globe, clique où tu veux : photos, météo et idées d’itinéraire.';
+  $('#wTitle').innerHTML = name ? `Bonjour ${esc(name)}, où part-on <em>ensuite ?</em>` : 'Où part-on <em>ensuite ?</em>';
+  $('#wSub').textContent = prof ? 'Ou laisse-toi inspirer par ces idées choisies pour toi :' : 'Ou laisse-toi inspirer :';
+  fillWelcomeForm();
   $('#wProf').hidden = !!prof;
   const cards = $('#wCards'); cards.hidden = false;
   cards.innerHTML = '<i class="w-skel"></i>'.repeat(4);
@@ -392,6 +410,7 @@ function panelPadding() {
   return isMobile() ? { top: 40, bottom: innerHeight * 0.7, left: 20, right: 20 } : { top: 60, bottom: 60, left: 60, right: 460 };
 }
 function goTo(lat, lon, opts = {}) {
+  if (!map) return;   // mode sans globe
   const z = map.getZoom();
   if (opts.bounds) {
     map.setPadding({ top: 0, bottom: 0, left: 0, right: 0 });     // sinon les marges des vols précédents s'ajoutent
@@ -408,6 +427,7 @@ function goTo(lat, lon, opts = {}) {
 /* ============================ Marqueurs ============================ */
 let wpMarker = null, poiMarker = null;
 function placeMarker(lat, lon) {
+  if (!map) return;
   if (!wpMarker) {
     const el = document.createElement('div');
     el.className = 'waypoint';
@@ -417,6 +437,7 @@ function placeMarker(lat, lon) {
   wpMarker.setLngLat([lon, lat]).addTo(map);
 }
 function placePoi(lat, lon) {
+  if (!map) return;
   if (!poiMarker) { const el = document.createElement('div'); el.className = 'poi-pin'; poiMarker = new maplibregl.Marker({ element: el }); }
   poiMarker.setLngLat([lon, lat]).addTo(map);
 }
@@ -456,6 +477,18 @@ async function placesAround(lat, lon, km) {
 }
 let topPromise = null;
 const loadTop = () => topPromise ||= getJSON('data/top.json', { timeout: 30000 }).catch(() => []);
+// Ville de départ trouvée dans la base locale (19 000 lieux connus) : pas besoin du service en ligne, ni de connexion
+async function localCity(q) {
+  const n = norm(q).replace(/\s*,.*$/, '').trim(); if (!n) return null;
+  const top = await loadTop();
+  let best = null;
+  for (const p of top) {
+    const k = kindOf(p); if (k && !['ville', 'capitale', 'village'].includes(k)) continue;
+    if (norm(p[0]) !== n && norm(p[1] || '') !== n && norm(p[8] || '') !== n) continue;
+    if (!best || p[7] > best[7]) best = p;
+  }
+  return best && { name: pname(best), lat: best[5], lon: best[6], cc: best[3] };
+}
 const pname = p => p[1] || p[0];
 const kindOf = p => meta?.kinds?.[p[2]] || '';
 const KIND_ICON = { ville: '🏙', village: '🏡', capitale: '⭐', ile: '🏝', plage: '🏖', montagne: '⛰', volcan: '🌋', parc: '🌳', lac: '💧', cascade: '💦',
@@ -664,7 +697,7 @@ async function explore(lat, lon, opts = {}) {
       redirect = `Pas grand-chose ici${geo === null ? ' (en pleine mer)' : ''}. Destination la plus proche : <b>${esc(pname(bp))}</b> (${esc(KIND_LABEL[kindOf(bp)] || kindOf(bp))}), à ${Math.round(best.d)} km.`;
       lat = bp[5]; lon = bp[6];
       opts.hint = pname(bp);
-      placeMarker(lat, lon); goTo(lat, lon, { zoom: Math.max(map.getZoom(), kindOf(bp) === 'ile' ? 10 : 9) });
+      placeMarker(lat, lon); goTo(lat, lon, { zoom: Math.max(map?.getZoom() ?? 0, kindOf(bp) === 'ile' ? 10 : 9) });
       [geo, local] = await Promise.all([reverseGeocode(lat, lon, signal), placesAround(lat, lon, 40)]);
       geo = geo || { name: pname(bp), state: bp[4], countrycode: bp[3] };
       if (id !== reqId) return;
@@ -918,6 +951,7 @@ function renderPanel() {
       <h2>${esc(c.name)}</h2>
       <div class="sub">${esc(fmtLL(c.lat, c.lon))}</div>
     </div>
+    ${searchSummary(c.lat, c.lon)}
     ${facts.length ? `<div class="facts">${facts.map(([ic, k, v]) => `<div class="fact">${ic}<span><small>${k}</small><b>${esc(v)}</b></span></div>`).join('')}</div>` : ''}
     <div class="tabs" role="tablist">${TABS.map(([id, lab, n]) => `<button class="tab ${tab === id ? 'on' : ''}" role="tab" data-tab="${id}">${lab}${n ? `<sup>${n}</sup>` : ''}</button>`).join('')}</div>
     <div class="pane" data-pane="${tab}">${panes[tab]}</div>`;
@@ -936,7 +970,7 @@ function renderPanel() {
     const p = c.nearby[+b.dataset.poi];
     placePoi(p.lat, p.lon);
     if (isMobile()) panel.classList.add('peek');
-    map.flyTo({ center: [p.lon, p.lat], zoom: 16.3, pitch: 62, bearing: map.getBearing() - 20, padding: panelPadding(), duration: 2600, essential: false });
+    map?.flyTo({ center: [p.lon, p.lat], zoom: 16.3, pitch: 62, bearing: map.getBearing() - 20, padding: panelPadding(), duration: 2600, essential: false });
   });
   renderActions();
 }
@@ -1143,17 +1177,35 @@ initProfile({ LS, esc, setPanel, toast, closePanel: () => closePanel(), onChange
 syncProfileButton();
 $('#bProfile').onclick = () => openProfile();
 $('#wProf').onclick = () => openProfile();
+const getBuffer = async u => { const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); };
 initDiscover({
-  getJSON, LS, esc, haversine, countryInfo, continentOf: cc => countries[(cc || '').toUpperCase()]?.ct, isTravelPhoto, geocodeCity, isMobile, setPanel,
+  getJSON, getBuffer, LS, esc, haversine, countryInfo, continentOf: cc => countries[(cc || '').toUpperCase()]?.ct, isTravelPhoto, geocodeCity, isMobile, setPanel,
   map: () => map, padding: panelPadding, explore: (lat, lon, o) => explore(lat, lon, o), route: h => setRoute(h),
 });
 initItinerary({
-  getJSON, getBuffer: async u => { const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); }, haversine, placesAround, kindOf, pname, notability, norm, LS, esc, toast, KIND_ICON, KIND_LABEL,
+  getJSON, getBuffer, localCity, haversine, placesAround, kindOf, pname, notability, norm, LS, esc, toast, KIND_ICON, KIND_LABEL,
   map: () => map, padding: panelPadding, setPanel, onSaved: () => saveFavs(), share, isMobile,
   route: (dest, input) => setRoute('voyage=' + encodeTrip(dest, input)), climate,
   backToPlace: () => { clearTrip(); panelMode = 'place'; renderPanel(); },
 });
-initMap().catch(err => {
+// Sans WebGL (vieux navigateur, machine virtuelle, réglage de sécurité) ou si la carte ne se charge pas,
+// le site reste utilisable : accueil, recherche « Où partir ? », fiches et itinéraires, sans le globe.
+function hideLoading() { const l = $('#loading'); if (!l || l.dataset.gone) return; l.dataset.gone = 1; l.style.opacity = 0; setTimeout(() => l.remove(), 900); }
+function webglOk() {
+  try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
+}
+function startWithoutMap(why) {
+  if (map) { try { map.remove(); } catch {} map = null; }
+  document.body.classList.add('no-map');
+  hideLoading();
+  $('#noMapWhy').textContent = why;
+  $('#noMap').hidden = false;
+  $('#noMapGo').onclick = () => openDiscover();
+  initWelcome();
+  openFromHash(true);
+}
+if (!webglOk()) startWithoutMap('Ton navigateur ne peut pas afficher le globe 3D (WebGL indisponible).');
+else initMap().catch(err => {
   console.error(err);
-  $('#loading').innerHTML = `<div class="logo">Esca<span>pade</span></div><p style="color:#ccc;font-family:var(--hud);letter-spacing:.06em">Impossible de charger la carte (${esc(err.message)}). Vérifie ta connexion et recharge la page.</p>`;
+  startWithoutMap(/webgl/i.test(err.message) ? 'Ton navigateur ne peut pas afficher le globe 3D (WebGL indisponible).' : 'La carte n’a pas pu se charger (connexion lente ou service indisponible).');
 });

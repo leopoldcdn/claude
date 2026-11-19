@@ -712,3 +712,85 @@ body.touring .topright{opacity:0;pointer-events:none}
   body.panel-open .topbar{width:calc(100vw - min(380px,56vw) - 150px)}
 }
 .w-prof[hidden]{display:none}
+
+/* « Où partir ? » : trois idées faciles à comparer, puis la liste complète */
+.disc-top{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.dtop{display:flex;gap:12px;width:100%;padding:8px;border:0;border-radius:18px;background:var(--card);box-shadow:inset 0 0 0 1px var(--line-soft),0 8px 20px -16px rgba(18,59,74,.5);
+  text-align:left;color:var(--txt);cursor:pointer;transition:transform .2s var(--ease),box-shadow .2s}
+.dtop:hover{background:#fff;transform:translateY(-2px);box-shadow:inset 0 0 0 1px var(--line),0 12px 26px -16px rgba(18,59,74,.6)}
+.dtop:first-child{box-shadow:inset 0 0 0 1.5px var(--saffron),0 10px 24px -16px rgba(173,110,20,.6)}
+.dtop-ph{position:relative;flex:none;width:118px;min-height:132px;border-radius:13px;overflow:hidden;background:linear-gradient(150deg,#7cc4b2,#1f6f78)}
+.dtop:nth-child(2) .dtop-ph{background:linear-gradient(150deg,#F3BE58,#AD452D)}
+.dtop:nth-child(3) .dtop-ph{background:linear-gradient(150deg,#2f8597,#123B4A)}
+.dtop-ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.dtop-ph .w-badge{top:6px;left:6px;font-size:10px;padding:2px 7px}
+.dtop-ph .disc-score{position:absolute;right:6px;bottom:6px;width:38px;height:38px;margin:0;font-size:13px}
+.dtop-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;padding:2px 2px 2px 0}
+.dtop-tx > b{font:600 18px/1.15 var(--serif)}
+.dtop-tx > small{font:500 12px var(--sans);color:var(--mut)}
+.dtop-price{margin-top:4px;font:700 15px var(--sans);color:var(--sea);font-variant-numeric:tabular-nums}
+.dtop-price small{font:500 12px var(--sans);color:var(--mut)}
+.dtop-trip{font:600 13px var(--sans);color:var(--terra)}
+.dtop-why{font:500 13px/1.4 var(--sans);color:var(--mut)}
+.disc-more-btn{width:100%;margin:2px 0 10px}
+.disc-res .list[hidden]{display:none}
+.search-sum{margin:14px 20px 0}
+.search-sum b{font-weight:700}
+.search-sum small{display:block;margin-top:3px;font-size:12px;opacity:.85}
+.disc-hero{min-height:150px!important;padding-top:60px}
+.budget-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.budget-line .bnum{display:flex;align-items:baseline;gap:4px;font-style:normal;color:var(--mut);font-size:15px}
+.budget-line .bnum input{width:110px;text-align:right;background:none;border:0;border-bottom:1px dashed var(--line);color:var(--txt);font:600 28px var(--serif);outline:none;padding:0 2px}
+.budget-line .bnum input:focus{border-bottom-color:var(--terra)}
+.budget-line .for{font:600 14px var(--sans);color:var(--mut)}
+.budget-line .stepper{flex:1;min-width:150px;height:48px}
+.disc-more summary b{font-weight:500;color:var(--faint)}
+.fld-inline{flex-direction:row;align-items:center;justify-content:space-between;gap:12px}.fld-inline .stepper{width:190px;height:48px}
+
+/* Accueil : les trois questions avant les idées */
+.w-title{font-size:32px}
+.w-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 4px}
+.w-f{display:flex;flex-direction:column;gap:3px;min-width:0;padding:7px 12px 8px;border-radius:14px;background:var(--card);box-shadow:inset 0 0 0 1px var(--line-soft);cursor:text}
+.w-f:focus-within{box-shadow:inset 0 0 0 1.5px rgba(173,69,45,.55)}
+.w-f > span{font:700 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+.w-f input,.w-f select{width:100%;min-width:0;padding:0;border:0;background:none;outline:none;color:var(--sea);font:600 15px var(--sans);-webkit-appearance:none;appearance:none}
+.w-f select{cursor:pointer}
+.w-from,.w-budget{grid-column:1/-1}
+.w-budget > div{display:flex;align-items:baseline;gap:5px}
+.w-budget input{width:80px;flex:none;font-variant-numeric:tabular-nums}
+.w-budget i{font-style:normal;font:500 13px var(--sans);color:var(--mut);white-space:nowrap}
+.w-budget select{flex:none;width:auto}
+.w-go{grid-column:1/-1;height:48px;margin-top:2px}
+.welcome .w-sub{margin:12px 0 8px;font-size:13px}
+.w-card,.w-skel{height:96px}
+@media (max-height:820px) and (min-width:761px){.w-cards > :nth-child(n+3){display:none}}
+@media (max-height:700px) and (min-width:761px){.w-cards,.welcome .w-sub{display:none!important}}
+@media (max-width:760px){
+  .welcome{padding:14px}
+  .w-title{font-size:22px;margin:2px 36px 6px 0}
+  .w-form{margin-top:6px;gap:6px}
+  .w-f{padding:6px 10px 7px}
+  .w-go{height:46px}
+  .welcome .w-sub,.w-cards{display:none!important}
+  .w-prof{margin:8px 0 0}
+}
+
+/* Mode sans globe (WebGL indisponible ou carte non chargée) : tout le reste reste utilisable */
+body.no-map .controls,body.no-map .infochip,body.no-map .hint,body.no-map .btn.play{display:none!important}
+.nomap{position:fixed;z-index:10;left:calc(50% + 200px);top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100vw - 520px));padding:26px;border-radius:var(--r-lg);text-align:center}
+.nomap[hidden]{display:none}
+.nomap-ic{font-size:54px;line-height:1;margin-bottom:10px;filter:drop-shadow(0 8px 16px rgba(18,59,74,.25))}
+.nomap p{margin:0 0 16px;color:var(--mut);line-height:1.55}
+.nomap p b{display:block;margin-bottom:4px;font:600 24px/1.2 var(--serif);color:var(--sea)}
+.nomap p span{display:block}
+.nomap .btn{width:100%}
+body.panel-open .nomap{opacity:0;pointer-events:none}
+@media (max-width:1100px) and (min-width:761px){.nomap{left:auto;right:24px;transform:translateY(-50%);width:300px}}
+@media (max-width:760px){
+  .nomap{left:10px;right:10px;top:calc(72px + env(safe-area-inset-top,0px));transform:none;width:auto;padding:14px 16px;text-align:left}
+  .nomap-ic{display:none}
+  .nomap p{margin:0;font-size:13px}
+  .nomap p b{font-size:18px}
+  .nomap .btn{display:none}
+}
+body.no-map #dGlobe{display:none}

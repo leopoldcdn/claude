@@ -18,6 +18,7 @@
 import { I } from './icons.js';
 import { startTour, stopTour } from './tour.js';
 import { loadLand, sameLand, landReady } from './land.js';
+import { TIERS, accessCost, stayCost, localTransitCost } from './cost.js';
 import { ADVISED_AGAINST } from './discover.js';
 import { transitPlan, flightPlan, describe, describeFlight, fmtDur, MODE_INFO } from './transit.js';
 
@@ -49,11 +50,6 @@ const PACE = {
   equilibre: { label: 'Équilibré', nightsPerStop: 2.5, perDay: 2 },
   intense: { label: 'Intense', nightsPerStop: 1.6, perDay: 3 },
 };
-const TIERS = [
-  { id: 'premium', label: 'Premium', lodge: 2.0, food: 1.6, act: 1.5 },
-  { id: 'confort', label: 'Confort', lodge: 1.0, food: 1.0, act: 1.0 },
-  { id: 'eco', label: 'Économique', lodge: 0.5, food: 0.6, act: 0.6 },
-];
 let prices = null;
 async function priceLevel(cc) {
   if (!prices) prices = await C.getJSON('data/prices.json').catch(() => ({}));
@@ -89,18 +85,14 @@ async function osrm(points, signal) {
 export async function geocodeCity(q, signal) {
   const cache = C.LS.get('esc.web.geocache', {});
   if (cache[q]) return cache[q];
+  const local = await C.localCity?.(q).catch(() => null);
+  if (local) return local;
   const r = await C.getJSON(`https://photon.komoot.io/api?q=${encodeURIComponent(q)}&lang=fr&limit=1`, { signal });
   const f = r.features?.[0];
   if (!f) return null;
   const res = { name: f.properties.name, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], cc: (f.properties.countrycode || '').toUpperCase() };
   cache[q] = res; C.LS.set('esc.web.geocache', cache);
   return res;
-}
-function flightCost(km, month, rail) {
-  if (km < 500 || (rail && km < 800)) return { kind: 'sol', perPerson: Math.round(2 * (25 + km * 0.12)), label: rail ? 'train aller-retour' : 'train ou voiture, aller-retour' };
-  const season = [6, 7, 11].includes(month) ? 1.25 : 1;
-  const rt = (km < 3000 ? 120 + 0.075 * km : 200 + 0.06 * km) * season;
-  return { kind: 'avion', perPerson: Math.round(rt), label: 'avion aller-retour' };
 }
 
 export const VARIANTS = { classique: 'Classique', nature: 'Nature', insolite: 'Hors des sentiers battus' };
@@ -308,10 +300,8 @@ export async function planTrip(o, signal) {
   // budget
   const pl = await priceLevel(cc);
   const eff = 0.35 + 0.65 * pl, eff2 = 0.5 + 0.5 * pl;
-  const rooms = Math.ceil(o.travelers / 2);
-  const season = [6, 7].includes(o.month) ? 1.2 : o.month === 11 ? 1.1 : 1;
   const carCost = Math.ceil(o.travelers / 5) * (o.days * 42 * eff2 + totalKm * 0.12);
-  const transitCost = o.travelers * (totalKm * 0.11 * eff2 + o.days * 4 * eff);
+  const transitCost = localTransitCost({ pl, travelers: o.travelers, days: o.days }, totalKm);
 
   let mode = o.mode, modeReason = '';
   if (mode === 'auto') {
@@ -344,10 +334,8 @@ export async function planTrip(o, signal) {
     const dOut = C.haversine(from.lat, from.lon, start.lat, start.lon);
     const last = stops[stops.length - 1];
     const dBack = o.shape === 'oneway' ? C.haversine(from.lat, from.lon, last.lat, last.lon) : dOut;
-    // même terre et pays à bon réseau ferré : le train ; sinon (mer, autre continent) : l'avion
-    const byLand = sameLand(from, start);
-    flight = flightCost((dOut + dBack) / 2, o.month, byLand && RAIL.has(cc) && RAIL.has(o.fromCc || cc));
-    if (!byLand && flight.kind === 'sol') flight = { kind: 'avion', perPerson: Math.round(2 * (90 + 0.1 * dOut)), label: 'avion ou ferry, aller-retour' };
+    // même calcul que la liste de « Où partir ? » (cost.js) : train sur la même terre, sinon avion ou ferry
+    flight = accessCost({ lat: from.lat, lon: from.lon, cc: o.fromCc || cc }, { lat: start.lat, lon: start.lon, cc }, o.month, C.haversine, (dOut + dBack) / 2);
     flight.km = Math.round(dOut);
   }
   // comment rejoindre la première étape depuis la ville de départ : vol réel (liaisons connues) ou train / car réel
@@ -364,9 +352,7 @@ export async function planTrip(o, signal) {
   }
   const travelCost = flight ? flight.perPerson * o.travelers : 0;
   const tiers = TIERS.map(t => {
-    const lodging = rooms * nights * 120 * eff * season * t.lodge;
-    const food = o.travelers * o.days * 45 * eff * t.food;
-    const act = o.travelers * o.days * 25 * eff * t.act;
+    const { lodging, food, act } = stayCost({ pl, travelers: o.travelers, days: o.days, month: o.month }, t);
     const total = lodging + food + act + localTransport + travelCost;
     return { ...t, lines: { 'Vols / trajet aller-retour': travelCost, 'Hébergement': lodging, 'Repas': food, 'Visites et activités': act, [mode === 'car' ? 'Voiture (location + carburant)' : 'Transports sur place']: localTransport }, total };
   });
@@ -519,6 +505,10 @@ async function submit(dest) {
     month: +f.get('month'), fromName: String(f.get('from') || '').trim(), mode: f.get('mode'), shape: f.get('shape'), pace: f.get('pace'), likes: f.getAll('likes'),
   };
   C.LS.set('esc.web.plan', { ...o, from: o.fromName });
+  // et dans l'autre sens : une prochaine recherche « Où partir ? » repart de ces critères
+  const disc = C.LS.get('esc.web.discover', {});
+  C.LS.set('esc.web.discover', { ...disc, month: o.month, days: o.days, travelers: o.travelers, budget: o.budget, ...(o.fromName ? { fromName: o.fromName } : {}),
+    likes: [...o.likes, ...((disc.likes || []).includes('ski') ? ['ski'] : [])] });
   return run(dest, o);
 }
 /** Recalcule l'itinéraire affiché avec des changements (variante, étape verrouillée, retirée ou remplacée). */
@@ -615,8 +605,8 @@ function renderTrip() {
   });
   document.getElementById('tReset')?.addEventListener('click', () => recompute({ exclude: [], lock: [], stopDelta: 0 }));
   document.getElementById('tShare').onclick = () => C.share?.(`Itinéraire ${t.dest.name}`);
-  panel.querySelectorAll('[data-stop]').forEach(b => b.onclick = () => { const s = t.stops[+b.dataset.stop]; C.map().flyTo({ center: [s.lon, s.lat], zoom: 11, pitch: 50, padding: C.padding(), duration: 2200 }); });
-  panel.querySelectorAll('.it.go').forEach(b => b.onclick = () => C.map().flyTo({ center: [+b.dataset.lon, +b.dataset.lat], zoom: 13.5, pitch: 55, padding: C.padding(), duration: 2200 }));
+  panel.querySelectorAll('[data-stop]').forEach(b => b.onclick = () => { const s = t.stops[+b.dataset.stop]; C.map()?.flyTo({ center: [s.lon, s.lat], zoom: 11, pitch: 50, padding: C.padding(), duration: 2200 }); });
+  panel.querySelectorAll('.it.go').forEach(b => b.onclick = () => C.map()?.flyTo({ center: [+b.dataset.lon, +b.dataset.lat], zoom: 13.5, pitch: 55, padding: C.padding(), duration: 2200 }));
   document.getElementById('tEdit').onclick = () => openPlanner(t.dest, { ...t.input, from: t.input.fromName });
   document.getElementById('tTour').onclick = tour;
   document.getElementById('tSave').onclick = () => {
@@ -711,6 +701,6 @@ export function clearTrip() {
   trip = null;
 }
 export function redrawAfterStyle() { if (trip) drawTrip(); }
-function tour() { startTour(C, trip); }
+function tour() { if (!C.map()) { C.toast('Le survol a besoin du globe 3D, indisponible sur cet appareil'); return; } startTour(C, trip); }
 export const LIKE_KEYS = Object.keys(LIKES);
 export function replan(dest, input) { openPlanner(dest, { ...input, from: input.fromName ?? input.from }); submit(dest); }

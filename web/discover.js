@@ -8,6 +8,8 @@
  *  - budget : vol ou train aller-retour depuis la ville de départ + séjour selon le niveau des prix du pays.
  */
 import { I } from './icons.js';
+import { estimateTrip } from './cost.js';
+import { loadLand } from './land.js';
 
 let C = null;
 export function initDiscover(ctx) { C = ctx; }
@@ -21,7 +23,6 @@ const PROFILE = { plage: 0, nature: 1, montagne: 2, culture: 3, histoire: 4, vil
 // Liste simplifiée des pays où les voyages sont déconseillés (conseils aux voyageurs du ministère français des Affaires
 // étrangères, à vérifier avant tout départ) : exclus par défaut, avec une option pour les inclure.
 export const ADVISED_AGAINST = new Set(['AF', 'BY', 'BF', 'CF', 'HT', 'IQ', 'IR', 'KP', 'LB', 'LY', 'ML', 'MM', 'NE', 'PS', 'RU', 'SD', 'SO', 'SS', 'SY', 'UA', 'VE', 'YE']);
-const RAIL = new Set(['FR', 'DE', 'IT', 'ES', 'CH', 'AT', 'NL', 'BE', 'LU', 'GB', 'JP', 'KR', 'CN', 'TW', 'CZ', 'DK', 'SE', 'PT', 'PL', 'SK', 'HU', 'SI']);
 
 let data = null, prices = null, state = null, results = [], timer = 0, from = null, thumbs = new Map();
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -40,17 +41,11 @@ export const CLIMATE_LABEL = { chaud: 'tu aimes la chaleur', doux: 'tu aimes la 
 const rainComfort = mm => mm <= 60 ? 1 : mm <= 100 ? 0.8 : mm <= 160 ? 0.5 : mm <= 250 ? 0.25 : 0.05;
 const warmth = tx => tx >= 26 ? 1 : tx >= 23 ? 0.7 : tx >= 20 ? 0.35 : 0.05;
 
+// même calcul que l'itinéraire (cost.js) : mer à traverser = avion ou ferry, fourchette économique à confort
 function costOf(d, s) {
-  const pl = prices[d[1]] ?? 0.6;
-  const eff = 0.35 + 0.65 * pl;
-  const nights = Math.max(1, s.days - 1), rooms = Math.ceil(s.travelers / 2);
-  const stay = rooms * nights * 120 * eff + s.travelers * s.days * 70 * eff + s.travelers * s.days * 12 * (0.5 + 0.5 * pl);
-  const km = from ? C.haversine(from.lat, from.lon, d[2], d[3]) : 1500;
-  const ground = km < 500 || (km < 800 && RAIL.has(d[1]) && RAIL.has(from?.cc));
-  const season = [6, 7, 11].includes(s.month) ? 1.25 : 1;
-  const trip = ground ? 2 * (25 + km * 0.12) : (km < 3000 ? 120 + 0.075 * km : 200 + 0.06 * km) * season;
-  const hours = ground ? km / 110 + 0.5 : km / 780 + 1.2;
-  return { comfort: stay + trip * s.travelers, eco: stay * 0.6 + trip * s.travelers, km, hours, ground };
+  const e = estimateTrip({ from, to: { lat: d[2], lon: d[3], cc: d[1] }, pl: prices[d[1]] ?? 0.6, travelers: s.travelers, days: s.days, month: s.month, haversine: C.haversine });
+  const a = e.access;
+  return { comfort: e.high, eco: e.low, travel: e.travel, km: a?.km ?? 0, hours: a?.hours ?? 0, ground: a ? a.kind === 'sol' : true, sea: !!a?.sea, label: a?.label || '' };
 }
 function score(d, s) {
   const m = s.month, tx = d[7][m], mm = d[8][m], prof = d[6];
@@ -118,6 +113,12 @@ function stepper(name, val, min, max, unit) {
 }
 const fmtE = v => (Math.round(v / 50) * 50).toLocaleString('fr-FR') + ' €';
 const fmtH = h => h < 1.5 ? `${Math.round(h * 60 / 10) * 10} min` : `${Math.round(h)} h`;
+const num50 = v => (Math.round(v / 50) * 50).toLocaleString('fr-FR');
+// fourchette : niveau économique à niveau confort, tout compris
+const priceRange = r => `≈ ${num50(r.cost.eco)} à ${num50(r.cost.comfort)} €`;
+const tripMode = r => r.cost.ground ? (/train aller/.test(r.cost.label) ? 'en train' : 'en train ou en voiture') : r.cost.sea && r.cost.km < 500 ? 'en avion ou en ferry' : 'en avion';
+const tripTxt = r => `${r.cost.ground ? '🚆' : '✈'} ≈ ${fmtH(r.cost.hours)} ${tripMode(r)}${state?.fromName ? ' depuis ' + C.esc(state.fromName) : ''}`;
+const includes = r => `Comprend ${r.cost.ground ? 'le trajet' : 'le vol'} aller-retour, l’hébergement, les repas, les visites et les transports sur place`;
 const weatherTxt = (tx, mm) => `${tx >= 26 ? '☀️' : tx >= 18 ? '🌤' : tx >= 8 ? '⛅' : '❄️'} ${tx}° · ${mm <= 40 ? 'sec' : mm <= 100 ? 'peu de pluie' : mm <= 200 ? 'averses' : 'saison des pluies'}`;
 
 export async function openDiscover(prefill = {}) {
@@ -126,20 +127,19 @@ export async function openDiscover(prefill = {}) {
   state = { month: next, days: 7, travelers: 2, budget: 2000, fromName: C.LS.get('esc.web.plan', {}).from || 'Paris', likes: [], zone: '', risky: false, ...saved, ...prefill };
   C.setPanel(`
     <div class="hero short disc-hero"><div class="kicker">${I.calendar} Où partir ?</div><h2 id="dTitle">En ${MOIS[state.month]}</h2>
-      <div class="sub">Choisis tes envies : le globe s’allume sur les destinations idéales.</div></div>
+      <div class="sub">${CLIMATE_LABEL[state.climate] ? `Selon ton profil, ${CLIMATE_LABEL[state.climate]} : on en tient compte.` : 'Dis-nous d’où, quand et combien : on te propose les meilleures idées.'}</div></div>
     <form class="planner" id="discForm" autocomplete="off">
-      <div class="fld"><span>Mois de départ</span><div class="months-pick">${MOIS_C.map((m, i) => `<label class="chip"><input type="radio" name="month" value="${i}" ${i === state.month ? 'checked' : ''}><span>${m}</span></label>`).join('')}</div></div>
-      <div class="fld"><span>Où</span><div class="chips">${ZONES.map(([k, l]) => `<label class="chip"><input type="radio" name="zone" value="${k}" ${k === (state.zone || '') ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
-      <div class="fld"><span>Envies</span><div class="chips">${ENVIES.map(([k, l]) => `<label class="chip"><input type="checkbox" name="likes" value="${k}" ${state.likes.includes(k) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
-      <details class="disc-more"><summary><span id="dSum"></span><b>Modifier</b></summary><div class="disc-more-in">
-      <div class="row2">
-        <div class="fld"><span>Durée</span>${stepper('days', state.days, 2, 30, 'jours')}</div>
-        <div class="fld"><span>Voyageurs</span>${stepper('travelers', state.travelers, 1, 8, state.travelers > 1 ? 'personnes' : 'personne')}</div>
-      </div>
-      <div class="fld"><div class="budget-val"><span>Budget total, vol compris</span><em><input type="number" name="budget" min="200" max="20000" step="50" value="${state.budget}" aria-label="Budget en euros"> €</em></div>
+      <label class="fld"><span>D’où pars-tu ?</span><div class="textin">${I.plane}<input type="text" name="from" value="${C.esc(state.fromName)}" placeholder="Ta ville de départ"></div></label>
+      <div class="fld"><span>Quand ?</span><div class="months-pick">${MOIS_C.map((m, i) => `<label class="chip"><input type="radio" name="month" value="${i}" ${i === state.month ? 'checked' : ''}><span>${m}</span></label>`).join('')}</div></div>
+      <div class="fld"><span>Quel budget total, vol compris ?</span>
+        <div class="budget-line"><em class="bnum"><input type="number" name="budget" min="200" max="20000" step="50" value="${state.budget}" aria-label="Budget total en euros"> €</em>
+          <span class="for">pour</span>${stepper('travelers', state.travelers, 1, 8, state.travelers > 1 ? 'personnes' : 'personne')}</div>
         <input type="range" id="dRange" min="300" max="10000" step="50" value="${Math.min(10000, state.budget)}" aria-label="Budget"></div>
-      <label class="fld"><span>Depuis</span><div class="textin">${I.plane}<input type="text" name="from" value="${C.esc(state.fromName)}" placeholder="Ta ville"></div></label>
-      <label class="toggle"><input type="checkbox" name="risky" ${state.risky ? 'checked' : ''}><span></span>Inclure les pays où les voyages sont déconseillés</label>
+      <div class="fld fld-inline"><span>Combien de temps ?</span>${stepper('days', state.days, 2, 30, 'jours')}</div>
+        <div class="fld"><span>Envies</span><div class="chips">${ENVIES.map(([k, l]) => `<label class="chip"><input type="checkbox" name="likes" value="${k}" ${state.likes.includes(k) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
+      <details class="disc-more" ${state.zone || state.risky ? 'open' : ''}><summary><span>Plus d’options</span><b>Continent, sécurité</b></summary><div class="disc-more-in">
+        <div class="fld"><span>Où</span><div class="chips">${ZONES.map(([k, l]) => `<label class="chip"><input type="radio" name="zone" value="${k}" ${k === (state.zone || '') ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
+        <label class="toggle"><input type="checkbox" name="risky" ${state.risky ? 'checked' : ''}><span></span>Inclure les pays où les voyages sont déconseillés</label>
       </div></details>
     </form>
     <div class="sec disc-res" id="dRes"><div class="skel" style="width:60%"></div><div class="skel" style="width:90%;height:70px;border-radius:16px"></div></div>`,
@@ -162,7 +162,7 @@ export async function openDiscover(prefill = {}) {
   form.onsubmit = e => { e.preventDefault(); changed(0); };
   document.getElementById('dGlobe').onclick = () => { overview(); if (C.isMobile()) document.getElementById('panel').classList.add('peek'); };
   try {
-    [data, prices] = await Promise.all([data || C.getJSON('data/destinations.json', { timeout: 30000 }), prices || C.getJSON('data/prices.json')]);
+    [data, prices] = await Promise.all([data || C.getJSON('data/destinations.json', { timeout: 30000 }), prices || C.getJSON('data/prices.json'), loadLand(C.getBuffer).catch(() => false)]);
   } catch (e) {
     document.getElementById('dRes').innerHTML = `<div class="note warn">${I.warn}<span>Impossible de charger les destinations (${C.esc(e.message)}). Vérifie ta connexion.</span></div>`;
     return;
@@ -176,13 +176,19 @@ function readForm() {
   return { month: +fd.get('month'), days: +fd.get('days'), travelers: +fd.get('travelers'), budget: Math.max(200, +fd.get('budget') || 2000),
     fromName: String(fd.get('from') || '').trim(), likes: fd.getAll('likes'), zone: String(fd.get('zone') || ''), risky: !!fd.get('risky'), climate: state?.climate || '' };
 }
+// Les critères de la recherche suivent tout le parcours : fiche, puis formulaire d'itinéraire (rien à ressaisir)
+function shareCriteria(s) {
+  const plan = C.LS.get('esc.web.plan', {});
+  C.LS.set('esc.web.plan', { ...plan, month: s.month, days: s.days, travelers: s.travelers, budget: s.budget,
+    ...(s.fromName ? { from: s.fromName } : {}), likes: s.likes.filter(k => k !== 'ski') });
+}
 function changed(delay = 250) { clearTimeout(timer); timer = setTimeout(update, delay); }
 async function update() {
   const s = readForm(); if (!s || !data) return;
   state = s;
   C.LS.set('esc.web.discover', s);
+  shareCriteria(s);
   document.getElementById('dTitle').textContent = `En ${MOIS[s.month]}`;
-  document.getElementById('dSum').textContent = `${s.days} jours · ${s.travelers} pers. · ${s.budget.toLocaleString('fr-FR')} €${s.fromName ? ' · depuis ' + s.fromName : ''}${CLIMATE_LABEL[s.climate] ? ' · ' + CLIMATE_LABEL[s.climate] : ''}`;
   if (s.fromName && (!from || from.q !== s.fromName)) {
     const g = await C.geocodeCity(s.fromName).catch(() => null);
     from = g ? { ...g, q: s.fromName } : null;
@@ -220,37 +226,64 @@ function setBudget(v) {
   if (r) { r.value = clamp(v, 300, 10000); r.style.setProperty('--p', ((r.value - r.min) / (r.max - r.min) * 100) + '%'); }
   changed(0);
 }
+// Pourquoi ce lieu correspond : le temps du mois, ce qu'on y trouve parmi les envies, le budget
+const ENVIE_TXT = { plage: 'des plages', nature: 'de la nature', montagne: 'la montagne', culture: 'des musées et monuments', histoire: 'des sites historiques', villes: 'une vraie ville à vivre', ski: 'des pistes de ski' };
+function whyTxt(r, s) {
+  const p = k => k === 'ski' ? (+r.d[6][PROFILE.montagne] >= 6 && r.tx <= 3 ? 9 : 0) : +r.d[6][PROFILE[k]];
+  const wanted = (s.likes.length ? s.likes : Object.keys(PROFILE)).filter(k => p(k) >= 5).sort((a, b) => p(b) - p(a)).slice(0, 2).map(k => ENVIE_TXT[k]);
+  const sky = r.mm <= 40 ? 'sec' : r.mm <= 100 ? 'peu de pluie' : 'quelques averses';
+  const parts = [`${r.tx}° et ${sky} en ${MOIS[s.month]}`];
+  if (wanted.length) parts.push(wanted.join(' et '));
+  const txt = parts.join(', ') + (r.b === 1 ? ', dans ton budget.' : ', dans ton budget en restant économique.');
+  return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
+let showAll = false;
 function render() {
   const el = document.getElementById('dRes'); if (!el) return;
-  const s = state, top = results.slice(0, 30);
-  if (!top.length) {
+  const s = state, list = results.slice(0, 30), top3 = list.slice(0, 3), rest = list.slice(3);
+  if (!list.length) {
     el.innerHTML = `<div class="empty">${I.calendar}<b>Aucune destination ne coche tout</b>${isFinite(cheapest)
       ? `Avec ces envies en ${MOIS[s.month]}${s.zone ? ' (' + ZONE_NAME[s.zone] + ')' : ''}, compte au moins <b style="display:inline;font:inherit;color:var(--acc)">${fmtE(cheapest)}</b> pour ${s.travelers} (niveau économique). ${budgetBtn(unlock(Object.values(overBudget).flat()))}`
       : 'Essaie un autre mois ou moins d’envies à la fois.'}</div>`;
     el.querySelector('[data-budget]')?.addEventListener('click', e => setBudget(+e.currentTarget.dataset.budget));
     return;
   }
-  el.innerHTML = `<h3>${results.length > 30 ? `Les 30 meilleures sur ${results.length.toLocaleString('fr-FR')}` : `${results.length} destination${results.length > 1 ? 's' : ''}`} <small>pour ${s.travelers} · ${s.days} jours</small></h3>
+  const who = s.travelers > 1 ? `pour ${s.travelers}` : 'pour 1';
+  const country = d => `${C.countryInfo(d[1])?.flag || ''} ${C.esc(C.countryInfo(d[1])?.name || d[1])}`;
+  el.innerHTML = `<h3>${top3.length > 1 ? `Nos ${top3.length} meilleures idées` : 'Notre meilleure idée'} <small>${s.days} jours ${who}${s.fromName ? ' · depuis ' + C.esc(s.fromName) : ''}</small></h3>
+    <div class="disc-top">${top3.map((r, i) => {
+      const d = r.d, th = thumbs.get(d[9]);
+      return `<button class="dtop" data-i="${i}">
+        <span class="dtop-ph">${th ? `<img src="${C.esc(th)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}${i === 0 ? '<em class="w-badge">Coup de cœur</em>' : ''}
+          <span class="disc-score" style="--s:${Math.round(r.total * 100)}" title="Note sur 100 : météo, envies, budget">${Math.round(r.total * 100)}</span></span>
+        <span class="dtop-tx"><b>${C.esc(d[0])}</b><small>${country(d)}</small>
+          <span class="dtop-price">${priceRange(r)} <small>${who}, tout compris</small></span>
+          <span class="dtop-trip">${tripTxt(r)}</span>
+          <span class="dtop-why">${whyTxt(r, s)}</span></span></button>`;
+    }).join('')}</div>
+    ${s.fromName && !from ? `<div class="note warn">${I.warn}<span>Ville de départ « ${C.esc(s.fromName)} » introuvable : les prix ne comprennent pas le trajet aller-retour. Vérifie l’orthographe.</span></div>` : ''}
     ${budgetNote(s)}
-    <div class="list">${top.map((r, i) => {
-      const d = r.d, flag = C.countryInfo(d[1])?.flag || '', tags = Object.keys(PROFILE).filter(k => +d[6][PROFILE[k]] >= 5).slice(0, 3);
-      const th = thumbs.get(d[9]);
+    ${rest.length ? `<button class="btn grow disc-more-btn" id="dAll" aria-expanded="${showAll}">${showAll ? 'Masquer les autres idées' : `Voir ${rest.length} autres idées${results.length > 30 ? ` (sur ${results.length.toLocaleString('fr-FR')})` : ''}`}</button>` : ''}
+    <div class="list" ${showAll ? '' : 'hidden'}>${rest.map((r, k) => {
+      const d = r.d, th = thumbs.get(d[9]), i = k + 3;
       return `<button class="row disc-row" data-i="${i}">
-        ${th ? `<img class="th" src="${C.esc(th)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="th">${flag || '📍'}</span>`}
-        <span class="tx"><b>${C.esc(d[0])}</b><small>${flag} ${C.esc(C.countryInfo(d[1])?.name || d[1])} · ${weatherTxt(r.tx, r.mm)}</small>
-          <small class="disc-meta">${r.cost.ground ? '🚆' : '✈'} ${fmtH(r.cost.hours)} · ≈ ${fmtE(r.b === 1 ? r.cost.comfort : r.cost.eco)}${r.b < 1 ? ' (économique)' : ''}${tags.length ? ' · ' + tags.join(', ') : ''}</small></span>
+        ${th ? `<img class="th" src="${C.esc(th)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="th">${C.countryInfo(d[1])?.flag || '📍'}</span>`}
+        <span class="tx"><b>${C.esc(d[0])}</b><small>${country(d)} · ${weatherTxt(r.tx, r.mm)}</small>
+          <small class="disc-meta">${priceRange(r)} · ${r.cost.ground ? '🚆' : '✈'} ${fmtH(r.cost.hours)}</small></span>
         <span class="disc-score" style="--s:${Math.round(r.total * 100)}">${Math.round(r.total * 100)}</span></button>`;
     }).join('')}</div>
-    <p class="src">Climat : normales WorldClim 1970-2000 (températures maximales et pluie du mois). Coûts estimés selon le niveau des prix du pays et la distance, pas des prix réels. ${s.risky ? '' : 'Pays où les voyages sont déconseillés exclus (liste simplifiée : vérifie les <a href="https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/" target="_blank" rel="noopener">conseils aux voyageurs</a>).'}</p>`;
-  el.querySelectorAll('.disc-row').forEach(b => b.onclick = () => openResult(top[+b.dataset.i]));
+    <p class="src">Prix : estimation pour le groupe, du niveau économique au niveau confort, comprenant le trajet aller-retour (train, avion ou ferry), l’hébergement, les repas, les visites et les transports sur place ; selon le niveau des prix du pays et la distance, pas des prix réels.
+      Climat : normales WorldClim 1970-2000. ${s.risky ? '' : 'Pays où les voyages sont déconseillés exclus (liste simplifiée : vérifie les <a href="https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/" target="_blank" rel="noopener">conseils aux voyageurs</a>).'}</p>`;
+  el.querySelectorAll('.dtop, .disc-row').forEach(b => b.onclick = () => openResult(list[+b.dataset.i]));
+  el.querySelector('#dAll')?.addEventListener('click', () => { showAll = !showAll; render(); });
   el.querySelector('[data-budget]')?.addEventListener('click', e => setBudget(+e.currentTarget.dataset.budget));
-  loadThumbs(top);
+  loadThumbs(list);
 }
 async function loadThumbs(top) {
   const titles = top.map(r => r.d[9]).filter(t => t && !thumbs.has(t)).slice(0, 30);
   if (!titles.length) return;
   try {
-    const r = await C.getJSON('https://fr.wikipedia.org/w/api.php?format=json&formatversion=2&origin=*&redirects=1&action=query&prop=pageimages&piprop=thumbnail&pithumbsize=200&pilimit=50&titles=' + encodeURIComponent(titles.map(t => t.replace(/_/g, ' ')).join('|')));
+    const r = await C.getJSON('https://fr.wikipedia.org/w/api.php?format=json&formatversion=2&origin=*&redirects=1&action=query&prop=pageimages&piprop=thumbnail&pithumbsize=420&pilimit=50&titles=' + encodeURIComponent(titles.map(t => t.replace(/_/g, ' ')).join('|')));
     const alias = new Map();
     for (const x of [...(r.query?.normalized || []), ...(r.query?.redirects || [])]) alias.set(x.to, x.from);
     for (const p of r.query?.pages || []) {
@@ -265,6 +298,7 @@ async function loadThumbs(top) {
 }
 function openResult(r) {
   const d = r.d;
+  if (state) shareCriteria(state);
   C.explore(d[2], d[3], { hint: d[0], label: d[0], zoom: d[5] === 'ile' || d[5] === 'parc' ? 9.5 : 11, fromDiscover: true });
 }
 /* ------------------------------------------------------------------ accueil */
@@ -303,6 +337,14 @@ export async function seasonPicks(n = 4, prof = null) {
   const picks = withPhoto.concat(cand.filter(list => !list.some(r => photo.has(r.d[9]))).map(list => list[0])).slice(0, n);
   return { month: MOIS[month], picks: picks.map(r => ({ name: r.d[0], cc: r.d[1], lat: r.d[2], lon: r.d[3], kind: r.d[5], tx: r.tx, mm: r.mm, photo: photo.get(r.d[9]) || '',
     weather: weatherTxt(r.tx, r.mm) })) };
+}
+// Encadré de la fiche quand on vient d'une recherche : le même prix et le même trajet que dans la liste
+export function searchSummary(lat, lon) {
+  if (!results.length || !state) return '';
+  const r = results.find(x => C.haversine(lat, lon, x.d[2], x.d[3]) < 35); if (!r) return '';
+  const s = state;
+  return `<div class="note info search-sum">${I.wallet}<span><b>${priceRange(r)} pour ${s.travelers > 1 ? s.travelers + ' personnes' : '1 personne'}</b>, ${s.days} jours en ${MOIS[s.month]}${r.cost.hours ? ` · ${tripTxt(r)}` : ''}.
+    <small>${includes(r)}. ${r.b === 1 ? 'Dans ton budget.' : 'Dans ton budget en restant économique.'} L’itinéraire reprend ces critères.</small></span></div>`;
 }
 export function backToResults() { openDiscover(state || {}); }
 

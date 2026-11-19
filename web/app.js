@@ -243,7 +243,11 @@ function finishStyle(style, mode) {
     'sky-horizon-blend': 0.5, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.6,
     'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0]
   };
-  style.light = { anchor: 'viewport', color: '#ffffff', intensity: 0.32, position: [1.4, 200, 35] };   // toujours en plein jour
+  // Toujours en plein jour. MapLibre lit la position de la lumière à l'envers pour l'atmosphère et pour les bâtiments :
+  // vue de loin, le soleil est placé du côté de l'observateur (halo bleu régulier, pas de « face cachée éclairée ») ;
+  // de près, il repasse au-dessus pour éclairer le toit des bâtiments 3D. Le halo a disparu avant le basculement (zoom 7).
+  style.light = { anchor: 'viewport', color: '#ffffff', intensity: 0.32,
+    position: ['interpolate', ['linear'], ['zoom'], 6, ['literal', [1.4, 200, 160]], 8, ['literal', [1.4, 200, 35]]] };
 }
 
 /* ============================ Carte ============================ */

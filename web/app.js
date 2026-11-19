@@ -369,7 +369,7 @@ function placePoi(lat, lon) {
  * Un lieu : [nom, nom_fr, type, pays, région, lat, lon, population, article_wikipedia_fr, notoriété] */
 let countries = {}, meta = null;
 const loadLocal = Promise.all([
-  getJSON('data/countries.json').then(d => { countries = d; }),
+  getJSON('data/countries.json?v=4').then(d => { countries = d; }),
   getJSON('data/places-meta.json').then(d => { meta = d; })
 ]).catch(() => {});
 const cellCache = new Map();
@@ -1075,7 +1075,7 @@ addEventListener('keydown', e => {
 
 initTransit({ getJSON, LS, haversine });
 initDiscover({
-  getJSON, LS, esc, haversine, countryInfo, isTravelPhoto, geocodeCity, isMobile, setPanel,
+  getJSON, LS, esc, haversine, countryInfo, continentOf: cc => countries[(cc || '').toUpperCase()]?.ct, isTravelPhoto, geocodeCity, isMobile, setPanel,
   map: () => map, padding: panelPadding, explore: (lat, lon, o) => explore(lat, lon, o), route: h => setRoute(h),
 });
 initItinerary({

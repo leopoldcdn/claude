@@ -15,6 +15,8 @@ export function initDiscover(ctx) { C = ctx; }
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 const MOIS_C = ['Janv.', 'Févr.', 'Mars', 'Avril', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'];
 const ENVIES = [['plage', '🏖 Plage'], ['nature', '🌳 Nature'], ['montagne', '⛰ Montagne'], ['ski', '⛷ Ski'], ['culture', '🏛 Culture'], ['histoire', '🏺 Histoire'], ['villes', '🏙 Villes']];
+const ZONES = [['', 'Partout'], ['EU', 'Europe'], ['AF', 'Afrique'], ['AM', 'Amériques'], ['AS', 'Asie'], ['OC', 'Océanie']];
+const ZONE_NAME = { EU: 'Europe', AF: 'Afrique', AM: 'Amériques', AS: 'Asie', OC: 'Océanie' };
 const PROFILE = { plage: 0, nature: 1, montagne: 2, culture: 3, histoire: 4, villes: 5 };
 // Liste simplifiée des pays où les voyages sont déconseillés (conseils aux voyageurs du ministère français des Affaires
 // étrangères, à vérifier avant tout départ) : exclus par défaut, avec une option pour les inclure.
@@ -66,19 +68,37 @@ function score(d, s) {
   const total = (0.45 * w + 0.35 * e + 0.2 * b + 0.08 * fame) / 1.08;   // 0 à 1
   return { total, w, e, b, cost: c, tx, mm };
 }
-let cheapest = 0;
+let cheapest = 0, overBudget = {};
+const zoneOf = d => C.continentOf?.(d[1]) || '';
 function compute(s) {
   const out = [];
-  cheapest = Infinity;
+  cheapest = Infinity; overBudget = {};
   for (const d of data) {
     if (!s.risky && ADVISED_AGAINST.has(d[1])) continue;
+    if (s.zone && zoneOf(d) !== s.zone) continue;
     if (from && C.haversine(from.lat, from.lon, d[2], d[3]) < 40) continue;      // pas la ville de départ elle-même
     const r = score(d, s);
     if (r.w < 0.45 || (s.likes.length && r.e < 0.25)) continue;
-    if (r.b === 0) { cheapest = Math.min(cheapest, r.cost.eco); continue; }
+    if (r.b === 0) {
+      // trop cher : on retient, par continent, combien de lieux sont écartés et à partir de quel budget
+      cheapest = Math.min(cheapest, r.cost.eco);
+      const z = zoneOf(d); (overBudget[z] ||= []).push(r.cost.eco);
+      continue;
+    }
     out.push({ d, ...r });
   }
-  return out.sort((a, b) => b.total - a.total);
+  return diversify(out.sort((a, b) => b.total - a.total));
+}
+// La liste ne doit pas aligner Venise puis Chioggia à 25 km, ni dix villes du même pays : en tête de liste,
+// 3 lieux au plus par pays et 80 km au moins entre deux lieux ; les autres suivent, dans l'ordre de la note.
+function diversify(list, head = 30) {
+  const top = [], rest = [], perCountry = {};
+  for (const r of list) {
+    const ok = top.length < head && (perCountry[r.d[1]] || 0) < 3
+      && !top.some(t => C.haversine(t.d[2], t.d[3], r.d[2], r.d[3]) < 80);
+    if (ok) { top.push(r); perCountry[r.d[1]] = (perCountry[r.d[1]] || 0) + 1; } else rest.push(r);
+  }
+  return top.concat(rest);
 }
 
 /* ------------------------------------------------------------------ interface */
@@ -94,12 +114,13 @@ const weatherTxt = (tx, mm) => `${tx >= 26 ? '☀️' : tx >= 18 ? '🌤' : tx >
 export async function openDiscover(prefill = {}) {
   const saved = C.LS.get('esc.web.discover', {});
   const next = (new Date().getMonth() + 1) % 12;
-  state = { month: next, days: 7, travelers: 2, budget: 2000, fromName: C.LS.get('esc.web.plan', {}).from || 'Paris', likes: [], risky: false, ...saved, ...prefill };
+  state = { month: next, days: 7, travelers: 2, budget: 2000, fromName: C.LS.get('esc.web.plan', {}).from || 'Paris', likes: [], zone: '', risky: false, ...saved, ...prefill };
   C.setPanel(`
     <div class="hero short disc-hero"><div class="kicker">${I.calendar} Où partir ?</div><h2 id="dTitle">En ${MOIS[state.month]}</h2>
       <div class="sub">Choisis tes envies : le globe s’allume sur les destinations idéales.</div></div>
     <form class="planner" id="discForm" autocomplete="off">
       <div class="fld"><span>Mois de départ</span><div class="months-pick">${MOIS_C.map((m, i) => `<label class="chip"><input type="radio" name="month" value="${i}" ${i === state.month ? 'checked' : ''}><span>${m}</span></label>`).join('')}</div></div>
+      <div class="fld"><span>Où</span><div class="chips">${ZONES.map(([k, l]) => `<label class="chip"><input type="radio" name="zone" value="${k}" ${k === (state.zone || '') ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
       <div class="fld"><span>Envies</span><div class="chips">${ENVIES.map(([k, l]) => `<label class="chip"><input type="checkbox" name="likes" value="${k}" ${state.likes.includes(k) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
       <details class="disc-more"><summary><span id="dSum"></span><b>Modifier</b></summary><div class="disc-more-in">
       <div class="row2">
@@ -144,7 +165,7 @@ function readForm() {
   const f = document.getElementById('discForm'); if (!f) return null;
   const fd = new FormData(f);
   return { month: +fd.get('month'), days: +fd.get('days'), travelers: +fd.get('travelers'), budget: Math.max(200, +fd.get('budget') || 2000),
-    fromName: String(fd.get('from') || '').trim(), likes: fd.getAll('likes'), risky: !!fd.get('risky') };
+    fromName: String(fd.get('from') || '').trim(), likes: fd.getAll('likes'), zone: String(fd.get('zone') || ''), risky: !!fd.get('risky') };
 }
 function changed(delay = 250) { clearTimeout(timer); timer = setTimeout(update, delay); }
 async function update() {
@@ -162,22 +183,46 @@ async function update() {
   draw();
   C.route?.('partir=' + encodeState(s));
 }
-const encodeState = s => [s.month, s.days, s.travelers, s.budget, s.likes.join('+'), s.risky ? 1 : 0, encodeURIComponent(s.fromName)].join(',');
+const encodeState = s => [s.month, s.days, s.travelers, s.budget, s.likes.join('+'), s.risky ? 1 : 0, encodeURIComponent(s.fromName), s.zone || ''].join(',');
 export function decodeState(str) {
-  const [month, days, travelers, budget, likes, risky, fromName] = str.split(',');
-  return { month: +month, days: +days, travelers: +travelers, budget: +budget, likes: likes ? likes.split('+') : [], risky: risky === '1', fromName: decodeURIComponent(fromName || '') };
+  const [month, days, travelers, budget, likes, risky, fromName, zone] = str.split(',');
+  return { month: +month, days: +days, travelers: +travelers, budget: +budget, likes: likes ? likes.split('+') : [], risky: risky === '1', fromName: decodeURIComponent(fromName || ''),
+    zone: ZONE_NAME[zone] ? zone : '' };
 }
 
+// Les destinations lointaines écartées par le budget : on le dit, plutôt que de laisser croire qu'il n'y a rien ailleurs.
+function budgetNote(s) {
+  const zones = Object.entries(overBudget).filter(([z, c]) => z && c.length >= 3 && (s.zone || z !== (C.continentOf?.(from?.cc) || 'EU')))
+    .sort((a, b) => Math.min(...a[1]) - Math.min(...b[1]));
+  if (!zones.length) return '';
+  const costs = zones.flatMap(([, c]) => c), n = costs.length, need = unlock(costs);
+  const names = zones.map(([z]) => ZONE_NAME[z]).filter(Boolean);
+  const list = names.length > 1 ? names.slice(0, -1).join(', ') + ' et ' + names.at(-1) : names[0];
+  const who = s.travelers > 1 ? `pour ${s.travelers} personnes` : 'pour une personne';
+  return `<div class="note">${I.wallet}<span>${n.toLocaleString('fr-FR')} autres destinations (${list}) dépassent ton budget : les vols aller-retour ${who} pèsent lourd.
+    ${budgetBtn(need)}</span></div>`;
+}
+// budget qui ouvre une dizaine de destinations de plus (pas une seule)
+const unlock = costs => { const c = [...costs].sort((a, b) => a - b); return Math.ceil(c[Math.min(9, c.length - 1)] / 100) * 100; };
+const budgetBtn = v => `<button type="button" class="linkbtn" data-budget="${v}">Voir à partir de ${fmtE(v)}</button>`;
+function setBudget(v) {
+  const f = document.getElementById('discForm'); if (!f) return;
+  f.budget.value = v; const r = document.getElementById('dRange');
+  if (r) { r.value = clamp(v, 300, 10000); r.style.setProperty('--p', ((r.value - r.min) / (r.max - r.min) * 100) + '%'); }
+  changed(0);
+}
 function render() {
   const el = document.getElementById('dRes'); if (!el) return;
   const s = state, top = results.slice(0, 30);
   if (!top.length) {
     el.innerHTML = `<div class="empty">${I.calendar}<b>Aucune destination ne coche tout</b>${isFinite(cheapest)
-      ? `Avec ces envies en ${MOIS[s.month]}, compte au moins <b style="display:inline;font:inherit;color:var(--acc)">${fmtE(cheapest)}</b> pour ${s.travelers} (niveau économique). Augmente le budget ou change de mois.`
+      ? `Avec ces envies en ${MOIS[s.month]}${s.zone ? ' (' + ZONE_NAME[s.zone] + ')' : ''}, compte au moins <b style="display:inline;font:inherit;color:var(--acc)">${fmtE(cheapest)}</b> pour ${s.travelers} (niveau économique). ${budgetBtn(unlock(Object.values(overBudget).flat()))}`
       : 'Essaie un autre mois ou moins d’envies à la fois.'}</div>`;
+    el.querySelector('[data-budget]')?.addEventListener('click', e => setBudget(+e.currentTarget.dataset.budget));
     return;
   }
   el.innerHTML = `<h3>${results.length > 30 ? `Les 30 meilleures sur ${results.length.toLocaleString('fr-FR')}` : `${results.length} destination${results.length > 1 ? 's' : ''}`} <small>pour ${s.travelers} · ${s.days} jours</small></h3>
+    ${budgetNote(s)}
     <div class="list">${top.map((r, i) => {
       const d = r.d, flag = C.countryInfo(d[1])?.flag || '', tags = Object.keys(PROFILE).filter(k => +d[6][PROFILE[k]] >= 5).slice(0, 3);
       const th = thumbs.get(d[9]);
@@ -189,6 +234,7 @@ function render() {
     }).join('')}</div>
     <p class="src">Climat : normales WorldClim 1970-2000 (températures maximales et pluie du mois). Coûts estimés selon le niveau des prix du pays et la distance, pas des prix réels. ${s.risky ? '' : 'Pays où les voyages sont déconseillés exclus (liste simplifiée : vérifie les <a href="https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/" target="_blank" rel="noopener">conseils aux voyageurs</a>).'}</p>`;
   el.querySelectorAll('.disc-row').forEach(b => b.onclick = () => openResult(top[+b.dataset.i]));
+  el.querySelector('[data-budget]')?.addEventListener('click', e => setBudget(+e.currentTarget.dataset.budget));
   loadThumbs(top);
 }
 async function loadThumbs(top) {

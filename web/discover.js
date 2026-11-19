@@ -29,6 +29,14 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 /* ------------------------------------------------------------------ note */
 const tempComfort = tx => tx >= 22 && tx <= 30 ? 1 : (tx >= 17 && tx < 22) || (tx > 30 && tx <= 33) ? 0.6 : (tx >= 12 && tx < 17) || (tx > 33 && tx <= 36) ? 0.3 : 0;
 // cumul mensuel de pluie : sous 60 mm c'est sec, même sous les tropiques ; au-delà de 250 mm, saison des pluies
+// climat préféré du profil : chaleur, douceur ou fraîcheur (températures maximales du mois)
+const CLIMATE_BANDS = { chaud: [26, 34, 3], doux: [18, 26, 3], frais: [10, 21, 4] };
+function climateComfort(tx, pref) {
+  const [lo, hi, w] = CLIMATE_BANDS[pref];
+  const off = tx < lo ? lo - tx : tx > hi ? tx - hi : 0;
+  return off === 0 ? 1 : off <= w ? 0.6 : off <= 2 * w ? 0.3 : 0;
+}
+export const CLIMATE_LABEL = { chaud: 'tu aimes la chaleur', doux: 'tu aimes la douceur', frais: 'tu aimes la fraîcheur' };
 const rainComfort = mm => mm <= 60 ? 1 : mm <= 100 ? 0.8 : mm <= 160 ? 0.5 : mm <= 250 ? 0.25 : 0.05;
 const warmth = tx => tx >= 26 ? 1 : tx >= 23 ? 0.7 : tx >= 20 ? 0.35 : 0.05;
 
@@ -51,7 +59,8 @@ function score(d, s) {
   // ski : relief marqué et froid (températures maximales de la cellule, qui tiennent compte de l'altitude)
   const skiOk = p('montagne') >= 0.65 && tx <= 3;
   // à la plage, la chaleur est recherchée : 24 à 34 °C conviennent
-  const tc = s.likes.includes('plage') && !s.likes.some(k => k !== 'plage') ? (tx >= 24 && tx <= 34 ? 1 : tx >= 21 && tx <= 36 ? 0.6 : tempComfort(tx)) : tempComfort(tx);
+  const tc = s.likes.includes('plage') && !s.likes.some(k => k !== 'plage') ? (tx >= 24 && tx <= 34 ? 1 : tx >= 21 && tx <= 36 ? 0.6 : tempComfort(tx))
+    : CLIMATE_BANDS[s.climate] ? climateComfort(tx, s.climate) : tempComfort(tx);
   let w = 0.5 * tc + 0.5 * rainComfort(mm);
   if (ski) w = skiOk ? 0.9 : 0;
   const fame = Math.min(1, Math.log1p(d[4]) / Math.log(300));
@@ -165,7 +174,7 @@ function readForm() {
   const f = document.getElementById('discForm'); if (!f) return null;
   const fd = new FormData(f);
   return { month: +fd.get('month'), days: +fd.get('days'), travelers: +fd.get('travelers'), budget: Math.max(200, +fd.get('budget') || 2000),
-    fromName: String(fd.get('from') || '').trim(), likes: fd.getAll('likes'), zone: String(fd.get('zone') || ''), risky: !!fd.get('risky') };
+    fromName: String(fd.get('from') || '').trim(), likes: fd.getAll('likes'), zone: String(fd.get('zone') || ''), risky: !!fd.get('risky'), climate: state?.climate || '' };
 }
 function changed(delay = 250) { clearTimeout(timer); timer = setTimeout(update, delay); }
 async function update() {
@@ -173,7 +182,7 @@ async function update() {
   state = s;
   C.LS.set('esc.web.discover', s);
   document.getElementById('dTitle').textContent = `En ${MOIS[s.month]}`;
-  document.getElementById('dSum').textContent = `${s.days} jours · ${s.travelers} pers. · ${s.budget.toLocaleString('fr-FR')} €${s.fromName ? ' · depuis ' + s.fromName : ''}`;
+  document.getElementById('dSum').textContent = `${s.days} jours · ${s.travelers} pers. · ${s.budget.toLocaleString('fr-FR')} €${s.fromName ? ' · depuis ' + s.fromName : ''}${CLIMATE_LABEL[s.climate] ? ' · ' + CLIMATE_LABEL[s.climate] : ''}`;
   if (s.fromName && (!from || from.q !== s.fromName)) {
     const g = await C.geocodeCity(s.fromName).catch(() => null);
     from = g ? { ...g, q: s.fromName } : null;
@@ -261,15 +270,15 @@ function openResult(r) {
 /* ------------------------------------------------------------------ accueil */
 // Coups de cœur pour l'accueil : des lieux connus où il fera bon le mois prochain, un par continent (tirés au sort
 // parmi les meilleurs, pour que l'accueil change d'une visite à l'autre), avec une photo Wikipédia.
-export async function seasonPicks(n = 4) {
+export async function seasonPicks(n = 4, prof = null) {
   [data, prices] = await Promise.all([data || C.getJSON('data/destinations.json', { timeout: 30000 }), prices || C.getJSON('data/prices.json')]);
   const month = (new Date().getMonth() + 1) % 12;
-  const s = { month, days: 7, travelers: 2, budget: 1e9, likes: [], zone: '', risky: false };
+  const s = { month, days: 7, travelers: 2, budget: 1e9, likes: (prof?.likes || []).filter(k => PROFILE[k] !== undefined || k === 'ski'), zone: '', risky: false, climate: prof?.climate || '' };
   const byZone = {};
   for (const d of data) {
     if (ADVISED_AGAINST.has(d[1]) || d[4] < 120 || !d[9]) continue;
     const z = zoneOf(d); if (!z) continue;
-    const r = score(d, s); if (r.w < 0.85 || r.e < 0.5) continue;   // du soleil : 22 à 30 °C et peu de pluie
+    const r = score(d, s); if (r.w < 0.85 || r.e < 0.5) continue;   // un temps idéal (selon le climat aimé) et de quoi faire
     (byZone[z] ||= []).push({ d, ...r });
   }
   const shuffle = a => a.map(x => [Math.random(), x]).sort((a, b) => a[0] - b[0]).map(x => x[1]);

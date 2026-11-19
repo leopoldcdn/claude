@@ -7,6 +7,7 @@ import { initItinerary, openPlanner, clearTrip, redrawAfterStyle, replan, geocod
 import { initDiscover, seasonPicks, openDiscover, clearDiscover, redrawDiscover, discoverActive, backToResults, decodeState, hitDestination } from './discover.js';
 import { I } from './icons.js';
 import { initTransit } from './transit.js';
+import { initProfile, openProfile, getProfile, firstName, syncProfileButton } from './profile.js';
 const $ = s => document.querySelector(s);
 document.querySelectorAll('[data-i]').forEach(el => el.insertAdjacentHTML('afterbegin', I[el.dataset.i] || ''));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -305,25 +306,38 @@ async function initMap() {
   map.on('click', e => onMapClick(e));
 }
 /* ---- accueil : coups de cœur du mois et globe qui tourne doucement ---- */
-async function initWelcome() {
+function initWelcome() {
   const el = $('#welcome'); if (!el || LS.get('esc.web.welcomeOff', false)) return;
   el.hidden = false; el.classList.add('show');
   $('#wClose').onclick = () => {
     el.classList.remove('show'); LS.set('esc.web.welcomeOff', true); setTimeout(() => { el.hidden = true; }, 500);
   };
+  refreshWelcome();
+}
+// Contenu de l'accueil, refait quand le profil change : salutation, coups de cœur selon les envies et le climat aimé
+let welcomeReq = 0;
+async function refreshWelcome() {
+  const el = $('#welcome'); if (!el || el.hidden) return;
+  const prof = getProfile(), name = firstName(), req = ++welcomeReq;
+  $('#wTitle').innerHTML = name ? `Bonjour ${esc(name)},<br><em>on part où ?</em>` : 'Le monde entier, <em>à portée de clic.</em>';
+  $('#wSub').textContent = prof ? 'Voici des idées choisies selon tes envies, pour le mois prochain.' : 'Fais tourner le globe, clique où tu veux : photos, météo et idées d’itinéraire.';
+  $('#wProf').hidden = !!prof;
+  const cards = $('#wCards'); cards.hidden = false;
+  cards.innerHTML = '<i class="w-skel"></i>'.repeat(4);
   try {
-    const { month, picks } = await seasonPicks(4);
+    const { month, picks } = await seasonPicks(4, prof);
+    if (req !== welcomeReq) return;
     if (!picks.length) throw new Error('aucun');
-    $('#wKicker').textContent = `Coups de cœur ${/^[aeiou]/i.test(month) ? 'd’' : 'de '}${month}`;   // d’août, de juillet
-    $('#wCards').innerHTML = picks.map((p, i) => `<button class="w-card" data-i="${i}" title="Découvrir ${esc(p.name)}">
+    $('#wKicker').textContent = prof ? `Pour toi en ${month}` : `Coups de cœur ${/^[aeiou]/i.test(month) ? 'd’' : 'de '}${month}`;   // d’août, de juillet
+    cards.innerHTML = picks.map((p, i) => `<button class="w-card" data-i="${i}" title="Découvrir ${esc(p.name)}">
       ${p.photo ? `<img src="${esc(p.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}
       ${i === 0 ? '<em class="w-badge">Coup de cœur</em>' : ''}
       <span><b>${esc(p.name)}</b><small>${countryInfo(p.cc)?.flag || ''} ${esc(countryInfo(p.cc)?.name || p.cc)} · ${esc(p.weather.split(' · ')[0])}</small></span></button>`).join('');
-    $('#wCards').querySelectorAll('.w-card').forEach(b => b.onclick = () => {
+    cards.querySelectorAll('.w-card').forEach(b => b.onclick = () => {
       const p = picks[+b.dataset.i];
       explore(p.lat, p.lon, { hint: p.name, label: p.name, zoom: p.kind === 'ile' || p.kind === 'parc' ? 9.5 : 11 });
     });
-  } catch { $('#wCards').remove(); }
+  } catch { if (req === welcomeReq) cards.hidden = true; }
 }
 function autoSpin() {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches || location.hash.length > 1) return;
@@ -1125,6 +1139,10 @@ addEventListener('keydown', e => {
 });
 
 initTransit({ getJSON, LS, haversine });
+initProfile({ LS, esc, setPanel, toast, closePanel: () => closePanel(), onChange: () => refreshWelcome() });
+syncProfileButton();
+$('#bProfile').onclick = () => openProfile();
+$('#wProf').onclick = () => openProfile();
 initDiscover({
   getJSON, LS, esc, haversine, countryInfo, continentOf: cc => countries[(cc || '').toUpperCase()]?.ct, isTravelPhoto, geocodeCity, isMobile, setPanel,
   map: () => map, padding: panelPadding, explore: (lat, lon, o) => explore(lat, lon, o), route: h => setRoute(h),

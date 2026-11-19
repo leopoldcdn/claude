@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.1/dist/maplibre-gl.css">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 <main id="app">
@@ -57,6 +57,13 @@
 </div>
 
 <div class="infochip glass" id="info" role="status" aria-label="Position sous la souris"><span id="rCoords">—</span><span class="dot"></span><span id="rAlt">—</span></div>
+<section class="welcome glass" id="welcome" aria-labelledby="wTitle" hidden>
+  <button class="w-close" id="wClose" aria-label="Masquer l’accueil" data-i="close"></button>
+  <div class="w-kicker" id="wKicker">Bienvenue à bord</div>
+  <p class="w-title" id="wTitle">Le monde entier, <em>à portée de clic.</em></p>
+  <p class="w-sub">Fais tourner le globe, clique où tu veux : photos, météo et idées d’itinéraire.</p>
+  <div class="w-cards" id="wCards"><i class="w-skel"></i><i class="w-skel"></i><i class="w-skel"></i><i class="w-skel"></i></div>
+</section>
 <div class="hint glass" id="hint"><span data-i="pin"></span>Clique sur le globe pour découvrir un lieu, ou demande « Où partir ? »</div>
 <div class="hoverlabel" id="rPlace"></div>
 
@@ -80,7 +87,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.1/dist/maplibre-gl.js"></script>
 <!-- numéro de version (v) : à augmenter à chaque mise à jour, pour que le navigateur recharge les fichiers -->
-<script type="importmap">{"imports":{"./app.js":"./app.js?v=4","./sun.js":"./sun.js?v=4","./itinerary.js":"./itinerary.js?v=4","./discover.js":"./discover.js?v=4","./icons.js":"./icons.js?v=4","./transit.js":"./transit.js?v=4","./tour.js":"./tour.js?v=4","./land.js":"./land.js?v=4"}}</script>
+<script type="importmap">{"imports":{"./app.js":"./app.js?v=5","./sun.js":"./sun.js?v=5","./itinerary.js":"./itinerary.js?v=5","./discover.js":"./discover.js?v=5","./icons.js":"./icons.js?v=5","./transit.js":"./transit.js?v=5","./tour.js":"./tour.js?v=5","./land.js":"./land.js?v=5"}}</script>
 <script type="module">import "./app.js";</script>
 </body>
 </html>

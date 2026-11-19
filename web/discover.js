@@ -258,6 +258,43 @@ function openResult(r) {
   const d = r.d;
   C.explore(d[2], d[3], { hint: d[0], label: d[0], zoom: d[5] === 'ile' || d[5] === 'parc' ? 9.5 : 11, fromDiscover: true });
 }
+/* ------------------------------------------------------------------ accueil */
+// Coups de cœur pour l'accueil : des lieux connus où il fera bon le mois prochain, un par continent (tirés au sort
+// parmi les meilleurs, pour que l'accueil change d'une visite à l'autre), avec une photo Wikipédia.
+export async function seasonPicks(n = 4) {
+  [data, prices] = await Promise.all([data || C.getJSON('data/destinations.json', { timeout: 30000 }), prices || C.getJSON('data/prices.json')]);
+  const month = (new Date().getMonth() + 1) % 12;
+  const s = { month, days: 7, travelers: 2, budget: 1e9, likes: [], zone: '', risky: false };
+  const byZone = {};
+  for (const d of data) {
+    if (ADVISED_AGAINST.has(d[1]) || d[4] < 120 || !d[9]) continue;
+    const z = zoneOf(d); if (!z) continue;
+    const r = score(d, s); if (r.w < 0.85 || r.e < 0.5) continue;   // du soleil : 22 à 30 °C et peu de pluie
+    (byZone[z] ||= []).push({ d, ...r });
+  }
+  const shuffle = a => a.map(x => [Math.random(), x]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+  // cinq candidats par continent (les plus connus parmi les mieux notés), pour en garder un qui a une vraie photo
+  const fameOf = r => Math.min(1, Math.log1p(r.d[4]) / Math.log(300));
+  const cand = shuffle(Object.keys(byZone)).map(z => shuffle(byZone[z].sort((a, b) => (b.total + 0.3 * fameOf(b)) - (a.total + 0.3 * fameOf(a))).slice(0, 12)).slice(0, 5));
+  const titles = cand.flat().map(r => r.d[9]);
+  const photo = new Map();
+  try {
+    const r = await C.getJSON('https://fr.wikipedia.org/w/api.php?format=json&formatversion=2&origin=*&redirects=1&action=query&prop=pageimages&piprop=thumbnail&pithumbsize=480&pilimit=50&titles='
+      + encodeURIComponent(titles.map(t => t.replace(/_/g, ' ')).join('|')), { timeout: 12000 });
+    const alias = new Map();
+    for (const x of [...(r.query?.normalized || []), ...(r.query?.redirects || [])]) alias.set(x.to, x.from);
+    for (const p of r.query?.pages || []) {
+      if (!p.thumbnail || !C.isTravelPhoto(p.thumbnail.source)) continue;
+      let k = p.title; photo.set(k.replace(/ /g, '_'), p.thumbnail.source);
+      for (let i = 0; i < 3 && alias.has(k); i++) { k = alias.get(k); photo.set(k.replace(/ /g, '_'), p.thumbnail.source); }
+    }
+  } catch {}
+  // d'abord les continents dont un lieu a une photo, puis les autres s'il en manque
+  const withPhoto = cand.map(list => list.find(r => photo.has(r.d[9]))).filter(Boolean);
+  const picks = withPhoto.concat(cand.filter(list => !list.some(r => photo.has(r.d[9]))).map(list => list[0])).slice(0, n);
+  return { month: MOIS[month], picks: picks.map(r => ({ name: r.d[0], cc: r.d[1], lat: r.d[2], lon: r.d[3], kind: r.d[5], tx: r.tx, mm: r.mm, photo: photo.get(r.d[9]) || '',
+    weather: weatherTxt(r.tx, r.mm) })) };
+}
 export function backToResults() { openDiscover(state || {}); }
 
 /* ------------------------------------------------------------------ globe */
@@ -272,7 +309,7 @@ export function draw() {
   if (map.getSource(SRC)) { map.getSource(SRC).setData(data); return; }
   map.addSource(SRC, { type: 'geojson', data });
   const before = map.getStyle().layers.find(l => l.type === 'symbol')?.id;
-  const color = ['interpolate', ['linear'], ['get', 's'], 55, '#ffb547', 75, '#ffd166', 90, '#5fdba7'];
+  const color = ['interpolate', ['linear'], ['get', 's'], 55, '#f7d48f', 75, '#F3BE58', 92, '#AD452D'];   // safran, puis terre cuite pour les meilleures
   map.addLayer({ id: 'disc-glow', type: 'circle', source: SRC, paint: { 'circle-color': color, 'circle-blur': 1,
     'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, ['+', 6, ['*', ['get', 'top'], 8]], 6, ['+', 16, ['*', ['get', 'top'], 14]]], 'circle-opacity': 0.55 } }, before);
   map.addLayer({ id: 'disc-dot', type: 'circle', source: SRC, paint: { 'circle-color': color, 'circle-stroke-color': '#fff', 'circle-stroke-width': ['case', ['==', ['get', 'top'], 1], 2, 1],

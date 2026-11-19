@@ -4,7 +4,7 @@
  */
 import { registerProtocol, setCartoonBase } from './sun.js';
 import { initItinerary, openPlanner, clearTrip, redrawAfterStyle, replan, geocodeCity } from './itinerary.js';
-import { initDiscover, openDiscover, clearDiscover, redrawDiscover, discoverActive, backToResults, decodeState, hitDestination } from './discover.js';
+import { initDiscover, seasonPicks, openDiscover, clearDiscover, redrawDiscover, discoverActive, backToResults, decodeState, hitDestination } from './discover.js';
 import { I } from './icons.js';
 import { initTransit } from './transit.js';
 const $ = s => document.querySelector(s);
@@ -87,7 +87,7 @@ const LABEL_MINZOOM = { label_village: 11.5, label_other: 13, poi_r1: 15.5, poi_
 function realisticLayer(l) {
   const id = l.id;
   if (/^(natural_earth|road_area_pattern|park_outline|road_one_way)/.test(id)) return null;
-  if (id === 'background') { l.paint = { 'background-color': byZoom('#0b1622', PLAN.background) }; return l; }   // sombre tant que le satellite charge
+  if (id === 'background') { l.paint = { 'background-color': byZoom('#1d4f6b', PLAN.background) }; return l; }   // bleu océan tant que le satellite charge
   // surfaces du plan, qui apparaissent en zoomant
   const fill = { water: PLAN.water, park: PLAN.park, landcover_wood: PLAN.wood, landcover_grass: PLAN.grass, landcover_sand: PLAN.sand,
     landcover_ice: PLAN.ice, landcover_wetland: PLAN.grass, landuse_residential: PLAN.residential, landuse_pitch: PLAN.pitch, landuse_track: PLAN.pitch,
@@ -277,6 +277,7 @@ async function initMap() {
   map.once('style.load', () => setTimeout(reveal, 400));   // sans attendre toutes les images de la carte
   map.on('load', () => {
     reveal();
+    initWelcome(); autoSpin();
     if (!storageOk) setTimeout(() => toast('Stockage du navigateur désactivé : tes favoris ne seront pas conservés'), 1500);
     openFromHash(true);
 
@@ -291,11 +292,57 @@ async function initMap() {
   map.on('mouseout', () => $('#rPlace').classList.remove('show'));
   map.on('pitchend', () => $('#b3d').classList.toggle('on', map.getPitch() > 10));
   map.on('move', updateReadout);
+  map.on('zoom', () => document.body.classList.toggle('zoomed', map.getZoom() > 3.2));
   map.on('moveend', () => {
     const c = map.getCenter();
     $('#rCoords').textContent = fmtLL(c.lat, c.lng);
   });
   map.on('click', e => onMapClick(e));
+}
+/* ---- accueil : coups de cœur du mois et globe qui tourne doucement ---- */
+// le globe se décale pour ne pas passer sous l'accueil (à droite sur ordinateur, vers le haut sur téléphone)
+function welcomePadding() {
+  const el = $('#welcome'), none = { top: 0, bottom: 0, left: 0, right: 0 };
+  if (!el || el.hidden || !el.classList.contains('show') || getComputedStyle(el).display === 'none') return none;
+  const r = el.getBoundingClientRect();
+  return isMobile() ? { ...none, bottom: Math.round(innerHeight - r.top) } : { ...none, left: Math.round(r.right) };
+}
+async function initWelcome() {
+  const el = $('#welcome'); if (!el || LS.get('esc.web.welcomeOff', false)) return;
+  el.hidden = false; el.classList.add('show');
+  if (!location.hash.slice(1)) map.easeTo({ padding: welcomePadding(), duration: 900 });
+  $('#wClose').onclick = () => {
+    el.classList.remove('show'); LS.set('esc.web.welcomeOff', true); setTimeout(() => { el.hidden = true; }, 500);
+    if (!document.body.classList.contains('panel-open')) map.easeTo({ padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 700 });
+  };
+  try {
+    const { month, picks } = await seasonPicks(4);
+    if (!picks.length) throw new Error('aucun');
+    $('#wKicker').textContent = `Coups de cœur ${/^[aeiou]/i.test(month) ? 'd’' : 'de '}${month}`;   // d’août, de juillet
+    $('#wCards').innerHTML = picks.map((p, i) => `<button class="w-card" data-i="${i}" title="Découvrir ${esc(p.name)}">
+      ${p.photo ? `<img src="${esc(p.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}
+      ${i === 0 ? '<em class="w-badge">Coup de cœur</em>' : ''}
+      <span><b>${esc(p.name)}</b><small>${countryInfo(p.cc)?.flag || ''} ${esc(countryInfo(p.cc)?.name || p.cc)} · ${esc(p.weather.split(' · ')[0])}</small></span></button>`).join('');
+    $('#wCards').querySelectorAll('.w-card').forEach(b => b.onclick = () => {
+      const p = picks[+b.dataset.i];
+      explore(p.lat, p.lon, { hint: p.name, label: p.name, zoom: p.kind === 'ile' || p.kind === 'parc' ? 9.5 : 11 });
+    });
+  } catch { $('#wCards').remove(); }
+}
+function autoSpin() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || location.hash.length > 1) return;
+  let on = true, last = 0;
+  const stop = () => { on = false; };
+  const box = map.getCanvasContainer();
+  for (const ev of ['mousedown', 'touchstart', 'wheel']) box.addEventListener(ev, stop, { once: true, passive: true });
+  window.addEventListener('keydown', stop, { once: true });
+  const step = t => {
+    if (!on || document.body.classList.contains('panel-open')) return;
+    // un tour en quatre minutes environ, d'ouest en est comme la vraie Terre
+    if (last && map.getZoom() < 3 && !map.isMoving()) { const c = map.getCenter(); map.setCenter([c.lng - (t - last) * 0.0015, c.lat]); }
+    last = t; requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 function altitudeKm() {
   const c = map.getCenter();
@@ -369,7 +416,7 @@ function placePoi(lat, lon) {
  * Un lieu : [nom, nom_fr, type, pays, région, lat, lon, population, article_wikipedia_fr, notoriété] */
 let countries = {}, meta = null;
 const loadLocal = Promise.all([
-  getJSON('data/countries.json?v=4').then(d => { countries = d; }),
+  getJSON('data/countries.json?v=5').then(d => { countries = d; }),
   getJSON('data/places-meta.json').then(d => { meta = d; })
 ]).catch(() => {});
 const cellCache = new Map();
@@ -812,7 +859,7 @@ function renderPanel() {
       <div class="sec"><h3>Quand partir</h3>
         ${clim ? `<div class="card">
           <div class="months">${clim.score.map((sc, i) => `<div class="${i === m ? 'now' : ''}"><i class="s${sc}" title="${MOIS_L[i]}"></i>${MOIS[i]}</div>`).join('')}</div>
-          <div class="legend"><span><i style="background:var(--ok)"></i>Idéal</span><span><i style="background:rgba(255,181,71,.55)"></i>Correct</span><span><i style="background:rgba(255,255,255,.12)"></i>Moins bien</span></div>
+          <div class="legend"><span><i style="background:#5cb89c"></i>Idéal</span><span><i style="background:var(--saffron)"></i>Correct</span><span><i style="background:rgba(18,59,74,.1)"></i>Moins bien</span></div>
           <p class="best">${esc(best)}</p>
           <details class="more-clim"><summary>Températures, pluie et soleil mois par mois</summary>
             <table class="clim"><tr><td class="l"></td>${MOIS.map(x => `<th>${x}</th>`).join('')}</tr>
@@ -1063,7 +1110,7 @@ $('#bStyle').onclick = async () => {
   map.once('style.load', () => { if (relief) map.setTerrain({ source: 'dem3d', exaggeration: 1.4 }); redrawAfterStyle(); redrawDiscover(); });
 };
 syncButtons();
-$('#bGlobe').onclick = () => { closePanel(); map.flyTo({ center: map.getCenter(), zoom: isMobile() ? 1.0 : 2.0, pitch: 0, bearing: 0, duration: 2600, padding: { top: 0, bottom: 0, left: 0, right: 0 } }); };
+$('#bGlobe').onclick = () => { closePanel(); map.flyTo({ center: map.getCenter(), zoom: isMobile() ? 1.0 : 2.0, pitch: 0, bearing: 0, duration: 2600, padding: welcomePadding() }); };
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
   if (e.key === 'Escape') { if ($('#viewer').classList.contains('open')) $('#viewer').classList.remove('open'); else if ($('#favs').classList.contains('open')) closeFavs(); else closePanel(); }

@@ -6,6 +6,7 @@ import { registerProtocol, setCartoonBase, phase } from './sun.js';
 import { initItinerary, openPlanner, clearTrip, redrawAfterStyle, replan, geocodeCity } from './itinerary.js';
 import { initDiscover, openDiscover, clearDiscover, redrawDiscover, discoverActive, backToResults, decodeState, hitDestination } from './discover.js';
 import { I } from './icons.js';
+import { initTransit } from './transit.js';
 const $ = s => document.querySelector(s);
 document.querySelectorAll('[data-i]').forEach(el => el.insertAdjacentHTML('afterbegin', I[el.dataset.i] || ''));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -275,7 +276,7 @@ async function initMap() {
   map = new maplibregl.Map({
     container: 'map', style,
     center: [homeLon, 30], zoom: isMobile() ? 1.0 : 2.0, pitch: 0, maxPitch: 78,
-    attributionControl: { compact: true, customAttribution: 'Lieux <a href="https://www.geonames.org/">GeoNames</a> (CC BY 4.0) et <a href="https://www.wikidata.org/">Wikidata</a> · Recherche <a href="https://photon.komoot.io/">Photon</a> · Trajets <a href="https://project-osrm.org/">OSRM</a> · Météo <a href="https://open-meteo.com/">Open-Meteo</a> et <a href="https://www.worldclim.org/">WorldClim</a> · Textes et photos Wikipédia, Wikivoyage, Wikimedia Commons (CC BY-SA)' },
+    attributionControl: { compact: true, customAttribution: 'Lieux <a href="https://www.geonames.org/">GeoNames</a> (CC BY 4.0) et <a href="https://www.wikidata.org/">Wikidata</a> · Recherche <a href="https://photon.komoot.io/">Photon</a> · Trajets <a href="https://project-osrm.org/">OSRM</a>, trains et bus <a href="https://transitous.org/sources/">Transitous</a>, vols <a href="https://openflights.org/data">OpenFlights</a> (ODbL) et <a href="https://ourairports.com/">OurAirports</a> · Météo <a href="https://open-meteo.com/">Open-Meteo</a> et <a href="https://www.worldclim.org/">WorldClim</a> · Textes et photos Wikipédia, Wikivoyage, Wikimedia Commons (CC BY-SA)' },
     canvasContextAttributes: { antialias: true }
   });
   window.escapadeMap = map;   // accès pratique depuis la console du navigateur
@@ -1132,6 +1133,7 @@ addEventListener('keydown', e => {
   if (e.key === '/') { e.preventDefault(); q.focus(); }
 });
 
+initTransit({ getJSON, LS, haversine });
 initDiscover({
   getJSON, LS, esc, haversine, countryInfo, isTravelPhoto, geocodeCity, isMobile, setPanel,
   map: () => map, padding: panelPadding, explore: (lat, lon, o) => explore(lat, lon, o), route: h => setRoute(h),

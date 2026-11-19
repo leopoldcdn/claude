@@ -574,3 +574,16 @@ body.panel-open .cta{left:calc((100vw - var(--panel-w) - 24px) / 2)}
 .disc-more summary b{flex:none;font:600 13px var(--sans);color:var(--acc)}
 .disc-more[open] summary b{visibility:hidden}
 .disc-more-in{display:flex;flex-direction:column;gap:16px;padding:4px 14px 14px}
+
+/* trajets réels (train, bus, avion) */
+.legs{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.leg,.card.access{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px var(--line-soft)}
+.leg.est{opacity:.85}
+.leg-h{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-bottom:4px}
+.leg-h b{font:600 14px var(--sans)}
+.leg-h span{font:600 13px var(--sans);color:var(--acc);white-space:nowrap;font-variant-numeric:tabular-nums}
+.leg-l{display:flex;gap:10px;padding:4px 0;font-size:14px;line-height:1.35}
+.leg-l .ic{width:22px;text-align:center;flex:none}
+.leg-l small{display:block;color:var(--mut);font-size:12px}
+.leg-l span small:first-child{display:inline;margin-left:4px}
+.card.access .src{margin:8px 0 0!important}

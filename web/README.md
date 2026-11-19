@@ -33,6 +33,9 @@ Puis ouvrir http://localhost:8000.
 | Climat par mois, météo du moment | [Open-Meteo](https://open-meteo.com/) |
 | Climat mois par mois (« Où partir ? ») | [WorldClim 2.1](https://www.worldclim.org/), normales 1970-2000 (CC BY 4.0) |
 | Terres et mers (itinéraires) | [Natural Earth](https://www.naturalearthdata.com/) 1:10m, domaine public |
+| Trains, cars et bus (horaires réels, tracés) | [Transitous](https://transitous.org/sources/) — service bénévole : réservé aux projets libres et non commerciaux, usage léger |
+| Aéroports | [OurAirports](https://ourairports.com/data/) (domaine public) |
+| Liaisons aériennes directes et compagnies | [OpenFlights](https://openflights.org/data) (ODbL) — données de 2014, à vérifier |
 | Temps de route des itinéraires | [OSRM](https://project-osrm.org/) (OpenStreetMap) |
 | Niveau des prix par pays (budget) | Banque mondiale, PPA / taux de change (CC BY 4.0) — `tools/build_prices.py` |
 | Monnaie, langue, capitale | paquet npm `world-countries` |
@@ -42,6 +45,7 @@ Puis ouvrir http://localhost:8000.
 
 - `index.html`, `style.css`, `app.js` : l'application (interface « verre » translucide au-dessus du globe)
 - `icons.js` : icônes au trait de l'interface
+- `transit.js` : vrais trajets en train, car et bus (Transitous) et en avion (aéroports et liaisons directes)
 - `discover.js` : « Où partir ? » — note de chaque destination selon le mois, les envies et le budget, et globe allumé
 - `tour.js` : survol animé d'un itinéraire, avec une bande de photos de chaque étape
 - `itinerary.js` : générateur d'itinéraire (étapes, ordre, programme jour par jour, budget)
@@ -50,6 +54,7 @@ Puis ouvrir http://localhost:8000.
 - `data/` : base de lieux (villes, villages, sites — GeoNames + Wikidata) et infos pays
 - `tiles/cartoon/` : globe cartoon en tuiles (zooms 0 à 4)
 - `tools/build_data.py` : régénère `data/countries.json` et `tiles/`
+- `tools/build_flights.py` : régénère `data/flights.json` (aéroports OurAirports, liaisons OpenFlights)
 - `tools/build_destinations.py` : régénère `data/destinations.json` (≈ 5 200 destinations, climat mois par mois)
 - `tools/build_landmask.py` : régénère `data/land.bin` à partir de Natural Earth 1:10m
 - `tools/build_glyphs.mjs` : polices de la carte (Inter, Fraunces)

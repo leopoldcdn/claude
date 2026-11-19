@@ -35,6 +35,7 @@ export const I = {
   plus: svg('<path d="M12 5v14M5 12h14"/>'),
   car: svg('<path d="M5 16.5V12l2-5h10l2 5v4.5"/><path d="M3.5 16.5h17v2h-17z"/><circle cx="7.5" cy="14" r=".6" fill="currentColor"/><circle cx="16.5" cy="14" r=".6" fill="currentColor"/>'),
   train: svg('<rect x="6" y="3" width="12" height="14" rx="3"/><path d="M6 10h12M9 20l-1.5 1.5M15 20l1.5 1.5M9 14h.01M15 14h.01"/>'),
+  bus: svg('<rect x="4" y="3.5" width="16" height="14" rx="3"/><path d="M4 10.5h16M7.5 20.5v-3M16.5 20.5v-3M8 14h.01M16 14h.01"/>'),
   info: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/>'),
   image: svg('<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="9.5" r="1.6"/><path d="m4 17 5-4.5 3.5 3 3-2.5 4.5 4"/>'),
   star: svg('<path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.8L12 3.5z"/>'),

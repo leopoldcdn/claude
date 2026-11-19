@@ -15,6 +15,7 @@
 import { I } from './icons.js';
 import { startTour, stopTour } from './tour.js';
 import { loadLand, sameLand, landReady } from './land.js';
+import { transitPlan, flightPlan, describe, describeFlight, fmtDur, MODE_INFO } from './transit.js';
 
 let C = null;          // contexte fourni par app.js
 export function initItinerary(ctx) { C = ctx; }
@@ -227,7 +228,7 @@ export async function planTrip(o, signal) {
   let carLegs = straight, geometry = { type: 'LineString', coordinates: pts.map(p => [p.lon, p.lat]) }, routed = false;
   if (pts.length > 1) {
     try { const r = await osrm(pts, signal); carLegs = r.legs; geometry = r.geometry; routed = true; }
-    catch { warnings.push('Temps de trajet estimés : le service de calcul d’itinéraire routier n’a pas répondu.'); }
+    catch { if (o.mode === 'car') warnings.push('Temps de trajet estimés : le service de calcul d’itinéraire routier n’a pas répondu.'); }
   }
   const fastRail = RAIL.has(cc);
   const transitLegs = carLegs.map(l => ({ km: l.km, h: fastRail ? l.km / 115 + 0.5 : l.km / 55 + 0.75 }));
@@ -249,8 +250,22 @@ export async function planTrip(o, signal) {
     else if (railOk && (o.travelers <= 2 || transitCost <= carCost)) { mode = 'transit'; modeReason = `Bon réseau de trains dans ce pays et trajets courts : les transports en commun sont plus reposants${transitCost < carCost ? ' et moins chers' : ''}.`; }
     else { mode = 'car'; modeReason = !RAIL.has(cc) ? 'Les transports en commun sont peu pratiques pour relier ces étapes : la voiture offre plus de liberté.' : `À ${o.travelers}, la voiture revient moins cher que le train.`; }
   }
-  const legs = mode === 'car' ? carLegs : transitLegs;
-  const localTransport = mode === 'car' ? carCost : transitCost;
+  // trains, cars et bus réels entre les étapes (horaires des opérateurs via Transitous) ; à défaut, temps estimé
+  let legs = mode === 'car' ? carLegs : mode === 'bus' ? carLegs.map(l => ({ km: l.km, h: l.km / 65 + 0.5 })) : transitLegs;
+  let routeFC = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: { k: mode === 'car' ? 'car' : 'est' }, geometry }] };
+  if (mode !== 'car' && pts.length > 1) {
+    const plans = await Promise.all(pts.slice(1).map((p, i) => transitPlan(pts[i], p, { signal, busOnly: mode === 'bus' }).catch(e => { if (e.name === 'AbortError') throw e; })));
+    legs = legs.map((l, i) => plans[i] ? { km: plans[i].km || l.km, h: plans[i].h, plan: plans[i] } : { ...l, estimated: true, unknown: plans[i] === undefined });
+    routeFC = { type: 'FeatureCollection', features: legs.map((l, i) => ({ type: 'Feature',
+      properties: { k: l.plan ? (l.plan.rail ? 'rail' : 'bus') : 'est' },
+      geometry: { type: 'LineString', coordinates: l.plan ? l.plan.coords : [[pts[i].lon, pts[i].lat], [pts[i + 1].lon, pts[i + 1].lat]] } })) };
+    const est = legs.filter(l => l.estimated);
+    if (est.length) warnings.push(est.every(l => l.unknown)
+      ? 'Le service d’horaires (Transitous) n’a pas répondu : durées de trajet estimées.'
+      : `Pas d’horaires connus pour ${est.length === legs.length ? 'ces trajets' : est.length + ' trajet' + (est.length > 1 ? 's' : '')} dans la base Transitous : durées estimées, à vérifier auprès des compagnies locales.`);
+  }
+  const busCost = o.travelers * (totalKm * 0.06 * eff2 + o.days * 4 * eff);    // le car longue distance coûte environ moitié moins que le train
+  const localTransport = mode === 'car' ? carCost : mode === 'bus' ? busCost : transitCost;
 
   let from = null, flight = null;
   if (o.from) {
@@ -263,6 +278,18 @@ export async function planTrip(o, signal) {
     flight = flightCost((dOut + dBack) / 2, o.month, byLand && RAIL.has(cc) && RAIL.has(o.fromCc || cc));
     if (!byLand && flight.kind === 'sol') flight = { kind: 'avion', perPerson: Math.round(2 * (90 + 0.1 * dOut)), label: 'avion ou ferry, aller-retour' };
     flight.km = Math.round(dOut);
+  }
+  // comment rejoindre la première étape depuis la ville de départ : vol réel (liaisons connues) ou train / car réel
+  let access = null;
+  if (from) {
+    if (flight.kind === 'avion') {
+      const plan = await flightPlan(from, start).catch(() => null);
+      access = { type: 'flight', plan };
+      if (plan) { flight.label = plan.stops ? 'avion avec escale, aller-retour' : 'vol direct, aller-retour'; }
+    } else {
+      const plan = await transitPlan(from, start, { signal }).catch(e => { if (e.name === 'AbortError') throw e; });
+      access = { type: 'ground', plan };
+    }
   }
   const travelCost = flight ? flight.perPerson * o.travelers : 0;
   const tiers = TIERS.map(t => {
@@ -319,7 +346,7 @@ export async function planTrip(o, signal) {
     for (let k = 0; k < s.nights; k++) {
       const items = [];
       if (k === 0) {
-        if (i === 0) items.push({ icon: flight?.kind === 'avion' ? '✈️' : '🚆', text: from ? `Arrivée depuis ${from.name} (${flight.label}, ${flight.km.toLocaleString('fr-FR')} km)` : `Arrivée à ${s.name}` });
+        if (i === 0) items.push(accessItem(access, from, flight, s.name));
         else items.push(legItem(legs[i - 1], mode, stops[i - 1].name, s.name));
       }
       if (k === 0 || dayN === 1) items.push({ icon: '🚶', text: `Découverte de ${s.name}`, lat: s.lat, lon: s.lon });
@@ -332,12 +359,13 @@ export async function planTrip(o, signal) {
   });
   const lastDay = { n: dayN, stop: stops.length - 1, title: o.shape === 'oneway' || stops.length === 1 ? stops[stops.length - 1].name : `Retour à ${start.name}`, items: [] };
   if (o.shape !== 'oneway' && stops.length > 1) lastDay.items.push(legItem(legs[legs.length - 1], mode, stops[stops.length - 1].name, start.name));
-  lastDay.items.push({ icon: flight?.kind === 'avion' ? '✈️' : '🏠', text: from ? `Retour vers ${from.name}` : 'Fin du voyage' });
+  lastDay.items.push({ icon: flight?.kind === 'avion' ? '✈️' : access?.plan ? '🚆' : '🏠', text: from ? `Retour vers ${from.name}` : 'Fin du voyage',
+    sub: access?.plan ? (access.type === 'flight' ? 'même trajet qu’à l’aller' : `même trajet qu’à l’aller · ${fmtDur(access.plan.h)}`) : '' });
   days.push(lastDay);
 
   return {
     debug: C.debug ? cands.slice().sort((a, b) => b.score - a.score).map(c => ({ name: c.name, score: c.score, d: dist(c, start) })) : undefined,
-    input: o, cc, stops, legs, days, mode, modeReason, routed, geometry, warnings,
+    input: o, cc, stops, legs, days, mode, modeReason, routed, geometry, routeFC, access, warnings,
     totals: { km: Math.round(totalKm), hours: legs.reduce((a, l) => a + l.h, 0) },
     budget: { tier, tiers, ok, over, budget: o.budget, pl }, flight, from,
   };
@@ -349,8 +377,15 @@ function activity(p, d, boat) {
     sub: `${C.KIND_LABEL[k] || k} · ${d < 1 ? 'sur place' : Math.round(d) + ' km'}${boat ? ' · en bateau' : ''}`, lat: p[5], lon: p[6], wiki: p[8] || null };
 }
 function legItem(l, mode, a, b) {
-  const h = Math.floor(l.h), m = Math.round((l.h - h) * 60 / 5) * 5;
-  return { icon: mode === 'car' ? '🚗' : '🚆', text: `${a} → ${b}`, sub: `${Math.round(l.km)} km · ${h ? h + ' h ' : ''}${String(m).padStart(h ? 2 : 1, '0')}${h ? '' : ' min'}${mode === 'car' ? '' : ' (estimé)'}` };
+  if (l.plan) return { icon: MODE_INFO[l.plan.legs[0]?.mode]?.[0] || '🚆', text: `${a} → ${b}`, sub: `${fmtDur(l.plan.h)} · ${describe(l.plan)}`, legs: l.plan.legs };
+  return { icon: mode === 'car' ? '🚗' : mode === 'bus' ? '🚌' : '🚆', text: `${a} → ${b}`, sub: `${Math.round(l.km)} km · ${fmtDur(l.h)}${mode === 'car' ? '' : ' (estimé)'}` };
+}
+function accessItem(access, from, flight, to) {
+  if (!from) return { icon: '📍', text: `Arrivée à ${to}` };
+  const p = access?.plan;
+  if (access?.type === 'flight' && p) return { icon: '✈️', text: `${from.name} → ${to}`, sub: `${describeFlight(p)} · ≈ ${fmtDur(p.h)} de vol` };
+  if (access?.type === 'ground' && p) return { icon: MODE_INFO[p.legs[0]?.mode]?.[0] || '🚆', text: `${from.name} → ${to}`, sub: `${fmtDur(p.h)} · ${describe(p)}`, legs: p.legs };
+  return { icon: flight?.kind === 'avion' ? '✈️' : '🚆', text: `Arrivée depuis ${from.name}`, sub: `${flight.label}, ${flight.km.toLocaleString('fr-FR')} km` };
 }
 
 /* ------------------------------------------------------------------ interface */
@@ -378,7 +413,7 @@ export function openPlanner(dest, prefill = {}) {
         <label class="fld"><span>Départ en</span><div class="textin">${I.calendar}<select name="month">${MOIS_L.map((mm, i) => `<option value="${i}" ${+v.month === i ? 'selected' : ''}>${mm}</option>`).join('')}</select></div></label>
         <label class="fld"><span>Depuis</span><div class="textin">${I.plane}<input type="text" name="from" value="${C.esc(v.from)}" placeholder="Ta ville"></div></label>
       </div>
-      <div class="fld"><span>Sur place</span>${seg('mode', [['auto', 'Propose-moi', 'sparkles'], ['car', 'Voiture', 'car'], ['transit', 'Train, bus', 'train']], v.mode)}</div>
+      <div class="fld"><span>Sur place</span>${seg('mode', [['auto', 'Propose-moi', 'sparkles'], ['car', 'Voiture', 'car'], ['transit', 'Train', 'train'], ['bus', 'Bus, car', 'bus']], v.mode)}</div>
       <div class="fld"><span>Parcours</span>${seg('shape', [['loop', 'Boucle'], ['oneway', 'Aller simple']], v.shape)}</div>
       <div class="fld"><span>Rythme</span>${seg('pace', Object.entries(PACE).map(([k, p]) => [k, p.label]), v.pace)}</div>
       <div class="fld"><span>Envies <small style="color:var(--faint);font-weight:500">facultatif</small></span><div class="chips">${Object.entries(LIKES).map(([k, l]) => `<label class="chip"><input type="checkbox" name="likes" value="${k}" ${v.likes.includes(k) ? 'checked' : ''}><span>${l.label}</span></label>`).join('')}</div></div>
@@ -452,8 +487,13 @@ function renderTrip() {
     <div class="sec"><h3>Le parcours</h3>
       <div class="route">${t.stops.map((s, i) => `<button class="stop" data-stop="${i}"><b>${i + 1}</b><span>${C.esc(s.name)}<small>${s.nights} nuit${s.nights > 1 ? 's' : ''}</small></span></button>`).join('')}
         ${loop ? `<button class="stop" data-stop="0"><b>↩</b><span>${C.esc(t.stops[0].name)}<small>retour</small></span></button>` : ''}</div>
-      <div class="mode">${t.mode === 'car' ? I.car : I.train}<span><b>${t.mode === 'car' ? 'En voiture' : 'En train et en bus'}</b>${t.modeReason ? '<br>' + C.esc(t.modeReason) : ''}</span></div>
+      <div class="mode">${t.mode === 'car' ? I.car : t.mode === 'bus' ? I.bus : I.train}<span><b>${t.mode === 'car' ? 'En voiture' : t.mode === 'bus' ? 'En bus et en car' : 'En train (et bus si besoin)'}</b>${t.modeReason ? '<br>' + C.esc(t.modeReason) : ''}</span></div>
+      ${t.mode !== 'car' ? `<div class="legs">${t.legs.map((l, i) => { const a = t.stops[i].name, b = (t.stops[i + 1] || t.stops[0]).name;
+        return `<div class="leg ${l.plan ? '' : 'est'}"><div class="leg-h"><b>${C.esc(a)} → ${C.esc(b)}</b><span>${fmtDur(l.h)}${l.plan ? '' : ' · estimé'}</span></div>
+          ${l.plan ? l.plan.legs.map(x => `<div class="leg-l"><span class="ic">${MODE_INFO[x.mode]?.[0] || '🚆'}</span><span>${C.esc(x.name || MODE_INFO[x.mode]?.[1] || '')}${x.agency ? ` <small>${C.esc(x.agency)}</small>` : ''}<small>${C.esc(x.from)} → ${C.esc(x.to)} · ${fmtDur(x.h)}</small></span></div>`).join('')
+            : `<div class="leg-l muted"><span class="ic">❔</span><span><small>Pas d’horaires dans la base Transitous pour ce trajet.</small></span></div>`}</div>`; }).join('')}</div>` : ''}
     </div>
+    ${accessHtml(t)}
     <div class="sec"><h3>Budget estimé</h3><div class="card">
       <p class="btot"><b>${fmtE(b.tier.total)}</b><span class="tier">${b.tier.label}</span>${b.ok ? `<span class="okk">il reste ${fmtE(b.budget - b.tier.total)}</span>` : `<span class="ko">${fmtE(b.over)} de trop</span>`}</p>
       <div class="bbar"><div class="fill ${b.ok ? '' : 'over'}" style="width:${b.tier.total / max * 100}%"></div><div class="mark" style="left:${b.budget / max * 100}%" title="Ton budget"></div></div>
@@ -464,6 +504,7 @@ function renderTrip() {
       <div class="items">${d.items.map(it => `<div class="it ${it.lat != null ? 'go' : ''}" ${it.lat != null ? `data-lat="${it.lat}" data-lon="${it.lon}"` : ''}><span class="ic">${it.icon}</span><span>${C.esc(it.text)}${it.sub ? `<small>${C.esc(it.sub)}</small>` : ''}${it.wiki ? `<a href="https://fr.wikipedia.org/wiki/${encodeURIComponent(it.wiki)}" target="_blank" rel="noopener">Wikipédia</a>` : ''}</span></div>`).join('')}</div></details>`).join('')}
       <p class="src">${t.routed ? 'Trajets routiers calculés avec OSRM (OpenStreetMap). ' : ''}Étapes et visites tirées de GeoNames et Wikidata.</p></div>`,
     `<button class="btn icon" id="tEdit" aria-label="Modifier" title="Modifier">${I.edit}</button><button class="btn icon" id="tShare" aria-label="Partager l’itinéraire" title="Copier le lien de l’itinéraire">${I.share}</button><button class="btn grow play" id="tTour" title="Survoler le parcours en images">${I.play}Survoler</button><button class="btn primary" id="tSave" aria-label="Enregistrer">${I.heart}<span class="lbl">Enregistrer</span></button>`);
+  document.getElementById('tAccess')?.addEventListener('click', () => showAccess());
   document.getElementById('tShare').onclick = () => C.share?.(`Itinéraire ${t.dest.name}`);
   const panel = document.getElementById('pBody');
   panel.querySelectorAll('[data-stop]').forEach(b => b.onclick = () => { const s = t.stops[+b.dataset.stop]; C.map().flyTo({ center: [s.lon, s.lat], zoom: 11, pitch: 50, padding: C.padding(), duration: 2200 }); });
@@ -479,29 +520,72 @@ function renderTrip() {
   };
 }
 
+function accessHtml(t) {
+  if (!t.from) return '';
+  const a = t.access, p = a?.plan;
+  let body;
+  if (a?.type === 'flight' && p) {
+    body = p.segs.map(sg => `<div class="leg-l"><span class="ic">✈️</span><span>${C.esc(sg.from.city || sg.from.name)} (${sg.from.code}) → ${C.esc(sg.to.city || sg.to.name)} (${sg.to.code})
+      <small>${C.esc(sg.airlines.join(', ') || 'compagnie inconnue')} · ${Math.round(sg.km).toLocaleString('fr-FR')} km · ≈ ${fmtDur(sg.km / 780 + 0.5)}</small></span></div>`).join('')
+      + `<p class="src">Liaisons aériennes connues (OpenFlights, 2014) et aéroports OurAirports : vérifie les vols actuels avant de réserver.</p>`;
+  } else if (a?.type === 'ground' && p) {
+    body = p.legs.map(x => `<div class="leg-l"><span class="ic">${MODE_INFO[x.mode]?.[0] || '🚆'}</span><span>${C.esc(x.name || MODE_INFO[x.mode]?.[1] || '')}${x.agency ? ` <small>${C.esc(x.agency)}</small>` : ''}<small>${C.esc(x.from)} → ${C.esc(x.to)} · ${fmtDur(x.h)}</small></span></div>`).join('')
+      + `<p class="src">Horaires des opérateurs via <a href="https://transitous.org/sources/" target="_blank" rel="noopener">Transitous</a> (un mardi type).</p>`;
+  } else {
+    body = `<p class="muted">${a?.type === 'flight' ? 'Pas de liaison aérienne connue entre les aéroports proches : un vol avec plusieurs escales sera nécessaire.' : 'Pas d’horaires connus pour ce trajet : vérifie auprès des compagnies.'}</p>`;
+  }
+  return `<div class="sec"><h3>Comment y aller <small>depuis ${C.esc(t.from.name)}</small></h3><div class="card access">
+    <div class="leg-h"><b>${a?.type === 'flight' ? (p ? (p.stops ? 'Avion, 1 escale' : 'Vol direct') : 'Avion') : 'Train ou car'}</b><span>${p ? '≈ ' + fmtDur(p.h) : ''}</span></div>${body}
+    ${p ? `<button class="more" id="tAccess" type="button">Voir le trajet sur la carte ${I.next}</button>` : ''}</div></div>`;
+}
+
 /* ------------------------------------------------------------------ carte */
-const ROUTE_SRC = 'trip-route';
+const ROUTE_SRC = 'trip-route', ACCESS_SRC = 'trip-access-src';
+/** Cadre la carte sur le trajet depuis la ville de départ (vol ou train). */
+function showAccess() {
+  const map = C.map(), p = trip?.access?.plan; if (!map || !p) return;
+  const cs = p.coords.concat([[trip.from.lon, trip.from.lat]]);
+  const lons = cs.map(c => c[0]), lats = cs.map(c => c[1]);
+  map.setPadding({ top: 0, bottom: 0, left: 0, right: 0 });
+  const mobile = innerWidth < 760;
+  const cam = map.cameraForBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+    { padding: mobile ? { top: 70, bottom: Math.round(innerHeight * 0.5), left: 30, right: 30 } : { top: 90, bottom: 90, left: 110, right: 490 }, maxZoom: 8 });
+  if (cam) map.flyTo({ ...cam, pitch: 0, bearing: 0, duration: 2200, essential: false });
+  if (mobile) document.getElementById('panel').classList.add('peek');
+}
 export function drawTrip() {
   const map = C.map();
   if (!map || !trip) return;
-  const data = { type: 'Feature', properties: {}, geometry: trip.geometry };
+  // trajets : trait plein pour la route et le train réels, tirets pour les durées estimées, pointillés pour l'accès
+  const data = trip.routeFC || { type: 'Feature', properties: { k: 'car' }, geometry: trip.geometry };
+  const acc = trip.access?.plan ? { type: 'Feature', properties: { k: trip.access.type }, geometry: { type: 'LineString', coordinates: trip.access.plan.coords } }
+    : { type: 'FeatureCollection', features: [] };
+  const before = map.getStyle().layers.find(l => l.type === 'symbol')?.id;
+  if (map.getSource(ACCESS_SRC)) map.getSource(ACCESS_SRC).setData(acc);
+  else {
+    map.addSource(ACCESS_SRC, { type: 'geojson', data: acc });
+    map.addLayer({ id: 'trip-access', type: 'line', source: ACCESS_SRC, layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': ['match', ['get', 'k'], 'flight', '#9fd0ff', '#d6c2ff'], 'line-width': ['interpolate', ['linear'], ['zoom'], 2, 1.6, 10, 3], 'line-dasharray': [1, 2], 'line-opacity': 0.9 } }, before);
+  }
   if (map.getSource(ROUTE_SRC)) map.getSource(ROUTE_SRC).setData(data);
   else {
     map.addSource(ROUTE_SRC, { type: 'geojson', data });
-    const before = map.getStyle().layers.find(l => l.type === 'symbol')?.id;
+    const color = ['match', ['get', 'k'], 'rail', '#ffb21e', 'bus', '#5fdba7', 'est', '#ffb21e', '#ffb21e'];
     map.addLayer({ id: 'trip-glow', type: 'line', source: ROUTE_SRC, layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#ffb21e', 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 6, 12, 14], 'line-opacity': 0.25, 'line-blur': 4 } }, before);
-    map.addLayer({ id: 'trip-line', type: 'line', source: ROUTE_SRC, layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#ffb21e', 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 2.5, 12, 5], 'line-dasharray': trip.mode === 'car' ? [1, 0] : [2, 1.5] } }, before);
+      paint: { 'line-color': color, 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 6, 12, 14], 'line-opacity': 0.25, 'line-blur': 4 } }, before);
+    map.addLayer({ id: 'trip-line', type: 'line', source: ROUTE_SRC, filter: ['!=', ['get', 'k'], 'est'], layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': color, 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 2.5, 12, 5] } }, before);
+    map.addLayer({ id: 'trip-line-est', type: 'line', source: ROUTE_SRC, filter: ['==', ['get', 'k'], 'est'], layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': color, 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 2.5, 12, 5], 'line-dasharray': [2, 1.5] } }, before);
   }
-  if (map.getLayer('trip-line')) map.setPaintProperty('trip-line', 'line-dasharray', trip.mode === 'car' ? [1, 0] : [2, 1.5]);
   markers.forEach(m => m.remove());
   markers = trip.stops.map((s, i) => {
     const el = document.createElement('div');
     el.className = 'stop-pin'; el.textContent = i + 1; el.title = s.name;
     return new maplibregl.Marker({ element: el }).setLngLat([s.lon, s.lat]).addTo(map);
   });
-  const lons = trip.geometry.coordinates.map(c => c[0]), lats = trip.geometry.coordinates.map(c => c[1]);
+  const all = (trip.routeFC ? trip.routeFC.features.flatMap(f => f.geometry.coordinates) : trip.geometry.coordinates).concat(trip.stops.map(s => [s.lon, s.lat]));
+  const lons = all.map(c => c[0]), lats = all.map(c => c[1]);
   // cadrage sur tout le parcours ; les marges laissent la place au panneau (à droite, ou en bas sur téléphone)
   const bounds = [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]];
   const mobile = innerWidth < 760;
@@ -514,8 +598,8 @@ export function clearTrip() {
   const map = C.map();
   stopTour(C);
   markers.forEach(m => m.remove()); markers = [];
-  for (const id of ['trip-line', 'trip-glow']) if (map?.getLayer(id)) map.removeLayer(id);
-  if (map?.getSource(ROUTE_SRC)) map.removeSource(ROUTE_SRC);
+  for (const id of ['trip-line', 'trip-line-est', 'trip-glow', 'trip-access']) if (map?.getLayer(id)) map.removeLayer(id);
+  for (const id of [ROUTE_SRC, ACCESS_SRC]) if (map?.getSource(id)) map.removeSource(id);
   trip = null;
 }
 export function redrawAfterStyle() { if (trip) drawTrip(); }

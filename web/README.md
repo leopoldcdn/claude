@@ -6,7 +6,7 @@ Le bouton **« Où partir ? »** propose les meilleures destinations pour un moi
 Le bouton « Itinéraire » d'une fiche propose un parcours autour de la destination selon la durée, le budget
 (vol compris), le nombre de voyageurs, le mois, la ville de départ, le transport, le type de parcours, le rythme et les envies.
 
-Le jour et la nuit s'affichent en temps réel, avec les lumières des villes côté nuit.
+Le globe est toujours affiché en plein jour.
 Un clic n'importe où ouvre une fiche avec une description, les photos, les lieux à voir, la météo par mois et les infos pratiques.
 
 Site statique (HTML, CSS et JavaScript, sans build) : il suffit de servir ce dossier.
@@ -24,7 +24,6 @@ Puis ouvrir http://localhost:8000.
 | Moteur de carte et globe | [MapLibre GL JS](https://maplibre.org/) |
 | Carte détaillée (rues, bâtiments, noms) | [OpenFreeMap](https://openfreemap.org/) — données © OpenStreetMap |
 | Vue satellite (style réaliste, par défaut) | [Sentinel-2 cloudless 2016](https://s2maps.eu) par EOX (CC BY 4.0) |
-| Lumières des villes la nuit | NASA Black Marble (VIIRS), via [NASA GIBS](https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api) |
 | Globe cartoon des zooms éloignés | tuiles générées par `tools/build_data.py` (NASA Blue Marble, Natural Earth) |
 | Relief | [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (AWS Open Data) |
 | Nom du lieu cliqué, recherche | [Photon](https://photon.komoot.io/) (OpenStreetMap) |
@@ -50,7 +49,7 @@ Puis ouvrir http://localhost:8000.
 - `tour.js` : survol animé d'un itinéraire, avec une bande de photos de chaque étape
 - `itinerary.js` : générateur d'itinéraire (étapes, ordre, programme jour par jour, budget)
 - `land.js` : masque terre/mer (une terre par île ou continent) pour que les itinéraires ne traversent pas la mer en voiture
-- `sun.js` : position du soleil en temps réel, ombre de la nuit et lumières des villes
+- `sun.js` : service des tuiles de fond (satellite et cartoon) ; garde aussi le calcul du soleil, inutilisé
 - `data/` : base de lieux (villes, villages, sites — GeoNames + Wikidata) et infos pays
 - `tiles/cartoon/` : globe cartoon en tuiles (zooms 0 à 4)
 - `tools/build_data.py` : régénère `data/countries.json` et `tiles/`

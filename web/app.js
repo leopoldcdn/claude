@@ -2,7 +2,7 @@
  * Carte : OpenFreeMap (OpenStreetMap / OpenMapTiles), relief : Terrain Tiles (AWS Open Data)
  * Infos : Photon (géocodage), Wikipédia, Wikivoyage, Wikimedia Commons, Open-Meteo
  */
-import { registerProtocol, setCartoonBase, phase, subsolar } from './sun.js';
+import { registerProtocol, setCartoonBase } from './sun.js';
 import { initItinerary, openPlanner, clearTrip, redrawAfterStyle, replan, geocodeCity } from './itinerary.js';
 import { initDiscover, openDiscover, clearDiscover, redrawDiscover, discoverActive, backToResults, decodeState, hitDestination } from './discover.js';
 import { I } from './icons.js';
@@ -143,9 +143,8 @@ function realisticLayer(l) {
   return l;
 }
 let styleMode = LS.get('esc.web.style', 'realiste');
-let dayNight = LS.get('esc.web.daynight', true);
-const timeBucket = () => Math.floor(Date.now() / 6e5) * 6e5;   // les tuiles jour/nuit sont recalculées toutes les 10 min
-const dnParams = () => `?t=${timeBucket()}&on=${dayNight ? 1 : 0}`;
+// le globe est toujours en plein jour : les tuiles de fond sont servies sans ombre de nuit
+const dnParams = () => '?on=0';
 async function buildStyle(mode = styleMode) {
   const style = await getJSON('https://tiles.openfreemap.org/styles/liberty', { timeout: 20000 });
   delete style.sources.ne2_shaded;
@@ -153,9 +152,6 @@ async function buildStyle(mode = styleMode) {
     attribution: 'Globe : NASA Blue Marble, Natural Earth' };
   style.sources.sat = { type: 'raster', tiles: ['dn://sat/{z}/{x}/{y}' + dnParams()], tileSize: 256, maxzoom: 15,
     attribution: '<a href="https://s2maps.eu">Sentinel-2 cloudless</a> by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016)' };
-  style.sources.lights = { type: 'raster', tiles: ['dn://lights/{z}/{x}/{y}' + dnParams()], tileSize: 256, maxzoom: 8,
-    attribution: 'Lumières nocturnes : NASA Black Marble' };
-  style.sources.shade = { type: 'raster', tiles: ['dn://shade/{z}/{x}/{y}' + dnParams()], tileSize: 256, maxzoom: 7 };
   const dem = { type: 'raster-dem', tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
     encoding: 'terrarium', tileSize: 256, maxzoom: 14, attribution: '<a href="https://registry.opendata.aws/terrain-tiles/">Terrain Tiles</a>' };
   style.sources.dem = dem;
@@ -168,7 +164,6 @@ async function buildStyle(mode = styleMode) {
       layers.push(l);
       if (l.id === 'background') layers.push({ id: 'sat', type: 'raster', source: 'sat',
         paint: { 'raster-fade-duration': 150, 'raster-resampling': 'linear', 'raster-opacity': byZoom(1, 0), 'raster-saturation': 0.08, 'raster-contrast': 0.06 } });
-      if (l.id === 'building-3d') layers.push(...nightLayers());
     }
     style.layers = layers;
     finishStyle(style, mode);
@@ -193,21 +188,10 @@ async function buildStyle(mode = styleMode) {
       l.paint = { ...l.paint, 'text-color': '#1f2430', 'text-halo-color': '#fff', 'text-halo-width': 1.8 };
     }
     layers.push(l);
-    if (l.id === 'building-3d') layers.push(...nightLayers());
   }
   style.layers = layers;
   finishStyle(style, mode);
   return style;
-}
-function nightLayers() {
-  return [
-    // ombre franche vue de l'espace, adoucie en zoomant pour qu'on puisse toujours explorer une région où il fait nuit
-    { id: 'night-shade', type: 'raster', source: 'shade',
-      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 3, 1, 6, 0.78, 9, 0.62, 12, 0.52, 15, 0.45], 'raster-fade-duration': 0, 'raster-resampling': 'linear' } },
-    // les lumières (1 km par pixel) s'effacent avant de devenir des pâtés
-    { id: 'night-lights', type: 'raster', source: 'lights', maxzoom: 11,
-      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.95, 7, 0.8, 9, 0.55, 10.6, 0], 'raster-fade-duration': 0, 'raster-resampling': 'linear' } }
-  ];
 }
 /* ---- polices de la carte : Inter (noms) et Fraunces italique (mers, fleuves) ----
  * Glyphes fabriqués par tools/build_glyphs.mjs ; pour les écritures absentes (thaï, chinois…),
@@ -246,17 +230,6 @@ function applyFonts(l, mode) {
   if (/^poi_|^airport/.test(id)) l.layout['text-size'] = 12;
   if (mode === 'realiste' && /^label_country/.test(id)) l.paint = { ...l.paint, 'text-halo-color': 'rgba(5,10,20,0.45)', 'text-halo-width': 1, 'text-halo-blur': 1 };
 }
-/* Lumière de la carte : en mode jour/nuit réel, elle vient du vrai soleil. MapLibre s'en sert pour le halo de
- * l'atmosphère du globe (et l'ombrage des bâtiments 3D) : le halo brille côté jour et s'éteint côté nuit.
- * Repère « map » de MapLibre : x vers la longitude 90° E, y vers le pôle Nord, z vers la longitude 0 ; la lumière
- * est donnée par l'opposé de la direction du soleil, en coordonnées sphériques (azimut décalé de 90°). */
-function lightStyle() {
-  if (!dayNight) return { anchor: 'viewport', color: '#ffffff', intensity: 0.32, position: [1.4, 200, 35] };
-  const s = subsolar(), R = Math.PI / 180;
-  const x = -Math.cos(s.lat * R) * Math.sin(s.lon * R), y = -Math.sin(s.lat * R), z = -Math.cos(s.lat * R) * Math.cos(s.lon * R);
-  const az = ((Math.atan2(y, x) / R - 90) % 360 + 360) % 360, pol = Math.acos(Math.max(-1, Math.min(1, z))) / R;
-  return { anchor: 'map', color: '#fff6e8', intensity: 0.32, position: [1.5, az, pol] };
-}
 function finishStyle(style, mode) {
   style.glyphs = 'glyph://{fontstack}/{range}';
   for (const l of style.layers) applyFonts(l, mode);
@@ -264,25 +237,22 @@ function finishStyle(style, mode) {
   style.sky = mode === 'realiste' ? {
     'sky-color': '#2a6fd6', 'horizon-color': '#a9d4ff', 'fog-color': '#cfe6ff',
     'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.5, 'fog-ground-blend': 0.7,
-    // halo plus léger : avec la lumière du vrai soleil, un halo plein voile toute la face éclairée
-    'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 0.55, 5, 0.45, 7, 0]
+    'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0]
   } : {
     'sky-color': '#5fb4ff', 'horizon-color': '#cdeeff', 'fog-color': '#e6f6ff',
     'sky-horizon-blend': 0.5, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.6,
     'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0]
   };
-  style.light = lightStyle();
+  style.light = { anchor: 'viewport', color: '#ffffff', intensity: 0.32, position: [1.4, 200, 35] };   // toujours en plein jour
 }
 
 /* ============================ Carte ============================ */
 let map;
 let relief = false;
-registerProtocol(maplibregl, -1);   // la nuit vient d'une couche d'ombre unique (dégradé lisse à tous les zooms)
+registerProtocol(maplibregl, -1);   // tuiles de fond, jamais assombries
 setCartoonBase(BASE + 'tiles/cartoon/');
-let baseStyle = null;
 async function initMap() {
   const style = await buildStyle();
-  baseStyle = structuredClone(style);
   // on démarre au-dessus de la longitude de l'utilisateur, déduite de son fuseau horaire
   const homeLon = Math.max(-170, Math.min(170, -new Date().getTimezoneOffset() / 4));
   map = new maplibregl.Map({
@@ -305,33 +275,20 @@ async function initMap() {
     if (!storageOk) setTimeout(() => toast('Stockage du navigateur désactivé : tes favoris ne seront pas conservés'), 1500);
     openFromHash(true);
 
-    const c0 = map.getCenter(), ph0 = phase(c0.lat, c0.lng);
+    const c0 = map.getCenter();
     $('#rCoords').textContent = fmtLL(c0.lat, c0.lng);
-    $('#rPhase').textContent = ph0 === 'jour' ? '☀️ Jour' : ph0 === 'nuit' ? '🌙 Nuit' : '🌇 Crépuscule';
     updateReadout();
-    placeSun();
   });
   map.on('mousemove', e => {
-    const ph = phase(e.lngLat.lat, e.lngLat.lng);
     $('#rCoords').textContent = fmtLL(e.lngLat.lat, e.lngLat.lng);
-    $('#rPhase').textContent = ph === 'jour' ? '☀️ Jour' : ph === 'nuit' ? '🌙 Nuit' : '🌇 Crépuscule';
     hoverPlace(e.point);
   });
   map.on('mouseout', () => $('#rPlace').classList.remove('show'));
   map.on('pitchend', () => $('#b3d').classList.toggle('on', map.getPitch() > 10));
   map.on('move', updateReadout);
-  // noms clairs en mode plan quand il fait nuit, mis à jour pendant le déplacement (pas seulement à la fin)
-  let nlT = 0;
-  map.on('move', () => {
-    const now = performance.now(); if (now - nlT < 250) return; nlT = now;
-    const c = map.getCenter();
-    nightLabels(dayNight && styleMode === 'realiste' && phase(c.lat, c.lng) !== 'jour' && map.getZoom() > 11.5);
-  });
   map.on('moveend', () => {
-    const c = map.getCenter(), ph = phase(c.lat, c.lng);
-    nightLabels(dayNight && styleMode === 'realiste' && ph !== 'jour' && map.getZoom() > 11.5);
+    const c = map.getCenter();
     $('#rCoords').textContent = fmtLL(c.lat, c.lng);
-    $('#rPhase').textContent = ph === 'jour' ? '☀️ Jour' : ph === 'nuit' ? '🌙 Nuit' : '🌇 Crépuscule';
   });
   map.on('click', e => onMapClick(e));
 }
@@ -1089,63 +1046,14 @@ $('#bRelief').onclick = () => {
   if (relief && map.getPitch() < 30) map.easeTo({ pitch: 60, duration: 1200 });
   toast(relief ? 'Relief 3D activé : incline la vue pour voir les montagnes' : 'Relief 3D désactivé');
 };
-/* ---- libellés clairs quand on regarde de près une ville où il fait nuit ---- */
-let labelsNight = false;
-function nightLabels(on) {
-  if (on === labelsNight || !map?.isStyleLoaded()) return;
-  labelsNight = on;
-  for (const l of map.getStyle().layers) {
-    if (l.type !== 'symbol' || /shield/.test(l.id)) continue;
-    if (on) {
-      map.setPaintProperty(l.id, 'text-color', /^water|waterway/.test(l.id) ? '#9fd0f5' : '#eef1f6');
-      map.setPaintProperty(l.id, 'text-halo-color', 'rgba(8,12,22,0.8)');
-    } else {
-      const orig = baseStyle?.layers.find(x => x.id === l.id)?.paint || {};
-      map.setPaintProperty(l.id, 'text-color', orig['text-color'] ?? '#333');
-      map.setPaintProperty(l.id, 'text-halo-color', orig['text-halo-color'] ?? '#fff');
-    }
-  }
-}
-
-/* ---- jour / nuit et style ---- */
-let lastBucket = timeBucket();
-// petit soleil posé là où il est au zénith : on le voit avancer d'environ 15° vers l'ouest chaque heure
-let sunMarker = null;
-function placeSun() {
-  if (!map) return;
-  if (!sunMarker) {
-    const el = document.createElement('div'); el.className = 'sun-mark'; el.title = 'Le soleil est au zénith ici';
-    sunMarker = new maplibregl.Marker({ element: el, anchor: 'center', opacityWhenCovered: '0' });
-  }
-  const s = subsolar();
-  sunMarker.setLngLat([s.lon, s.lat]);
-  if (dayNight) sunMarker.addTo(map); else sunMarker.remove();
-}
-function refreshDayNight(force) {
-  if (!map) return;
-  placeSun();
-  if (map.isStyleLoaded?.() !== false) try { map.setLight(lightStyle()); } catch {}
-  if (force || timeBucket() !== lastBucket) {
-    lastBucket = timeBucket();
-    for (const kind of ['sat', 'cartoon', 'lights', 'shade']) map.getSource(kind)?.setTiles([`dn://${kind}/{z}/{x}/{y}` + dnParams()]);
-  }
-}
-setInterval(() => refreshDayNight(false), 60000);   // l'ombre avance d'environ 2,5° en 10 min
+/* ---- style ---- */
 function syncButtons() {
-  $('#bSun').classList.toggle('on', dayNight);
-  $('#bSun').dataset.tip = dayNight ? 'Jour et nuit en temps réel (activé)' : 'Toujours en plein jour';
   $('#bStyle').dataset.tip = styleMode === 'realiste' ? 'Passer en style cartoon' : 'Passer en vue satellite';
 }
-$('#bSun').onclick = () => {
-  dayNight = !dayNight; LS.set('esc.web.daynight', dayNight); syncButtons(); refreshDayNight(true);
-  const c = map.getCenter(); nightLabels(dayNight && styleMode === 'realiste' && phase(c.lat, c.lng) !== 'jour' && map.getZoom() > 11);
-  toast(dayNight ? 'Jour et nuit en temps réel' : 'Toujours en plein jour');
-};
 $('#bStyle').onclick = async () => {
   styleMode = styleMode === 'realiste' ? 'cartoon' : 'realiste'; LS.set('esc.web.style', styleMode); syncButtons();
   toast(styleMode === 'realiste' ? 'Vue satellite réaliste' : 'Vue cartoon');
   const st = await buildStyle(styleMode);
-  baseStyle = structuredClone(st); labelsNight = false;
   map.setStyle(st);
   map.once('style.load', () => { if (relief) map.setTerrain({ source: 'dem3d', exaggeration: 1.4 }); redrawAfterStyle(); redrawDiscover(); });
 };

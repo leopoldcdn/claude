@@ -237,11 +237,12 @@ function finishStyle(style, mode) {
   style.sky = mode === 'realiste' ? {
     'sky-color': '#2a6fd6', 'horizon-color': '#a9d4ff', 'fog-color': '#cfe6ff',
     'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.5, 'fog-ground-blend': 0.7,
-    'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0]
+    // à pleine force, l'atmosphère éclairée de face pose un voile laiteux sur tout le globe
+    'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 0.5, 5, 0.5, 7, 0]
   } : {
     'sky-color': '#5fb4ff', 'horizon-color': '#cdeeff', 'fog-color': '#e6f6ff',
     'sky-horizon-blend': 0.5, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.6,
-    'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0]
+    'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 0.35, 5, 0.35, 7, 0]
   };
   // Toujours en plein jour. MapLibre lit la position de la lumière à l'envers pour l'atmosphère et pour les bâtiments :
   // vue de loin, le soleil est placé du côté de l'observateur (halo bleu régulier, pas de « face cachée éclairée ») ;

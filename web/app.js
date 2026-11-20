@@ -1183,7 +1183,7 @@ initDiscover({
   map: () => map, padding: panelPadding, explore: (lat, lon, o) => explore(lat, lon, o), route: h => setRoute(h),
 });
 initItinerary({
-  getJSON, getBuffer, localCity, haversine, placesAround, kindOf, pname, notability, norm, LS, esc, toast, KIND_ICON, KIND_LABEL,
+  getJSON, getBuffer, localCity, countryInfo, haversine, placesAround, kindOf, pname, notability, norm, LS, esc, toast, KIND_ICON, KIND_LABEL,
   map: () => map, padding: panelPadding, setPanel, onSaved: () => saveFavs(), share, isMobile,
   route: (dest, input) => setRoute('voyage=' + encodeTrip(dest, input)), climate,
   backToPlace: () => { clearTrip(); panelMode = 'place'; renderPanel(); },

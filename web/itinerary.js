@@ -19,11 +19,12 @@ import { I } from './icons.js';
 import { startTour, stopTour } from './tour.js';
 import { loadLand, sameLand, landReady } from './land.js';
 import { TIERS, accessCost, stayCost, localTransitCost } from './cost.js';
+import { initStage, openStage, clearStageMarkers, tripDates, fmtDay } from './stage.js';
 import { ADVISED_AGAINST } from './discover.js';
 import { transitPlan, flightPlan, describe, describeFlight, fmtDur, MODE_INFO } from './transit.js';
 
 let C = null;          // contexte fourni par app.js
-export function initItinerary(ctx) { C = ctx; }
+export function initItinerary(ctx) { C = ctx; initStage({ ...ctx, backToTrip: () => { renderTrip(); drawTrip(); } }); }
 
 const DEG = Math.PI / 180;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -463,7 +464,7 @@ export function openPlanner(dest, prefill = {}) {
       <input type="hidden" name="${name}" value="${val}"></div>`;
   C.setPanel(`
     <div class="hero short"><div class="kicker">${I.route} Nouvel itinéraire</div><h2>${C.esc(dest.name)}</h2><div class="sub">Dis-moi comment tu voyages, je te propose un parcours.</div></div>
-    <form class="planner" id="planForm" autocomplete="off">
+    <form class="planner" id="planForm" autocomplete="off"><input type="hidden" name="start" value="${C.esc(v.start || '')}">
       <div class="row2">
         <div class="fld"><span>Durée</span>${stepper('days', v.days, 2, 30, 'jours')}</div>
         <div class="fld"><span>Voyageurs</span>${stepper('travelers', v.travelers, 1, 8, v.travelers > 1 ? 'personnes' : 'personne')}</div>
@@ -502,7 +503,9 @@ async function submit(dest) {
   const f = new FormData(document.getElementById('planForm'));
   const o = {
     days: clamp(+f.get('days') || 7, 2, 30), travelers: clamp(+f.get('travelers') || 2, 1, 8), budget: Math.max(100, +f.get('budget') || 2000),
-    month: +f.get('month'), fromName: String(f.get('from') || '').trim(), mode: f.get('mode'), shape: f.get('shape'), pace: f.get('pace'), likes: f.getAll('likes'),
+    month: +f.get('month'), fromName: String(f.get('from') || '').trim(),
+    // date de départ choisie dans l'itinéraire : gardée si le mois n'a pas changé
+    ...(f.get('start') && new Date(f.get('start') + 'T12:00:00').getMonth() === +f.get('month') ? { start: String(f.get('start')) } : {}), mode: f.get('mode'), shape: f.get('shape'), pace: f.get('pace'), likes: f.getAll('likes'),
   };
   C.LS.set('esc.web.plan', { ...o, from: o.fromName });
   // et dans l'autre sens : une prochaine recherche « Où partir ? » repart de ces critères
@@ -553,6 +556,7 @@ function renderTrip() {
   const max = Math.max(b.tier.total, b.budget) * 1.04;
   const loop = t.input.shape !== 'oneway' && t.stops.length > 1;
   const visits = d => d.items.filter(it => it.lat != null).length;
+  const dates = tripDates(t), dayDate = n => { const d = new Date(dates.start); d.setDate(d.getDate() + n - 1); return d; };
   C.setPanel(`
     <div class="hero short"><div class="kicker">${I.route} Itinéraire · ${t.input.travelers} voyageur${t.input.travelers > 1 ? 's' : ''}</div><h2>${C.esc(t.dest.name)}</h2>
       <div class="sub">${loop ? 'En boucle' : 'Aller simple'} · ${MOIS_L[t.input.month]}${t.from ? ' · depuis ' + C.esc(t.from.name) : ''}</div></div>
@@ -562,13 +566,17 @@ function renderTrip() {
       <div class="kpi"><b>${t.totals.km.toLocaleString('fr-FR')}</b><span>km</span></div>
       <div class="kpi"><b>${hh}h${String(mm).padStart(2, '0')}</b><span>de trajets</span></div>
     </div>
+    <div class="trip-date"><label>${I.calendar}<span>Départ le</span><input type="date" id="tStart" value="${dates.iso(dates.start)}" min="${dates.iso(new Date())}"></label>
+      <small>${dates.fixed ? `retour le ${fmtDay(dates.end)}` : `date proposée, à ajuster · retour le ${fmtDay(dates.end)}`}</small></div>
     ${t.warnings.map(w => `<div class="note warn">${I.warn}<span>${C.esc(w)}</span></div>`).join('')}
     <div class="sec"><h3>Le parcours</h3>
       <div class="seg variants" role="radiogroup" aria-label="Variante">${Object.entries(VARIANTS).map(([k, l]) => `<label><input type="radio" name="variant" value="${k}" ${t.variant === k ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
       <div class="route">${t.stops.map((s, i) => { const locked = (t.input.lock || []).some(x => C.norm(x) === C.norm(s.name));
         return `<div class="stop-row"><button class="stop" data-stop="${i}"><b>${i + 1}</b><span>${C.esc(s.name)}<small>${s.nights} nuit${s.nights > 1 ? 's' : ''}${s.why?.length ? ' · ' + C.esc(s.why.slice(0, 2).join(' · ')) : ''}</small></span></button>
+          <button class="mini book" data-carnet="${i}" title="Carnet d’étape : y aller, dormir, à voir" aria-label="Carnet d’étape de ${C.esc(s.name)}">${I.book}</button>
           ${i > 0 ? `<span class="stop-act"><button class="mini ${locked ? 'on' : ''}" data-lock="${i}" title="${locked ? 'Déverrouiller' : 'Garder cette étape quoi qu’il arrive'}" aria-label="${locked ? 'Déverrouiller' : 'Verrouiller'} ${C.esc(s.name)}">${locked ? '🔒' : '🔓'}</button><button class="mini" data-swap="${i}" title="Proposer une autre étape à la place" aria-label="Remplacer ${C.esc(s.name)}">↻</button><button class="mini" data-drop="${i}" title="Retirer cette étape" aria-label="Retirer ${C.esc(s.name)}">✕</button></span>` : ''}</div>`; }).join('')}
         ${loop ? `<div class="stop-row"><button class="stop" data-stop="0"><b>↩</b><span>${C.esc(t.stops[0].name)}<small>retour</small></span></button></div>` : ''}</div>
+      <button class="btn primary carnet-cta" id="tCarnet" type="button">${I.book}Ouvrir le carnet de voyage <small>trains, où dormir, à voir</small></button>
       ${(t.input.exclude || []).length ? `<p class="src">Étapes écartées : ${t.input.exclude.map(C.esc).join(', ')} · <button class="more" id="tReset" type="button">tout rétablir</button></p>` : ''}
       <div class="mode">${t.mode === 'car' ? I.car : t.mode === 'bus' ? I.bus : I.train}<span><b>${t.mode === 'car' ? 'En voiture' : t.mode === 'bus' ? 'En bus et en car' : 'En train (et bus si besoin)'}</b>${t.modeReason ? '<br>' + C.esc(t.modeReason) : ''}</span></div>
       ${t.mode !== 'car' ? `<div class="legs">${t.legs.map((l, i) => { const a = t.stops[i].name, b = (t.stops[i + 1] || t.stops[0]).name;
@@ -583,11 +591,18 @@ function renderTrip() {
       <table class="blines">${lines.map(([k, v]) => `<tr><td>${C.esc(k)}</td><td>${fmtE(v)}</td></tr>`).join('')}</table>
       <p class="src" style="margin:0">Estimation selon le niveau des prix du pays (Banque mondiale) et la distance du vol, pas des prix réels. Le niveau de confort est le plus élevé qui rentre dans ton budget.</p>
     </div></div>
-    <div class="sec"><h3>Jour par jour</h3>${t.days.map((d, k) => `<details class="day" ${k === 0 ? 'open' : ''}><summary><span class="dn">Jour<b>${d.n}</b></span><span class="dt">${C.esc(d.title)}<small>${visits(d) ? visits(d) + ' visite' + (visits(d) > 1 ? 's' : '') : d.items.find(it => /→/.test(it.text)) ? 'Trajet' : 'Journée libre'}</small></span><span class="chev">${I.next}</span></summary>
+    <div class="sec"><h3>Jour par jour</h3>${t.days.map((d, k) => `<details class="day" ${k === 0 ? 'open' : ''}><summary><span class="dn">Jour<b>${d.n}</b></span><span class="dt">${C.esc(d.title)}<small>${fmtDay(dayDate(d.n))} · ${visits(d) ? visits(d) + ' visite' + (visits(d) > 1 ? 's' : '') : d.items.find(it => /→/.test(it.text)) ? 'Trajet' : 'Journée libre'}</small></span><span class="chev">${I.next}</span></summary>
       <div class="items">${d.items.map(it => `<div class="it ${it.lat != null ? 'go' : ''}" ${it.lat != null ? `data-lat="${it.lat}" data-lon="${it.lon}"` : ''}><span class="ic">${it.icon}</span><span>${C.esc(it.text)}${it.sub ? `<small>${C.esc(it.sub)}</small>` : ''}${it.wiki ? `<a href="https://fr.wikipedia.org/wiki/${encodeURIComponent(it.wiki)}" target="_blank" rel="noopener">Wikipédia</a>` : ''}</span></div>`).join('')}</div></details>`).join('')}
       <p class="src">${t.routed ? 'Trajets routiers calculés avec OSRM (OpenStreetMap). ' : ''}Étapes et visites tirées de GeoNames et Wikidata.</p></div>`,
     `<button class="btn icon" id="tEdit" aria-label="Modifier" title="Modifier">${I.edit}</button><button class="btn icon" id="tShare" aria-label="Partager l’itinéraire" title="Copier le lien de l’itinéraire">${I.share}</button><button class="btn grow play" id="tTour" title="Survoler le parcours en images">${I.play}Survoler</button><button class="btn primary" id="tSave" aria-label="Enregistrer">${I.heart}<span class="lbl">Enregistrer</span></button>`);
   document.getElementById('tAccess')?.addEventListener('click', () => showAccess());
+  document.getElementById('tStart').onchange = e => {
+    if (!e.target.value) return;
+    t.input.start = e.target.value; C.route?.(t.dest, t.input);
+    const keep = document.querySelector('#panel .scroll').scrollTop; renderTrip(); document.querySelector('#panel .scroll').scrollTop = keep;
+  };
+  document.getElementById('tCarnet').onclick = () => openStage(t, 0);
+  document.getElementById('pBody').querySelectorAll('[data-carnet]').forEach(b => b.onclick = () => openStage(t, +b.dataset.carnet));
   const panel = document.getElementById('pBody');
   panel.querySelectorAll('input[name=variant]').forEach(r => r.onchange = () => recompute({ variant: r.value }));
   const nameAt = i => t.stops[+i].name;
@@ -694,6 +709,7 @@ export function drawTrip() {
 }
 export function clearTrip() {
   const map = C.map();
+  clearStageMarkers();
   stopTour(C);
   markers.forEach(m => m.remove()); markers = [];
   for (const id of ['trip-line', 'trip-line-est', 'trip-glow', 'trip-access']) if (map?.getLayer(id)) map.removeLayer(id);

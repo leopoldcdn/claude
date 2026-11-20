@@ -30,6 +30,8 @@ Puis ouvrir http://localhost:8000.
 | Description | Wikivoyage et Wikipédia (français) |
 | Photos et lieux à voir | Wikipédia (classés par popularité) et Wikimedia Commons |
 | Climat par mois, météo du moment | [Open-Meteo](https://open-meteo.com/) |
+| Carnet d'étape : où dormir, à voir, manger | [Wikivoyage](https://fr.wikivoyage.org/) (CC BY-SA), hébergements [OpenStreetMap](https://www.openstreetmap.org/copyright) via Overpass (ODbL) |
+| Infos pratiques par pays | Wikidata (prises, tension, urgences, conduite), [Conseils aux voyageurs](https://www.diplomatie.gouv.fr/), [The Man in Seat 61](https://www.seat61.com/) — `tools/build_country_extra.py` |
 | Climat mois par mois (« Où partir ? ») | [WorldClim 2.1](https://www.worldclim.org/), normales 1970-2000 (CC BY 4.0) |
 | Terres et mers (itinéraires) | [Natural Earth](https://www.naturalearthdata.com/) 1:10m, domaine public |
 | Trains, cars et bus (horaires réels, tracés) | [Transitous](https://transitous.org/sources/) — service bénévole : réservé aux projets libres et non commerciaux, usage léger |
@@ -48,6 +50,9 @@ Puis ouvrir http://localhost:8000.
 - `discover.js` : « Où partir ? » — note de chaque destination selon le mois, les envies et le budget, et globe allumé
 - `tour.js` : survol animé d'un itinéraire, avec une bande de photos de chaque étape
 - `itinerary.js` : générateur d'itinéraire (étapes, ordre, programme jour par jour, budget)
+- `stage.js` : carnet d'étape — trains (ligne, compagnie, horaires types, lien de réservation), vols, où dormir (adresses Wikivoyage selon le budget, hébergements OpenStreetMap, recherches Booking et Airbnb aux bonnes dates), à voir et où manger, infos pratiques
+- `cost.js` : estimation du coût d'un voyage, la même pour « Où partir ? » et l'itinéraire
+- `profile.js` : profil voyageur enregistré dans le navigateur
 - `land.js` : masque terre/mer (une terre par île ou continent) pour que les itinéraires ne traversent pas la mer en voiture
 - `sun.js` : service des tuiles de fond (satellite et cartoon) ; garde aussi le calcul du soleil, inutilisé
 - `data/` : base de lieux (villes, villages, sites — GeoNames + Wikidata) et infos pays

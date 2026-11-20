@@ -794,3 +794,57 @@ body.panel-open .nomap{opacity:0;pointer-events:none}
   .nomap .btn{display:none}
 }
 body.no-map #dGlobe{display:none}
+
+/* =====================================================================
+   Carnet d'étape
+   ===================================================================== */
+.trip-date{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;margin:12px 20px 0;padding:10px 14px;border-radius:16px;background:var(--lagoon)}
+.trip-date label{display:flex;align-items:center;gap:8px;font:600 14px var(--sans);color:var(--sea);cursor:pointer}
+.trip-date .ico{width:18px;height:18px}
+.trip-date input{border:0;background:rgba(255,255,255,.75);border-radius:10px;padding:6px 8px;font:600 14px var(--sans);color:var(--sea)}
+.trip-date small{font:500 12px var(--sans);color:var(--mut)}
+.carnet-cta{width:100%;margin:12px 0 4px;flex-wrap:wrap;height:auto;min-height:54px;padding:8px 18px;gap:4px 8px}
+.carnet-cta small{flex-basis:100%;font:500 12px var(--sans);opacity:.85;text-align:center}
+.mini.book{flex:none;width:34px;height:34px;color:var(--terra);background:rgba(173,69,45,.1)}
+.mini.book .ico{width:17px;height:17px;margin:auto}
+.mini.book:hover{background:rgba(173,69,45,.2)}
+.stage-hero{background:radial-gradient(70% 90% at 95% 0%,rgba(243,190,88,.7),transparent 60%),linear-gradient(160deg,#AD452D,#6e2a1b 55%,#123B4A)}
+.stage-hero::after{display:none}
+.stage-tabs{margin-top:12px}
+.st-group{margin-bottom:12px}
+.st-group h4{margin:4px 0 8px;font:700 13px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--terra)}
+.st-group h4 small{text-transform:none;letter-spacing:0;font-weight:500;color:var(--faint)}
+.st-group .st-hide{display:none}
+.st-group.all .st-hide{display:block}
+.st-item{margin-bottom:8px;padding:12px 14px;border-radius:16px;background:var(--card);box-shadow:inset 0 0 0 1px var(--line-soft)}
+.st-h{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px}
+.st-h b{font:600 15px/1.3 var(--sans);color:var(--sea)}
+.st-h small{font:500 12px var(--sans);color:var(--mut)}
+.st-stars{color:#d79a1f;font-size:12px;letter-spacing:1px}
+.st-price,.st-meta{display:flex;gap:6px;align-items:flex-start;margin-top:5px;font:500 13px/1.4 var(--sans);color:var(--mut)}
+.st-price{color:var(--sea);font-weight:600}
+.st-price .ico,.st-meta .ico{width:15px;height:15px;flex:none;margin-top:2px;color:var(--terra)}
+.st-desc{margin:6px 0 0!important;font-size:13.5px;line-height:1.5!important;color:rgba(18,59,74,.85)!important;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.st-links{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:6px}
+.st-links a{display:inline-flex;align-items:center;gap:5px;font:600 13px var(--sans);color:var(--terra);text-decoration:none}
+.st-links a .ico,.st-links .more .ico{width:15px;height:15px}
+.st-links small{font:500 12px var(--sans);color:var(--faint)}
+.st-links.big{margin-top:10px;gap:8px}
+.st-links.big .btn{flex:1 1 46%;height:44px;font-size:14px;color:var(--sea);text-decoration:none}
+.st-links.big .btn .ico{color:var(--terra)}
+.st-when{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:16px;background:var(--lagoon);color:var(--sea);font-size:14px;line-height:1.5}
+.st-when > span > b:first-child{display:block}
+.st-when .ico{flex:none;margin-top:2px}
+.st-tip{margin-bottom:8px;padding:12px 14px;border-radius:16px;background:rgba(243,190,88,.18)}
+.st-tip b{font:600 13px var(--sans)}
+.st-tip p{margin:4px 0 0!important;font-size:13.5px;line-height:1.5!important}
+.bed-pin{width:28px;height:28px;padding:0;border:2px solid #fff;border-radius:50%;background:var(--sea);color:#fff;font-size:13px;line-height:24px;text-align:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.bed-pin.wv{background:var(--terra)}
+#pActions .btn[disabled]{opacity:.4;pointer-events:none}
+#pActions #stNext .lbl{overflow:hidden;text-overflow:ellipsis;max-width:200px}
+@media (max-width:760px){
+  .stage-hero{min-height:0!important;padding:46px 20px 14px}
+  .stage-hero h2{font-size:28px}
+  #pActions #stNext .lbl{max-width:150px}
+}
+body.no-map .st-links [data-fly]{display:none}

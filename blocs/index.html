@@ -42,6 +42,7 @@
   .board.danger::before { animation: danger .3s ease-in-out infinite alternate; }
   @keyframes danger { from { opacity: .5; } to { opacity: 1; } }
   #c { display: block; width: 100%; height: auto; aspect-ratio: 1 / 2; touch-action: none; }
+  .board.mouse-play, .board.mouse-play #c { cursor: none; }
 
   .overlay {
     position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column;
@@ -293,7 +294,7 @@
         <h2 id="ov-title">BLOCS</h2>
         <p id="ov-text">Empile les blocs qui tombent et complète des lignes pour les effacer.<br>Plus tu effaces de lignes d'un coup, plus ça rapporte.<br>Ne laisse pas la pile atteindre le haut !</p>
         <button class="primary" id="ov-btn">JOUER</button>
-        <span class="hint keys-hint"><kbd>←</kbd><kbd>→</kbd> déplacer · <kbd>↑</kbd>/<kbd>Z</kbd> tourner · <kbd>A</kbd> tourner ↺<br><kbd>↓</kbd> descendre · <kbd>Espace</kbd> lâcher · <kbd>C</kbd> réserve<br><kbd>P</kbd> pause · <kbd>T</kbd> style · <kbd>M</kbd> musique</span>
+        <span class="hint keys-hint"><kbd>←</kbd><kbd>→</kbd> déplacer · <kbd>↑</kbd>/<kbd>Z</kbd> tourner · <kbd>A</kbd> tourner ↺<br><kbd>↓</kbd> descendre · <kbd>Espace</kbd> lâcher · <kbd>C</kbd> réserve<br><kbd>P</kbd> pause · <kbd>T</kbd> style · <kbd>M</kbd> musique<br>Souris / trackpad : bouger = déplacer · défiler = tourner<br>clic = lâcher · clic droit = réserve</span>
       </div>
     </div>
 
@@ -312,8 +313,9 @@
   </div>
 
   <div class="bar">
-    <span class="hint keys-hint">Tactile : touche = tourner, glisse = déplacer</span>
+    <span class="hint keys-hint">🖱️ bouger = déplacer · défiler = tourner · clic = lâcher · clic droit = réserve</span>
     <span class="buttons">
+      <button class="ghost" id="mouse-btn" aria-label="Souris / trackpad">🖱️</button>
       <button class="ghost" id="music-btn" aria-label="Musique" title="Musique">🎵</button>
       <button class="ghost" id="sound-btn" aria-label="Effets sonores" title="Effets sonores">🔊</button>
       <button class="ghost" id="pause-btn">Pause</button>
@@ -590,7 +592,7 @@
   let dangerOn = false;
 
   const emptyGrid = () => Array.from({ length: ROWS }, () => new Array(COLS).fill(null));
-  const gravMs = () => Math.max(30, 800 * Math.pow(0.8, level - 1));
+  const gravMs = () => Math.max(30, 680 * Math.pow(0.8, level - 1));
 
   function refill() {
     const b = [0, 1, 2, 3, 4, 5, 6];
@@ -843,6 +845,8 @@
   const isMenu = () => state === 'demo' || state === 'over' || (state === 'dying' && demo);
 
   function start() {
+    mouse.noClickUntil = performance.now() + 300;
+    mouse.active = false;
     demo = false;
     state = 'playing';
     hueBoost = 0;
@@ -1570,6 +1574,7 @@
   //  BOUCLE PRINCIPALE
   // ======================================================================
   const input = { left: false, right: false, dir: 0, das: 0, arr: 0 };
+  const mouse = { on: store.get('blocs-mouse', '1') === '1', active: false, col: 0, wheel: 0, armed: true, lastWheel: 0, noClickUntil: 0 };
   let lastFrame = performance.now(), cssTick = 0;
 
   function update(dtMs, t) {
@@ -1584,6 +1589,7 @@
         while (input.arr >= ARR) { input.arr -= ARR; if (!move(input.dir)) { input.arr = 0; break; } }
       }
     }
+    if (state === 'playing' && mouse.on && mouse.active && piece && !clearRows) followMouse();
     if (demo) { demoT += dtMs; if (demoT >= DEMO_ACT) { demoT = 0; demoTick(); } }
 
     if (clearRows) { clearT += dtMs; if (clearT >= CLEAR_MS) finishClear(); return; }
@@ -1667,6 +1673,7 @@
 
     beat *= Math.pow(0.004, rawDt);
     if (++cssTick % 3 === 0) {
+      $board.classList.toggle('mouse-play', state === 'playing' && mouse.on && mouse.active);
       rootStyle.setProperty('--hue', Math.round((t / 40 + hueBoost) % 360));
       rootStyle.setProperty('--beat', beat.toFixed(2));
     }
@@ -1703,6 +1710,7 @@
     if (KEYS[k]) {
       e.preventDefault();
       if (e.repeat && ['cw', 'ccw', 'hard', 'hold', 'left', 'right', 'soft'].includes(KEYS[k])) return;
+      if (KEYS[k] === 'left' || KEYS[k] === 'right') mouse.active = false;
       press(KEYS[k]);
     } else if (k === 'p' || k === 'Escape') { e.preventDefault(); if (isMenu()) start(); else togglePause(); }
     else if (k === 'Enter' && isMenu()) start();
@@ -1729,6 +1737,61 @@
     for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, () => release(act));
   });
 
+  // ---------------------------------------------------------------- souris / trackpad
+  // bouger = la pièce suit le curseur · défiler (molette ou 2 doigts) = tourner
+  // clic = lâcher · clic droit (ou clic à 2 doigts) = réserve
+  const $game = document.querySelector('.game');
+  const $mouseBtn = $('mouse-btn');
+  const syncMouseBtn = () => { $mouseBtn.style.opacity = mouse.on ? 1 : 0.5; $mouseBtn.title = mouse.on ? 'Souris / trackpad : activé' : 'Souris / trackpad : désactivé'; };
+  syncMouseBtn();
+  $mouseBtn.addEventListener('click', () => {
+    mouse.on = !mouse.on; mouse.active = false;
+    store.set('blocs-mouse', mouse.on ? '1' : '0'); syncMouseBtn(); $mouseBtn.blur();
+  });
+  function followMouse() {
+    let minx = 9, maxx = -1;
+    for (const [cx] of cellsOf(piece.m)) { minx = Math.min(minx, cx); maxx = Math.max(maxx, cx); }
+    const target = Math.round(mouse.col - (minx + maxx + 1) / 2);
+    let moved = false, guard = COLS + 4;
+    while (piece.x !== target && guard--) {
+      const d = Math.sign(target - piece.x);
+      if (collide(piece.m, piece.x + d, piece.y)) break;
+      piece.x += d; afterMove(); moved = true;
+    }
+    if (moved) sfx.move();
+  }
+  $game.addEventListener('mousemove', e => {
+    if (!mouse.on || state !== 'playing') return;
+    const r = canvas.getBoundingClientRect();
+    mouse.col = Math.max(0, Math.min(COLS, (e.clientX - r.left) / r.width * COLS));
+    if (e.movementX !== 0 || !mouse.active) mouse.active = true;
+  });
+  $board.addEventListener('mousedown', e => {
+    if (e.target.closest('button')) return;
+    if (isMenu()) { if (e.button === 0) { start(); } return; }
+    if (state !== 'playing' || !mouse.on) return;
+    e.preventDefault();
+    if (performance.now() < mouse.noClickUntil) return;
+    if (e.button === 0) hardDrop();
+    else if (e.button === 2) holdPiece();
+  });
+  $board.addEventListener('contextmenu', e => { if (state === 'playing' && mouse.on) e.preventDefault(); });
+  $board.addEventListener('wheel', e => {
+    if (state !== 'playing' || !mouse.on || e.ctrlKey) return;
+    e.preventDefault();
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    let d = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1);
+    const now = performance.now();
+    // un geste = une rotation : on absorbe l'inertie du trackpad, sauf si le geste continue franchement
+    if (!mouse.armed && now - mouse.lastWheel > 90) { mouse.armed = true; mouse.wheel = 0; }
+    mouse.lastWheel = now;
+    mouse.wheel += d;
+    if (Math.abs(mouse.wheel) >= (mouse.armed ? 30 : 260)) {
+      rotate(mouse.wheel < 0 ? 1 : -1);
+      mouse.wheel = 0; mouse.armed = false;
+    }
+  }, { passive: false });
+
   // gestes tactiles sur le plateau : toucher = tourner, glisser = déplacer / descendre, balayer = lâcher / réserve
   let touch = null;
   canvas.addEventListener('pointerdown', e => {
@@ -1753,7 +1816,7 @@
 
   // petit accès de test (uniquement avec #debug dans l'adresse)
   if (location.hash === '#debug') window.__blocs = {
-    get: () => ({ state, score, lines, level, piece: piece && { t: piece.t, x: piece.x, y: piece.y }, holdT }),
+    get: () => ({ state, score, lines, level, piece: piece && { t: piece.t, x: piece.x, y: piece.y, m: piece.m.map(r => r.join('')).join('/') }, holdT, grav: gravMs() }),
     fillRows(n, gaps) { for (let r = ROWS - n; r < ROWS; r++) for (let c = 0; c < COLS; c++) grid[r][c] = gaps.includes(c) ? null : { t: (r + c) % 7, id: cellId++ }; }
   };
 

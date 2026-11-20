@@ -37,10 +37,18 @@ def sparql(q):
     return json.load(urllib.request.urlopen(req, timeout=180))['results']['bindings']
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *a, **k):
+        return None       # une redirection suffit à prouver que la page existe (le site renvoie parfois vers http://)
+
+
+OPENER = urllib.request.build_opener(NoRedirect)
+
+
 def status(url):
     req = urllib.request.Request(url, method='HEAD', headers={**UA, 'User-Agent': 'Mozilla/5.0 (Escapade)'})
     try:
-        return urllib.request.urlopen(req, timeout=30).status
+        return OPENER.open(req, timeout=30).status
     except urllib.error.HTTPError as e:
         return e.code
     except Exception:
@@ -54,7 +62,35 @@ def slug(name):
     return re.sub(r'[^a-z0-9]+', '-', s).strip('-')
 
 
+# noms de page du ministère qui diffèrent du nom du pays
+MAE_ALIAS = {'CZ': 'republique-tcheque', 'VN': 'vietnam', 'MU': 'maurice', 'CV': 'cap-vert', 'KG': 'kirghizstan', 'GW': 'guinee-bissao',
+             'SZ': 'eswatini', 'SR': 'suriname', 'CD': 'republique-democratique-du-congo'}
+
+
+def mae_slug(cc, name):
+    for s in [MAE_ALIAS.get(cc), slug(name)]:
+        if not s:
+            continue
+        for _ in range(2):      # une seconde tentative si le site n'a pas répondu
+            code = status(f'https://www.diplomatie.gouv.fr/fr/information-par-pays/{s}/')
+            if code in (200, 301, 302, 308): return s
+            if code == 404: break
+            time.sleep(1)
+    return None
+
+
 countries = json.load(open(os.path.join(ROOT, 'data', 'countries.json'), encoding='utf-8'))
+if '--mae-only' in sys.argv:
+    path = os.path.join(ROOT, 'data', 'country-extra.json')
+    res = json.load(open(path, encoding='utf-8'))
+    for i, (cc, c) in enumerate(sorted(countries.items())):
+        if 'mae' in res.get(cc, {}) and cc not in MAE_ALIAS: continue
+        s = mae_slug(cc, c['n'])
+        if s: res.setdefault(cc, {})['mae'] = s
+        time.sleep(0.2)
+    json.dump(res, open(path, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
+    print('conseils', sum('mae' in v for v in res.values()), '/', len(countries))
+    sys.exit(0)
 out = {cc: {'plugs': set(), 'volt': set(), 'emerg': set()} for cc in countries}
 for b in sparql(QUERY):
     cc = b['iso']['value']
@@ -76,9 +112,8 @@ check = '--no-links' not in sys.argv
 for i, (cc, c) in enumerate(sorted(countries.items())):
     o = out[cc]
     if check:
-        s = slug(c['n'])
-        code = status(f'https://www.diplomatie.gouv.fr/fr/information-par-pays/{s}/')
-        if code in (200, 301, 302): o['mae'] = s
+        s = mae_slug(cc, c['n'])
+        if s: o['mae'] = s
         if o.get('en'):
             page = o['en'].replace(' ', '_')
             if status(f'https://www.seat61.com/{page}.htm') == 200: o['seat61'] = page

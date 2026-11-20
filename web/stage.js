@@ -108,7 +108,7 @@ function parseArticle(w, lang) {
     const prose = clean(stripListings(ch.body)).replace(/\n{2,}/g, '\n').trim();
     if (prose && sec) {
       const k = sec === 'getin' ? (/train|rail/i.test(ch.h3) ? 'train' : /avion|air|plane/i.test(ch.h3) ? 'air' : /bus|car|autocar/i.test(ch.h3) ? 'bus' : /bateau|boat|ferry/i.test(ch.h3) ? 'boat' : 'getin') : sec;
-      if (!out.text[k]) out.text[k] = prose.split('\n').filter(l => l.length > 30 && !/^[*#:]/.test(l)).slice(0, 2).join(' ').slice(0, 420);
+      if (!out.text[k]) out.text[k] = prose.split('\n').filter(l => l.length > 30 && !/^[*#:]/.test(l)).slice(0, 2).join(' ').replace(/^(.{380}\S*)\s[\s\S]+$/, '$1…');   // coupé à la fin d'un mot
     }
     for (const t of templates(ch.body)) {
       const name = t.name.toLowerCase();
@@ -474,6 +474,8 @@ function tabVoir(trip, i, dd, data) {
   return html + `<div class="sec">${wvCredit(art)}</div>`;
 }
 
+// France et outre-mer : pas de page « Conseils aux voyageurs », ni de formalités
+const FRANCE = new Set(['FR', 'GP', 'MQ', 'GF', 'RE', 'YT', 'PM', 'BL', 'MF', 'NC', 'PF', 'WF']);
 function tabPratique(trip, i, dd, data) {
   const st = trip.stops[i], art = data.art, ex = data.extra || {}, site = data.site;
   const cc = st.cc || trip.cc, ci = C.countryInfo(cc);
@@ -484,7 +486,7 @@ function tabPratique(trip, i, dd, data) {
     ${art ? ext(art.url, `${I.book}Guide Wikivoyage`) : ''}
     ${ext(`https://fr.wikipedia.org/wiki/${encodeURIComponent((site?.wiki || st.wiki || st.p?.[8] || st.name).replace(/ /g, '_'))}`, `${I.book}Wikipédia`)}
     ${ext(`https://www.google.com/maps/search/?api=1&query=${st.lat},${st.lon}`, `${I.map}Google Maps`)}
-    ${ex.mae ? ext(`https://www.diplomatie.gouv.fr/fr/information-par-pays/${ex.mae}/`, `${I.shield}Conseils aux voyageurs`) : ext('https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/', `${I.shield}Conseils aux voyageurs`)}
+    ${FRANCE.has(cc) ? '' : ex.mae ? ext(`https://www.diplomatie.gouv.fr/fr/information-par-pays/${ex.mae}/`, `${I.shield}Conseils aux voyageurs`) : ext('https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/', `${I.shield}Conseils aux voyageurs`)}
   </div>${art === undefined ? '<p class="src">Recherche du site officiel…</p>' : ''}</div>`;
   if (office && (office.address || office.phone || office.hours)) html += `<div class="sec"><h3>Office de tourisme</h3>${card(office)}</div>`;
   if (art?.text?.around) html += `<div class="sec"><h3>Se déplacer sur place</h3><div class="st-tip"><p>${esc(art.text.around)}</p></div></div>`;
@@ -497,6 +499,6 @@ function tabPratique(trip, i, dd, data) {
     ex.call && [I.chat, 'Indicatif', ex.call],
   ].filter(Boolean);
   if (facts.length) html += `<div class="sec"><h3>Le pays en bref <small>${esc(ci?.name || cc)}</small></h3><div class="grid2">${facts.map(([ic, k, v]) => `<div class="stat">${ic}<span>${k}<b>${esc(v)}</b></span></div>`).join('')}</div>
-    <p class="src">Formalités d’entrée (passeport, visa), santé et sécurité : consulte les Conseils aux voyageurs avant de réserver. Données pays : Wikidata.</p></div>`;
+    <p class="src">${FRANCE.has(cc) ? '' : 'Formalités d’entrée (passeport, visa), santé et sécurité : consulte les Conseils aux voyageurs avant de réserver. '}Données pays : Wikidata.</p></div>`;
   return html;
 }

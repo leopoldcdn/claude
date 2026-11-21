@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nicotine : anatomie d'une dépendance</title>
+<meta name="description" content="Site interactif pour comprendre l'addiction à la nicotine, à partir d'une cigarette que l'on peut explorer, allumer et disséquer.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#110d0b; --bg2:#171210; --card:#1e1815; --card2:#251e1a; --line:#33291f;
+  --text:#f4ede5; --muted:#b9aa9b; --dim:#8a7c6f;
+  --ember:#ff6b2c; --ember2:#ffb347; --nic:#ffd34d; --dopa:#5fb3ff;
+  --red:#ff5468; --green:#5ad69c; --radius:18px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;line-height:1.12;margin:0 0 .5em;font-weight:700;letter-spacing:-.01em}
+h1{font-size:clamp(2.2rem,5.4vw,4.2rem)}
+h2{font-size:clamp(1.8rem,3.6vw,2.8rem)}
+h3{font-size:1.25rem}
+p{margin:0 0 1em}
+a{color:var(--ember2)}
+em{font-style:normal;color:var(--ember)}
+button{font:inherit;cursor:pointer}
+.wrap{max-width:1160px;margin:0 auto;padding:0 22px}
+section{padding:96px 0;position:relative}
+.eyebrow{text-transform:uppercase;letter-spacing:.16em;font-size:.78rem;font-weight:600;color:var(--ember2);margin-bottom:14px}
+.lead{font-size:1.15rem;color:var(--muted);max-width:720px}
+.muted{color:var(--muted)}
+.small{font-size:.86rem}
+.sec-head{max-width:780px;margin-bottom:42px}
+
+/* NAV */
+nav.top{position:sticky;top:0;z-index:50;background:rgba(17,13,11,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+nav.top .wrap{display:flex;align-items:center;gap:18px;height:58px}
+.brand{font-family:Fraunces,Georgia,serif;font-weight:700;font-size:1.1rem;color:var(--text);text-decoration:none;white-space:nowrap;display:flex;align-items:center;gap:9px}
+.brand i{display:inline-block;width:26px;height:7px;border-radius:2px;background:linear-gradient(90deg,#d98b3e 0 34%,#f4efe6 34% 92%,var(--ember) 92%);box-shadow:0 0 10px rgba(255,107,44,.6)}
+.navlinks{display:flex;gap:4px;margin-left:auto;overflow-x:auto;scrollbar-width:none}
+.navlinks::-webkit-scrollbar{display:none}
+.navlinks a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:7px 11px;border-radius:999px;white-space:nowrap;transition:.2s}
+.navlinks a:hover,.navlinks a.active{color:var(--text);background:var(--card2)}
+
+/* BUTTONS */
+.btn{border:1px solid var(--line);background:var(--card2);color:var(--text);padding:11px 18px;border-radius:999px;font-weight:600;font-size:.95rem;display:inline-flex;align-items:center;gap:8px;transition:transform .15s,background .2s,border-color .2s,opacity .2s}
+.btn:hover:not(:disabled){border-color:#5a4838;transform:translateY(-1px)}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.primary{background:linear-gradient(135deg,var(--ember),#e2441b);border-color:transparent;color:#fff;box-shadow:0 6px 24px -8px rgba(255,107,44,.7)}
+.btn.primary:hover:not(:disabled){box-shadow:0 8px 30px -6px rgba(255,107,44,.85)}
+.btn[aria-pressed="true"]{background:#3a2b20;border-color:var(--ember2);color:var(--ember2)}
+.btn:focus-visible,.chip:focus-visible,.pin:focus-visible,.tile:focus-visible{outline:2px solid var(--ember2);outline-offset:3px}
+.chip{border:1px solid var(--line);background:transparent;color:var(--muted);padding:7px 14px;border-radius:999px;font-size:.88rem;font-weight:500;transition:.2s}
+.chip:hover{color:var(--text);border-color:#5a4838}
+.chip.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+
+/* HERO */
+.hero{padding:56px 0 70px;background:radial-gradient(ellipse 80% 60% at 70% 30%,rgba(255,107,44,.10),transparent 70%)}
+.hero-grid{display:grid;grid-template-columns:1fr;gap:10px}
+.hero-text h1{max-width:860px}.hero-text .lead{max-width:760px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 28px;margin-top:22px;max-width:1000px}
+.stat b{display:block;font-family:Fraunces,Georgia,serif;font-size:1.7rem;color:var(--text);line-height:1.1}
+.stat span{font-size:.82rem;color:var(--dim)}
+.stage{margin-top:26px;background:linear-gradient(180deg,#1a1411,#140f0d);border:1px solid var(--line);border-radius:28px;padding:18px 18px 22px;position:relative;overflow:hidden}
+.cig-wrap{position:relative;width:100%;aspect-ratio:1000/300;user-select:none;-webkit-user-select:none}
+.cig-wrap svg,.cig-wrap canvas{position:absolute;inset:0;width:100%;height:100%}
+.cig-wrap canvas{pointer-events:none}
+#cig .part{cursor:pointer}
+#cig .part:hover{filter:brightness(1.08)}
+#paperR,#filterCut,#tobaccoR{transition:opacity .6s ease}
+.pin{cursor:pointer}
+.pin circle.dot{fill:var(--ember);stroke:#fff;stroke-width:2.5;transition:r .2s}
+.pin text{fill:#fff;font:700 16px Inter,sans-serif;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.pin text.lbl{fill:var(--text);font:600 15px Inter,sans-serif}
+.pin line{stroke:rgba(255,255,255,.25);stroke-width:1.5;stroke-dasharray:3 4}
+.pin .halo{fill:none;stroke:var(--ember);stroke-width:2;opacity:.0;transform-box:fill-box;transform-origin:center;animation:halo 2.4s infinite}
+.pin.sel circle.dot{fill:#fff;stroke:var(--ember)}
+.pin.sel text.num{fill:var(--ember)}
+@keyframes halo{0%{opacity:.7;transform:scale(1)}100%{opacity:0;transform:scale(2.2)}}
+.floatchem{position:absolute;transform:translate(-50%,0);font-size:.8rem;font-weight:600;color:#f1e7dc;background:rgba(40,32,27,.72);border:1px solid rgba(255,255,255,.12);padding:3px 9px;border-radius:999px;white-space:nowrap;pointer-events:none;animation:floatUp 3.4s ease-out forwards}
+@keyframes floatUp{0%{opacity:0;transform:translate(-50%,0) scale(.8)}15%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),-150px) scale(1.05)}}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:6px}
+.controls .sp{flex:1}
+.hud{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}
+.hud div{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
+.hud b{display:block;font-size:1.35rem;font-family:Fraunces,Georgia,serif}
+.hud span{font-size:.78rem;color:var(--dim)}
+.brain-timer{margin-top:12px;min-height:44px;display:flex;align-items:center;gap:12px;font-size:.95rem;color:var(--muted)}
+.brain-timer .bar{flex:0 0 160px;height:6px;border-radius:9px;background:#2c241f;overflow:hidden}
+.brain-timer .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--nic),var(--dopa))}
+.brain-timer.arrived{color:var(--dopa)}
+.log{margin-top:4px;font-size:.95rem;color:var(--text);min-height:52px;border-left:3px solid var(--ember);padding:4px 0 4px 14px}
+.parts-chips{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 12px}
+.info{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:22px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px 26px;min-height:210px;animation:fadeIn .4s ease}
+.info h3{font-size:1.6rem;margin-bottom:.15em}
+.info .sub{color:var(--ember2);font-weight:600;font-size:.9rem;margin-bottom:12px}
+.info ul{margin:0;padding-left:18px}
+.info li{margin-bottom:8px;color:#e6dccf}
+.info .fact{align-self:start;background:linear-gradient(160deg,#2c1f17,#221914);border:1px solid #4a3424;border-radius:16px;padding:18px}
+.info .fact b{display:block;font-family:Fraunces,Georgia,serif;font-size:2rem;color:var(--ember2);line-height:1.1;margin-bottom:6px}
+.info .fact span{font-size:.88rem;color:var(--muted)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* CHEMICALS */
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+.grid-chem{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:12px}
+.tile{position:relative;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 16px 14px;color:var(--text);transition:transform .2s,border-color .2s,opacity .3s,background .2s;min-height:142px;display:flex;flex-direction:column}
+.tile:hover{transform:translateY(-3px);border-color:#5a4838}
+.tile.sel{border-color:var(--ember);background:#2a1d16}
+.tile.hide{display:none}
+.tile .sym{font-family:Fraunces,Georgia,serif;font-size:1.75rem;font-weight:700;line-height:1;margin-bottom:10px}
+.tile .nm{font-weight:600;font-size:.98rem;line-height:1.25}
+.tile .also{font-size:.78rem;color:var(--dim);margin-top:auto;padding-top:8px}
+.tile .tag{position:absolute;top:12px;right:12px;width:9px;height:9px;border-radius:50%}
+.t-addictif{background:var(--nic)} .t-cancer{background:var(--red)} .t-toxique{background:#c58cff}
+.legend{display:flex;flex-wrap:wrap;gap:18px;font-size:.84rem;color:var(--muted);margin:16px 0 0}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px}
+.chem-detail{margin-top:18px;background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:22px 24px;display:flex;gap:22px;align-items:flex-start;animation:fadeIn .35s}
+.chem-detail .sym{font-family:Fraunces,Georgia,serif;font-size:2.6rem;font-weight:700;min-width:96px;color:var(--ember2);line-height:1}
+.chem-detail h3{margin-bottom:.2em}
+.chem-detail .also{color:var(--muted);font-size:.9rem;margin-bottom:8px}
+
+/* JOURNEY */
+.two{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:40px;align-items:center}
+.body-box{background:var(--card);border:1px solid var(--line);border-radius:26px;padding:12px;position:relative}
+.body-box svg{width:100%;height:auto;display:block}
+.timer-big{position:absolute;top:18px;right:20px;font-family:Fraunces,Georgia,serif;font-size:2rem;color:var(--nic);font-variant-numeric:tabular-nums}
+.steps{list-style:none;margin:0 0 22px;padding:0;position:relative}
+.steps::before{content:"";position:absolute;left:15px;top:10px;bottom:10px;width:2px;background:var(--line)}
+.steps li{position:relative;padding:0 0 18px 48px;opacity:.45;transition:opacity .4s}
+.steps li.on{opacity:1}
+.steps li .t{position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:var(--card2);border:2px solid var(--line);display:grid;place-items:center;font-size:.72rem;font-weight:700;color:var(--muted);transition:.4s}
+.steps li.on .t{background:var(--nic);border-color:var(--nic);color:#2a1f00}
+.steps li b{display:block}
+.steps li span{color:var(--muted);font-size:.93rem}
+.effects{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px}
+.effects div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:.9rem;color:var(--muted);opacity:.35;transform:translateY(6px);transition:.5s}
+.effects.show div{opacity:1;transform:none}
+.effects b{color:var(--text);display:block;font-size:.95rem}
+#heart{transform-box:fill-box;transform-origin:center;animation:beat 1s infinite}
+#heart.fast{animation-duration:.62s}
+@keyframes beat{0%,100%{transform:scale(1)}15%{transform:scale(1.13)}30%{transform:scale(.97)}}
+#brain.lit{filter:drop-shadow(0 0 14px var(--dopa))}
+#brain{transition:filter .6s}
+
+/* SYNAPSE */
+.syn-box{background:var(--card);border:1px solid var(--line);border-radius:26px;padding:22px}
+.syn-box svg{width:100%;height:auto;display:block}
+.syn-ctrl{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:14px;align-items:start}
+.range{width:100%;accent-color:var(--ember)}
+.stage-labels{display:flex;justify-content:space-between;font-size:.76rem;color:var(--dim);margin-top:4px}
+.stage-labels span{flex:1;text-align:center}
+.stage-labels span:first-child{text-align:left}.stage-labels span:last-child{text-align:right}
+.stage-labels span.on{color:var(--ember2);font-weight:600}
+.gauge{position:relative;height:18px;border-radius:999px;background:linear-gradient(90deg,rgba(255,84,104,.35) 0 40%,rgba(255,255,255,.08) 40% 60%,rgba(95,179,255,.35) 60%);margin:10px 0 6px}
+.gauge .needle{position:absolute;top:-6px;width:4px;height:30px;border-radius:3px;background:#fff;box-shadow:0 0 12px #fff;left:50%;transform:translateX(-50%)}
+.gauge .base{position:absolute;top:-4px;width:2px;height:26px;background:var(--red);opacity:.9}
+.gauge-lbl{display:flex;justify-content:space-between;font-size:.76rem;color:var(--dim)}
+.syn-text{margin-top:18px;background:var(--card2);border-radius:16px;padding:16px 18px;border:1px solid var(--line);min-height:96px}
+.crave{display:inline-block;margin-left:8px;padding:2px 10px;border-radius:999px;background:var(--red);color:#fff;font-size:.78rem;font-weight:700;animation:pulse 1s infinite;visibility:hidden}
+.crave.on{visibility:visible}
+@keyframes pulse{50%{opacity:.45}}
+.simclock{font-size:.85rem;color:var(--dim);min-height:1.4em}
+.rec path{fill:none;stroke:#9fb4e6;stroke-width:3.5;stroke-linecap:round;transition:stroke .3s}
+.rec.bound path{stroke:var(--nic)}
+.rec .mol{fill:var(--nic);opacity:0;transition:opacity .3s}
+.rec.bound .mol{opacity:1}
+
+/* CYCLE */
+.cycle-box{background:var(--card);border:1px solid var(--line);border-radius:26px;padding:22px}
+.cycle-box svg{width:100%;height:auto;display:block;overflow:visible}
+.cyc-ctrl{display:grid;grid-template-columns:1.4fr 1fr;gap:26px;margin-bottom:12px;align-items:end}
+.cyc-ctrl label{font-size:.88rem;color:var(--muted);display:block;margin-bottom:6px}
+.cyc-ctrl output{font-family:Fraunces,Georgia,serif;font-size:1.5rem;color:var(--text)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}
+.kpis div{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.kpis b{display:block;font-family:Fraunces,Georgia,serif;font-size:1.35rem}
+.kpis span{font-size:.78rem;color:var(--dim)}
+.price{display:flex;align-items:center;gap:8px}
+.price input{width:78px;background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:8px 10px;font:inherit}
+.cig-mark{cursor:pointer}
+.cig-mark:hover rect.body{fill:#fff}
+.axis text{fill:var(--dim);font:12px Inter,sans-serif}
+
+/* DEPENDANCES */
+.cards3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.dep{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:24px;display:flex;flex-direction:column}
+.dep .ico{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;margin-bottom:16px;background:var(--card2)}
+.dep h3{margin-bottom:.3em}
+.dep .help{margin-top:auto;padding-top:14px;border-top:1px solid var(--line);font-size:.9rem;color:var(--muted)}
+.dep .help b{color:var(--green)}
+.hsi{margin-top:26px;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:24px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:22px;align-items:start}
+.hsi fieldset{border:0;margin:0;padding:0}
+.hsi legend{font-weight:600;margin-bottom:10px;padding:0}
+.opt{display:flex;flex-direction:column;gap:7px}
+.opt label{display:flex;gap:10px;align-items:center;font-size:.93rem;color:var(--muted);cursor:pointer;padding:8px 12px;border:1px solid var(--line);border-radius:12px;transition:.2s}
+.opt label:hover{border-color:#5a4838}
+.opt input{accent-color:var(--ember)}
+.opt label:has(input:checked){border-color:var(--ember);color:var(--text);background:#2a1d16}
+.hsi-res{background:var(--card2);border-radius:16px;padding:18px;border:1px solid var(--line)}
+.hsi-res b.score{font-family:Fraunces,Georgia,serif;font-size:2.4rem;display:block;line-height:1}
+
+/* QUIT */
+.quit{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:36px;align-items:center}
+.lungs-box{background:var(--card);border:1px solid var(--line);border-radius:26px;padding:20px}
+.lungs-box svg{width:100%;height:auto;display:block}
+.qt-time{font-family:Fraunces,Georgia,serif;font-size:clamp(2rem,4vw,3rem);color:var(--green);line-height:1.1}
+.qt-text{font-size:1.15rem;margin:12px 0 10px;min-height:5.2em}
+.qt-manque{font-size:.92rem;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-height:3.4em}
+.ticks{display:flex;justify-content:space-between;font-size:.72rem;color:var(--dim);margin-top:6px}
+
+/* QUIZ */
+.quiz{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.q{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px 22px;transition:border-color .3s}
+.q p.st{font-family:Fraunces,Georgia,serif;font-size:1.18rem;margin-bottom:14px;line-height:1.3}
+.q .ans{display:flex;gap:8px}
+.q .exp{display:none;margin-top:14px;font-size:.93rem;color:var(--muted)}
+.q.done .exp{display:block;animation:fadeIn .4s}
+.q.good{border-color:var(--green)} .q.bad{border-color:var(--red)}
+.q .verdict{font-weight:700;margin-right:6px}
+.q.good .verdict{color:var(--green)} .q.bad .verdict{color:var(--red)}
+.q button.pick{outline:2px solid #fff}
+.score-bar{display:flex;align-items:center;gap:16px;margin-bottom:20px}
+.score-bar b{font-family:Fraunces,Georgia,serif;font-size:1.6rem}
+
+/* HELP */
+.help-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:16px}
+.hcard{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:24px}
+.hcard.main{background:linear-gradient(150deg,#1f3a2c,#14241c);border-color:#2f5a43}
+.hcard .num{font-family:Fraunces,Georgia,serif;font-size:3rem;color:#fff;line-height:1;margin:6px 0 10px}
+footer{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--dim);font-size:.85rem}
+footer ul{padding-left:18px;margin:8px 0 16px}
+footer a{color:var(--muted)}
+
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .8s ease,transform .8s ease}
+.reveal.in{opacity:1;transform:none}
+
+@media (max-width:900px){
+  .two,.quit{grid-template-columns:1fr}
+  .info{grid-template-columns:1fr}
+  .cards3,.help-grid,.hsi{grid-template-columns:1fr}
+  .syn-ctrl,.cyc-ctrl{grid-template-columns:1fr}
+  .quiz{grid-template-columns:1fr}
+  .hud,.kpis,.stats{grid-template-columns:repeat(2,1fr)}
+  .body-box{max-width:420px;margin:0 auto}
+  .lungs-box{max-width:340px;margin:0 auto}
+  section{padding:70px 0}
+}
+@media (max-width:560px){
+  .pin text.lbl{display:none}
+  .chem-detail{flex-direction:column;gap:8px}
+  .effects{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  .reveal{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+
+<nav class="top" aria-label="Navigation principale">
+  <div class="wrap">
+    <a class="brand" href="#cigarette"><i aria-hidden="true"></i>Nicotine</a>
+    <div class="navlinks">
+      <a href="#cigarette">La cigarette</a>
+      <a href="#fumee">La fumée</a>
+      <a href="#trajet">Le trajet</a>
+      <a href="#cerveau">Le cerveau</a>
+      <a href="#cycle">Le cycle</a>
+      <a href="#dependances">Les dépendances</a>
+      <a href="#arreter">Arrêter</a>
+      <a href="#quiz">Quiz</a>
+      <a href="#aide">Se faire aider</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ============ HERO / CIGARETTE ============ -->
+<header class="hero" id="cigarette">
+  <div class="wrap">
+    <div class="hero-text">
+      <p class="eyebrow">Comprendre l'addiction à la nicotine</p>
+      <h1>Ce qu'il y a <em>vraiment</em> dans une cigarette</h1>
+      <p class="lead">Touchez chaque partie de la cigarette pour découvrir ce qu'elle contient. Passez en vue en coupe pour voir l'intérieur, puis allumez-la et tirez des bouffées pour suivre ce qu'elle fait au corps et au cerveau.</p>
+      <div class="stats">
+        <div class="stat"><b>7 000+</b><span>substances chimiques dans la fumée</span></div>
+        <div class="stat"><b>≈ 75 000</b><span>décès par an en France</span></div>
+        <div class="stat"><b>8 millions</b><span>décès par an dans le monde (OMS)</span></div>
+        <div class="stat"><b>7 à 10 s</b><span>pour que la nicotine atteigne le cerveau</span></div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="cig-wrap" id="cigWrap">
+        <svg id="cig" viewBox="0 0 1000 300" role="group" aria-label="Cigarette interactive : cliquez sur une partie pour l'explorer">
+          <defs>
+            <linearGradient id="gPaper" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ffffff"/><stop offset=".42" stop-color="#f7f3eb"/><stop offset=".8" stop-color="#ddd6c9"/><stop offset="1" stop-color="#b9b1a3"/>
+            </linearGradient>
+            <linearGradient id="gFilter" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#f6b56c"/><stop offset=".45" stop-color="#dc8c3f"/><stop offset="1" stop-color="#94541f"/>
+            </linearGradient>
+            <linearGradient id="gShade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset=".7" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/>
+            </linearGradient>
+            <pattern id="pCork" width="14" height="14" patternUnits="userSpaceOnUse">
+              <circle cx="3" cy="4" r="1.3" fill="#7d4316" opacity=".55"/>
+              <circle cx="10" cy="9" r="1.1" fill="#fff2d8" opacity=".35"/>
+              <circle cx="7" cy="12.5" r=".9" fill="#7d4316" opacity=".4"/>
+            </pattern>
+            <pattern id="pTobacco" width="38" height="18" patternUnits="userSpaceOnUse">
+              <rect width="38" height="18" fill="#6e3f1c"/>
+              <path d="M-2 4 Q9 0 19 5 T40 4" stroke="#a8692f" stroke-width="2.2" fill="none"/>
+              <path d="M-2 11 Q9 7 19 12 T40 11" stroke="#4d2a12" stroke-width="2" fill="none"/>
+              <path d="M-2 16 Q10 13 20 17 T40 15" stroke="#c88a45" stroke-width="1.6" fill="none"/>
+              <path d="M5 8 Q12 6 16 9" stroke="#d9a25e" stroke-width="1.2" fill="none"/>
+            </pattern>
+            <pattern id="pFibers" width="7" height="56" patternUnits="userSpaceOnUse">
+              <rect width="7" height="56" fill="#f2ede3"/>
+              <line x1="2" y1="0" x2="2" y2="56" stroke="#d6cebf" stroke-width="1.6"/>
+              <line x1="5.5" y1="0" x2="5.5" y2="56" stroke="#e5dfd3" stroke-width="1"/>
+            </pattern>
+            <radialGradient id="gGlow" cx=".5" cy=".5" r=".5">
+              <stop offset="0" stop-color="#fff0a8" stop-opacity="1"/><stop offset=".3" stop-color="#ffb347" stop-opacity=".9"/><stop offset=".65" stop-color="#ff5a1f" stop-opacity=".45"/><stop offset="1" stop-color="#ff3a00" stop-opacity="0"/>
+            </radialGradient>
+            <linearGradient id="gEmber" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ffcf6b"/><stop offset=".5" stop-color="#ff6b2c"/><stop offset="1" stop-color="#b8300c"/>
+            </linearGradient>
+            <linearGradient id="gAsh" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#cbc5be"/><stop offset=".5" stop-color="#97918a"/><stop offset="1" stop-color="#5f5a55"/>
+            </linearGradient>
+            <filter id="fBlur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+            <filter id="fShadow" x="-10%" y="-200%" width="120%" height="500%"><feGaussianBlur stdDeviation="7"/></filter>
+          </defs>
+
+          <ellipse cx="500" cy="282" rx="450" ry="7" fill="#000" opacity=".55" filter="url(#fShadow)"/>
+
+          <!-- Filtre -->
+          <g class="part" data-part="filtre" tabindex="-1">
+            <rect x="60" y="200" width="232" height="56" rx="9" fill="url(#gFilter)"/>
+            <rect x="60" y="200" width="232" height="56" rx="9" fill="url(#pCork)"/>
+            <g id="filterCut" opacity="0">
+              <rect x="64" y="204" width="222" height="48" rx="7" fill="url(#pFibers)"/>
+              <rect x="64" y="204" width="222" height="48" rx="7" fill="none" stroke="#d98b3e" stroke-width="2"/>
+            </g>
+            <rect x="284" y="200" width="8" height="56" fill="#e9c47a"/>
+            <rect x="60" y="200" width="232" height="56" rx="9" fill="url(#gShade)"/>
+            <g fill="#4a2a10" opacity=".35"><circle cx="268" cy="214" r="1.3"/><circle cx="268" cy="228" r="1.3"/><circle cx="268" cy="242" r="1.3"/><circle cx="274" cy="221" r="1.3"/><circle cx="274" cy="235" r="1.3"/></g>
+          </g>
+
+          <!-- Papier + tabac -->
+          <g class="part" data-part="papier" id="paperG">
+            <rect id="tobaccoR" x="292" y="200" width="628" height="56" fill="url(#pTobacco)"/>
+            <g id="paperBody">
+              <rect id="paperR" x="292" y="200" width="628" height="56" fill="url(#gPaper)"/>
+            </g>
+            <g id="ripBands" opacity=".07"><rect x="520" y="200" width="7" height="56" fill="#000"/><rect x="730" y="200" width="7" height="56" fill="#000"/></g>
+            <rect id="shadeR" x="292" y="200" width="628" height="56" fill="url(#gShade)" pointer-events="none"/>
+          </g>
+
+          <!-- Bout / braise / cendre -->
+          <g id="tipG" class="part" data-part="braise">
+            <rect id="charR" x="912" y="200" width="8" height="56" fill="#3b2a1f" opacity="0"/>
+            <rect id="ashR" x="920" y="202" width="0" height="52" rx="5" fill="url(#gAsh)"/>
+            <ellipse id="tipEnd" cx="920" cy="228" rx="5" ry="28" fill="#5a3216"/>
+            <rect id="emberR" x="914" y="201" width="12" height="54" rx="5" fill="url(#gEmber)" opacity="0"/>
+            <circle id="glow" cx="920" cy="228" r="46" fill="url(#gGlow)" opacity="0" pointer-events="none"/>
+          </g>
+          <g id="fallingAsh"></g>
+
+          <!-- Zone de fumée cliquable -->
+          <rect id="smokeHit" class="part" data-part="fumee" x="840" y="10" width="150" height="170" fill="transparent"/>
+
+          <!-- Pins -->
+          <g id="pins"></g>
+        </svg>
+        <canvas id="smoke" aria-hidden="true"></canvas>
+      </div>
+
+      <div class="controls">
+        <button class="btn primary" id="btnLight">Allumer la cigarette</button>
+        <button class="btn" id="btnPuff" disabled>Tirer une bouffée</button>
+        <button class="btn" id="btnCut" aria-pressed="false">Vue en coupe</button>
+        <span class="sp"></span>
+        <button class="btn" id="btnReset">Nouvelle cigarette</button>
+      </div>
+
+      <div class="hud" aria-live="off">
+        <div><b id="hPuffs">0</b><span>bouffées</span></div>
+        <div><b id="hNic">0,0 mg</b><span>nicotine absorbée</span></div>
+        <div><b id="hTime">0:00</b><span>temps de combustion</span></div>
+        <div><b id="hSide">0 %</b><span>brûlé entre les bouffées (fumée secondaire)</span></div>
+      </div>
+      <div class="brain-timer" id="brainTimer" aria-live="polite">Allumez la cigarette, puis tirez une bouffée pour suivre la nicotine jusqu'au cerveau.</div>
+      <div class="log" id="log" aria-live="polite">La cigarette est éteinte. Commencez par explorer ses différentes parties ci-dessous.</div>
+    </div>
+
+    <div class="parts-chips" role="tablist" aria-label="Parties de la cigarette">
+      <button class="chip" data-part="filtre">1 · Filtre</button>
+      <button class="chip" data-part="papier">2 · Papier</button>
+      <button class="chip" data-part="tabac">3 · Tabac</button>
+      <button class="chip" data-part="braise">4 · Braise et cendre</button>
+      <button class="chip" data-part="fumee">5 · Fumée</button>
+    </div>
+    <div id="info" class="info" aria-live="polite"></div>
+  </div>
+</header>
+
+<!-- ============ FUMEE / SUBSTANCES ============ -->
+<section id="fumee">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Dans la fumée</p>
+      <h2>Plus de 7 000 substances, au moins 69 cancérogènes</h2>
+      <p class="lead">La plupart ne sont pas dans le tabac au départ : elles naissent de la combustion. Voici quelques-unes des plus connues. Cliquez sur une substance pour savoir ce qu'elle fait et où on la retrouve ailleurs.</p>
+    </div>
+    <div class="filters reveal" role="group" aria-label="Filtrer les substances">
+      <button class="chip on" data-filter="all">Toutes</button>
+      <button class="chip" data-filter="addictif">Rend dépendant</button>
+      <button class="chip" data-filter="cancer">Cancérogène</button>
+      <button class="chip" data-filter="toxique">Toxique / irritant</button>
+    </div>
+    <div class="grid-chem reveal" id="chemGrid"></div>
+    <div class="legend">
+      <span><i class="t-addictif"></i>Rend dépendant</span>
+      <span><i class="t-cancer"></i>Cancérogène</span>
+      <span><i class="t-toxique"></i>Toxique / irritant</span>
+    </div>
+    <div id="chemDetail"></div>
+  </div>
+</section>
+
+<!-- ============ TRAJET ============ -->
+<section id="trajet" style="background:var(--bg2)">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Le trajet de la nicotine</p>
+      <h2>De la bouche au cerveau en quelques secondes</h2>
+      <p class="lead">Fumer est l'un des moyens les plus rapides de faire entrer une drogue dans le cerveau. C'est cette rapidité qui rend la cigarette si addictive : le cerveau associe immédiatement le geste à la récompense.</p>
+    </div>
+    <div class="two">
+      <div class="body-box reveal">
+        <div class="timer-big" id="jTimer">0,0 s</div>
+        <svg viewBox="0 0 400 500" aria-label="Schéma du corps : trajet de la nicotine">
+          <defs>
+            <radialGradient id="gBody" cx=".5" cy=".35" r=".7"><stop offset="0" stop-color="#2e251f"/><stop offset="1" stop-color="#1c1613"/></radialGradient>
+            <filter id="fGlowNic" x="-200%" y="-200%" width="500%" height="500%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <path d="M110 178 Q200 160 290 178 Q314 262 302 362 Q292 472 200 482 Q108 472 98 362 Q86 262 110 178Z" fill="url(#gBody)" stroke="#40342b" stroke-width="2"/>
+          <rect x="182" y="132" width="36" height="52" rx="10" fill="#241d19" stroke="#40342b" stroke-width="2"/>
+          <ellipse cx="200" cy="80" rx="58" ry="66" fill="url(#gBody)" stroke="#40342b" stroke-width="2"/>
+          <g id="brain">
+            <ellipse cx="200" cy="64" rx="43" ry="33" fill="#c97b8f" opacity=".85"/>
+            <path d="M170 56 q10 -14 22 -4 q8 -12 20 -2 q12 -6 18 8 M166 72 q14 6 24 -4 q10 10 22 0 q10 6 20 -4 M200 34 v60" stroke="#9e5468" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+          </g>
+          <path d="M188 120 q12 6 24 0" stroke="#7d6a5b" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M200 128 L200 214" stroke="#8a7462" stroke-width="9" stroke-linecap="round"/>
+          <path d="M200 214 Q182 224 168 246 M200 214 Q218 224 232 246" stroke="#8a7462" stroke-width="6" fill="none" stroke-linecap="round"/>
+          <path id="lungL" d="M190 206 Q138 200 126 262 Q116 334 140 362 Q176 376 190 344 Z" fill="#8f6f6a" opacity=".7"/>
+          <path id="lungR" d="M210 206 Q262 200 274 262 Q284 334 260 362 Q224 376 210 344 Z" fill="#8f6f6a" opacity=".7"/>
+          <path id="heart" d="M226 322 C204 306 206 284 219 286 C224 287 226 292 226 295 C228 288 238 282 245 292 C252 304 238 314 226 322Z" fill="#e0475b"/>
+          <path d="M232 296 C 248 250 240 190 232 150" stroke="#b33a4a" stroke-width="4" fill="none" opacity=".5"/>
+          <!-- trajets (invisibles) -->
+          <path id="pA" d="M200 118 L200 212 Q176 226 162 262" fill="none"/>
+          <path id="pB" d="M162 262 Q158 300 190 304 Q212 306 228 300" fill="none"/>
+          <path id="pC" d="M228 300 C 248 250 240 190 232 150 Q 222 108 204 70" fill="none"/>
+          <g id="trail"></g>
+          <circle id="nicDot" r="8" fill="#ffd34d" filter="url(#fGlowNic)" opacity="0" cx="200" cy="118"/>
+          <g font-family="Inter,sans-serif" font-size="13" fill="#b9aa9b">
+            <text x="268" y="62">Cerveau</text>
+            <text x="282" y="250">Poumons</text>
+            <text x="258" y="336">Cœur</text>
+          </g>
+        </svg>
+      </div>
+      <div class="reveal">
+        <ol class="steps" id="steps">
+          <li data-t="0"><span class="t">0 s</span><b>Inhalation</b><span>La fumée chaude passe par la bouche et la trachée. La nicotine voyage sur de fines particules.</span></li>
+          <li data-t="1"><span class="t">1 s</span><b>Les poumons</b><span>Des centaines de millions d'alvéoles offrent une immense surface d'échange : la nicotine passe dans le sang presque instantanément.</span></li>
+          <li data-t="3"><span class="t">3 s</span><b>Le cœur</b><span>Le sang chargé de nicotine repart directement vers le cœur, qui le propulse dans tout le corps.</span></li>
+          <li data-t="8"><span class="t">8 s</span><b>Le cerveau</b><span>En 7 à 10 secondes, la nicotine atteint le cerveau, plus vite qu'une injection dans le bras.</span></li>
+        </ol>
+        <button class="btn primary" id="btnInhale">Inhaler une bouffée</button>
+        <div class="effects" id="effects">
+          <div><b>Dopamine</b>Libérée dans le circuit de la récompense : sensation de plaisir, de soulagement.</div>
+          <div><b>Adrénaline</b>Le cœur accélère, la tension artérielle monte, les vaisseaux se resserrent.</div>
+          <div><b>Vigilance</b>Impression de concentration et d'éveil, de courte durée.</div>
+          <div><b>Appétit</b>La nicotine coupe un peu la faim, d'où la prise de poids fréquente à l'arrêt.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CERVEAU ============ -->
+<section id="cerveau">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Dans le cerveau</p>
+      <h2>Comment la nicotine piège le circuit de la récompense</h2>
+      <p class="lead">La nicotine imite un messager naturel du cerveau, l'acétylcholine. Elle se fixe sur des récepteurs dits « nicotiniques », qui déclenchent la libération de dopamine. Faites fumer ce cerveau, puis faites avancer le temps pour voir comment il s'adapte.</p>
+    </div>
+    <div class="syn-box reveal">
+      <svg viewBox="0 0 680 330" id="synSvg" aria-label="Schéma d'un neurone à dopamine stimulé par la nicotine">
+        <defs>
+          <radialGradient id="gNeu" cx=".4" cy=".4" r=".7"><stop offset="0" stop-color="#34436a"/><stop offset="1" stop-color="#232c47"/></radialGradient>
+          <radialGradient id="gNeu2" cx=".7" cy=".5" r=".8"><stop offset="0" stop-color="#3b2f58"/><stop offset="1" stop-color="#261e3b"/></radialGradient>
+          <filter id="fSoft" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <text x="20" y="28" fill="#8a7c6f" font-family="Inter,sans-serif" font-size="13">Sang (nicotine)</text>
+        <path id="axon" d="M222 172 C 290 205, 350 135, 432 168" stroke="#2b3656" stroke-width="16" fill="none" stroke-linecap="round"/>
+        <circle cx="160" cy="170" r="74" fill="url(#gNeu)" stroke="#5b77b3" stroke-width="2"/>
+        <circle cx="150" cy="166" r="22" fill="#435581"/>
+        <circle cx="452" cy="170" r="28" fill="url(#gNeu)" stroke="#5b77b3" stroke-width="2"/>
+        <g id="vesicles" fill="#5fb3ff" opacity=".8"><circle cx="446" cy="160" r="4"/><circle cx="458" cy="174" r="4"/><circle cx="444" cy="180" r="4"/><circle cx="460" cy="158" r="3"/></g>
+        <path d="M680 46 Q540 60 512 170 Q540 280 680 294 Z" fill="url(#gNeu2)" stroke="#7e64b8" stroke-width="2"/>
+        <g id="daRec" stroke="#b9a3ec" stroke-width="3" fill="none" stroke-linecap="round"></g>
+        <g id="recG"></g>
+        <g id="molG"></g>
+        <circle id="spike" r="7" fill="#fff" filter="url(#fSoft)" opacity="0"/>
+        <g id="daG"></g>
+        <g font-family="Inter,sans-serif" font-size="13" fill="#b9aa9b">
+          <text x="92" y="276">Neurone à dopamine</text>
+          <text x="92" y="292" fill="#8a7c6f" font-size="11.5">(aire tegmentale ventrale)</text>
+          <text x="540" y="318">Noyau accumbens</text>
+          <text x="545" y="36" fill="#8a7c6f" font-size="11.5">« centre du plaisir »</text>
+          <text x="300" y="118" fill="#8a7c6f" font-size="11.5">signal électrique →</text>
+        </g>
+      </svg>
+      <div class="syn-ctrl">
+        <div>
+          <label class="small muted" for="stageRange">Ancienneté du tabagisme</label>
+          <input type="range" class="range" id="stageRange" min="0" max="3" step="1" value="0">
+          <div class="stage-labels" id="stageLabels"><span>Premières cigarettes</span><span>Quelques semaines</span><span>Quelques mois</span><span>Des années</span></div>
+          <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn primary" id="btnSmoke">Fumer une cigarette</button>
+          </div>
+        </div>
+        <div>
+          <div class="small muted">Bien-être ressenti <span class="crave" id="crave">Envie de fumer !</span></div>
+          <div class="gauge" aria-hidden="true"><div class="base" id="gBase"></div><div class="needle" id="needle"></div></div>
+          <div class="gauge-lbl"><span>Manque</span><span>Normal</span><span>Plaisir</span></div>
+          <div class="simclock" id="simclock"></div>
+          <div class="small muted" style="margin-top:4px">Le trait rouge indique l'état du cerveau <b>sans</b> nicotine.</div>
+        </div>
+      </div>
+      <div class="syn-text" id="synText" aria-live="polite"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CYCLE ============ -->
+<section id="cycle" style="background:var(--bg2)">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Le cycle de la dépendance</p>
+      <h2>Une journée de fumeur, vue par la nicotine</h2>
+      <p class="lead">La nicotine est éliminée vite : son taux dans le sang diminue de moitié en environ 2 heures. Dès qu'il baisse, l'envie revient… et la cigarette suivante est allumée. Réglez la consommation, puis <b>cliquez sur une cigarette</b> du graphique pour la supprimer.</p>
+    </div>
+    <div class="cycle-box reveal">
+      <div class="cyc-ctrl">
+        <div>
+          <label for="nRange">Cigarettes par jour : <output id="nOut">15</output></label>
+          <input type="range" class="range" id="nRange" min="1" max="40" value="15">
+        </div>
+        <div class="price">
+          <label for="priceIn" style="margin:0">Prix du paquet de 20</label>
+          <input type="number" id="priceIn" value="13" min="1" max="50" step="0.5"> <span class="muted">€</span>
+        </div>
+      </div>
+      <svg id="cycSvg" viewBox="0 0 900 330" aria-label="Graphique du taux de nicotine sur 24 heures"></svg>
+      <div class="legend">
+        <span><i style="background:var(--ember2)"></i>Taux de nicotine dans le sang</span>
+        <span><i style="background:transparent;border:1px dashed var(--red);border-radius:0;width:14px;height:0"></i>Seuil d'envie (s'adapte au taux habituel)</span>
+        <span><i style="background:rgba(255,84,104,.5);border-radius:2px"></i>Moments de manque, éveillé</span>
+        <span><i style="background:rgba(120,140,220,.35);border-radius:2px"></i>Sommeil</span>
+      </div>
+      <div class="kpis">
+        <div><b id="kMan">0 h</b><span>en manque dans la journée</span></div>
+        <div><b id="kNic">0 mg</b><span>nicotine absorbée / jour (≈)</span></div>
+        <div><b id="kMonth">0 €</b><span>par mois</span></div>
+        <div><b id="kYear">0 €</b><span>par an</span></div>
+      </div>
+      <p class="small muted" style="margin:14px 0 0" id="cycMsg"></p>
+      <p class="small" style="margin:6px 0 0;color:var(--dim)">Modèle simplifié et illustratif : demi-vie de 2 h, cigarettes réparties de 7 h à 23 h, seuil d'envie qui suit le taux habituel (tolérance au fil de la journée). Le prix est indicatif et modifiable.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DEPENDANCES ============ -->
+<section id="dependances">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Trois dépendances en une</p>
+      <h2>Pourquoi c'est si difficile d'arrêter</h2>
+      <p class="lead">La dépendance au tabac n'est pas seulement chimique. Elle mêle le corps, les émotions et les habitudes. Chacune se traite différemment.</p>
+    </div>
+    <div class="cards3">
+      <article class="dep reveal">
+        <div class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffd34d" stroke-width="2" stroke-linecap="round"><path d="M12 3v3M12 18v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M4.2 16.5l2.6-1.5M17.2 9l2.6-1.5"/><circle cx="12" cy="12" r="3.5"/></svg></div>
+        <h3>Physique</h3>
+        <p class="muted">Le cerveau réclame sa nicotine. Sans elle : irritabilité, nervosité, troubles du sommeil et de la concentration, faim accrue et envies intenses. Ces symptômes culminent les premiers jours et s'estompent en général en 2 à 4 semaines.</p>
+        <p class="help"><b>Ce qui aide :</b> les substituts nicotiniques (patch, gommes, pastilles, spray) et certains médicaments sur prescription.</p>
+      </article>
+      <article class="dep reveal">
+        <div class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5fb3ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.6-7 10-7 10z"/></svg></div>
+        <h3>Psychologique</h3>
+        <p class="muted">La cigarette devient une béquille : contre le stress, l'ennui, la tristesse, ou pour se récompenser. Le cerveau a appris que cigarette = soulagement, même si ce soulagement est surtout celui du manque.</p>
+        <p class="help"><b>Ce qui aide :</b> un accompagnement (tabacologue, thérapie comportementale et cognitive, ligne d'aide), trouver d'autres façons de gérer le stress.</p>
+      </article>
+      <article class="dep reveal">
+        <div class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5ad69c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></div>
+        <h3>Comportementale</h3>
+        <p class="muted">Des centaines de gestes répétés chaque année : avec le café, après le repas, en voiture, en pause, avec des amis. Ces situations deviennent des déclencheurs qui allument l'envie automatiquement.</p>
+        <p class="help"><b>Ce qui aide :</b> repérer ses déclencheurs, changer ses rituels, anticiper les moments à risque, bouger.</p>
+      </article>
+    </div>
+
+    <form class="hsi reveal" id="hsi" onsubmit="return false" aria-label="Test de dépendance physique">
+      <fieldset>
+        <legend>Combien de temps après le réveil fumez-vous votre première cigarette ?</legend>
+        <div class="opt">
+          <label><input type="radio" name="ttfc" value="3"> Dans les 5 minutes</label>
+          <label><input type="radio" name="ttfc" value="2"> De 6 à 30 minutes</label>
+          <label><input type="radio" name="ttfc" value="1"> De 31 à 60 minutes</label>
+          <label><input type="radio" name="ttfc" value="0"> Après 60 minutes</label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Combien de cigarettes fumez-vous par jour ?</legend>
+        <div class="opt">
+          <label><input type="radio" name="cpd" value="0"> 10 ou moins</label>
+          <label><input type="radio" name="cpd" value="1"> De 11 à 20</label>
+          <label><input type="radio" name="cpd" value="2"> De 21 à 30</label>
+          <label><input type="radio" name="cpd" value="3"> 31 ou plus</label>
+        </div>
+      </fieldset>
+      <div class="hsi-res" id="hsiRes" aria-live="polite">
+        <p class="eyebrow" style="margin-bottom:8px">Mini-test</p>
+        <p style="margin:0" class="muted">Ces deux questions forment une version courte du test de Fagerström, utilisée par les professionnels pour estimer la dépendance physique. Répondez pour voir votre score.</p>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- ============ ARRETER ============ -->
+<section id="arreter" style="background:var(--bg2)">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Et si on éteignait ?</p>
+      <h2>Le corps commence à réparer dès la première heure</h2>
+      <p class="lead">Faites glisser le curseur pour voyager dans le temps après la dernière cigarette.</p>
+    </div>
+    <div class="quit reveal">
+      <div class="lungs-box">
+        <svg viewBox="0 0 300 300" aria-hidden="true">
+          <path d="M150 30 L150 120" stroke="#8a7462" stroke-width="12" stroke-linecap="round"/>
+          <path d="M150 118 Q128 130 112 150 M150 118 Q172 130 188 150" stroke="#8a7462" stroke-width="8" fill="none" stroke-linecap="round"/>
+          <path id="qL" d="M138 96 Q70 86 52 170 Q40 250 74 278 Q120 296 138 252 Z"/>
+          <path id="qR" d="M162 96 Q230 86 248 170 Q260 250 226 278 Q180 296 162 252 Z"/>
+          <g id="spots" fill="#2a2420"></g>
+        </svg>
+      </div>
+      <div>
+        <div class="qt-time" id="qTime">20 minutes</div>
+        <p class="qt-text" id="qText"></p>
+        <div class="qt-manque" id="qManque"></div>
+        <input type="range" class="range" id="qRange" min="0" max="10" value="0" style="margin-top:22px" aria-label="Temps écoulé depuis la dernière cigarette">
+        <div class="ticks"><span>20 min</span><span>48 h</span><span>3 mois</span><span>1 an</span><span>15 ans</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ QUIZ ============ -->
+<section id="quiz">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Vrai ou faux ?</p>
+      <h2>Démêler les idées reçues</h2>
+    </div>
+    <div class="score-bar reveal"><b id="score">0 / 6</b><span class="muted">bonnes réponses</span><button class="btn" id="quizReset" style="margin-left:auto">Recommencer</button></div>
+    <div class="quiz" id="quizBox"></div>
+  </div>
+</section>
+
+<!-- ============ AIDE ============ -->
+<section id="aide" style="background:var(--bg2)">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Se faire aider</p>
+      <h2>Arrêter, c'est possible, et c'est plus facile accompagné</h2>
+      <p class="lead">Beaucoup d'ex-fumeurs ont fait plusieurs tentatives avant de réussir. Chaque essai apprend quelque chose. Il n'est jamais trop tard : arrêter apporte des bénéfices à tout âge.</p>
+    </div>
+    <div class="help-grid">
+      <div class="hcard main reveal">
+        <p class="eyebrow" style="color:#8ee6b6">Tabac Info Service (France)</p>
+        <div class="num">39 89</div>
+        <p>Des tabacologues au téléphone pour un suivi personnalisé et gratuit, ainsi qu'un site et une application de coaching.</p>
+        <a href="https://www.tabac-info-service.fr" target="_blank" rel="noopener">tabac-info-service.fr</a>
+      </div>
+      <div class="hcard reveal">
+        <h3>Les substituts nicotiniques</h3>
+        <p class="muted">Patchs, gommes, pastilles, sprays : ils apportent de la nicotine sans goudrons ni monoxyde de carbone, et soulagent le manque. En France, ils sont remboursés par l'Assurance Maladie sur prescription (médecin, sage-femme, infirmier, dentiste, kinésithérapeute…).</p>
+      </div>
+      <div class="hcard reveal">
+        <h3>Mois sans tabac</h3>
+        <p class="muted">Chaque année en novembre, un défi collectif : arrêter 30 jours, c'est multiplier par 5 ses chances d'arrêter définitivement. Votre médecin ou votre pharmacien peut aussi vous accompagner toute l'année.</p>
+        <a href="https://mois-sans-tabac.tabac-info-service.fr" target="_blank" rel="noopener">mois-sans-tabac.tabac-info-service.fr</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><b style="color:var(--muted)">Site pédagogique.</b> Les informations présentées sont simplifiées à des fins de compréhension et ne remplacent pas l'avis d'un professionnel de santé. Hors de France, renseignez-vous sur la ligne d'aide de votre pays.</p>
+    <p style="margin-bottom:0">Sources principales :</p>
+    <ul>
+      <li><a href="https://www.who.int/fr/news-room/fact-sheets/detail/tobacco" target="_blank" rel="noopener">Organisation mondiale de la santé : Tabac, principaux faits</a></li>
+      <li><a href="https://www.santepubliquefrance.fr/determinants-de-sante/tabac" target="_blank" rel="noopener">Santé publique France : Tabac</a></li>
+      <li><a href="https://www.tabac-info-service.fr" target="_blank" rel="noopener">Tabac Info Service</a></li>
+      <li><a href="https://www.inserm.fr/dossier/tabac-et-sante/" target="_blank" rel="noopener">Inserm : Tabac et santé</a></li>
+      <li><a href="https://www.cdc.gov/tobacco/" target="_blank" rel="noopener">CDC (États-Unis) : Smoking &amp; Tobacco Use</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+(function(){
+'use strict';
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const NS='http://www.w3.org/2000/svg';
+const el=(tag,attrs={},parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;};
+const fmt=(n,d=1)=>n.toFixed(d).replace('.',',');
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const easeOut=t=>1-Math.pow(1-t,3);
+const easeInOut=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ------------------------------------------------------------
+   DONNÉES : parties de la cigarette
+------------------------------------------------------------ */
+const PARTS={
+  filtre:{n:1,title:'Le filtre',sub:'Acétate de cellulose : une forme de plastique',items:[
+    "Il ne rend pas la cigarette moins dangereuse : il retient une partie des particules, mais laisse passer les gaz toxiques comme le monoxyde de carbone.",
+    "De minuscules trous de ventilation diluent la fumée avec de l'air. Sur les machines de test, les chiffres baissent… mais le fumeur compense sans s'en rendre compte en bouchant les trous avec ses doigts ou en aspirant plus fort.",
+    "Il adoucit la fumée, ce qui encourage à inhaler plus profondément : la fumée descend alors plus loin dans les poumons.",
+    "Jeté au sol, un mégot met des années à se dégrader et relâche nicotine, métaux lourds et microplastiques dans l'eau et les sols."],
+    fact:['4 500 milliards','de mégots seraient jetés dans la nature chaque année dans le monde.']},
+  papier:{n:2,title:'Le papier',sub:'Fin, poreux, traité pour brûler régulièrement',items:[
+    "Il contient des agents de combustion (des sels comme les citrates) qui l'aident à se consumer de façon régulière.",
+    "Dans l'Union européenne, les cigarettes doivent être à « potentiel incendiaire réduit » : de fines bandes dans le papier ralentissent la combustion quand on ne tire pas dessus.",
+    "En brûlant, le papier ajoute lui-même des substances toxiques à la fumée.",
+    "Entre deux bouffées, la cigarette continue de se consumer : cette fumée « secondaire » part directement dans l'air que respirent les autres."],
+    fact:['≈ 5 min','c\'est le temps moyen pour fumer une cigarette, en une dizaine de bouffées.']},
+  tabac:{n:3,title:'Le tabac',sub:'Feuilles de Nicotiana tabacum séchées, hachées et mélangées',items:[
+    "Un mélange de feuilles de tabac, de tabac « reconstitué » (à partir de tiges et de déchets de feuilles) et d'additifs : sucres, arômes, agents humectants…",
+    "Une cigarette contient environ 10 à 12 mg de nicotine dans son tabac. Le fumeur n'en absorbe qu'environ 1 à 2 mg, mais c'est largement suffisant pour entretenir la dépendance.",
+    "En brûlant, les sucres ajoutés produisent notamment de l'acétaldéhyde, une substance soupçonnée de renforcer l'effet addictif de la nicotine.",
+    "Pour la plante, la nicotine est une arme : c'est un insecticide naturel qui la protège des insectes. Elle a d'ailleurs longtemps été utilisée comme pesticide."],
+    fact:['1 à 2 mg','de nicotine absorbés par cigarette, assez pour rendre dépendant.']},
+  braise:{n:4,title:'La braise et la cendre',sub:'Là où tout se fabrique',items:[
+    "Pendant une bouffée, la braise atteint environ 900 °C.",
+    "C'est la combustion qui fabrique l'essentiel des substances toxiques : goudrons, monoxyde de carbone, particules fines… La plupart n'existaient pas dans la feuille de tabac.",
+    "C'est pour cela que la nicotine seule (dans un patch ou une gomme) est bien moins dangereuse que la cigarette : sans combustion, ni goudrons ni monoxyde de carbone.",
+    "La cendre contient les résidus minéraux et des métaux lourds qui n'ont pas brûlé."],
+    fact:['≈ 900 °C','à la pointe de la cigarette pendant une bouffée.']},
+  fumee:{n:5,title:'La fumée',sub:'Un aérosol de gaz et de fines particules',items:[
+    "Plus de 7 000 substances chimiques y ont été identifiées. Des centaines sont toxiques et au moins 69 sont cancérogènes.",
+    "Les particules les plus fines descendent jusqu'au fond des poumons, dans les alvéoles, là où l'air passe dans le sang.",
+    "La fumée qui s'échappe du bout de la cigarette entre les bouffées est plus concentrée en certaines substances toxiques que celle qu'inhale le fumeur : c'est le tabagisme passif.",
+    "<a href=\"#fumee\">Découvrir les substances de la fumée ↓</a>"],
+    fact:['69+','substances cancérogènes identifiées dans la fumée.']}
+};
+
+/* ------------------------------------------------------------
+   DONNÉES : substances
+------------------------------------------------------------ */
+const CHEMS=[
+  {sym:'Nic',nm:'Nicotine',cat:'addictif',also:'d\'anciens insecticides',d:"La substance qui rend dépendant. Elle atteint le cerveau en quelques secondes, provoque la libération de dopamine, accélère le cœur et resserre les vaisseaux. Ce n'est pas elle qui provoque les cancers, mais c'est elle qui fait revenir à la cigarette, et donc aux autres substances."},
+  {sym:'Gd',nm:'Goudrons',cat:'cancer',also:'le bitume des routes',d:"Un mélange collant de centaines de substances qui se dépose dans les bronches et les poumons et les noircit. Ils contiennent une grande partie des cancérogènes de la fumée : ce sont les principaux responsables des cancers liés au tabac."},
+  {sym:'CO',nm:'Monoxyde de carbone',cat:'toxique',also:'les gaz d\'échappement',d:"Un gaz sans odeur qui se fixe sur l'hémoglobine des globules rouges environ 200 fois plus fortement que l'oxygène. Le sang transporte moins d'oxygène, le cœur doit travailler plus : c'est un acteur majeur des maladies cardiovasculaires et de l'essoufflement."},
+  {sym:'C₆H₆',nm:'Benzène',cat:'cancer',also:'les carburants',d:"Un solvant cancérogène reconnu, associé notamment à certaines leucémies. La fumée de tabac est une source importante d'exposition au benzène pour les fumeurs."},
+  {sym:'NNK',nm:'Nitrosamines',cat:'cancer',also:'uniquement le tabac',d:"Des cancérogènes propres au tabac (NNK, NNN), formés lors du séchage et de la combustion des feuilles. Ils figurent parmi les plus puissants de la fumée et sont impliqués dans les cancers du poumon, de la bouche, de l'œsophage et du pancréas."},
+  {sym:'CH₂O',nm:'Formaldéhyde',cat:'cancer',also:'les liquides de conservation',d:"Utilisé pour conserver les tissus biologiques. Très irritant pour les voies respiratoires et cancérogène (cancers du nez et de la gorge)."},
+  {sym:'²¹⁰Po',nm:'Polonium 210',cat:'cancer',also:'les déchets radioactifs',d:"Un élément radioactif présent dans le tabac, issu notamment des engrais phosphatés et de l'environnement. Inhalé, il se dépose dans les bronches et les irradie de l'intérieur."},
+  {sym:'As',nm:'Arsenic',cat:'cancer',also:'la mort-aux-rats',d:"Un poison et un cancérogène, absorbé par la plante depuis le sol, les engrais et les pesticides, puis inhalé avec la fumée."},
+  {sym:'Cd',nm:'Cadmium',cat:'cancer',also:'les piles et batteries',d:"Un métal lourd cancérogène que la plante de tabac concentre. Il s'accumule dans l'organisme, en particulier dans les reins, pendant des années."},
+  {sym:'Pb',nm:'Plomb',cat:'toxique',also:'les anciennes peintures',d:"Un métal lourd toxique pour le système nerveux, les reins et le sang."},
+  {sym:'HCN',nm:'Cyanure d\'hydrogène',cat:'toxique',also:'d\'anciens poisons et pesticides',d:"Un poison puissant. Dans les bronches, il abîme les cils vibratiles chargés d'évacuer les poussières et le mucus : les poumons se nettoient moins bien, d'où la « toux du fumeur »."},
+  {sym:'NH₃',nm:'Ammoniac',cat:'toxique',also:'les produits ménagers',d:"Un gaz irritant pour les yeux et les voies respiratoires. Des composés ammoniaqués peuvent aussi modifier l'acidité de la fumée, ce qui facilite l'absorption de la nicotine."},
+  {sym:'C₃H₄O',nm:'Acroléine',cat:'toxique',also:'la fumée d\'huile brûlée',d:"Très irritante, elle paralyse et détruit les cils des bronches et favorise l'inflammation chronique des voies respiratoires."},
+  {sym:'C₃H₆O',nm:'Acétone',cat:'toxique',also:'le dissolvant à ongles',d:"Un solvant irritant pour les yeux, le nez et la gorge."},
+  {sym:'C₇H₈',nm:'Toluène',cat:'toxique',also:'les diluants de peinture',d:"Un solvant toxique pour le système nerveux à forte exposition."},
+  {sym:'PM',nm:'Particules fines',cat:'toxique',also:'la pollution urbaine',d:"Des particules si petites qu'elles atteignent les alvéoles et passent en partie dans le sang. Elles entretiennent une inflammation des poumons et des vaisseaux. Une pièce enfumée peut être bien plus polluée qu'une rue très fréquentée."}
+];
+const CAT_LBL={addictif:'Rend dépendant',cancer:'Cancérogène',toxique:'Toxique / irritant'};
+const CAT_CLS={addictif:'t-addictif',cancer:'t-cancer',toxique:'t-toxique'};
+
+/* ------------------------------------------------------------
+   1. LA CIGARETTE
+------------------------------------------------------------ */
+const CIG={PX:292,TIP:920,BUTT:338,CY:228,TOP:200,H:56};
+const S={lit:false,done:false,end:CIG.TIP,ash:0,puffs:0,nic:0,t:0,glow:0,cut:false,puffLeft:0,burnPuff:0,burnSide:0,selected:null,brainT:-1};
+const cigSvg=$('#cig'), wrap=$('#cigWrap');
+const R={tob:$('#tobaccoR'),pap:$('#paperR'),shade:$('#shadeR'),ash:$('#ashR'),tipEnd:$('#tipEnd'),ember:$('#emberR'),glow:$('#glow'),char:$('#charR'),fall:$('#fallingAsh'),smokeHit:$('#smokeHit'),ripBands:$('#ripBands')};
+
+/* pins */
+const pinG=$('#pins');
+const pins={};
+function makePin(key,label){
+  const g=el('g',{class:'pin',tabindex:'0',role:'button','aria-label':label,'data-part':key},pinG);
+  const line=el('line',{},g);
+  const halo=el('circle',{class:'halo',r:'15'},g);
+  const dot=el('circle',{class:'dot',r:'15'},g);
+  const num=el('text',{class:'num'},g); num.textContent=PARTS[key].n;
+  const lbl=el('text',{class:'lbl'},g); lbl.textContent=label;
+  pins[key]={g,line,halo,dot,num,lbl};
+}
+makePin('filtre','Filtre');makePin('papier','Papier');makePin('tabac','Tabac');makePin('braise','Braise');makePin('fumee','Fumée');
+function placePin(key,x,y,lineTo){
+  const p=pins[key];
+  for(const c of [p.halo,p.dot]){c.setAttribute('cx',x);c.setAttribute('cy',y);}
+  p.num.setAttribute('x',x);p.num.setAttribute('y',y+1);
+  p.lbl.setAttribute('x',x);p.lbl.setAttribute('y',y-26);
+  if(lineTo){p.line.setAttribute('x1',x);p.line.setAttribute('y1',y+15);p.line.setAttribute('x2',x);p.line.setAttribute('y2',lineTo);p.line.style.display='';}
+  else p.line.style.display='none';
+}
+
+function renderCig(){
+  const w=Math.max(0,S.end-CIG.PX);
+  R.tob.setAttribute('width',w);R.pap.setAttribute('width',w);R.shade.setAttribute('width',w);
+  // bandes RIP visibles seulement si non brûlées
+  $$('rect',R.ripBands).forEach(r=>{r.style.display=(+r.getAttribute('x')<S.end-4)?'':'none';});
+  R.ash.setAttribute('x',S.end);R.ash.setAttribute('width',S.ash);
+  R.tipEnd.setAttribute('cx',S.end);
+  R.ember.setAttribute('x',S.end-7);
+  R.char.setAttribute('x',S.end-15);
+  R.glow.setAttribute('cx',S.end+2);
+  const showEmber=S.lit&&!S.done;
+  R.ember.setAttribute('opacity',showEmber?(0.55+S.glow*0.45):0);
+  R.glow.setAttribute('opacity',showEmber?(0.25+S.glow*0.75):0);
+  R.glow.setAttribute('r',38+S.glow*22);
+  R.char.setAttribute('opacity',(S.lit||S.done)?0.9:0);
+  R.tipEnd.setAttribute('fill',S.done?'#2c2622':'#5a3216');
+  R.tipEnd.style.display=showEmber?'none':'';
+  R.smokeHit.setAttribute('x',S.end-90);
+  // pins
+  const span=S.end-CIG.PX;
+  placePin('filtre',176,150,200);
+  placePin('papier',CIG.PX+span*0.28,150,200);
+  placePin('tabac',CIG.PX+span*0.66,150,200);
+  pins.papier.g.style.display=pins.tabac.g.style.display=span<170?'none':'';
+  placePin('braise',S.end+Math.min(S.ash,40)/2,150,200);
+  placePin('fumee',S.end+40,60,null);
+  pins.fumee.g.style.display=S.done?'none':'';
+}
+
+/* smoke canvas */
+const cv=$('#smoke'),ctx=cv.getContext('2d');
+let CW=0,CH=0,DPR=1;
+function sizeCanvas(){
+  const r=wrap.getBoundingClientRect();DPR=Math.min(2,window.devicePixelRatio||1);
+  CW=r.width;CH=r.height;cv.width=CW*DPR;cv.height=CH*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',sizeCanvas);sizeCanvas();
+const parts=[];
+function emit(n,big){
+  for(let i=0;i<n;i++){
+    parts.push({x:S.end+4+Math.random()*6,y:CIG.CY-26+Math.random()*10,vx:(Math.random()-.4)*(big?30:8),vy:-(big?45:28)-Math.random()*25,r:big?8+Math.random()*10:3+Math.random()*3,gr:big?16:9,a:big?.5:.36,life:0,max:big?3.2:4.2+Math.random()*1.5,ph:Math.random()*6.28});
+  }
+}
+function drawSmoke(dt){
+  ctx.clearRect(0,0,CW,CH);
+  const sx=CW/1000,sy=CH/300;
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i];p.life+=dt;
+    if(p.life>p.max||p.y<-40){parts.splice(i,1);continue;}
+    p.ph+=dt*1.6;
+    p.x+=(p.vx+Math.sin(p.ph+p.life*2)*14)*dt;p.y+=p.vy*dt;p.r+=p.gr*dt;p.vx*=.995;
+    const k=1-p.life/p.max;const a=p.a*k*Math.min(1,p.life*4)*clamp((p.y-10)/90,0,1);
+    const X=p.x*sx,Y=p.y*sy,RR=p.r*sx;
+    const g=ctx.createRadialGradient(X,Y,0,X,Y,RR);
+    g.addColorStop(0,`rgba(215,215,225,${a})`);g.addColorStop(1,'rgba(215,215,225,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(X,Y,RR,0,Math.PI*2);ctx.fill();
+  }
+}
+
+/* chemical floating labels */
+const FLOAT=['Monoxyde de carbone','Goudrons','Benzène','Arsenic','Formaldéhyde','Cadmium','Ammoniac','Nitrosamines','Polonium 210','Acroléine','Cyanure d\'hydrogène','Particules fines','Plomb','Nicotine','Acétone','Toluène'];
+function floatChem(delay){
+  setTimeout(()=>{
+    const s=document.createElement('span');s.className='floatchem';
+    s.textContent=FLOAT[Math.floor(Math.random()*FLOAT.length)];
+    s.style.left=(S.end/1000*100)+'%';s.style.top=((CIG.CY-60)/300*100)+'%';
+    s.style.setProperty('--dx',((Math.random()-.5)*120)+'px');
+    wrap.appendChild(s);setTimeout(()=>s.remove(),3500);
+  },delay);
+}
+
+/* falling ash */
+function dropAsh(){
+  const w=S.ash;const x=S.end;
+  const r=el('rect',{x:x+1,y:202,width:w,height:52,rx:5,fill:'url(#gAsh)'},R.fall);
+  S.ash=4;
+  const t0=performance.now();
+  (function f(now){
+    const t=(now-t0)/900;
+    if(t>=1){r.remove();return;}
+    r.setAttribute('transform',`translate(${t*20},${t*t*90}) rotate(${t*25} ${x+w/2} 228)`);
+    r.setAttribute('opacity',1-t);
+    requestAnimationFrame(f);
+  })(t0);
+}
+
+/* messages */
+const PUFF_MSG=[
+  "1re bouffée : la braise monte à environ 900 °C. La fumée chaude descend dans la trachée puis jusqu'au fond des poumons.",
+  "La nicotine traverse la fine paroi des alvéoles et passe dans le sang.",
+  "Le monoxyde de carbone prend la place de l'oxygène sur les globules rouges.",
+  "Le cœur accélère, les vaisseaux se resserrent, la pression artérielle augmente.",
+  "Les goudrons se déposent sur les bronches et les alvéoles.",
+  "Les cils qui nettoient les bronches sont ralentis, puis paralysés par la fumée.",
+  "Dans le cerveau, la dopamine procure une sensation de soulagement… qui ne va pas durer.",
+  "Pendant ce temps, entre les bouffées, la fumée secondaire se répand dans la pièce.",
+  "Le taux de nicotine dans le sang approche de son pic.",
+  "Les substances cancérogènes s'accumulent, bouffée après bouffée."
+];
+const log=$('#log');
+function say(t){log.textContent=t;log.style.animation='none';void log.offsetWidth;log.style.animation='fadeIn .4s';}
+
+/* HUD */
+function hud(){
+  $('#hPuffs').textContent=S.puffs;
+  $('#hNic').textContent=fmt(S.nic)+' mg';
+  const sec=Math.floor(S.t);$('#hTime').textContent=Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');
+  const tot=S.burnPuff+S.burnSide;$('#hSide').textContent=(tot>0?Math.round(S.burnSide/tot*100):0)+' %';
+}
+
+/* brain timer */
+const bt=$('#brainTimer');
+function brainTimerStart(){
+  S.brainT=performance.now();
+  bt.classList.remove('arrived');
+  bt.innerHTML='<span>Nicotine en route vers le cerveau…</span><span class="bar"><i id="btBar"></i></span><b id="btS">8 s</b>';
+}
+function brainTimerTick(now){
+  if(S.brainT<0)return;
+  const el8=(now-S.brainT)/1000;
+  const bar=$('#btBar'),s=$('#btS');
+  if(el8<8){if(bar)bar.style.width=(el8/8*100)+'%';if(s)s.textContent=Math.ceil(8-el8)+' s';}
+  else{
+    S.brainT=-1;bt.classList.add('arrived');
+    bt.innerHTML='<span><b>Nicotine arrivée au cerveau :</b> libération de dopamine, le circuit de la récompense s\'active. <a href="#cerveau">Voir comment ↓</a></span>';
+  }
+}
+
+/* actions */
+const bLight=$('#btnLight'),bPuff=$('#btnPuff'),bCut=$('#btnCut');
+bLight.addEventListener('click',()=>{
+  if(S.done)return reset(true);
+  if(S.lit)return;
+  S.lit=true;S.glow=1;bLight.disabled=true;bPuff.disabled=false;
+  emit(14,true);
+  say("La cigarette est allumée. Même sans tirer dessus, elle se consume et dégage de la fumée. Tirez une bouffée !");
+  bPuff.focus({preventScroll:true});
+});
+function puff(){
+  if(!S.lit||S.done||S.puffLeft>0)return;
+  S.puffLeft=1.1;S.puffs++;S.nic=Math.min(2,S.nic+0.12);
+  say(PUFF_MSG[Math.min(S.puffs-1,PUFF_MSG.length-1)]);
+  setTimeout(()=>emit(18,true),1100);
+  floatChem(300);floatChem(900);floatChem(1500);
+  brainTimerStart();hud();
+}
+bPuff.addEventListener('click',puff);
+bCut.addEventListener('click',()=>{
+  S.cut=!S.cut;bCut.setAttribute('aria-pressed',S.cut);
+  R.pap.style.opacity=S.cut?0.12:1;
+  $('#filterCut').style.opacity=S.cut?1:0;
+  if(S.cut&&(!S.selected||S.selected==='papier'))select('tabac');
+});
+$('#btnReset').addEventListener('click',()=>reset(false));
+function reset(relight){
+  Object.assign(S,{lit:false,done:false,end:CIG.TIP,ash:0,puffs:0,nic:0,t:0,glow:0,puffLeft:0,burnPuff:0,burnSide:0,brainT:-1});
+  parts.length=0;bLight.disabled=false;bLight.textContent='Allumer la cigarette';bPuff.disabled=true;
+  bt.classList.remove('arrived');
+  bt.textContent='Allumez la cigarette, puis tirez une bouffée pour suivre la nicotine jusqu\'au cerveau.';
+  say('Nouvelle cigarette. Explorez-la, puis allumez-la.');
+  renderCig();hud();
+  if(relight)bLight.click();
+}
+function finish(){
+  S.done=true;S.lit=false;S.end=CIG.BUTT;bPuff.disabled=true;bLight.disabled=false;bLight.textContent='En allumer une autre';
+  emit(10,false);
+  say("Cigarette terminée, environ "+fmt(S.nic)+" mg de nicotine absorbés. Dans l'heure qui suit, le taux de nicotine commence à baisser… et chez un fumeur dépendant, l'envie revient. C'est le cycle de la dépendance.");
+  log.insertAdjacentHTML('beforeend',' <a href="#cycle">Voir le cycle ↓</a>');
+  renderCig();hud();
+}
+
+/* selection of part */
+const info=$('#info');
+function select(key){
+  S.selected=key;const P=PARTS[key];
+  info.innerHTML=`<div><h3>${P.n}. ${P.title}</h3><div class="sub">${P.sub}</div><ul>${P.items.map(i=>`<li>${i}</li>`).join('')}</ul></div><div class="fact"><b>${P.fact[0]}</b><span>${P.fact[1]}</span></div>`;
+  info.style.animation='none';void info.offsetWidth;info.style.animation='';
+  $$('.parts-chips .chip').forEach(c=>c.classList.toggle('on',c.dataset.part===key));
+  for(const k in pins)pins[k].g.classList.toggle('sel',k===key);
+}
+function partFromTarget(t){
+  const g=t.closest('[data-part]');if(!g)return null;
+  let k=g.dataset.part;
+  if(k==='papier'&&S.cut)k='tabac';
+  return k;
+}
+cigSvg.addEventListener('click',e=>{const k=partFromTarget(e.target);if(k)select(k);});
+cigSvg.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('.pin')){e.preventDefault();select(e.target.closest('.pin').dataset.part);}});
+$$('.parts-chips .chip').forEach(c=>c.addEventListener('click',()=>{select(c.dataset.part);if(c.dataset.part==='tabac'&&!S.cut)bCut.click();}));
+select('filtre');
+
+/* loop */
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;
+  if(S.lit&&!S.done){
+    S.t+=dt;
+    let burn=2.6*dt; // combustion passive
+    S.burnSide+=burn;
+    if(S.puffLeft>0){
+      const b=40/1.1*dt;burn+=b;S.burnPuff+=b;S.puffLeft-=dt;
+      S.glow=lerp(S.glow,1,.2);
+    }else{
+      S.glow=lerp(S.glow,0.28+Math.sin(now/180)*0.05+Math.random()*0.04,.08);
+      if(Math.random()<dt*9)emit(1,false);
+    }
+    S.end-=burn;S.ash+=burn*0.92;
+    if(S.ash>72)dropAsh();
+    if(S.end<=CIG.BUTT)finish();
+    renderCig();
+    if(Math.floor(S.t*4)!==Math.floor((S.t-dt)*4))hud();
+  }
+  brainTimerTick(now);
+  drawSmoke(dt);
+  requestAnimationFrame(loop);
+}
+renderCig();hud();requestAnimationFrame(loop);
+
+/* ------------------------------------------------------------
+   2. SUBSTANCES
+------------------------------------------------------------ */
+const grid=$('#chemGrid'),detail=$('#chemDetail');
+CHEMS.forEach((c,i)=>{
+  const b=document.createElement('button');b.className='tile';b.dataset.cat=c.cat;b.dataset.i=i;
+  b.innerHTML=`<span class="tag ${CAT_CLS[c.cat]}"></span><span class="sym">${c.sym}</span><span class="nm">${c.nm}</span><span class="also">Aussi dans : ${c.also}</span>`;
+  b.addEventListener('click',()=>showChem(i));
+  grid.appendChild(b);
+});
+function showChem(i){
+  const c=CHEMS[i];
+  $$('.tile',grid).forEach(t=>t.classList.toggle('sel',+t.dataset.i===i));
+  detail.innerHTML=`<div class="chem-detail"><div class="sym">${c.sym}</div><div><h3>${c.nm}</h3><div class="also"><span class="tag ${CAT_CLS[c.cat]}" style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px"></span>${CAT_LBL[c.cat]} · Aussi dans : ${c.also}</div><p style="margin:0">${c.d}</p></div></div>`;
+  if(window.innerWidth<700)detail.scrollIntoView({behavior:reduce?'auto':'smooth',block:'nearest'});
+}
+$$('#fumee .filters .chip').forEach(ch=>ch.addEventListener('click',()=>{
+  $$('#fumee .filters .chip').forEach(c=>c.classList.toggle('on',c===ch));
+  const f=ch.dataset.filter;
+  $$('.tile',grid).forEach(t=>t.classList.toggle('hide',f!=='all'&&t.dataset.cat!==f));
+}));
+showChem(0);
+
+/* ------------------------------------------------------------
+   3. TRAJET
+------------------------------------------------------------ */
+const segs=[{p:$('#pA'),t0:0,t1:1},{p:$('#pB'),t0:1,t1:3},{p:$('#pC'),t0:3,t1:8}];
+segs.forEach(s=>s.L=s.p.getTotalLength());
+const dot=$('#nicDot'),trail=$('#trail'),jT=$('#jTimer'),steps=$$('#steps li'),eff=$('#effects'),heart=$('#heart'),brain=$('#brain');
+let jRun=false;
+$('#btnInhale').addEventListener('click',()=>{
+  if(jRun)return;jRun=true;
+  steps.forEach(s=>s.classList.remove('on'));eff.classList.remove('show');brain.classList.remove('lit');heart.classList.remove('fast');
+  trail.innerHTML='';dot.setAttribute('opacity',1);
+  $('#lungL').setAttribute('fill','#8f6f6a');$('#lungR').setAttribute('fill','#8f6f6a');
+  const t0=performance.now();let lastTrail=0;
+  (function f(now){
+    const t=(now-t0)/1000;
+    const seg=segs.find(s=>t<s.t1)||segs[2];
+    const k=clamp((t-seg.t0)/(seg.t1-seg.t0),0,1);
+    const pt=seg.p.getPointAtLength(seg.L*easeInOut(k));
+    dot.setAttribute('cx',pt.x);dot.setAttribute('cy',pt.y);
+    if(now-lastTrail>70){lastTrail=now;const c=el('circle',{cx:pt.x,cy:pt.y,r:3,fill:'#ffd34d',opacity:.7},trail);setTimeout(()=>c.remove(),900);}
+    jT.textContent=fmt(Math.min(t,8))+' s';
+    steps.forEach(s=>{if(t>=+s.dataset.t)s.classList.add('on');});
+    if(t>1){$('#lungL').setAttribute('fill','#9a7b70');$('#lungR').setAttribute('fill','#9a7b70');}
+    if(t<8)requestAnimationFrame(f);
+    else{
+      dot.setAttribute('opacity',0);brain.classList.add('lit');heart.classList.add('fast');eff.classList.add('show');
+      setTimeout(()=>{jRun=false;},400);
+      setTimeout(()=>{brain.classList.remove('lit');heart.classList.remove('fast');},9000);
+    }
+  })(t0);
+});
+
+/* ------------------------------------------------------------
+   4. SYNAPSE
+------------------------------------------------------------ */
+const STAGES=[
+  {n:6,b:50,p:90,da:18,t:"<b>Premières cigarettes.</b> Le cerveau n'a jamais rencontré la nicotine : elle se fixe sur les récepteurs nicotiniques et provoque une forte libération de dopamine. Les premières cigarettes donnent souvent aussi la tête qui tourne, des nausées ou une toux : le corps reconnaît un toxique."},
+  {n:10,b:42,p:76,da:13,t:"<b>Quelques semaines.</b> Le cerveau s'adapte : il fabrique davantage de récepteurs nicotiniques, qui deviennent aussi moins sensibles. Sans nicotine, il passe un peu sous la normale : les premiers signes de manque apparaissent, parfois après seulement quelques cigarettes chez les jeunes."},
+  {n:14,b:33,p:64,da:10,t:"<b>Quelques mois.</b> C'est la tolérance : il faut plus de nicotine pour obtenir le même effet. Entre deux cigarettes, le cerveau descend en dessous de son état normal : irritabilité, anxiété, difficulté à se concentrer, envie de fumer."},
+  {n:18,b:25,p:56,da:7,t:"<b>Des années.</b> La cigarette ne procure presque plus de plaisir : elle sert surtout à ramener le cerveau à la normale, en soulageant un manque qu'elle a elle-même créé. C'est le piège de la dépendance. Bonne nouvelle : après l'arrêt, le nombre de récepteurs redescend progressivement en quelques semaines à quelques mois."}
+];
+const SC={cx:160,cy:170,r:74};
+const syn={stage:0,m:50,b:50,eff:-1,busy:false,recs:[]};
+const recG=$('#recG'),molG=$('#molG'),daG=$('#daG'),spike=$('#spike'),axon=$('#axon'),axL=axon.getTotalLength();
+// récepteurs à dopamine
+(function(){const g=$('#daRec');for(let i=0;i<7;i++){const y=118+i*17;const x=512+Math.pow((y-170)/52,2)*16+4;el('path',{d:`M${x+10} ${y-6} L${x} ${y-6} L${x} ${y+6} L${x+10} ${y+6}`},g);}})();
+function buildRecs(){
+  recG.innerHTML='';syn.recs=[];
+  const n=STAGES[syn.stage].n;
+  for(let i=0;i<n;i++){
+    const a=(110+ (n===1?0:i*(140/(n-1))))*Math.PI/180; // de 110° à 250° (côté gauche, vers le sang)
+    const x=SC.cx+Math.cos(a)*SC.r,y=SC.cy+Math.sin(a)*SC.r;
+    const deg=a*180/Math.PI+90;
+    const g=el('g',{class:'rec',transform:`translate(${x},${y}) rotate(${deg})`},recG);
+    el('path',{d:'M-7 -12 L-7 0 Q0 5 7 0 L7 -12'},g);
+    el('circle',{class:'mol',cx:0,cy:-5,r:4},g);
+    syn.recs.push({g,x:SC.cx+Math.cos(a)*(SC.r+20),y:SC.cy+Math.sin(a)*(SC.r+20)});
+  }
+}
+function setStage(s){
+  syn.stage=s;buildRecs();
+  $$('#stageLabels span').forEach((x,i)=>x.classList.toggle('on',i===s));
+  $('#synText').innerHTML=STAGES[s].t;
+  $('#gBase').style.left=STAGES[s].b+'%';
+}
+$('#stageRange').addEventListener('input',e=>setStage(+e.target.value));
+setStage(0);
+
+function tween(ms,fn,done){const t0=performance.now();(function f(now){const k=clamp((now-t0)/ms,0,1);fn(k);if(k<1)requestAnimationFrame(f);else done&&done();})(t0);}
+$('#btnSmoke').addEventListener('click',()=>{
+  if(syn.busy)return;syn.busy=true;
+  const st=STAGES[syn.stage];let arrived=0;
+  syn.recs.forEach((r,i)=>{
+    const sx=-10,sy=40+Math.random()*250;
+    const m=el('circle',{r:5,fill:'#ffd34d',cx:sx,cy:sy},molG);
+    setTimeout(()=>tween(900+Math.random()*400,k=>{const e=easeOut(k);m.setAttribute('cx',lerp(sx,r.x,e));m.setAttribute('cy',lerp(sy,r.y,e)+Math.sin(k*6)*6*(1-k));},()=>{
+      m.remove();r.g.classList.add('bound');arrived++;
+      if(arrived===syn.recs.length)fire();
+    }),i*40);
+  });
+  function fire(){
+    spike.setAttribute('opacity',1);
+    tween(650,k=>{const p=axon.getPointAtLength(axL*k);spike.setAttribute('cx',p.x);spike.setAttribute('cy',p.y);},()=>{
+      spike.setAttribute('opacity',0);
+      syn.eff=performance.now();syn.peak=st.p;syn.base=st.b;
+      for(let i=0;i<st.da;i++){
+        const d=el('circle',{r:4,fill:'#5fb3ff',cx:466,cy:170},daG);
+        const ty=120+Math.random()*100,tx=514+Math.pow((ty-170)/52,2)*16+Math.random()*4;
+        setTimeout(()=>tween(600+Math.random()*400,k=>{const e=easeOut(k);d.setAttribute('cx',lerp(466,tx,e));d.setAttribute('cy',lerp(170,ty,e));d.setAttribute('opacity',k>.85?1-(k-.85)/.15*0.6:1);},()=>setTimeout(()=>d.remove(),900)),i*30);
+      }
+      setTimeout(()=>{syn.recs.forEach(r=>r.g.classList.remove('bound'));},2600);
+      setTimeout(()=>{syn.busy=false;},1800);
+    });
+  }
+});
+const needle=$('#needle'),crave=$('#crave'),simclock=$('#simclock');
+function synLoop(now){
+  const st=STAGES[syn.stage];
+  let target=st.b;
+  if(syn.eff>=0){
+    const x=(now-syn.eff)/1000;
+    const f=x<.8?easeOut(x/.8):Math.exp(-(x-.8)/2.6);
+    target=st.b+(st.p-st.b)*f;
+    const min=Math.round(x*15);
+    simclock.textContent=x<9?`Temps simulé : ≈ ${min<60?min+' min':Math.floor(min/60)+' h '+String(min%60).padStart(2,'0')} après la cigarette`:'≈ 2 h plus tard : le taux de nicotine a fortement baissé.';
+    if(x>14)syn.eff=-1;
+  }
+  syn.m=lerp(syn.m,target,.08);
+  needle.style.left=syn.m+'%';
+  crave.classList.toggle('on',syn.stage>0&&syn.m<40);
+  requestAnimationFrame(synLoop);
+}
+requestAnimationFrame(synLoop);
+
+/* ------------------------------------------------------------
+   5. CYCLE
+------------------------------------------------------------ */
+const cyc={skip:new Set(),N:15};
+const cs=$('#cycSvg');
+const CX0=56,CX1=880,CY0=46,CY1=290;
+const xOf=h=>CX0+(h/24)*(CX1-CX0);
+function times(N){if(N===1)return[7.25];const a=7.2,b=22.6;return Array.from({length:N},(_,i)=>a+i*(b-a)/(N-1));}
+function simulate(T,skip){
+  const dt=1/60,k=Math.LN2/2,abs=0.1,days=3,tau=3;let C=0,E=0;const out=[];
+  for(let s=0;s<days*24/dt;s++){
+    const t=s*dt,tod=t%24,day=Math.floor(t/24);
+    let input=0;
+    for(let i=0;i<T.length;i++){if(day===days-1&&skip.has(i))continue;if(tod>=T[i]&&tod<T[i]+abs)input+=1/abs;}
+    C+=(input-k*C)*dt;E+=(C-E)*dt/tau;
+    if(day===days-1)out.push([tod,C,E]);
+  }
+  return out;
+}
+function drawCycle(){
+  const N=cyc.N,T=times(N);
+  const full=simulate(T,new Set()),cur=cyc.skip.size?simulate(T,cyc.skip):full;
+  // Seuil d'envie : le cerveau s'adapte au taux habituel (tolérance qui s'installe au fil de la journée
+  // et se dissipe la nuit). On le modélise par une moyenne glissante du taux (constante de 3 h),
+  // calée pour que l'envie revienne juste avant chaque cigarette.
+  let f=0.8;
+  if(N>=3){const ratios=T.slice(2).map(t=>{const i=Math.min(full.length-1,Math.round((t-1/60)*60));return full[i][1]/full[i][2];});f=Math.min(...ratios)*1.03;}
+  const thrAt=i=>full[i][2]*f;
+  const maxC=Math.max(...full.map(p=>p[1]),...cur.map(p=>p[1]))*1.12;
+  const yOf=c=>CY1-(c/maxC)*(CY1-CY0);
+  let h='';
+  // sommeil
+  h+=`<rect x="${xOf(0)}" y="${CY0}" width="${xOf(7)-xOf(0)}" height="${CY1-CY0}" fill="rgba(120,140,220,.10)"/>`;
+  h+=`<rect x="${xOf(23)}" y="${CY0}" width="${xOf(24)-xOf(23)}" height="${CY1-CY0}" fill="rgba(120,140,220,.10)"/>`;
+  h+=`<text x="${(xOf(0)+xOf(7))/2}" y="${CY0+18}" fill="#8f9bd0" font-size="12" text-anchor="middle" font-family="Inter,sans-serif">sommeil</text>`;
+  // manque (éveillé)
+  let man=0,start=null;const bands=[];
+  cur.forEach(([hh,c],i)=>{
+    const below=hh>=7&&hh<23&&c<thrAt(i);
+    if(below){man+=1/60;if(start===null)start=hh;}
+    if((!below||i===cur.length-1)&&start!==null){bands.push([start,hh]);start=null;}
+  });
+  bands.forEach(([a,b])=>{h+=`<rect x="${xOf(a)}" y="${CY0}" width="${Math.max(1,xOf(b)-xOf(a))}" height="${CY1-CY0}" fill="rgba(255,84,104,.16)"/>`;});
+  // grille / axe
+  h+='<g class="axis">';
+  for(let x=0;x<=24;x+=3){h+=`<line x1="${xOf(x)}" x2="${xOf(x)}" y1="${CY0}" y2="${CY1}" stroke="rgba(255,255,255,.05)"/><text x="${xOf(x)}" y="${CY1+20}" text-anchor="middle">${x}h</text>`;}
+  h+=`<line x1="${CX0}" x2="${CX1}" y1="${CY1}" y2="${CY1}" stroke="#3a2f27"/>`;
+  h+=`<text x="${CX0-10}" y="${CY0+4}" text-anchor="end">+</text><text x="${CX0-10}" y="${CY1}" text-anchor="end">0</text>`;
+  h+='</g>';
+  // courbe
+  const pts=cur.filter((_,i)=>i%3===0).map(([hh,c])=>`${xOf(hh).toFixed(1)},${yOf(c).toFixed(1)}`);
+  h+=`<defs><linearGradient id="gArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb347" stop-opacity=".35"/><stop offset="1" stop-color="#ffb347" stop-opacity="0"/></linearGradient></defs>`;
+  h+=`<path d="M${xOf(0)},${CY1} L${pts.join(' L')} L${xOf(24)},${CY1} Z" fill="url(#gArea)"/>`;
+  if(cyc.skip.size){
+    const fp=full.filter((_,i)=>i%3===0).map(([hh,c])=>`${xOf(hh).toFixed(1)},${yOf(c).toFixed(1)}`);
+    h+=`<path d="M${fp.join(' L')}" fill="none" stroke="#ffb347" stroke-opacity=".25" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+  }
+  h+=`<path d="M${pts.join(' L')}" fill="none" stroke="#ffb347" stroke-width="2.5" stroke-linejoin="round"/>`;
+  // seuil
+  const tp=full.filter((_,i)=>i%3===0).map(([hh,,e])=>`${xOf(hh).toFixed(1)},${yOf(e*f).toFixed(1)}`);
+  h+=`<path d="M${tp.join(' L')}" fill="none" stroke="#ff5468" stroke-width="1.5" stroke-dasharray="6 5"/>`;
+  h+=`<text x="${CX1}" y="${yOf(full[full.length-1][2]*f)+18}" fill="#ff8a98" font-size="12" text-anchor="end" font-family="Inter,sans-serif">seuil d'envie</text>`;
+  // cigarettes
+  T.forEach((t,i)=>{
+    const x=xOf(t),sk=cyc.skip.has(i);
+    h+=`<g class="cig-mark" data-i="${i}" role="button" tabindex="0" aria-label="Cigarette de ${Math.floor(t)}h${String(Math.round((t%1)*60)).padStart(2,'0')}${sk?' (supprimée)':''}">
+      <rect x="${x-9}" y="${CY0-34}" width="18" height="30" fill="transparent"/>
+      <rect class="body" x="${x-2.5}" y="${CY0-30}" width="5" height="17" rx="1" fill="${sk?'#4a3f37':'#f1ebe2'}"/>
+      <rect x="${x-2.5}" y="${CY0-13}" width="5" height="7" rx="1" fill="${sk?'#4a3f37':'#d98b3e'}"/>
+      ${sk?`<path d="M${x-7} ${CY0-30} L${x+7} ${CY0-6} M${x+7} ${CY0-30} L${x-7} ${CY0-6}" stroke="#ff5468" stroke-width="2"/>`:`<circle cx="${x}" cy="${CY0-31}" r="2.5" fill="#ff6b2c"/>`}
+    </g>`;
+  });
+  cs.innerHTML=h;
+  // KPIs
+  const price=Math.max(0,parseFloat($('#priceIn').value)||0);
+  const smoked=N-cyc.skip.size;
+  $('#kMan').textContent=(man<1&&man>0?'< 1':Math.round(man))+' h';
+  $('#kNic').textContent=Math.round(smoked*1.5)+' mg';
+  $('#kMonth').textContent=Math.round(N/20*price*30.4).toLocaleString('fr-FR')+' €';
+  $('#kYear').textContent=Math.round(N/20*price*365).toLocaleString('fr-FR')+' €';
+  // message
+  const m=$('#cycMsg');
+  if(cyc.skip.size)m.innerHTML=`<b style="color:var(--text)">${cyc.skip.size} cigarette${cyc.skip.size>1?'s':''} supprimée${cyc.skip.size>1?'s':''} :</b> le taux de nicotine passe sous le seuil auquel le cerveau s'est habitué, et l'envie se fait sentir plus longtemps. C'est ce que ressent un fumeur qui essaie simplement de « réduire » : le manque le pousse à rallumer.`;
+  else m.innerHTML=`<b style="color:var(--text)">Au réveil, le taux est au plus bas</b> après la nuit : c'est pourquoi la première cigarette du matin est souvent la plus attendue. Ensuite, chaque cigarette remonte le taux… juste assez longtemps pour attendre la suivante.`;
+}
+cs.addEventListener('click',e=>{const g=e.target.closest('.cig-mark');if(!g)return;const i=+g.dataset.i;cyc.skip.has(i)?cyc.skip.delete(i):cyc.skip.add(i);drawCycle();});
+cs.addEventListener('keydown',e=>{const g=e.target.closest('.cig-mark');if(g&&(e.key==='Enter'||e.key===' ')){e.preventDefault();const i=+g.dataset.i;cyc.skip.has(i)?cyc.skip.delete(i):cyc.skip.add(i);drawCycle();const n=cs.querySelector(`.cig-mark[data-i="${i}"]`);n&&n.focus();}});
+$('#nRange').addEventListener('input',e=>{cyc.N=+e.target.value;cyc.skip.clear();$('#nOut').textContent=cyc.N;drawCycle();});
+$('#priceIn').addEventListener('input',drawCycle);
+drawCycle();
+
+/* ------------------------------------------------------------
+   6. HSI
+------------------------------------------------------------ */
+$('#hsi').addEventListener('change',()=>{
+  const a=$('input[name=ttfc]:checked'),b=$('input[name=cpd]:checked');
+  const r=$('#hsiRes');
+  if(!a||!b){r.innerHTML='<p class="eyebrow" style="margin-bottom:8px">Mini-test</p><p class="muted" style="margin:0">Répondez aux deux questions pour voir votre score.</p>';return;}
+  const s=+a.value+ +b.value;
+  let lvl,col,txt;
+  if(s<=1){lvl='Dépendance faible';col='var(--green)';txt="Votre dépendance physique semble faible. Les dépendances psychologique et comportementale peuvent toutefois être bien présentes : c'est souvent sur elles qu'il faut travailler.";}
+  else if(s<=4){lvl='Dépendance moyenne';col='var(--ember2)';txt="Des substituts nicotiniques peuvent vous aider à gérer le manque. Un professionnel de santé peut vous conseiller sur le bon dosage.";}
+  else{lvl='Dépendance forte';col='var(--red)';txt="Le manque risque d'être intense au début : un accompagnement et des substituts nicotiniques bien dosés (souvent associés) augmentent nettement les chances de réussite.";}
+  r.innerHTML=`<p class="eyebrow" style="margin-bottom:8px">Votre score</p><b class="score" style="color:${col}">${s} / 6</b><p style="margin:6px 0 8px;font-weight:600;color:${col}">${lvl}</p><p class="muted small" style="margin:0">${txt}</p>`;
+});
+
+/* ------------------------------------------------------------
+   7. ARRÊT
+------------------------------------------------------------ */
+const QUIT=[
+  ['20 minutes',"La fréquence cardiaque et la pression artérielle commencent à redescendre.","Les premières envies peuvent apparaître. Une envie dure en général quelques minutes : elle passe même si on ne fume pas."],
+  ['8 heures',"Le taux de monoxyde de carbone dans le sang a diminué de moitié. Les cellules sont mieux oxygénées.","Le manque se fait sentir : nervosité, envie de fumer. Les substituts nicotiniques sont là pour ça."],
+  ['24 heures',"Le monoxyde de carbone est éliminé. Les poumons commencent à évacuer le mucus et les résidus de fumée.","Le manque physique est souvent le plus fort entre le 1er et le 3e jour."],
+  ['48 heures',"Le goût et l'odorat s'améliorent : les terminaisons nerveuses commencent à se régénérer.","Irritabilité et troubles du sommeil sont fréquents : c'est le signe que le cerveau se réadapte."],
+  ['72 heures',"Respirer devient plus facile : les bronches se relâchent. On se sent souvent plus énergique.","La nicotine a quitté l'organisme. Le pic du manque physique est généralement passé."],
+  ['2 semaines',"La circulation sanguine s'améliore. Marcher, monter des escaliers devient plus facile.","Les symptômes de manque s'estompent en général en 2 à 4 semaines. Les envies liées aux habitudes peuvent persister plus longtemps."],
+  ['3 mois',"La fonction respiratoire s'améliore nettement. La toux et la fatigue diminuent.","Le nombre de récepteurs nicotiniques dans le cerveau est revenu à un niveau proche de celui d'un non-fumeur."],
+  ['9 mois',"Les cils des bronches ont repoussé : les poumons se nettoient mieux, il y a moins d'infections. L'essoufflement diminue.","Les envies sont rares, souvent déclenchées par une situation précise (une fête, un verre, un moment de stress)."],
+  ['1 an',"Le risque d'infarctus et de maladie coronarienne a diminué de moitié par rapport à un fumeur.","Attention aux « juste une » : une seule cigarette peut suffire à relancer la dépendance."],
+  ['5 à 10 ans',"Le risque d'AVC rejoint progressivement celui d'un non-fumeur. Le risque de cancer du poumon est environ divisé par deux après 10 ans.","Vous êtes un ex-fumeur."],
+  ['15 ans',"Le risque de maladie coronarienne est équivalent à celui d'une personne qui n'a jamais fumé.","Arrêter avant 40 ans évite l'essentiel de l'excès de mortalité lié au tabac, mais arrêter à tout âge apporte des bénéfices."]
+];
+const spots=$('#spots');
+const spotPos=Array.from({length:34},()=>{const left=Math.random()<.5;return{x:left?70+Math.random()*60:170+Math.random()*60,y:120+Math.random()*150,r:2+Math.random()*4.5};});
+spotPos.forEach(p=>el('circle',{cx:p.x,cy:p.y,r:p.r},spots));
+function mixColor(a,b,t){const pa=a.match(/\w\w/g).map(h=>parseInt(h,16)),pb=b.match(/\w\w/g).map(h=>parseInt(h,16));return'rgb('+pa.map((v,i)=>Math.round(lerp(v,pb[i],t))).join(',')+')';}
+function setQuit(i){
+  const q=QUIT[i];$('#qTime').textContent=q[0];$('#qText').textContent=q[1];$('#qManque').innerHTML='<b style="color:var(--text)">Côté manque :</b> '+q[2];
+  const t=i/10;const c=mixColor('6e5d52','f29aa8',t);
+  $('#qL').setAttribute('fill',c);$('#qR').setAttribute('fill',c);
+  $$('circle',spots).forEach((s,k)=>{s.setAttribute('opacity',Math.max(0,.85-t*1.25-(k%5)*.04));});
+}
+$('#qRange').addEventListener('input',e=>setQuit(+e.target.value));setQuit(0);
+
+/* ------------------------------------------------------------
+   8. QUIZ
+------------------------------------------------------------ */
+const QUIZ=[
+  ["C'est la nicotine qui provoque les cancers.",false,"C'est la nicotine qui rend dépendant, mais ce sont surtout les goudrons et les autres substances produites par la combustion qui provoquent les cancers. C'est pour cela que les substituts nicotiniques sont utilisés sans danger pour arrêter."],
+  ["Fumer une cigarette aide à se détendre.",false,"La cigarette soulage surtout… le manque de nicotine, qui crée lui-même stress et irritabilité. Les études montrent qu'après l'arrêt, le niveau d'anxiété et de stress a plutôt tendance à diminuer."],
+  ["Les cigarettes « légères » sont moins dangereuses.",false,"Le fumeur compense sans s'en rendre compte : il aspire plus fort, plus souvent, ou bouche les trous du filtre. Ces mentions trompeuses (« light », « légère ») sont interdites dans l'Union européenne depuis 2003."],
+  ["On peut devenir dépendant après quelques cigarettes seulement.",true,"Chez certains jeunes, des signes de dépendance (envies, difficulté à s'en passer) apparaissent dès les premières semaines, après seulement quelques cigarettes. Le cerveau adolescent est particulièrement sensible à la nicotine."],
+  ["Les substituts nicotiniques sont dangereux puisqu'ils contiennent de la nicotine.",false,"Ils délivrent la nicotine lentement, sans combustion : ni goudrons, ni monoxyde de carbone. Bien dosés, ils augmentent nettement les chances de réussir à arrêter et ils peuvent être remboursés en France sur prescription."],
+  ["Après 20 ans de tabac, ça ne sert plus à rien d'arrêter.",false,"Il n'est jamais trop tard. Les bénéfices commencent dès les premières heures et le risque de nombreuses maladies diminue avec les années. Arrêter avant 40 ans évite l'essentiel de l'excès de mortalité lié au tabac, et arrêter plus tard reste très bénéfique."]
+];
+const qb=$('#quizBox');let score=0,answered=0;
+function buildQuiz(){
+  qb.innerHTML='';score=0;answered=0;$('#score').textContent='0 / '+QUIZ.length;
+  QUIZ.forEach(([st,ans,exp])=>{
+    const d=document.createElement('div');d.className='q';
+    d.innerHTML=`<p class="st">${st}</p><div class="ans"><button class="btn" data-v="1">Vrai</button><button class="btn" data-v="0">Faux</button></div><p class="exp"><span class="verdict"></span>${exp}</p>`;
+    $$('button',d).forEach(b=>b.addEventListener('click',()=>{
+      if(d.classList.contains('done'))return;
+      const ok=(b.dataset.v==='1')===ans;
+      d.classList.add('done',ok?'good':'bad');b.classList.add('pick');
+      $$('button',d).forEach(x=>x.disabled=true);
+      $('.verdict',d).textContent=(ok?'Bonne réponse ! ':'Pas tout à fait. ')+'C\'est '+(ans?'vrai':'faux')+'.';
+      if(ok)score++;answered++;$('#score').textContent=score+' / '+QUIZ.length;
+    }));
+    qb.appendChild(d);
+  });
+}
+$('#quizReset').addEventListener('click',buildQuiz);buildQuiz();
+
+/* ------------------------------------------------------------
+   NAV + REVEAL
+------------------------------------------------------------ */
+const links=$$('.navlinks a');
+const secs=links.map(a=>document.getElementById(a.getAttribute('href').slice(1)));
+if('IntersectionObserver' in window){
+  const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},{threshold:.12});
+  $$('.reveal').forEach(r=>io.observe(r));
+  const so=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const id=e.target.id;links.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+id));}});},{rootMargin:'-45% 0px -50% 0px'});
+  secs.forEach(s=>s&&so.observe(s));
+}else $$('.reveal').forEach(r=>r.classList.add('in'));
+})();
+</script>
+</body>
+</html>

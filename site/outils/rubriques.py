@@ -283,8 +283,6 @@ def svg_deco(k, h):
 
 # ---------------------------------------------------------------- HTML du carrousel
 def carrousel():
-    puces = '\n'.join(f'          <button type="button" class="rpuce" data-step="{k}" style="--c:{c}" aria-pressed="{"true" if i == 0 else "false"}" aria-controls="etape-{k}"><i></i>{E(n)}</button>'
-                      for i, (k, n, f, c, *_r) in enumerate(RUBRIQUES))
     cartes = '\n'.join(f'''          <button type="button" class="rcarte" data-step="{k}" style="--c:{c}" aria-pressed="{"true" if i == 0 else "false"}" aria-controls="etape-{k}">
             <span class="rcarte-ill">{svg_deco(k, c)}</span>
             <span class="rcarte-b"><span class="reye"><i></i>{FAMILLES[f]} · {i + 1} sur 12</span><span class="rcarte-t">{E(n)}</span><span class="rcarte-p">{E(lead)}</span><span class="rcarte-more">Voir le détail <span aria-hidden="true">→</span></span></span>
@@ -302,9 +300,6 @@ def carrousel():
         </article>''' for i, (k, n, f, c, lead, pts, regle) in enumerate(RUBRIQUES))
     return f'''      <!-- rubriques:debut (généré par site/outils/rubriques.py : modifier le script, pas ce bloc) -->
       <div class="carrousel" id="carrousel">
-        <div class="rpuces" role="group" aria-label="Les douze rubriques">
-{puces}
-        </div>
         <div class="rtrack-wrap">
           <button type="button" class="rnav prev" aria-label="Rubrique précédente"><span aria-hidden="true">←</span></button>
           <div class="rtrack" tabindex="0" role="group" aria-label="Cartes des rubriques, défilement horizontal">

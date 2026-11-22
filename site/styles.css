@@ -183,14 +183,8 @@ p { margin: 0; }
 
 /* ---------- 3. Carrousel des rubriques (illustrations au trait, teinte de chaque rubrique) ---------- */
 #logiciel { overflow-x: clip; }
-.carrousel { margin-top: 32px; }
-.rpuces { display: flex; flex-wrap: wrap; gap: 8px; }
-.rpuce { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 13.5px/1 var(--f-body); cursor: pointer; transition: background-color var(--t-std) var(--ease), border-color var(--t-std) var(--ease), color var(--t-std) var(--ease); }
-.rpuce i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
-.rpuce:hover { border-color: var(--c); }
-.rpuce[aria-pressed="true"] { background: color-mix(in srgb, var(--c) 72%, #000); border-color: transparent; color: #fff; }
-.rpuce[aria-pressed="true"] i { background: #fff; }
-.rtrack-wrap { position: relative; margin-top: 18px; }
+.carrousel { margin-top: 24px; }
+.rtrack-wrap { position: relative; }
 .rtrack { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 8px 4px 20px; scrollbar-width: thin; overscroll-behavior-x: contain; }
 .rtrack:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 16px; }
 .rcarte { flex: 0 0 clamp(250px, 27vw, 300px); scroll-snap-align: center; display: flex; flex-direction: column; padding: 0; text-align: left; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--ink); overflow: hidden; cursor: pointer; font: inherit;
@@ -357,8 +351,6 @@ mark.todo { background: color-mix(in srgb, var(--signal) 55%, var(--surface)); c
   .hero-panel .args { order: 6; }
   .form { grid-template-columns: minmax(0, 1fr); }
   .rcarte { flex-basis: 78vw; }
-  .rpuces { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; margin: 0 -16px; padding-left: 16px; padding-right: 16px; scrollbar-width: none; }
-  .rpuce { flex: none; }
   .js .rnav { display: none; }
   .actions .btn { width: 100%; }
   .chap { padding: 10px; }
@@ -366,7 +358,7 @@ mark.todo { background: color-mix(in srgb, var(--signal) 55%, var(--surface)); c
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .btn, .arg, .chap, .nav a::after, .faq summary::after, .cas, .cas-link span, .rcarte, .rpuce, .rnav, .rcarte::before, .rcarte-b > span, .reye i, .rcarte-more span { transition: none !important; }
+  .btn, .arg, .chap, .nav a::after, .faq summary::after, .cas, .cas-link span, .rcarte, .rnav, .rcarte::before, .rcarte-b > span, .reye i, .rcarte-more span { transition: none !important; }
   .detail.enter { animation: none; }
   .btn:active { transform: none; }
   .btn:hover, .arg:hover { transform: none; }

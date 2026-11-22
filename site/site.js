@@ -27,7 +27,7 @@
   }
 
   // 1. Carrousel des rubriques : une carte par rubrique ; le détail de la carte choisie s'affiche dessous.
-  var details = $$('.detail'), cartes = $$('.rcarte'), puces = $$('.rpuce'), track = $('.rtrack');
+  var details = $$('.detail'), cartes = $$('.rcarte'), track = $('.rtrack');
   var prev = $('.rnav.prev'), next = $('.rnav.next'), current = null;
   var ordre = cartes.map(function (c) { return c.dataset.step; });
   function select(step, opts) {
@@ -36,7 +36,7 @@
     var changed = current !== null && current !== step;
     details.forEach(function (x) { x.hidden = x !== d; });
     if (changed && !reduce) { d.classList.remove('enter'); void d.offsetWidth; d.classList.add('enter'); }
-    cartes.concat(puces).forEach(function (c) { c.setAttribute('aria-pressed', String(c.dataset.step === step)); });
+    cartes.forEach(function (c) { c.setAttribute('aria-pressed', String(c.dataset.step === step)); });
     current = step;
     var i = ordre.indexOf(step);
     if (prev) prev.disabled = i <= 0;
@@ -52,7 +52,6 @@
   }
   if (details.length && cartes.length) {
     cartes.forEach(function (c) { c.addEventListener('click', function () { select(c.dataset.step, { voir: true }); }); });
-    puces.forEach(function (p) { p.addEventListener('click', function () { select(p.dataset.step); }); });
     var pas = function (k) { var i = ordre.indexOf(current) + k; if (i >= 0 && i < ordre.length) { select(ordre[i]); return cartes[i]; } };
     if (prev) prev.addEventListener('click', function () { pas(-1); });
     if (next) next.addEventListener('click', function () { pas(1); });

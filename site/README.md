@@ -26,12 +26,11 @@ des hébergeurs français), plus un nom de domaine. Si l'hébergeur bloque `mail
    `.htaccess` doit être déposé aussi.
 6. **Active le certificat SSL** (gratuit chez la plupart des hébergeurs), puis retire les `#` du dernier bloc de `.htaccess`
    pour forcer le passage en HTTPS.
-7. **Teste** : envoie-toi un message par le formulaire, puis donne un avis dans la démo.
+7. **Teste** : envoie-toi une demande par le formulaire « Être recontacté », puis donne un avis dans la démo.
 
 ## Mettre à jour
 
 - **La démo** : après une modification de `logiciel-rh-v3`, relance `build.py` et redépose le dossier `demo/`.
-- **Les captures d'écran** : `node site/outils/captures.js` (refait les images de `site/img/` à partir de la démo).
 - **L'image de partage** (aperçu sur LinkedIn et dans les messageries) : `node site/outils/partage.js`.
 - **Un aperçu sans PHP** : `python3 site/build.py --apercu` crée `site/dist-apercu/`, où la démo pointe vers la version
   publiée sur claude.ai et où le formulaire ne s'envoie pas.
@@ -43,15 +42,18 @@ confidentialité (et, selon l'outil, ajoute un bandeau de consentement).
 
 | Fichier | Rôle |
 |---|---|
-| `index.html`, `styles.css`, `site.js` | La page d'accueil : la règle des seuils, l'accueil « Aujourd'hui », les quatre familles, les obligations, les espaces, la paie, la phase de test, les questions, le contact |
+| `index.html`, `styles.css`, `site.js` | La page d'accueil : l'accroche (« Recruter, gérer, accompagner. » et les deux arguments), les étapes cliquables à côté de la roue de l'accueil du logiciel, le garde-fou juridique avec la règle des seuils, puis « Être recontacté » |
 | `mentions-legales.html`, `confidentialite.html` | Pages légales, avec les passages à compléter surlignés |
 | `contact.php`, `avis.php`, `envoi.php`, `config.php` | Envoi par e-mail des messages et des avis ; `config.php` est le seul fichier à modifier |
 | `.htaccess` | Protections du navigateur, cache, accès interdit aux fichiers de réglages, HTTPS à activer |
 | `fonts/`, `vendor/gsap.min.js` | Polices Sora et Plus Jakarta Sans (licence SIL OFL) et bibliothèque d'animation de la démo |
-| `img/` | Captures de la démo (données fictives) et image de partage |
+| `img/` | Image de partage (aperçu sur LinkedIn et dans les messageries) |
 | `build.py` | Assemble `dist/` (site, démo, PHP) ou `dist-apercu/` |
-| `outils/` | Scripts des captures et de l'image de partage |
+| `outils/` | Script de l'image de partage |
 
 Les textes reprennent ce que fait réellement le prototype (module Obligations, parcours, espaces). Les règles juridiques
 citées (seuils, règles de franchissement de la loi PACTE, entretien de parcours professionnel) sont à faire relire par un
 professionnel du droit social avant la mise en ligne.
+
+Le texte des douze étapes (section « De A à Z ») est directement dans `index.html`, un bloc `<article class="detail">` par
+rubrique : il décrit ce que fait réellement le prototype. Mets-le à jour quand l'application évolue.

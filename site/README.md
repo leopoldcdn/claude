@@ -62,6 +62,9 @@ Le carrousel des douze rubriques (section « De A à Z ») est généré par `si
 illustrations SVG y sont réunis. Modifie le script puis lance `python3 site/outils/rubriques.py` (il met à jour
 `index.html` entre les repères `rubriques:debut` et `rubriques:fin`, et la planche `site/maquettes/carrousel-rubriques.html`).
 Les textes décrivent ce que fait réellement le prototype : à mettre à jour quand l'application évolue.
+Au survol (ou au focus clavier), une « goutte d'encre » de la teinte de la rubrique part du coin inférieur droit et couvre
+la carte, puis se résorbe au départ du pointeur (`.rcarte::before` dans `styles.css`). Elle est désactivée si le visiteur a
+demandé à réduire les animations.
 
 Les quatre exemples d'usage mettent en scène des entreprises **fictives** : ils sont marqués « Exemple fictif » et ne
 contiennent ni citation, ni logo, ni chiffre de résultat. Remplace-les par de vrais cas clients (avec l'accord écrit des

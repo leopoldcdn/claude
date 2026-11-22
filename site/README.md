@@ -45,7 +45,7 @@ confidentialité (et, selon l'outil, ajoute un bandeau de consentement).
 
 | Fichier | Rôle |
 |---|---|
-| `index.html`, `styles.css`, `site.js` | La page d'accueil : l'accroche, les aperçus animés (vraies captures de la démo), paie, tarif et démo en trois cartes, les étapes cliquables à côté de la roue, le garde-fou juridique, l'entrée experts-comptables, les questions, puis « Être recontacté » |
+| `index.html`, `styles.css`, `site.js` | La page d'accueil : l'accroche, les aperçus animés (vraies captures de la démo), paie, tarif et démo en trois cartes, les étapes cliquables à côté de la roue, le garde-fou juridique, quatre exemples d'usage (entreprises fictives, signalées comme telles), l'entrée experts-comptables, les questions, puis « Être recontacté » |
 | `mentions-legales.html`, `confidentialite.html` | Pages légales, avec les passages à compléter surlignés |
 | `contact.php`, `avis.php`, `envoi.php`, `config.php` | Envoi par e-mail des messages et des avis ; `config.php` est le seul fichier à modifier |
 | `.htaccess` | Protections du navigateur, cache, accès interdit aux fichiers de réglages, HTTPS à activer |
@@ -60,3 +60,7 @@ professionnel du droit social avant la mise en ligne.
 
 Le texte des douze étapes (section « De A à Z ») est directement dans `index.html`, un bloc `<article class="detail">` par
 rubrique : il décrit ce que fait réellement le prototype. Mets-le à jour quand l'application évolue.
+
+Les quatre exemples d'usage mettent en scène des entreprises **fictives** : ils sont marqués « Exemple fictif » et ne
+contiennent ni citation, ni logo, ni chiffre de résultat. Remplace-les par de vrais cas clients (avec l'accord écrit des
+entreprises) dès les premiers tests : présenter des cas inventés comme réels serait une pratique commerciale trompeuse.

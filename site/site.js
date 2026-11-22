@@ -74,6 +74,10 @@
     window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(equalize, 150); });
   }
 
+  // Liens des exemples : « Voir l'étape… » choisit l'étape dans l'explorateur, « Voir l'aperçu… » lance le bon aperçu.
+  $$('[data-step]').forEach(function (a) { if (a.tagName !== 'A') return; a.addEventListener('click', function () { if (details.length) select(a.dataset.step); }); });
+  $$('a[data-apercu]').forEach(function (a) { a.addEventListener('click', function () { document.dispatchEvent(new CustomEvent('teamora:apercu', { detail: a.dataset.apercu })); }); });
+
   // La roue se déploie un peu quand elle arrive à l'écran (les rubriques restent visibles avant).
   var wheel = $('.wheel');
   if (wheel && !reduce && 'IntersectionObserver' in window) {
@@ -214,6 +218,7 @@
     btn.addEventListener('click', function () { if (tl && tl.isActive()) pause(true); else { userPaused = false; if (tl && tl.progress() === 1) tl.restart(); play(); } });
     chaps.forEach(function (c) { c.addEventListener('click', function () { userPaused = reduce; show(c.dataset.chap, !reduce); }); });
     show('matin', false);
+    document.addEventListener('teamora:apercu', function (e) { if (CH[e.detail]) { userPaused = reduce; show(e.detail, !reduce); } });
     // Lecture automatique quand l'aperçu est à l'écran (sauf si le visiteur a demandé moins d'animations ou mis en pause).
     if ('IntersectionObserver' in window) {
       new IntersectionObserver(function (es) {

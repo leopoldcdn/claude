@@ -140,7 +140,28 @@ p { margin: 0; }
 .assure h3 { font-size: 18px; }
 .assure p { color: var(--muted); font-size: 15px; }
 
-/* ---------- 5. Experts-comptables et questions ---------- */
+/* ---------- 5. Exemples d'usage (entreprises fictives, signalées comme telles) ---------- */
+.cas-grid { margin-top: 32px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.cas { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: clamp(18px, 2.4vw, 26px); display: flex; flex-direction: column; gap: 12px; transition: border-color var(--t-std) var(--ease), box-shadow var(--t-std) var(--ease); }
+.cas:hover { border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); box-shadow: var(--shadow); }
+.cas-top { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fictif { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); border: 1px dashed var(--line-strong, #c3c8de); border-radius: 999px; padding: 3px 9px; }
+.tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--ink); background: color-mix(in srgb, var(--c) 12%, var(--surface)); border-radius: 999px; padding: 3px 10px 3px 8px; }
+.tag::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.cas h3 { font-size: clamp(19px, 1.9vw, 22px); line-height: 1.25; }
+.cas-meta { margin-top: -6px; color: var(--muted); font-size: 14px; font-weight: 600; }
+.cas-sit { color: var(--muted); font-size: 15.5px; }
+.cas-sit b, .cas-res b { color: var(--ink); }
+.cas-h { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.cas ul { margin: -4px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 15px; line-height: 1.5; }
+.cas li { position: relative; padding-left: 24px; }
+.cas li::before { content: ""; position: absolute; left: 0; top: 5px; width: 14px; height: 14px; border-radius: 5px; background: var(--accent-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234f46e5' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 10px no-repeat; }
+.cas-res { margin-top: auto; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--signal) 22%, var(--surface)); font-size: 15px; }
+.cas-link { align-self: flex-start; font-weight: 700; font-size: 15px; text-decoration: none; padding: 4px 0; }
+.cas-link span { display: inline-block; transition: transform var(--t-std) var(--ease); }
+.cas-link:hover span { transform: translateX(3px); }
+
+/* ---------- 6. Experts-comptables et questions ---------- */
 .ec { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px 32px; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 22px 24px; margin-bottom: clamp(48px, 7vw, 80px); }
 .ec > div { flex: 1 1 420px; }
 .ec-t { margin-top: 8px; font-size: 17px; max-width: 70ch; }
@@ -310,6 +331,7 @@ mark.todo { background: color-mix(in srgb, var(--signal) 55%, var(--surface)); c
   .wheel { width: min(100%, 420px); }
   .args { grid-template-columns: minmax(0, 1fr); }
   .assure { grid-template-columns: minmax(0, 1fr); }
+  .cas-grid { grid-template-columns: minmax(0, 1fr); }
   .chapters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
   .chap small { display: none; }
   .player-bar { flex-wrap: wrap; }
@@ -341,7 +363,7 @@ mark.todo { background: color-mix(in srgb, var(--signal) 55%, var(--surface)); c
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .btn, .arg, .node, .chap, .nav a::after, .faq summary::after { transition: none; }
+  .btn, .arg, .node, .chap, .nav a::after, .faq summary::after, .cas, .cas-link span { transition: none; }
   .detail.enter { animation: none; }
   .btn:active { transform: none; }
   .btn:hover, .arg:hover { transform: none; }

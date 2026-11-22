@@ -45,7 +45,7 @@ confidentialité (et, selon l'outil, ajoute un bandeau de consentement).
 
 | Fichier | Rôle |
 |---|---|
-| `index.html`, `styles.css`, `site.js` | La page d'accueil : l'accroche, les aperçus animés (vraies captures de la démo), paie, tarif et démo en trois cartes, le carrousel des douze rubriques (illustrations au trait, teinte de chaque rubrique), le garde-fou juridique, quatre exemples d'usage (entreprises fictives, signalées comme telles), l'entrée experts-comptables, les questions, puis « Être recontacté » |
+| `index.html`, `styles.css`, `site.js` | La page d'accueil : une barre de navigation flottante, l'accroche (« Toute votre GRH, dans les règles », avec à droite un questionnaire en quatre questions qui prépare la démo), les aperçus animés (vraies captures de la démo), paie, tarif et démo en trois cartes, le carrousel des douze rubriques (illustrations au trait, teinte de chaque rubrique), le garde-fou juridique, quatre exemples d'usage (entreprises fictives, signalées comme telles), l'entrée experts-comptables, les questions, puis « Être recontacté » |
 | `mentions-legales.html`, `confidentialite.html` | Pages légales, avec les passages à compléter surlignés |
 | `contact.php`, `avis.php`, `envoi.php`, `config.php` | Envoi par e-mail des messages et des avis ; `config.php` est le seul fichier à modifier |
 | `.htaccess` | Protections du navigateur, cache, accès interdit aux fichiers de réglages, HTTPS à activer |
@@ -65,6 +65,13 @@ Les textes décrivent ce que fait réellement le prototype : à mettre à jour q
 Au survol (ou au focus clavier), une « goutte d'encre » de la teinte de la rubrique part du coin inférieur droit et couvre
 la carte, puis se résorbe au départ du pointeur (`.rcarte::before` dans `styles.css`). Elle est désactivée si le visiteur a
 demandé à réduire les animations.
+
+Le questionnaire de l'accroche pose quatre questions (effectif, rôle, rubrique à découvrir, adresse e-mail), puis
+affiche « Votre démo est prête » et le bouton « Tester Teamora ». Un clic sur une réponse passe à la question suivante.
+Les rubriques proposées sont reprises des cartes du carrousel. Le lien vers la démo hébergée porte les réponses
+(`demo/?profil=…&rubrique=…&effectif=…`) ; la démo ne les lit pas encore. **Le champ e-mail sert au rendu : rien n'est
+envoyé ni enregistré.** Avant de le brancher, ajoute près du champ une mention d'information (finalité, durée de
+conservation, droits) et complète la politique de confidentialité.
 
 Les quatre exemples d'usage mettent en scène des entreprises **fictives** : ils sont marqués « Exemple fictif » et ne
 contiennent ni citation, ni logo, ni chiffre de résultat. Remplace-les par de vrais cas clients (avec l'accord écrit des

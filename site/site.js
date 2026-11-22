@@ -1,5 +1,5 @@
-// Teamora · site de présentation : l'explorateur des étapes et sa roue, le repère « Votre PME » sur la règle des seuils,
-// les aperçus animés et l'envoi du formulaire « Être recontacté ». Sans JavaScript, toutes les étapes restent lisibles les unes sous les autres.
+// Teamora · site de présentation : la barre de navigation, le questionnaire de l'accroche, le carrousel des rubriques,
+// le repère « Votre PME » sur la règle des seuils, les aperçus animés et l'envoi du formulaire « Être recontacté ». Sans JavaScript, toutes les étapes restent lisibles les unes sous les autres.
 (function () {
   'use strict';
   document.documentElement.classList.add('js');
@@ -13,17 +13,78 @@
     io.observe(el);
   };
 
-  // 0. En-tête : une ombre dès que la page défile, et la rubrique en cours soulignée dans le menu.
-  var top = $('.top');
-  if (top) { var onScroll = function () { top.classList.toggle('scrolled', window.scrollY > 8); }; window.addEventListener('scroll', onScroll, { passive: true }); onScroll(); }
-  var navLinks = $$('.nav a[href^="#"]');
+  // 0. Barre de navigation : la rubrique en cours en pastille blanche, et un menu sur téléphone.
+  var barre = $('#barre'), menu = barre && $('.menu', barre);
+  if (menu) {
+    var fermer = function () { barre.classList.remove('ouvert'); menu.setAttribute('aria-expanded', 'false'); };
+    menu.addEventListener('click', function () { menu.setAttribute('aria-expanded', String(barre.classList.toggle('ouvert'))); });
+    $$('.liens a', barre).forEach(function (a) { a.addEventListener('click', fermer); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && barre.classList.contains('ouvert')) { fermer(); menu.focus(); } });
+    document.addEventListener('click', function (e) { if (barre.classList.contains('ouvert') && !barre.contains(e.target)) fermer(); });
+  }
+  var navLinks = $$('.liens a[href^="#"]');
   if (navLinks.length && 'IntersectionObserver' in window) {
     var spy = new IntersectionObserver(function (es) {
-      // En haut de page (accroche), aucune rubrique n'est soulignée.
       es.forEach(function (e) { if (!e.isIntersecting) return; navLinks.forEach(function (a) { a.setAttribute('aria-current', String(!!e.target.id && a.getAttribute('href') === '#' + e.target.id)); }); });
     }, { rootMargin: '-45% 0px -50% 0px' });
     navLinks.forEach(function (a) { var t = $(a.getAttribute('href')); if (t && t.tagName === 'SECTION') spy.observe(t); });
-    if ($('.hero')) spy.observe($('.hero'));
+  }
+
+  // 0 bis. Questionnaire de l'accroche : quatre questions, un clic sur une réponse passe à la suivante ; au clavier,
+  // les flèches changent la réponse et Entrée ou Espace la valident. Le champ e-mail sert au rendu : rien n'est envoyé.
+  var quiz = $('#quiz');
+  if (quiz) {
+    var boite = $('#quiz-rubriques');
+    // Les douze rubriques, reprises des cartes du carrousel (même ordre, mêmes couleurs).
+    $$('.rcarte').forEach(function (c) {
+      var l = document.createElement('label'); l.className = 'opt';
+      var i = document.createElement('input'); i.type = 'radio'; i.name = 'rubrique'; i.value = c.dataset.step;
+      var pt = document.createElement('span'); pt.className = 'pt'; pt.style.setProperty('--c', c.style.getPropertyValue('--c'));
+      l.appendChild(i); l.appendChild(pt); l.appendChild(document.createTextNode($('.rcarte-t', c).textContent));
+      boite.appendChild(l);
+    });
+    var etapes = $$('.etape', quiz), barres = $$('.progres i', quiz), retour = $('.retour', quiz);
+    var fin = $('#quiz-fin'), ouvrir = $('#quiz-ouvrir'), baseDemo = ouvrir.getAttribute('href');
+    var NOMS = ['taille', 'role', 'rubrique'], PROFILS = { dirigeant: 'rh', rh: 'rh', manager: 'manager', comptable: 'rh' };
+    var n = 0, verrou = false, pointeur = 0;
+    var valeur = function (nom) { var x = $('input[name="' + nom + '"]:checked', quiz); return x ? x.value : null; };
+    var montrer = function (i, sens) {
+      var avant = n; n = i;
+      etapes.forEach(function (e, k) {
+        var vu = k === i; e.setAttribute('aria-hidden', String(!vu));
+        $$('input, button', e).forEach(function (x) { x.tabIndex = vu ? 0 : -1; });
+        e.classList.remove('entre', 'recule');
+        if (vu && avant !== i && !reduce) { void e.offsetWidth; e.classList.add('entre'); if (sens < 0) e.classList.add('recule'); }
+      });
+      barres.forEach(function (b, k) { b.classList.toggle('fait', k <= i); });
+      $('#compteur').textContent = 'Question ' + (i + 1) + ' sur 4';
+      $('#compteur-court').textContent = (i + 1) + '/4';
+      retour.classList.toggle('cache', i === 0); retour.tabIndex = i === 0 ? -1 : 0;
+      if (avant !== i) $(i === 3 && sens > 0 ? '#quiz-email' : '#q' + (i + 1)).focus({ preventScroll: true });
+    };
+    var avancer = function () {
+      if (verrou || n > 2 || !valeur(NOMS[n])) return;
+      verrou = true;
+      setTimeout(function () { verrou = false; montrer(n + 1, 1); }, reduce ? 0 : 260);
+    };
+    quiz.addEventListener('pointerdown', function (e) { pointeur = e.target.closest('.opt') ? Date.now() : 0; });
+    quiz.addEventListener('click', function (e) { if (e.target.matches('input[type="radio"]') && Date.now() - pointeur < 1000) { pointeur = 0; avancer(); } });
+    quiz.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.matches('input[type="radio"]')) { e.preventDefault(); avancer(); } });
+    quiz.addEventListener('keyup', function (e) { if (e.key === ' ' && e.target.matches('input[type="radio"]')) setTimeout(avancer, 0); });
+    retour.addEventListener('click', function () { if (n > 0) montrer(n - 1, -1); });
+    quiz.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (n !== 3) return;
+      // La démo hébergée (demo/) recevra les réponses pour s'ouvrir au bon endroit ; l'aperçu garde le lien tel quel.
+      var q = 'profil=' + (PROFILS[valeur('role')] || 'rh') + '&rubrique=' + (valeur('rubrique') || '') + '&effectif=' + (valeur('taille') || '');
+      ouvrir.href = baseDemo === 'demo/' ? baseDemo + '?' + q : baseDemo;
+      fin.style.minHeight = quiz.offsetHeight + 'px';
+      quiz.hidden = true; fin.hidden = false;
+      fin.classList.remove('joue'); if (!reduce) { void fin.offsetWidth; fin.classList.add('joue'); }
+      $('#quiz-pret').focus({ preventScroll: true });
+    });
+    $('#quiz-modifier').addEventListener('click', function () { fin.hidden = true; quiz.hidden = false; montrer(0, -1); });
+    montrer(0, 0);
   }
 
   // 1. Carrousel des rubriques : une carte par rubrique ; le détail de la carte choisie s'affiche dessous.

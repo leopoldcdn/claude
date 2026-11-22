@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Teamora · Logiciel RH pour PME : recruter, gérer, accompagner</title>
+<title>Teamora · Logiciel RH pour PME : toute votre GRH, dans les règles</title>
 <meta name="description" content="Teamora gère toute la vie de vos salariés, de A à Z, au même endroit, et vous sert de garde-fou juridique : effectif, seuils, convention collective et échéances suivis pour vous. Démo en accès libre.">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="fr_FR">
 <meta property="og:site_name" content="Teamora">
-<meta property="og:title" content="Teamora · Recruter, gérer, accompagner">
+<meta property="og:title" content="Teamora · Toute votre GRH, dans les règles">
 <meta property="og:description" content="Toute la vie de vos salariés au même endroit, et un garde-fou juridique qui vous prévient avant chaque obligation.">
 <meta property="og:image" content="img/partage.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -24,49 +24,103 @@
 </svg>
 <a class="skip" href="#contenu">Aller au contenu</a>
 
-<header class="top">
-  <div class="wrap">
-    <a class="brand" href="#contenu" aria-label="Teamora, retour en haut de page"><svg aria-hidden="true"><use href="#logo"/></svg>Teamora</a>
-    <nav class="nav" aria-label="Sections de la page">
-      <a href="#apercu">Aperçus</a>
-      <a href="#logiciel">Le logiciel</a>
-      <a href="#juridique">Juridique</a>
-      <a href="#exemples">Exemples</a>
-      <a href="#tarif">Tarif</a>
-      <a href="#questions">Questions</a>
-      <a href="#contact">Être recontacté</a>
-    </nav>
-    <a class="btn btn-primary" href="demo/">Tester la démo</a>
-  </div>
+<header class="barre" id="barre">
+  <nav class="barre-in" aria-label="Sections de la page">
+    <a class="marque" href="#contenu" aria-label="Teamora, retour en haut de page"><svg aria-hidden="true"><use href="#logo"/></svg>Teamora</a>
+    <ul class="liens" id="liens">
+      <li><a href="#accueil" aria-current="true"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9v11h4.5v-6h4v6h4.5V9"/></svg>Accueil</a></li>
+      <li><a href="#apercu"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m10 8.5 5.5 3.5-5.5 3.5z"/></svg>Aperçus</a></li>
+      <li><a href="#logiciel"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>Le logiciel</a></li>
+      <li><a href="#juridique"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M7 20h10M5 7h14"/><path d="m5 7-2.5 6a2.5 2.5 0 0 0 5 0zM19 7l-2.5 6a2.5 2.5 0 0 0 5 0z"/></svg>Juridique</a></li>
+      <li><a href="#exemples"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M8.5 8h2M13.5 8h2M8.5 12h2M13.5 12h2M10 20.5v-4h4v4"/></svg>Exemples</a></li>
+      <li><a href="#tarif"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12.6V4.5a1 1 0 0 1 1-1h8.1l7.9 7.9a1.5 1.5 0 0 1 0 2.1l-6 6a1.5 1.5 0 0 1-2.1 0z"/><circle cx="8.5" cy="8.5" r="1.4"/></svg>Tarif</a></li>
+      <li><a href="#questions"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8 1c0 1.7-2.4 2.2-2.4 3.7M12 17.2h.01"/></svg>Questions</a></li>
+    </ul>
+    <a class="essai" href="demo/" aria-label="Tester la démo"><span class="rond"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg></span><span class="cta-l">Tester la démo</span><span class="cta-c" aria-hidden="true">Démo</span></a>
+    <button class="menu" type="button" aria-expanded="false" aria-controls="liens" aria-label="Menu"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </nav>
 </header>
 
 <main id="contenu">
-  <!-- 1. Accroche : trois mots et deux arguments -->
-  <section class="hero" aria-labelledby="titre">
-    <div class="wrap">
-      <div class="hero-panel">
-        <div class="blobs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-        <p class="eyebrow">Teamora · le logiciel RH des PME de 10 à 250 salariés</p>
-        <h1 id="titre">Recruter, gérer, <em>accompagner.</em></h1>
-        <p class="hero-lead">Le logiciel RH qui vous prévient avant chaque nouvelle obligation.</p>
-        <div class="args">
-          <a class="arg" href="#logiciel">
-            <span class="arg-n num">1</span>
-            <span><b>Gérez toute la vie de vos salariés, de A à Z, au même endroit.</b>
-            <small>Du besoin de recrutement à l’après-départ : douze rubriques, un seul dossier par salarié.</small></span>
-          </a>
-          <a class="arg" href="#juridique">
-            <span class="arg-n num">2</span>
-            <span><b>Plus qu’un logiciel de gestion : votre garde-fou juridique.</b>
-            <small>Effectif, seuils, convention collective, échéances : Teamora applique les règles et vous prévient avant chaque obligation.</small></span>
-          </a>
+  <!-- 1. Accroche : la promesse à gauche, à droite un questionnaire en quatre questions qui prépare la démo -->
+  <section class="hero" id="accueil" aria-labelledby="titre">
+    <div class="fond" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="wrap hero-in">
+      <div class="promesse">
+        <h1 id="titre" class="monte">Toute votre GRH<br> <em>Dans les règles</em></h1>
+        <p class="accroche monte">Le logiciel RH qui vous prévient avant chaque nouvelle obligation.</p>
+        <p class="promesse-texte monte">Du besoin de recrutement à l’après-départ : Teamora vous accompagne dans votre Gestion des Ressources Humaines. Effectif, seuils, convention collective, échéances : Teamora applique les règles et vous prévient avant chaque obligation.</p>
+        <div class="reperes monte">
+          <p class="reperes-t">En bref</p>
+          <ul>
+            <li><b>12</b><span>rubriques, du recrutement au départ</span></li>
+            <li><b>673</b><span>conventions collectives au choix</span></li>
+          </ul>
         </div>
-        <div class="actions">
-          <a class="btn btn-primary btn-lg" href="demo/">Tester la démo</a>
-          <a class="btn btn-ghost btn-lg" href="#contact">Être recontacté</a>
-        </div>
-        <p class="hint"><b>Démo en accès libre, sans inscription</b>, avec une entreprise fictive.</p>
       </div>
+
+      <section class="quiz monte" aria-labelledby="quiz-titre">
+        <h2 id="quiz-titre" class="sr">Préparer votre démo</h2>
+        <form id="quiz" novalidate>
+          <div class="quiz-tete">
+            <span class="quiz-badge"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>Votre démo en 4 questions</span>
+            <span class="compteur" aria-live="polite"><span class="sr" id="compteur">Question 1 sur 4</span><span id="compteur-court" aria-hidden="true">1/4</span></span>
+          </div>
+          <div class="progres" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+          <div class="etapes">
+            <fieldset class="etape" aria-labelledby="q1">
+              <h3 class="question" id="q1" tabindex="-1">Combien de salariés compte votre entreprise&nbsp;?</h3>
+              <p class="aide">Les principaux seuils d’effectif : 11, 20, 50 et 250 salariés.</p>
+              <div class="choix">
+                <label class="opt"><input type="radio" name="taille" value="0">Moins de 11</label>
+                <label class="opt"><input type="radio" name="taille" value="11">11 à 19</label>
+                <label class="opt"><input type="radio" name="taille" value="20">20 à 49</label>
+                <label class="opt"><input type="radio" name="taille" value="50">50 à 249</label>
+                <label class="opt"><input type="radio" name="taille" value="250">250 et plus</label>
+              </div>
+            </fieldset>
+
+            <fieldset class="etape" aria-labelledby="q2">
+              <h3 class="question" id="q2" tabindex="-1">Quel est votre rôle&nbsp;?</h3>
+              <div class="choix deux">
+                <label class="opt"><input type="radio" name="role" value="dirigeant">Dirigeant ou dirigeante</label>
+                <label class="opt"><input type="radio" name="role" value="rh">Responsable RH ou administratif</label>
+                <label class="opt"><input type="radio" name="role" value="manager">Manager d’une équipe</label>
+                <label class="opt"><input type="radio" name="role" value="comptable">Expert-comptable ou gestionnaire de paie</label>
+              </div>
+            </fieldset>
+
+            <!-- Les douze rubriques sont reprises des cartes du carrousel (site.js). -->
+            <fieldset class="etape" aria-labelledby="q3">
+              <h3 class="question" id="q3" tabindex="-1">Que souhaitez-vous découvrir&nbsp;?</h3>
+              <div class="choix rub" id="quiz-rubriques"></div>
+            </fieldset>
+
+            <!-- Champ e-mail : pour le rendu seulement. Rien n'est envoyé ni enregistré. Avant de le brancher : mention
+                 d'information (finalité, durée, droits) près du champ et mise à jour de confidentialite.html. -->
+            <fieldset class="etape" aria-labelledby="q4">
+              <h3 class="question" id="q4" tabindex="-1">Quelle est votre adresse e-mail&nbsp;?</h3>
+              <div class="champ">
+                <input type="email" id="quiz-email" autocomplete="email" inputmode="email" placeholder="prenom@entreprise.fr" aria-labelledby="q4">
+                <button class="btn btn-primary" type="submit">Préparer ma démo<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+              </div>
+            </fieldset>
+          </div>
+
+          <div class="pied">
+            <button class="retour cache" type="button" tabindex="-1"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>Retour</button>
+          </div>
+        </form>
+
+        <div class="quiz-fin" id="quiz-fin" hidden>
+          <div class="coche" aria-hidden="true"><svg viewBox="0 0 64 64"><circle class="cercle" cx="32" cy="32" r="30"/><path class="trait" d="M19 33.5l8.5 8.5 17.5-18"/></svg></div>
+          <h3 id="quiz-pret" tabindex="-1">Votre démo est prête.</h3>
+          <p>Découvrez Teamora sur Nova Studio, une entreprise fictive de 20 salariés.</p>
+          <a class="btn btn-primary" id="quiz-ouvrir" href="demo/">Tester Teamora<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          <button class="modifier" type="button" id="quiz-modifier">Modifier mes réponses</button>
+        </div>
+      </section>
     </div>
   </section>
 

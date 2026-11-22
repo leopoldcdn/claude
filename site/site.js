@@ -2,6 +2,7 @@
 // les aperçus animés et l'envoi du formulaire « Être recontacté ». Sans JavaScript, toutes les étapes restent lisibles les unes sous les autres.
 (function () {
   'use strict';
+  document.documentElement.classList.add('js');
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -12,6 +13,19 @@
     io.observe(el);
   };
 
+  // 0. En-tête : une ombre dès que la page défile, et la rubrique en cours soulignée dans le menu.
+  var top = $('.top');
+  if (top) { var onScroll = function () { top.classList.toggle('scrolled', window.scrollY > 8); }; window.addEventListener('scroll', onScroll, { passive: true }); onScroll(); }
+  var navLinks = $$('.nav a[href^="#"]');
+  if (navLinks.length && 'IntersectionObserver' in window) {
+    var spy = new IntersectionObserver(function (es) {
+      // En haut de page (accroche), aucune rubrique n'est soulignée.
+      es.forEach(function (e) { if (!e.isIntersecting) return; navLinks.forEach(function (a) { a.setAttribute('aria-current', String(!!e.target.id && a.getAttribute('href') === '#' + e.target.id)); }); });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+    navLinks.forEach(function (a) { var t = $(a.getAttribute('href')); if (t && t.tagName === 'SECTION') spy.observe(t); });
+    if ($('.hero')) spy.observe($('.hero'));
+  }
+
   // 1. Explorateur : familles, étapes, roue. Une seule étape affichée à la fois.
   var details = $$('.detail'), picks = $$('.pick'), fams = $$('.fam'), nodes = $$('.node');
   var hubFam = $('#hub-fam'), hubNom = $('#hub-nom'), panel = $('.panel');
@@ -21,12 +35,14 @@
   var showHub = function (step) { var d = $('#etape-' + step); if (!d || !hubNom) return; hubFam.textContent = famName[d.dataset.fam]; hubNom.textContent = stepName[step]; };
   function select(step, fromWheel) {
     var d = $('#etape-' + step); if (!d) return;
-    current = step; var fam = d.dataset.fam;
+    var fam = d.dataset.fam;
+    var changed = current !== null && current !== step;
     details.forEach(function (x) { x.hidden = x !== d; });
+    if (changed && !reduce) { d.classList.remove('enter'); void d.offsetWidth; d.classList.add('enter'); }
     picks.forEach(function (p) { p.hidden = p.dataset.fam !== fam; p.setAttribute('aria-pressed', String(p.dataset.step === step)); });
     fams.forEach(function (f) { f.setAttribute('aria-pressed', String(f.dataset.fam === fam)); });
     nodes.forEach(function (n) { n.setAttribute('aria-pressed', String(n.dataset.step === step)); });
-    showHub(step);
+    current = step; showHub(step);
     // Sur téléphone, la roue est au-dessus du panneau : on fait descendre jusqu'au détail choisi.
     if (fromWheel && panel && window.innerWidth <= 920) panel.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   }
@@ -42,6 +58,20 @@
       n.addEventListener('blur', function () { showHub(current); });
     });
     select(details[0].dataset.step);
+    // La ligne des étapes garde la hauteur de la famille la plus fournie (« Gérer » passe sur deux lignes) : le panneau ne saute pas.
+    var picksBox = $('.picks');
+    var equalize = function () {
+      if (!picksBox) return;
+      var fam = $('#etape-' + current).dataset.fam, max = 0;
+      picksBox.style.minHeight = '';
+      fams.forEach(function (f) { picks.forEach(function (p) { p.hidden = p.dataset.fam !== f.dataset.fam; }); max = Math.max(max, picksBox.offsetHeight); });
+      picks.forEach(function (p) { p.hidden = p.dataset.fam !== fam; });
+      picksBox.style.minHeight = max + 'px';
+    };
+    equalize();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(equalize);
+    var resizeTimer = null;
+    window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(equalize, 150); });
   }
 
   // La roue se déploie un peu quand elle arrive à l'écran (les rubriques restent visibles avant).
@@ -121,9 +151,9 @@
     function build(key) {
       var C = CH[key], frames = [];
       C.steps.forEach(function (st) { if (frames.indexOf(st.f) < 0) frames.push(st.f); });
-      var imgs = frames.map(function (f, i) { var m = IM[f]; return '<img class="frame' + (i ? '' : ' on') + '" data-f="' + f + '" src="' + m.img + '" width="' + Math.round(m.w * (C.phone ? 2 : 1.5)) + '" height="' + Math.round(m.h * (C.phone ? 2 : 1.5)) + '" alt="' + ALT[f] + '">'; }).join('');
-      stage.innerHTML = '<div class="screen ' + (C.phone ? 'phone' : 'desk') + '"><div class="cam">' + imgs + '<span class="ring"></span><span class="ripple"></span>' + (C.phone ? '' : '<span class="cursor">' + CURSOR + '</span>') + '</div></div>';
-      var cam = $('.cam', stage), ring = $('.ring', stage), ripple = $('.ripple', stage), cursor = $('.cursor', stage);
+      var imgs = frames.map(function (f, i) { var m = IM[f]; return '<img class="frame' + (i ? '' : ' on') + '" data-f="' + f + '" src="' + m.img + '" width="' + Math.round(m.w * (C.phone ? 2 : 1.5)) + '" height="' + Math.round(m.h * (C.phone ? 2 : 1.5)) + '" alt="' + ALT[f] + '" decoding="async"' + (i ? ' loading="lazy"' : '') + '>'; }).join('');
+      stage.innerHTML = '<div class="screen ' + (C.phone ? 'phone' : 'desk') + '"><div class="cam">' + imgs + '<span class="ring"></span><span class="ripple"></span>' + (C.phone ? '' : '<span class="cursor">' + CURSOR + '</span>') + '</div></div><span class="pbar" aria-hidden="true"></span>';
+      var cam = $('.cam', stage), ring = $('.ring', stage), ripple = $('.ripple', stage), cursor = $('.cursor', stage), pbar = $('.pbar', stage);
       var img = {}; $$('.frame', stage).forEach(function (x) { img[x.dataset.f] = x; });
       dotsBox.innerHTML = C.steps.map(function (s, i) { return '<button type="button" class="pdot" data-i="' + i + '" aria-label="Étape ' + (i + 1) + ' sur ' + C.steps.length + '"></button>'; }).join('');
       var dots = $$('.pdot', dotsBox);
@@ -151,7 +181,7 @@
           var r = B[st.ring];
           t.set(ring, { left: pct(r[0]), top: pct(r[1]), width: pct(r[2]), height: pct(r[3]) }).to(ring, { opacity: 1, duration: 0.3, ease: 'none' });
         }
-        t.to({}, { duration: reduce ? 0.6 : st.hold });
+        t.to({}, { duration: reduce ? 0.6 : st.hold + 0.4 }); // temps de lecture de la légende
         if (st.to && B[st.to]) {
           var p = centre(B[st.to]);
           if (cursor) t.to(cursor, { left: pct(p[0]), top: pct(p[1]), duration: 0.9 });
@@ -166,6 +196,8 @@
         if (zoomed && !keep) { t.to(cam, { xPercent: 0, yPercent: 0, scale: 1, duration: 0.8 }); if (cursor) t.to(cursor, { scale: 1, duration: 0.8 }, '<'); zoomed = 0; }
       });
       t.to({}, { duration: 0.6 }).call(function () { if (auto && !userPaused) show(ORDER[(ORDER.indexOf(key) + 1) % ORDER.length], true); });
+      // Barre de progression : elle se remplit pendant chaque étape (on voit que l'aperçu avance tout seul).
+      C.steps.forEach(function (s, i) { var a = t.labels['s' + i], z = i + 1 < C.steps.length ? t.labels['s' + (i + 1)] : t.duration(); t.fromTo(pbar, { scaleX: 0 }, { scaleX: 1, duration: z - a, ease: 'none', immediateRender: false }, a); });
       dots.forEach(function (d) { d.addEventListener('click', function () { tl.seek('s' + d.dataset.i); if (!reduce) play(); else pause(true); }); });
       setStep(0);
       return t;
@@ -198,9 +230,12 @@
   var started = Date.now(), status = $('#f-statut'), button = $('#f-envoyer');
   var apercu = document.documentElement.hasAttribute('data-apercu');
   var say = function (text, kind) { status.textContent = text; status.className = 'status ' + (kind || ''); };
+  form.addEventListener('input', function (ev) { if (ev.target.getAttribute('aria-invalid') === 'true' && ev.target.checkValidity()) ev.target.setAttribute('aria-invalid', 'false'); });
   form.addEventListener('submit', function (ev) {
     ev.preventDefault();
-    var bad = Array.prototype.filter.call(form.elements, function (el) { return el.willValidate && !el.checkValidity(); })[0];
+    var invalid = Array.prototype.filter.call(form.elements, function (el) { return el.willValidate && !el.checkValidity(); });
+    Array.prototype.forEach.call(form.elements, function (el) { if (el.willValidate) el.setAttribute('aria-invalid', String(invalid.indexOf(el) >= 0)); });
+    var bad = invalid[0];
     if (bad) { bad.focus(); say(bad.type === 'email' && bad.value ? 'Indiquez une adresse e-mail valide.' : 'Indiquez votre nom et votre adresse e-mail.', 'err'); return; }
     if (apercu) { say('Aperçu : l’envoi fonctionnera une fois le site en ligne chez votre hébergeur.', 'err'); return; }
     $('#f-duree').value = String(Date.now() - started);

@@ -18,7 +18,7 @@ ICI = pathlib.Path(__file__).resolve().parent
 APPLI = ICI.parent / 'logiciel-rh-v3'
 PAGES = ['index.html', 'mentions-legales.html', 'confidentialite.html']
 FICHIERS = ['styles.css', 'site.js', 'favicon.svg']
-DOSSIERS = ['fonts', 'img']
+DOSSIERS = ['fonts', 'img', 'vendor']
 PHP = ['contact.php', 'avis.php', 'envoi.php', 'config.php', '.htaccess']
 DEMO = ['app.js', 'data.js', 'conventions.js', 'styles.css']
 
@@ -42,7 +42,7 @@ def page(nom, apercu):
 
 
 def demo_hebergee(dest):
-    """Copie la démo dans demo/ : polices et animation servies par le site, avis envoyés à avis.php."""
+    """Copie la démo dans demo/ : polices et animation servies par le site, avis envoyés à avis.php, lien de retour vers « Être recontacté »."""
     d = dest / 'demo'
     d.mkdir()
     for f in DEMO:
@@ -54,7 +54,7 @@ def demo_hebergee(dest):
               '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap">')
     t = remplacer(t, google, '<link rel="stylesheet" href="../fonts/polices.css">\n<meta name="robots" content="noindex">', 'demo.html')
     t = remplacer(t, '<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>', '<script src="gsap.min.js"></script>', 'demo.html')
-    t = remplacer(t, '<script>window.TEAMORA_MODE = "demo";</script>', '<script>window.TEAMORA_MODE = "demo"; window.TEAMORA_AVIS_URL = "../avis.php";</script>', 'demo.html')
+    t = remplacer(t, '<script>window.TEAMORA_MODE = "demo";</script>', '<script>window.TEAMORA_MODE = "demo"; window.TEAMORA_AVIS_URL = "../avis.php"; window.TEAMORA_RETOUR = "../#contact";</script>', 'demo.html')
     if not t.lstrip().lower().startswith('<!doctype'):
         t = '<!DOCTYPE html>\n<html lang="fr">\n' + t
     (d / 'index.html').write_text(t, encoding='utf-8')

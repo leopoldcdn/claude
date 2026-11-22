@@ -32,6 +32,9 @@ des hébergeurs français), plus un nom de domaine. Si l'hébergeur bloque `mail
 
 - **La démo** : après une modification de `logiciel-rh-v3`, relance `build.py` et redépose le dossier `demo/`.
 - **L'image de partage** (aperçu sur LinkedIn et dans les messageries) : `node site/outils/partage.js`.
+- **Les aperçus animés** (section « Teamora, tel qu’il est ») : `node site/outils/apercus.js` refait les captures de la
+  démo et la position des boutons (`site/img/apercus/`). À relancer quand l’apparence de la démo change ; les textes et
+  l’enchaînement des étapes sont dans `site.js` (objet `CH`).
 - **Un aperçu sans PHP** : `python3 site/build.py --apercu` crée `site/dist-apercu/`, où la démo pointe vers la version
   publiée sur claude.ai et où le formulaire ne s'envoie pas.
 
@@ -42,14 +45,14 @@ confidentialité (et, selon l'outil, ajoute un bandeau de consentement).
 
 | Fichier | Rôle |
 |---|---|
-| `index.html`, `styles.css`, `site.js` | La page d'accueil : l'accroche (« Recruter, gérer, accompagner. » et les deux arguments), les étapes cliquables à côté de la roue de l'accueil du logiciel, le garde-fou juridique avec la règle des seuils, puis « Être recontacté » |
+| `index.html`, `styles.css`, `site.js` | La page d'accueil : l'accroche, les aperçus animés (vraies captures de la démo), paie, tarif et démo en trois cartes, les étapes cliquables à côté de la roue, le garde-fou juridique, l'entrée experts-comptables, les questions, puis « Être recontacté » |
 | `mentions-legales.html`, `confidentialite.html` | Pages légales, avec les passages à compléter surlignés |
 | `contact.php`, `avis.php`, `envoi.php`, `config.php` | Envoi par e-mail des messages et des avis ; `config.php` est le seul fichier à modifier |
 | `.htaccess` | Protections du navigateur, cache, accès interdit aux fichiers de réglages, HTTPS à activer |
-| `fonts/`, `vendor/gsap.min.js` | Polices Sora et Plus Jakarta Sans (licence SIL OFL) et bibliothèque d'animation de la démo |
-| `img/` | Image de partage (aperçu sur LinkedIn et dans les messageries) |
+| `fonts/`, `vendor/gsap.min.js` | Polices Sora et Plus Jakarta Sans (licence SIL OFL) et bibliothèque d'animation (aperçus du site et démo) |
+| `img/` | Image de partage ; `img/apercus/` : captures de la démo pour les aperçus animés et position des boutons (`images.js`) |
 | `build.py` | Assemble `dist/` (site, démo, PHP) ou `dist-apercu/` |
-| `outils/` | Script de l'image de partage |
+| `outils/` | Scripts de l'image de partage et des captures des aperçus |
 
 Les textes reprennent ce que fait réellement le prototype (module Obligations, parcours, espaces). Les règles juridiques
 citées (seuils, règles de franchissement de la loi PACTE, entretien de parcours professionnel) sont à faire relire par un

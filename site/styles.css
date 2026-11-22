@@ -87,7 +87,62 @@ p { margin: 0; }
 .section > .wrap > h2 { font-size: clamp(30px, 4vw, 48px); font-weight: 700; }
 .section .intro { margin-top: 14px; color: var(--muted); font-size: 18px; max-width: 62ch; }
 
-/* ---------- 2. Explorateur des étapes et roue ---------- */
+.hero-lead { margin-top: -6px; font: 600 clamp(18px, 2vw, 23px)/1.35 var(--f-display); letter-spacing: -0.01em; color: var(--ink); max-width: 34ch; }
+.hint b { color: var(--ink); }
+
+/* ---------- 2. Aperçus animés (vraies captures de la démo) ---------- */
+.player { margin-top: 32px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: clamp(10px, 1.6vw, 16px); box-shadow: var(--shadow); }
+.chapters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.chap { display: grid; gap: 2px; text-align: left; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; font: inherit; transition: background-color .15s ease, border-color .15s ease; }
+.chap b { font: 700 16px/1.25 var(--f-display); }
+.chap small { color: var(--muted); font-size: 13px; }
+.chap:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.chap[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.chap[aria-pressed="true"] small { color: var(--on-ink-muted); }
+.stage { position: relative; margin-top: 10px; aspect-ratio: 16 / 10; border-radius: 16px; overflow: hidden; border: 1px solid var(--line);
+  background: radial-gradient(circle at 20% 20%, color-mix(in srgb, #6366f1 16%, transparent), transparent 50%), radial-gradient(circle at 85% 25%, color-mix(in srgb, #db2777 12%, transparent), transparent 45%), radial-gradient(circle at 50% 90%, color-mix(in srgb, #0891b2 14%, transparent), transparent 55%), var(--paper); }
+.screen { position: absolute; overflow: hidden; }
+.screen.desk { inset: 0; }
+.screen.phone { top: 4%; bottom: 4%; left: 50%; aspect-ratio: 390 / 844; transform: translateX(-50%); border: 9px solid var(--ink); border-radius: 30px; background: #fff; box-shadow: var(--shadow); }
+.cam { position: absolute; inset: 0; transform-origin: 0 0; }
+.frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top left; opacity: 0; }
+.frame.on { opacity: 1; }
+.ring { position: absolute; border-radius: 10px; box-shadow: 0 0 0 3px var(--signal), 0 0 0 7px color-mix(in srgb, var(--ink) 30%, transparent); opacity: 0; pointer-events: none; }
+.ripple { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 30%, transparent); border: 2px solid var(--accent); opacity: 0; pointer-events: none; }
+.cursor { position: absolute; width: 26px; height: 26px; margin: -3px 0 0 -5px; transform-origin: 5px 3px; pointer-events: none; filter: drop-shadow(0 3px 4px rgba(20, 24, 52, .35)); }
+.cursor svg { width: 100%; height: 100%; display: block; }
+.player-bar { margin-top: 12px; display: flex; align-items: center; gap: 14px; }
+.play { flex: none; width: 46px; height: 46px; border-radius: 50%; border: 0; background: var(--ink); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.play svg { width: 20px; height: 20px; fill: currentColor; }
+.play .i-pause { display: none; }
+.player.playing .play .i-pause { display: inline; }
+.player.playing .play .i-play { display: none; }
+.caption { flex: 1; font-weight: 600; font-size: 16px; line-height: 1.45; min-height: 2.9em; display: flex; align-items: center; }
+.pdots { display: flex; gap: 6px; flex: none; }
+.pdot { width: 12px; height: 12px; padding: 0; border-radius: 50%; border: 0; background: var(--line); cursor: pointer; }
+.pdot[aria-current="true"] { background: var(--accent); width: 26px; border-radius: 99px; }
+.pour-qui { margin-top: 22px; color: var(--muted); font-size: 17px; max-width: 75ch; }
+.pour-qui b { color: var(--ink); }
+.assure { margin-top: 22px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.assure article { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; display: grid; gap: 6px; align-content: start; scroll-margin-top: 96px; }
+.assure article:target { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.assure h3 { font-size: 18px; }
+.assure p { color: var(--muted); font-size: 15px; }
+
+/* ---------- 5. Experts-comptables et questions ---------- */
+.ec { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px 32px; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 22px 24px; margin-bottom: clamp(48px, 7vw, 80px); }
+.ec > div { flex: 1 1 420px; }
+.ec-t { margin-top: 8px; font-size: 17px; max-width: 70ch; }
+#questions h2 { font-size: clamp(30px, 4vw, 48px); }
+.faq { margin-top: 28px; display: grid; gap: 10px; max-width: 860px; }
+.faq details { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.faq summary { cursor: pointer; list-style: none; padding: 16px 52px 16px 18px; font-weight: 700; position: relative; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; position: absolute; right: 18px; top: 50%; transform: translateY(-50%); font: 600 24px/1 var(--f-display); color: var(--accent); }
+.faq details[open] summary::after { content: "–"; }
+.faq details p { padding: 0 18px 18px; color: var(--muted); max-width: 72ch; }
+
+/* ---------- 3. Explorateur des étapes et roue ---------- */
 .explorer { margin-top: 40px; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); gap: clamp(24px, 4vw, 56px); align-items: center; }
 .panel { background: var(--ink); color: var(--on-ink); border-radius: 24px; padding: clamp(18px, 2.6vw, 30px); display: grid; gap: 20px; box-shadow: var(--shadow); }
 .fams { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
@@ -140,7 +195,7 @@ p { margin: 0; }
 .hub span { margin-top: 6px; font: 600 13px/1 var(--f-display); background: rgba(255, 255, 255, .18); padding: 5px 11px; border-radius: 99px; }
 .wheel-hint { font-size: 14px; color: var(--muted); text-align: center; }
 
-/* ---------- 3. Garde-fou juridique ---------- */
+/* ---------- 4. Garde-fou juridique ---------- */
 .legal-band { padding-top: 0; }
 .dark-panel { background: var(--ink); color: var(--on-ink); border-radius: 28px; padding: clamp(28px, 5vw, 64px); }
 .dark-panel .eyebrow { color: var(--signal); }
@@ -172,7 +227,7 @@ p { margin: 0; }
 .pillar p b { color: var(--signal); font-family: var(--f-display); }
 .caveat { margin-top: 24px; font-size: 13.5px; color: var(--on-ink-muted); border-left: 3px solid var(--signal); padding-left: 12px; max-width: 80ch; }
 
-/* ---------- 4. Être recontacté ---------- */
+/* ---------- 6. Être recontacté ---------- */
 .contact { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(32px, 5vw, 64px); align-items: start; }
 .aside-contact { display: grid; gap: 16px; color: var(--muted); justify-items: start; }
 .aside-contact h2 { font-size: clamp(30px, 4vw, 48px); color: var(--ink); }
@@ -226,6 +281,11 @@ mark.todo { background: color-mix(in srgb, var(--signal) 55%, var(--surface)); c
   .wheel-side { order: -1; }
   .wheel { width: min(100%, 420px); }
   .args { grid-template-columns: minmax(0, 1fr); }
+  .assure { grid-template-columns: minmax(0, 1fr); }
+  .chapters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+  .chap small { display: none; }
+  .player-bar { flex-wrap: wrap; }
+  .caption { flex-basis: calc(100% - 60px); }
   .pillars { grid-template-columns: minmax(0, 1fr); }
   /* La règle des seuils devient verticale : un seuil par ligne, votre entreprise à sa place entre 20 et 50. */
   .ruler ol { height: auto; display: grid; border-left: 2px solid var(--on-ink); margin-left: 8px; }
@@ -245,10 +305,12 @@ mark.todo { background: color-mix(in srgb, var(--signal) 55%, var(--surface)); c
   .form { grid-template-columns: minmax(0, 1fr); }
   .fam { min-height: 54px; font-size: 15px; }
   .actions .btn { width: 100%; }
+  .chap { padding: 10px; }
+  .chap b { font-size: 14px; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .btn, .arg, .node { transition: none; }
+  .btn, .arg, .node, .chap { transition: none; }
   .btn:hover, .arg:hover { transform: none; }
   .blobs i { animation: none; }
 }

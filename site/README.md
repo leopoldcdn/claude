@@ -42,9 +42,9 @@ confidentialité (et, selon l'outil, ajoute un bandeau de consentement).
 
 | Fichier | Rôle |
 |---|---|
-| `index.html`, `styles.css`, `site.js` | La page d'accueil, sur le fond coloré de l'accueil du logiciel : une barre de navigation flottante, l'accroche (« Toute votre GRH, dans les règles », avec à droite un questionnaire en quatre questions qui prépare la démo), le carrousel des douze rubriques (illustrations au trait, teinte de chaque rubrique), l'entrée experts-comptables, les questions, puis « Être recontacté » |
+| `index.html`, `styles.css`, `site.js` | La page d'accueil, sur le fond coloré de l'accueil du logiciel : une barre de navigation flottante, l'accroche (« Toute votre GRH, dans les règles », avec à droite un questionnaire en quatre questions qui prépare la démo), le carrousel des douze rubriques (illustrations au trait, teinte de chaque rubrique), « Aidez-nous à améliorer Teamora » (un avis sans nom), l'entrée experts-comptables, les questions, puis « Être recontacté » |
 | `mentions-legales.html`, `confidentialite.html` | Pages légales, avec les passages à compléter surlignés |
-| `contact.php`, `avis.php`, `envoi.php`, `config.php` | Envoi par e-mail des messages et des avis ; `config.php` est le seul fichier à modifier |
+| `contact.php`, `avis.php`, `envoi.php`, `config.php` | Envoi par e-mail des messages et des avis (formulaire du site et bouton de la démo) ; `config.php` est le seul fichier à modifier |
 | `.htaccess` | Protections du navigateur, cache, accès interdit aux fichiers de réglages, HTTPS à activer |
 | `fonts/`, `vendor/gsap.min.js` | Polices Sora et Plus Jakarta Sans (licence SIL OFL) ; bibliothèque d'animation de la démo (copiée dans `demo/`) |
 | `img/` | Image de partage. `img/apercus/` (captures de l'ancienne section « Aperçus », refaites par `outils/apercus.js`) n'est plus affiché ni copié dans `dist/` |
@@ -69,6 +69,11 @@ Les rubriques proposées sont reprises des cartes du carrousel. Le lien vers la 
 (`demo/?profil=…&rubrique=…&effectif=…`) ; la démo ne les lit pas encore. **Le champ e-mail sert au rendu : rien n'est
 envoyé ni enregistré.** Avant de le brancher, ajoute près du champ une mention d'information (finalité, durée de
 conservation, droits) et complète la politique de confidentialité.
+
+« Aidez-nous à améliorer Teamora » reprend les questions du bouton « Donner mon avis » de la démo (avis en un mot, utilité
+de 1 à 5, message, entreprise et taille facultatives) et passe par le même `avis.php` : l'avis part par e-mail, sans nom,
+avec l'écran « Site · page d'accueil ». Il marche aussi sans JavaScript, et garde les mêmes pièges à robots que le
+formulaire de contact.
 
 Les sections « Aperçus » (avec « Pour qui ? » et les cartes paie, tarif et démo), « Garde-fou juridique » et « Exemples »
 ont été retirées de la page ; elles restent dans l'historique Git. Si les exemples reviennent, garde-les marqués « Exemple

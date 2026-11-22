@@ -7,10 +7,11 @@ function teamora_configure(): bool {
   return TEAMORA_DESTINATAIRE !== 'contact@votre-domaine.fr' && filter_var(TEAMORA_DESTINATAIRE, FILTER_VALIDATE_EMAIL) && filter_var(TEAMORA_EXPEDITEUR, FILTER_VALIDATE_EMAIL);
 }
 
-// Réponse JSON pour le script de la page ; sans JavaScript, retour au formulaire avec un message (ancre #contact-envoye ou #contact-erreur).
-function teamora_repondre(bool $ok, string $erreur = '', int $code = 200): void {
+// Réponse JSON pour le script de la page ; sans JavaScript, retour au formulaire avec un message
+// (ancre #contact-envoye ou #contact-erreur, #avis-envoye ou #avis-erreur pour les avis).
+function teamora_repondre(bool $ok, string $erreur = '', int $code = 200, string $ancre = 'contact'): void {
   $json = stripos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false;
-  if (!$json) { header('Location: index.html#' . ($ok ? 'contact-envoye' : 'contact-erreur'), true, 303); exit; }
+  if (!$json) { header('Location: index.html#' . $ancre . ($ok ? '-envoye' : '-erreur'), true, 303); exit; }
   http_response_code($code);
   header('Content-Type: application/json; charset=utf-8');
   header('Cache-Control: no-store');

@@ -31,6 +31,7 @@
     <ul class="liens" id="liens">
       <li><a href="#accueil" aria-current="true"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9v11h4.5v-6h4v6h4.5V9"/></svg>Accueil</a></li>
       <li><a href="#logiciel"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>Le logiciel</a></li>
+      <li><a href="#avis"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5a2 2 0 0 1-2 2H9l-4.5 4v-4H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/><path d="M8.5 9h7M8.5 12.5h4.5"/></svg>Votre avis</a></li>
       <li><a href="#questions"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8 1c0 1.7-2.4 2.2-2.4 3.7M12 17.2h.01"/></svg>Questions</a></li>
     </ul>
     <a class="essai" href="demo/" aria-label="Tester la démo"><span class="rond"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg></span><span class="cta-l">Tester la démo</span><span class="cta-c" aria-hidden="true">Démo</span></a>
@@ -342,7 +343,70 @@
     </div>
   </section>
 
-  <!-- 3. Experts-comptables et questions fréquentes -->
+  <!-- 3. Aidez-nous à améliorer Teamora : un avis sans nom, envoyé par avis.php comme « Donner mon avis » dans la démo -->
+  <section class="section" id="avis" aria-labelledby="t-avis">
+    <div class="wrap contact">
+      <div class="aside-contact">
+        <h2 id="t-avis">Aidez-nous à améliorer Teamora</h2>
+        <p class="intro">Teamora est en phase de test. Votre avis aide à décider ce que le logiciel doit faire avant d’aller plus loin.</p>
+        <p><b>2 minutes, sans votre nom.</b> Ce qui vous aide, ce qui manque, ce qui bloque.</p>
+        <p><a class="btn btn-ghost" href="demo/">Essayer la démo d’abord</a></p>
+      </div>
+      <form class="form" id="form-avis" action="avis.php" method="post" novalidate>
+        <p class="sent" id="avis-envoye" role="status">Merci, votre avis est bien arrivé.</p>
+        <p class="sent" id="avis-erreur" role="alert">L’avis n’a pas pu partir. Écrivez quelques mots et réessayez.</p>
+        <fieldset class="field wide">
+          <legend>Votre avis en un mot</legend>
+          <div class="choix deux">
+            <label class="opt"><input type="radio" name="type" value="aide" checked>Ça m’aide</label>
+            <label class="opt"><input type="radio" name="type" value="manque">Il manque quelque chose</label>
+            <label class="opt"><input type="radio" name="type" value="confus">Ce n’est pas clair</label>
+            <label class="opt"><input type="radio" name="type" value="bug">Quelque chose ne marche pas</label>
+          </div>
+        </fieldset>
+        <fieldset class="field wide">
+          <legend>Utilité pour votre entreprise <small>(1 = inutile, 5 = indispensable)</small></legend>
+          <div class="notes">
+            <label class="opt"><input type="radio" name="note" value="1">1</label>
+            <label class="opt"><input type="radio" name="note" value="2">2</label>
+            <label class="opt"><input type="radio" name="note" value="3">3</label>
+            <label class="opt"><input type="radio" name="note" value="4">4</label>
+            <label class="opt"><input type="radio" name="note" value="5">5</label>
+          </div>
+        </fieldset>
+        <div class="field wide">
+          <label for="a-message">Ce que vous en pensez</label>
+          <textarea id="a-message" name="message" required minlength="3" maxlength="2000" placeholder="Ce qui vous a plu, ce qui vous a bloqué, ce que vous attendiez…"></textarea>
+        </div>
+        <div class="field">
+          <label for="a-entreprise">Entreprise <small>(facultatif)</small></label>
+          <input id="a-entreprise" name="entreprise" type="text" autocomplete="organization" maxlength="80">
+        </div>
+        <div class="field">
+          <label for="a-taille">Taille <small>(facultatif)</small></label>
+          <select id="a-taille" name="taille">
+            <option value="">Choisir</option>
+            <option>1 à 10 salariés</option>
+            <option>11 à 49 salariés</option>
+            <option>50 à 249 salariés</option>
+            <option>250 salariés et plus</option>
+          </select>
+        </div>
+        <div class="trap" aria-hidden="true">
+          <label for="a-site">Ne pas remplir</label>
+          <input id="a-site" name="site" type="text" tabindex="-1" autocomplete="off">
+        </div>
+        <input type="hidden" name="ecran" value="Site · page d’accueil">
+        <p class="legal">Votre avis ne contient pas votre nom. Voir la <a href="confidentialite.html">politique de confidentialité</a>.</p>
+        <div class="send">
+          <button class="btn btn-primary" type="submit" id="a-envoyer">Envoyer mon avis</button>
+          <p class="status" id="a-statut" role="status" aria-live="polite"></p>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- 4. Experts-comptables et questions fréquentes -->
   <section class="section" id="questions" aria-labelledby="t-questions">
     <div class="wrap">
       <div class="ec">
@@ -380,7 +444,7 @@
     </div>
   </section>
 
-  <!-- 4. Être recontacté -->
+  <!-- 5. Être recontacté -->
   <section class="section" id="contact" aria-labelledby="t-contact">
     <div class="wrap contact">
       <div class="aside-contact">

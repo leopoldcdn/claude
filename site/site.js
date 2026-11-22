@@ -1,5 +1,5 @@
-// Teamora · site de présentation : la barre de navigation, le questionnaire de l'accroche, le carrousel des rubriques
-// et l'envoi du formulaire « Être recontacté ». Sans JavaScript, toutes les étapes restent lisibles les unes sous les autres.
+// Teamora · site de présentation : la barre de navigation, le questionnaire de l'accroche, le carrousel des rubriques,
+// l'envoi des avis (« Aidez-nous à améliorer Teamora ») et du formulaire « Être recontacté ». Sans JavaScript, toutes les étapes restent lisibles les unes sous les autres.
 (function () {
   'use strict';
   document.documentElement.classList.add('js');
@@ -118,7 +118,33 @@
     select(ordre[0], { scroll: false });
   }
 
-  // 2. « Être recontacté » : envoi sans recharger la page (contact.php répond en JSON).
+  // 2. « Aidez-nous à améliorer Teamora » : un avis sans nom, envoyé à avis.php comme « Donner mon avis » dans la démo.
+  var avis = $('#form-avis');
+  if (avis) {
+    var avisDebut = Date.now(), avisStatut = $('#a-statut'), avisBouton = $('#a-envoyer'), avisMsg = $('#a-message');
+    var dire = function (texte, genre) { avisStatut.textContent = texte; avisStatut.className = 'status ' + (genre || ''); };
+    var champ = function (nom) { var x = avis.elements[nom]; return x ? x.value : ''; };
+    avisMsg.addEventListener('input', function () { if (avisMsg.getAttribute('aria-invalid') === 'true' && avisMsg.value.trim().length >= 3) avisMsg.setAttribute('aria-invalid', 'false'); });
+    avis.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      if (avisMsg.value.trim().length < 3) { avisMsg.setAttribute('aria-invalid', 'true'); avisMsg.focus(); dire('Écrivez quelques mots sur ce que vous en pensez.', 'err'); return; }
+      avisMsg.setAttribute('aria-invalid', 'false');
+      if (document.documentElement.hasAttribute('data-apercu')) { dire('Aperçu : l’envoi fonctionnera une fois le site en ligne chez votre hébergeur.', 'err'); return; }
+      var donnees = { type: champ('type'), note: champ('note'), message: avisMsg.value, entreprise: champ('entreprise'), taille: champ('taille'), ecran: champ('ecran'),
+        appareil: window.matchMedia && window.matchMedia('(pointer: coarse)').matches ? 'Téléphone ou tablette' : 'Ordinateur', site: champ('site'), duree: String(Date.now() - avisDebut) };
+      avisBouton.disabled = true; dire('Envoi en cours…');
+      fetch(avis.action, { method: 'POST', body: JSON.stringify(donnees), headers: { 'Content-Type': 'application/json', Accept: 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (j && j.ok) { avis.reset(); dire('Merci, votre avis est bien arrivé.', 'ok'); }
+          else dire((j && j.erreur) || 'L’avis n’a pas pu partir. Réessayez dans un instant.', 'err');
+        })
+        .catch(function () { dire('L’avis n’a pas pu partir. Vérifiez votre connexion et réessayez.', 'err'); })
+        .then(function () { avisBouton.disabled = false; });
+    });
+  }
+
+  // 3. « Être recontacté » : envoi sans recharger la page (contact.php répond en JSON).
   var form = $('#form-contact');
   if (!form) return;
   // « Parlons partenariat » : le formulaire s'ouvre avec la fonction déjà choisie.

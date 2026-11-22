@@ -1,26 +1,34 @@
 <?php
-// Avis donnés dans la démo hébergée sur le site (bouton « Donner mon avis ») : ils partent par e-mail, sans nom.
-// Rien n'est enregistré sur le serveur. La démo appelle ce script parce que demo/index.html définit TEAMORA_AVIS_URL.
+// Avis sur Teamora : formulaire « Aidez-nous à améliorer Teamora » du site, et bouton « Donner mon avis » de la démo
+// hébergée (demo/index.html définit TEAMORA_AVIS_URL). Ils partent par e-mail, sans nom ; rien n'est enregistré sur le serveur.
 require __DIR__ . '/envoi.php';
 
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') teamora_repondre(false, 'Méthode non acceptée.', 405);
-if (!teamora_configure()) teamora_repondre(false, 'Envoi des avis non configuré.', 503);
+function avis_repondre(bool $ok, string $erreur = '', int $code = 200): void { teamora_repondre($ok, $erreur, $code, 'avis'); }
 
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') avis_repondre(false, 'Méthode non acceptée.', 405);
+
+// Le site et la démo envoient du JSON ; sans JavaScript, le formulaire du site arrive en champs classiques.
 $a = json_decode((string) file_get_contents('php://input', false, null, 0, 20000), true);
-if (!is_array($a)) teamora_repondre(false, 'Avis illisible.', 400);
+if (!is_array($a)) $a = $_POST;
+
+// Pièges à robots du formulaire du site, comme dans contact.php : on répond « envoyé » sans rien envoyer.
+if (trim((string) ($a['site'] ?? '')) !== '') avis_repondre(true);
+if (($a['duree'] ?? '') !== '' && (int) $a['duree'] < 3000) avis_repondre(true);
+
+if (!teamora_configure()) avis_repondre(false, 'Envoi des avis non configuré.', 503);
 
 $types = ['aide' => 'Ça m’aide', 'manque' => 'Il manque quelque chose', 'confus' => 'Ce n’est pas clair', 'bug' => 'Quelque chose ne marche pas'];
 $type = $types[$a['type'] ?? ''] ?? 'Avis';
 $message = teamora_texte($a['message'] ?? '', 4000);
-if (strlen($message) < 3) teamora_repondre(false, 'Avis trop court.', 422);
+if (strlen($message) < 3) avis_repondre(false, 'Avis trop court.', 422);
 $note = max(0, min(5, (int) ($a['note'] ?? 0)));
 
-$lignes = ['Avis sur la démo Teamora', '', 'Type : ' . $type . ($note ? " · utilité $note/5" : '')];
+$lignes = ['Avis sur Teamora', '', 'Type : ' . $type . ($note ? " · utilité $note/5" : '')];
 foreach (['ecran' => 'Écran', 'profil' => 'Profil', 'appareil' => 'Appareil', 'entreprise' => 'Entreprise', 'taille' => 'Taille'] as $cle => $libelle) {
   $v = teamora_ligne($a[$cle] ?? '', 200);
   if ($v !== '') $lignes[] = "$libelle : $v";
 }
 $lignes[] = ''; $lignes[] = $message;
 
-$ok = teamora_envoyer('Avis démo Teamora : ' . $type, implode("\n", $lignes));
-teamora_repondre($ok, $ok ? '' : 'Envoi impossible pour le moment.', $ok ? 200 : 500);
+$ok = teamora_envoyer('Avis Teamora : ' . $type, implode("\n", $lignes));
+avis_repondre($ok, $ok ? '' : 'Envoi impossible pour le moment.', $ok ? 200 : 500);

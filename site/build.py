@@ -18,7 +18,7 @@ ICI = pathlib.Path(__file__).resolve().parent
 APPLI = ICI.parent / 'logiciel-rh-v3'
 PAGES = ['index.html', 'mentions-legales.html', 'confidentialite.html']
 FICHIERS = ['styles.css', 'site.js', 'favicon.svg']
-DOSSIERS = ['fonts', 'img', 'vendor']
+DOSSIERS = ['fonts', 'img']  # vendor/gsap.min.js ne sert plus qu'à la démo, copiée à part
 PHP = ['contact.php', 'avis.php', 'envoi.php', 'config.php', '.htaccess']
 DEMO = ['app.js', 'data.js', 'conventions.js', 'styles.css']
 
@@ -70,7 +70,7 @@ def construire(apercu=False):
     for f in FICHIERS:
         shutil.copy2(ICI / f, dest / f)
     for d in DOSSIERS:
-        shutil.copytree(ICI / d, dest / d)
+        shutil.copytree(ICI / d, dest / d, ignore=shutil.ignore_patterns('apercus'))  # captures de l'ancienne section « Aperçus »
     robots = 'User-agent: *\nAllow: /\n'
     if not apercu:
         for f in PHP:

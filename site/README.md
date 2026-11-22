@@ -32,9 +32,6 @@ des hébergeurs français), plus un nom de domaine. Si l'hébergeur bloque `mail
 
 - **La démo** : après une modification de `logiciel-rh-v3`, relance `build.py` et redépose le dossier `demo/`.
 - **L'image de partage** (aperçu sur LinkedIn et dans les messageries) : `node site/outils/partage.js`.
-- **Les aperçus animés** (section « Teamora, tel qu’il est ») : `node site/outils/apercus.js` refait les captures de la
-  démo et la position des boutons (`site/img/apercus/`). À relancer quand l’apparence de la démo change ; les textes et
-  l’enchaînement des étapes sont dans `site.js` (objet `CH`).
 - **Un aperçu sans PHP** : `python3 site/build.py --apercu` crée `site/dist-apercu/`, où la démo pointe vers la version
   publiée sur claude.ai et où le formulaire ne s'envoie pas.
 
@@ -45,14 +42,14 @@ confidentialité (et, selon l'outil, ajoute un bandeau de consentement).
 
 | Fichier | Rôle |
 |---|---|
-| `index.html`, `styles.css`, `site.js` | La page d'accueil : une barre de navigation flottante, l'accroche (« Toute votre GRH, dans les règles », avec à droite un questionnaire en quatre questions qui prépare la démo), les aperçus animés (vraies captures de la démo), paie, tarif et démo en trois cartes, le carrousel des douze rubriques (illustrations au trait, teinte de chaque rubrique), le garde-fou juridique, quatre exemples d'usage (entreprises fictives, signalées comme telles), l'entrée experts-comptables, les questions, puis « Être recontacté » |
+| `index.html`, `styles.css`, `site.js` | La page d'accueil, sur le fond coloré de l'accueil du logiciel : une barre de navigation flottante, l'accroche (« Toute votre GRH, dans les règles », avec à droite un questionnaire en quatre questions qui prépare la démo), le carrousel des douze rubriques sur toute la largeur (illustrations au trait, teinte de chaque rubrique), l'entrée experts-comptables, les questions, puis « Être recontacté » |
 | `mentions-legales.html`, `confidentialite.html` | Pages légales, avec les passages à compléter surlignés |
 | `contact.php`, `avis.php`, `envoi.php`, `config.php` | Envoi par e-mail des messages et des avis ; `config.php` est le seul fichier à modifier |
 | `.htaccess` | Protections du navigateur, cache, accès interdit aux fichiers de réglages, HTTPS à activer |
-| `fonts/`, `vendor/gsap.min.js` | Polices Sora et Plus Jakarta Sans (licence SIL OFL) et bibliothèque d'animation (aperçus du site et démo) |
-| `img/` | Image de partage ; `img/apercus/` : captures de la démo pour les aperçus animés et position des boutons (`images.js`) |
+| `fonts/`, `vendor/gsap.min.js` | Polices Sora et Plus Jakarta Sans (licence SIL OFL) ; bibliothèque d'animation de la démo (copiée dans `demo/`) |
+| `img/` | Image de partage. `img/apercus/` (captures de l'ancienne section « Aperçus », refaites par `outils/apercus.js`) n'est plus affiché ni copié dans `dist/` |
 | `build.py` | Assemble `dist/` (site, démo, PHP) ou `dist-apercu/` |
-| `outils/` | Scripts de l'image de partage, des captures des aperçus et du carrousel des rubriques |
+| `outils/` | Scripts de l'image de partage et du carrousel des rubriques (et des captures de l'ancienne section « Aperçus ») |
 
 Les textes reprennent ce que fait réellement le prototype (module Obligations, parcours, espaces). Les règles juridiques
 citées (seuils, règles de franchissement de la loi PACTE, entretien de parcours professionnel) sont à faire relire par un
@@ -73,6 +70,6 @@ Les rubriques proposées sont reprises des cartes du carrousel. Le lien vers la 
 envoyé ni enregistré.** Avant de le brancher, ajoute près du champ une mention d'information (finalité, durée de
 conservation, droits) et complète la politique de confidentialité.
 
-Les quatre exemples d'usage mettent en scène des entreprises **fictives** : ils sont marqués « Exemple fictif » et ne
-contiennent ni citation, ni logo, ni chiffre de résultat. Remplace-les par de vrais cas clients (avec l'accord écrit des
-entreprises) dès les premiers tests : présenter des cas inventés comme réels serait une pratique commerciale trompeuse.
+Les sections « Aperçus » (avec « Pour qui ? » et les cartes paie, tarif et démo), « Garde-fou juridique » et « Exemples »
+ont été retirées de la page ; elles restent dans l'historique Git. Si les exemples reviennent, garde-les marqués « Exemple
+fictif » tant qu'ils ne sont pas de vrais cas clients (avec l'accord écrit des entreprises).

@@ -288,11 +288,12 @@ def carrousel():
             <span class="rcarte-b"><span class="reye"><i></i>{FAMILLES[f]} · {i + 1} sur 12</span><span class="rcarte-t">{E(n)}</span><span class="rcarte-p">{E(lead)}</span><span class="rcarte-more">Voir le détail <span aria-hidden="true">→</span></span></span>
           </button>''' for i, (k, n, f, c, lead, pts, regle) in enumerate(RUBRIQUES))
     details = '\n'.join(f'''        <article class="detail" id="etape-{k}" data-step="{k}" style="--c:{c}">
-          <div class="detail-ill">{svg(k, c)}</div>
-          <div class="detail-txt">
+          <div class="detail-tete">
             <p class="reye"><i></i>{FAMILLES[f]} · rubrique {i + 1} sur 12</p>
             <h3>{E(n)}</h3>
             <p class="detail-lead">{E(lead)}</p>
+          </div>
+          <div class="detail-txt">
             <p class="detail-h">Ce que fait Teamora</p>
             <ul>{''.join(f'<li>{E(p)}</li>' for p in pts)}</ul>{f'{chr(10)}            <p class="rule"><b>La règle appliquée</b>{E(regle)}</p>' if regle else ''}
             <a class="btn btn-primary" href="demo/">Essayer dans la démo</a>

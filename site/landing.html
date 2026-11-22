@@ -9,186 +9,192 @@
 <link rel="stylesheet" href="fonts/polices.css">
 <!--
   Aperçu de la future page d'accueil : barre de navigation flottante (style du site M2 MRH) et premier écran,
-  la promesse à gauche, un questionnaire en quatre questions à droite qui prépare la démo.
-  Tous les textes et chiffres viennent du site actuel (index.html) ou de la démo : rien d'inventé.
+  la promesse à gauche, un questionnaire en quatre questions à droite qui prépare la démo, puis « Votre démo est prête ».
   Fichier autonome ; il sera intégré à index.html ensuite (build.py ne le copie pas dans dist/).
 -->
 <style>
   :root {
     --paper: #f5f5fa; --surface: #fff; --ink: #141834; --muted: #565c80; --line: #dfe1ee;
-    --accent: #4f46e5; --accent-dark: #3730a3; --signal: #ffd166;
+    --accent: #4f46e5; --accent-dark: #3730a3; --signal: #ffd166; --ok: #16a34a;
     --accent-soft: color-mix(in srgb, var(--accent) 9%, #fff);
     --f-display: "Sora", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     --f-body: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     --shadow: 0 1px 2px rgba(20, 24, 52, .06), 0 18px 40px -18px rgba(20, 24, 52, .28);
-    --ease: cubic-bezier(.2, 0, 0, 1); --t-fast: 120ms; --t-std: 220ms; --t-slow: 400ms;
+    --pastille: 0 1px 2px rgba(20, 24, 52, .06), 0 4px 12px -4px rgba(20, 24, 52, .12);
+    --ease: cubic-bezier(.2, 0, 0, 1); --ressort: cubic-bezier(.34, 1.56, .64, 1);
+    --t-fast: 120ms; --t-std: 220ms; --t-slow: 400ms;
+    --large: min(1120px, calc(100% - 48px));
     color-scheme: light;
   }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
-  body { margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink); font: 400 17px/1.6 var(--f-body); overflow-x: clip; }
+  body { margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink); font: 400 16px/1.6 var(--f-body); overflow-x: clip; }
   h1, h2, h3 { font-family: var(--f-display); letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
   p { margin: 0; }
   a { color: inherit; }
   [hidden] { display: none !important; }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
   /* ---------- Fond : les taches de couleur de l'accueil du logiciel ---------- */
   .fond { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
   .fond i { position: absolute; border-radius: 50%; filter: blur(90px); }
-  .fond i:nth-child(1) { width: 52vw; aspect-ratio: 1; left: -16vw; top: -26vw; background: #6366f1; opacity: .26; animation: d1 32s ease-in-out infinite alternate; }
-  .fond i:nth-child(2) { width: 34vw; aspect-ratio: 1; left: 22vw; top: -18vw; background: #a855f7; opacity: .14; animation: d2 38s ease-in-out infinite alternate; }
-  .fond i:nth-child(3) { width: 34vw; aspect-ratio: 1; right: -8vw; top: 26vh; background: #f59e0b; opacity: .2; animation: d3 36s ease-in-out infinite alternate; }
-  .fond i:nth-child(4) { width: 38vw; aspect-ratio: 1; right: 18vw; bottom: -24vw; background: #db2777; opacity: .13; animation: d1 40s ease-in-out infinite alternate-reverse; }
+  .fond i:nth-child(1) { width: 52vw; aspect-ratio: 1; left: -16vw; top: -26vw; background: #6366f1; opacity: .24; animation: d1 32s ease-in-out infinite alternate; }
+  .fond i:nth-child(2) { width: 34vw; aspect-ratio: 1; left: 22vw; top: -18vw; background: #a855f7; opacity: .13; animation: d2 38s ease-in-out infinite alternate; }
+  .fond i:nth-child(3) { width: 34vw; aspect-ratio: 1; right: -8vw; top: 26vh; background: #f59e0b; opacity: .18; animation: d3 36s ease-in-out infinite alternate; }
+  .fond i:nth-child(4) { width: 38vw; aspect-ratio: 1; right: 18vw; bottom: -24vw; background: #db2777; opacity: .12; animation: d1 40s ease-in-out infinite alternate-reverse; }
   .fond i:nth-child(5) { width: 30vw; aspect-ratio: 1; left: 4vw; bottom: -20vw; background: #0891b2; opacity: .1; animation: d2 34s ease-in-out infinite alternate-reverse; }
   @keyframes d1 { to { transform: translate(8%, 10%) scale(1.08); } }
   @keyframes d2 { to { transform: translate(-10%, 8%) scale(.94); } }
   @keyframes d3 { to { transform: translate(-8%, -10%) scale(1.06); } }
 
   /* ---------- Barre de navigation flottante ---------- */
-  .barre { position: sticky; top: 16px; z-index: 10; width: min(1200px, calc(100% - 32px)); margin: 16px auto 0; }
-  .barre-in { display: flex; align-items: center; gap: 6px; min-height: 64px; padding: 8px 8px 8px 22px; border-radius: 999px;
+  .barre { position: sticky; top: 16px; z-index: 10; width: var(--large); margin: 16px auto 0; }
+  .barre-in { display: flex; align-items: center; gap: 4px; min-height: 58px; padding: 7px 7px 7px 20px; border-radius: 999px;
     background: rgba(255, 255, 255, .72); -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5);
-    border: 1px solid rgba(255, 255, 255, .85); box-shadow: 0 1px 0 rgba(255, 255, 255, .7) inset, 0 12px 32px -14px rgba(20, 24, 52, .22), 0 2px 6px -2px rgba(20, 24, 52, .06); }
-  .marque { display: flex; align-items: center; gap: 10px; margin-right: 14px; text-decoration: none; font: 700 19px/1 var(--f-display); letter-spacing: -0.02em; color: var(--ink); white-space: nowrap; }
-  .marque svg { width: 30px; height: 30px; flex: none; }
-  .liens { display: flex; align-items: center; gap: 2px; margin: 0; padding: 0; list-style: none; }
-  .liens a { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 15.5px; white-space: nowrap;
+    border: 1px solid rgba(255, 255, 255, .85); box-shadow: 0 1px 0 rgba(255, 255, 255, .7) inset, 0 12px 32px -14px rgba(20, 24, 52, .2), 0 2px 6px -2px rgba(20, 24, 52, .05); }
+  .marque { display: flex; align-items: center; gap: 9px; margin-right: 16px; text-decoration: none; font: 700 18px/1 var(--f-display); letter-spacing: -0.02em; color: var(--ink); white-space: nowrap; }
+  .marque svg { width: 28px; height: 28px; flex: none; }
+  .liens { display: flex; align-items: center; gap: 0; margin: 0; padding: 0; list-style: none; }
+  .liens a { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14.5px; white-space: nowrap;
     transition: background-color var(--t-std) var(--ease), color var(--t-std) var(--ease), box-shadow var(--t-std) var(--ease); }
+  .liens a svg { opacity: .8; }
   .liens a:hover { color: var(--ink); background: rgba(255, 255, 255, .7); }
-  .liens a[aria-current="page"] { color: var(--accent-dark); font-weight: 700; background: #fff; box-shadow: 0 1px 2px rgba(20, 24, 52, .06), 0 4px 12px -4px rgba(20, 24, 52, .12); }
-  .liens a[aria-current="page"] svg { color: var(--accent); }
-  .essai { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 18px 0 6px; border-radius: 999px; background: #fff; color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15.5px; white-space: nowrap;
-    box-shadow: 0 1px 2px rgba(20, 24, 52, .06), 0 4px 12px -4px rgba(20, 24, 52, .12); transition: transform var(--t-std) var(--ease), box-shadow var(--t-std) var(--ease); }
+  .liens a[aria-current="page"] { color: var(--accent-dark); font-weight: 650; background: #fff; box-shadow: var(--pastille); }
+  .liens a[aria-current="page"] svg { color: var(--accent); opacity: 1; }
+  .essai { margin-left: auto; display: inline-flex; align-items: center; gap: 9px; height: 44px; padding: 0 16px 0 6px; border-radius: 999px; background: #fff; color: var(--ink); text-decoration: none; font-weight: 600; font-size: 14.5px; white-space: nowrap;
+    box-shadow: var(--pastille); transition: transform var(--t-std) var(--ease), box-shadow var(--t-std) var(--ease); }
   .essai:hover { transform: translateY(-1px); box-shadow: 0 1px 2px rgba(20, 24, 52, .06), 0 10px 20px -8px rgba(79, 70, 229, .35); }
   .cta-c { display: none; }
-  .essai .rond { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; }
-  .essai .rond svg { width: 15px; height: 15px; fill: currentColor; stroke: none; margin-left: 2px; }
-  .menu { display: none; width: 44px; height: 44px; border: 0; border-radius: 50%; background: #fff; color: var(--ink); cursor: pointer; place-items: center; box-shadow: 0 1px 2px rgba(20, 24, 52, .06), 0 4px 12px -4px rgba(20, 24, 52, .12); }
-  .menu svg { width: 20px; height: 20px; }
+  .essai .rond { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; }
+  .essai .rond svg { width: 13px; height: 13px; fill: currentColor; stroke: none; margin-left: 2px; }
+  .menu { display: none; width: 42px; height: 42px; border: 0; border-radius: 50%; background: #fff; color: var(--ink); cursor: pointer; place-items: center; box-shadow: var(--pastille); }
+  .menu svg { width: 19px; height: 19px; }
 
   /* ---------- Premier écran ---------- */
-  .hero { width: min(1200px, calc(100% - 32px)); margin: 0 auto; min-height: calc(100vh - 80px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 5vw, 72px); align-items: center; padding: clamp(40px, 6vh, 72px) clamp(0px, 1.5vw, 16px); }
+  .hero { width: var(--large); margin: 0 auto; min-height: calc(100vh - 74px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 480px); gap: clamp(40px, 7vw, 104px); align-items: center; padding: clamp(48px, 7vh, 88px) clamp(0px, 2vw, 24px); }
   .promesse { display: grid; gap: 22px; justify-items: start; }
-  .surtitre { font-size: 13.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
-  .promesse h1 { font-size: clamp(42px, 4.9vw, 70px); font-weight: 700; line-height: 1.02; letter-spacing: -0.035em; max-width: none; }
+  .promesse h1 { font-size: clamp(38px, 4.4vw, 62px); font-weight: 700; line-height: 1.04; letter-spacing: -0.035em; }
   .promesse h1 em { font-style: normal; background: linear-gradient(transparent 64%, var(--signal) 64%, var(--signal) 92%, transparent 92%); }
-  .accroche { font: 600 clamp(19px, 1.7vw, 23px)/1.4 var(--f-display); letter-spacing: -0.01em; max-width: 26ch; }
-  .texte { color: var(--muted); font-size: 17.5px; line-height: 1.65; max-width: 50ch; }
-  .reperes { margin-top: 14px; display: grid; gap: 12px; }
-  .reperes-t { font-size: 12.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-  .reperes ul { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, max-content)); gap: clamp(18px, 3.4vw, 48px); }
-  .reperes b { display: block; font: 700 clamp(28px, 2.6vw, 34px)/1.1 var(--f-display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .reperes span { display: block; margin-top: 4px; color: var(--muted); font-size: 15px; line-height: 1.35; max-width: 14ch; }
+  .accroche { font: 600 clamp(17.5px, 1.45vw, 20px)/1.45 var(--f-display); letter-spacing: -0.01em; max-width: 27ch; }
+  .texte { color: var(--muted); font-size: 16.5px; line-height: 1.7; max-width: 46ch; }
+  .reperes { margin-top: 12px; display: grid; gap: 10px; }
+  .reperes-t { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .reperes ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 14px clamp(32px, 4vw, 56px); }
+  .reperes b { display: block; font: 700 clamp(24px, 2.2vw, 29px)/1.1 var(--f-display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .reperes span { display: block; margin-top: 4px; color: var(--muted); font-size: 14px; line-height: 1.4; max-width: 15ch; }
 
   /* ---------- Questionnaire ---------- */
-  .quiz { position: relative; background: #fff; border-radius: 28px; padding: clamp(24px, 3.4vw, 44px); border: 1px solid rgba(223, 225, 238, .8);
-    box-shadow: 0 1px 2px rgba(20, 24, 52, .05), 0 30px 60px -28px rgba(20, 24, 52, .3); }
+  .quiz { position: relative; background: #fff; border-radius: 26px; padding: clamp(26px, 3.2vw, 40px); border: 1px solid rgba(223, 225, 238, .8);
+    box-shadow: 0 1px 2px rgba(20, 24, 52, .05), 0 30px 60px -28px rgba(20, 24, 52, .28); }
   .quiz-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .badge { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px 5px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-dark); font-size: 13.5px; font-weight: 700; }
-  .badge svg { width: 16px; height: 16px; color: var(--accent); }
+  .badge { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px 4px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-dark); font-size: 13px; font-weight: 700; }
+  .badge svg { width: 15px; height: 15px; color: var(--accent); }
   .c-court { display: none; }
-  .compteur { font-size: 13.5px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .progres { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 16px 0 26px; }
-  .progres i { height: 5px; border-radius: 99px; background: var(--line); overflow: hidden; }
+  .compteur { font-size: 13px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .progres { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 14px 0 26px; }
+  .progres i { height: 4px; border-radius: 99px; background: var(--line); overflow: hidden; }
   .progres i::after { content: ""; display: block; height: 100%; width: 100%; background: var(--accent); transform: scaleX(0); transform-origin: left; transition: transform var(--t-slow) var(--ease); }
   .progres i.fait::after { transform: none; }
   .etapes { display: grid; }
-  .etape { grid-area: 1 / 1; margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-direction: column; gap: 22px; }
+  .etape { grid-area: 1 / 1; margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
   .etape[aria-hidden="true"] { visibility: hidden; pointer-events: none; }
   .etape.entre { animation: entre var(--t-std) var(--ease); }
   @keyframes entre { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
   .etape.entre.recule { animation-name: entre-recule; }
   @keyframes entre-recule { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
-  .question { font-size: clamp(24px, 2.3vw, 31px); font-weight: 700; line-height: 1.18; outline: none; }
-  .question small, .aide { display: block; margin-top: 8px; font: 400 15px/1.5 var(--f-body); letter-spacing: 0; color: var(--muted); }
-  .aide { margin-top: -12px; }
-  .choix { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .question { font-size: clamp(21px, 1.9vw, 25px); font-weight: 700; line-height: 1.22; outline: none; }
+  .aide { margin-top: -10px; font-size: 14px; line-height: 1.5; color: var(--muted); }
+  .choix { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
   .choix.deux { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .opt { position: relative; display: flex; align-items: center; gap: 9px; min-height: 56px; padding: 10px 16px; border-radius: 16px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; font-weight: 600; font-size: 15.5px; line-height: 1.3;
+  .opt { position: relative; display: flex; align-items: center; gap: 8px; min-height: 50px; padding: 9px 14px; border-radius: 14px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; font-weight: 600; font-size: 15px; line-height: 1.3;
     transition: border-color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease); }
   .opt input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
   .opt:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
   .opt:active { transform: scale(.98); }
   .opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-dark); box-shadow: 0 0 0 1px var(--accent) inset; }
   .opt:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 3px; }
-  .pt { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--c); }
+  .pt { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--c); }
   .rub { gap: 8px; }
-  .rub .opt { min-height: 50px; padding: 7px 12px; gap: 8px; font-size: 14.5px; line-height: 1.25; }
-  .grand .opt { border-radius: 20px; align-items: flex-start; flex-direction: column; gap: 4px; padding: 16px 18px; min-height: 0; }
-  .grand .opt b { font: 700 16.5px/1.3 var(--f-display); letter-spacing: -0.01em; }
-  .grand .opt span { font-weight: 400; color: var(--muted); font-size: 14.5px; line-height: 1.45; }
-  .grand .opt:has(input:checked) span { color: color-mix(in srgb, var(--accent-dark) 80%, var(--muted)); }
-  .actions { display: grid; grid-template-columns: auto 1fr; gap: 10px; margin-top: 26px; }
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 56px; padding: 0 24px; border-radius: 999px; border: 0; font: 700 16.5px/1 var(--f-body); cursor: pointer; text-decoration: none;
-    transition: background-color var(--t-std) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-std) var(--ease), opacity var(--t-std) var(--ease); }
+  .rub .opt { min-height: 46px; padding: 6px 10px; gap: 7px; font-size: 13.5px; line-height: 1.25; }
+  .champ { display: grid; gap: 12px; }
+  .champ input { width: 100%; height: 52px; padding: 0 16px; border-radius: 14px; border: 1.5px solid var(--line); background: #fff; color: var(--ink); font: 500 16px/1 var(--f-body);
+    transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease); }
+  .champ input::placeholder { color: color-mix(in srgb, var(--muted) 70%, #fff); }
+  .champ input:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+  .champ input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 24px; border-radius: 999px; border: 0; font: 700 15.5px/1 var(--f-body); cursor: pointer; text-decoration: none;
+    transition: background-color var(--t-std) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-std) var(--ease); }
   .btn-p { background: var(--accent); color: #fff; box-shadow: 0 10px 24px -12px rgba(79, 70, 229, .7); }
   .btn-p:hover { background: var(--accent-dark); }
   .btn-p:active { transform: scale(.985); }
-  .btn-p:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
-  .btn-g { background: #fff; color: var(--ink); border: 1.5px solid var(--line); }
-  .btn-g:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
-  .suivant { grid-column: 2; }
-  .retour[hidden] + .suivant { grid-column: 1 / -1; }
-  .note { margin-top: 14px; text-align: center; font-size: 13.5px; color: var(--muted); }
+  .btn svg { width: 17px; height: 17px; transition: transform var(--t-std) var(--ease); }
+  .btn:hover svg { transform: translateX(3px); }
+  .pied { display: flex; margin-top: 20px; min-height: 36px; }
+  .retour { display: inline-flex; align-items: center; gap: 6px; padding: 0 10px 0 6px; margin-left: -6px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 600 14px/1 var(--f-body); cursor: pointer; transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease); }
+  .retour:hover { color: var(--ink); background: var(--paper); }
+  .retour.cache { visibility: hidden; }
 
-  /* Résultat */
-  .resultat { display: grid; gap: 18px; }
-  .resultat.entre { animation: entre var(--t-std) var(--ease); }
-  .ok { display: flex; align-items: center; gap: 12px; }
-  .ok i { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, #16a34a 14%, #fff); color: #15803d; }
-  .ok i svg { width: 22px; height: 22px; stroke-width: 2.4; }
-  .resume { margin: 0; padding: 0; list-style: none; display: grid; gap: 1px; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); background: var(--line); }
-  .resume li { display: grid; grid-template-columns: 11em 1fr; gap: 12px; padding: 12px 16px; background: #fff; font-size: 15px; line-height: 1.45; }
-  .resume li > span:first-child { color: var(--muted); }
-  .resume li b { font-weight: 700; }
-  .seuils { padding: 14px 16px; border-radius: 16px; background: color-mix(in srgb, var(--signal) 26%, #fff); border-left: 3px solid var(--signal); font-size: 14.5px; line-height: 1.5; }
-  .seuils b { display: block; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #6b4d00; margin-bottom: 4px; }
-  .seuils ul { margin: 0; padding: 0 0 0 18px; }
-  .seuils li + li { margin-top: 3px; }
-  .resultat .actions { grid-template-columns: 1fr auto; margin-top: 4px; }
+  /* « Votre démo est prête » : la coche se dessine, puis le bouton arrive. */
+  .fin { display: grid; place-content: center; justify-items: center; text-align: center; gap: 14px; }
+  .coche { width: 76px; height: 76px; position: relative; margin-bottom: 6px; }
+  .coche svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .coche .disque { fill: var(--ok); transform-origin: 32px 32px; }
+  .coche .trait { fill: none; stroke: #fff; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 40; stroke-dashoffset: 0; }
+  .coche::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--ok); opacity: 0; }
+  .fin h3 { font-size: clamp(24px, 2.2vw, 29px); outline: none; }
+  .fin p { color: var(--muted); font-size: 15.5px; max-width: 30ch; }
+  .fin .btn { margin-top: 12px; min-width: 240px; }
+  .modifier { margin-top: 2px; border: 0; background: none; color: var(--muted); font: 600 14px/1.4 var(--f-body); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 6px; }
+  .modifier:hover { color: var(--ink); }
+  .fin.joue .disque { animation: pop 420ms var(--ressort) both; }
+  .fin.joue .trait { animation: trace 380ms var(--ease) 260ms both; }
+  .fin.joue .coche::after { animation: onde 700ms var(--ease) 300ms both; }
+  .fin.joue h3 { animation: monte var(--t-slow) var(--ease) 380ms both; }
+  .fin.joue p { animation: monte var(--t-slow) var(--ease) 460ms both; }
+  .fin.joue .btn { animation: monte var(--t-slow) var(--ease) 640ms both; }
+  .fin.joue .modifier { animation: apparait var(--t-slow) var(--ease) 760ms both; }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes trace { from { stroke-dashoffset: 40; } to { stroke-dashoffset: 0; } }
+  @keyframes onde { 0% { opacity: .5; transform: scale(1); } 100% { opacity: 0; transform: scale(1.45); } }
+  @keyframes apparait { from { opacity: 0; } to { opacity: 1; } }
 
   /* Apparition du premier écran (une fois, au chargement) */
   .monte { animation: monte var(--t-slow) var(--ease) both; }
-  .monte:nth-child(2) { animation-delay: 60ms; } .monte:nth-child(3) { animation-delay: 120ms; } .monte:nth-child(4) { animation-delay: 180ms; } .monte:nth-child(5) { animation-delay: 240ms; }
-  .quiz.monte { animation-delay: 160ms; }
+  .promesse .monte:nth-child(2) { animation-delay: 60ms; } .promesse .monte:nth-child(3) { animation-delay: 120ms; } .promesse .monte:nth-child(4) { animation-delay: 180ms; }
+  .quiz.monte { animation-delay: 140ms; }
   @keyframes monte { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
   /* ---------- Écrans plus étroits ---------- */
-  @media (max-width: 1180px) { .liens a svg { display: none; } .liens a { padding: 0 12px; } }
-  @media (max-width: 1000px) {
+  @media (max-width: 1120px) { .liens a svg { display: none; } .liens a { padding: 0 10px; } }
+  @media (max-width: 980px) {
     .menu { display: grid; margin-left: 4px; }
-    .liens { display: none; position: absolute; top: calc(100% + 8px); left: 0; right: 0; flex-direction: column; align-items: stretch; padding: 8px; border-radius: 24px; background: rgba(255, 255, 255, .94); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); box-shadow: var(--shadow); }
+    .liens { display: none; position: absolute; top: calc(100% + 8px); left: 0; right: 0; flex-direction: column; align-items: stretch; padding: 8px; border-radius: 22px; background: rgba(255, 255, 255, .95); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); box-shadow: var(--shadow); }
     .barre.ouvert .liens { display: flex; }
-    .liens a { height: 48px; padding: 0 16px; }
+    .liens a { height: 46px; padding: 0 16px; }
     .liens a svg { display: block; }
-    .hero { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+    .hero { grid-template-columns: minmax(0, 1fr); min-height: 0; justify-items: stretch; }
+    .quiz { max-width: 560px; width: 100%; }
     .etape[aria-hidden="true"] { display: none; }
-    .promesse h1 { max-width: 14ch; }
   }
   @media (max-width: 560px) {
-    .barre-in { padding-left: 16px; min-height: 58px; }
-    .essai { padding-right: 14px; font-size: 14.5px; }
-    .essai .rond { width: 32px; height: 32px; }
+    :root { --large: calc(100% - 32px); }
+    .barre-in { padding-left: 16px; min-height: 56px; }
     .choix, .rub { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .choix.deux { grid-template-columns: minmax(0, 1fr); }
-    .opt { min-height: 52px; padding: 10px 14px; }
-    .resume li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
-    .resultat .actions { grid-template-columns: minmax(0, 1fr); }
-    .quiz { border-radius: 24px; }
+    .quiz { border-radius: 22px; }
   }
   @media (max-width: 480px) {
     .marque { margin-right: 4px; }
-    .essai { gap: 8px; }
+    .essai { gap: 8px; padding-right: 14px; }
     .cta-l { display: none; } .cta-c { display: inline; }
     .c-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } .c-court { display: inline; }
-    .reperes span { font-size: 13.5px; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .fond i, .monte, .etape.entre, .resultat.entre { animation: none !important; }
-    .progres i::after, .opt, .btn, .liens a, .essai { transition: none !important; }
+    .fond i, .monte, .etape.entre, .fin.joue * { animation: none !important; }
+    .fin.joue .coche::after { animation: none !important; }
+    .progres i::after, .opt, .btn, .btn svg, .liens a, .essai, .champ input { transition: none !important; }
   }
 </style>
 </head>
@@ -217,16 +223,14 @@
 
 <main class="hero">
   <section class="promesse" aria-labelledby="titre">
-    <p class="surtitre monte">Le logiciel RH des PME de 10 à 250 salariés</p>
     <h1 id="titre" class="monte">Recruter, gérer, <em>accompagner.</em></h1>
     <p class="accroche monte">Le logiciel RH qui vous prévient avant chaque nouvelle obligation.</p>
-    <p class="texte monte">Du besoin de recrutement à l’après-départ : douze rubriques, un seul dossier par salarié. Effectif, seuils, convention collective, échéances : Teamora applique les règles et vous prévient avant chaque obligation.</p>
+    <p class="texte monte">Du besoin de recrutement à l’après-départ : Teamora vous accompagne dans votre Gestion des Ressources Humaines. Effectif, seuils, convention collective, échéances : Teamora applique les règles et vous prévient avant chaque obligation.</p>
     <div class="reperes monte">
       <p class="reperes-t">En bref</p>
       <ul>
         <li><b>12</b><span>rubriques, du recrutement au départ</span></li>
         <li><b>673</b><span>conventions collectives au choix</span></li>
-        <li><b>0</b><span>inscription pour essayer la démo</span></li>
       </ul>
     </div>
   </section>
@@ -254,7 +258,7 @@
         </fieldset>
 
         <fieldset class="etape" aria-labelledby="q2" aria-hidden="true">
-          <h3 class="question" id="q2" tabindex="-1">Quel est votre rôle&nbsp;?<small>La démo s’ouvrira sur la vue qui vous correspond.</small></h3>
+          <h3 class="question" id="q2" tabindex="-1">Quel est votre rôle&nbsp;?</h3>
           <div class="choix deux">
             <label class="opt"><input type="radio" name="role" value="dirigeant">Dirigeant ou dirigeante</label>
             <label class="opt"><input type="radio" name="role" value="rh">Responsable RH ou administratif</label>
@@ -264,34 +268,32 @@
         </fieldset>
 
         <fieldset class="etape" aria-labelledby="q3" aria-hidden="true">
-          <h3 class="question" id="q3" tabindex="-1">Par quelle rubrique commencer&nbsp;?</h3>
+          <h3 class="question" id="q3" tabindex="-1">Que souhaitez-vous découvrir&nbsp;?</h3>
           <div class="choix rub" id="rubriques"></div>
         </fieldset>
 
+        <!-- Champ e-mail : pour le rendu seulement. Rien n'est envoyé ni enregistré. Avant de le brancher : mention
+             d'information (finalité, durée, droits) près du champ et mise à jour de confidentialite.html. -->
         <fieldset class="etape" aria-labelledby="q4" aria-hidden="true">
-          <h3 class="question" id="q4" tabindex="-1">Sur quelle entreprise voulez-vous essayer&nbsp;?</h3>
-          <div class="choix deux grand">
-            <label class="opt"><input type="radio" name="entreprise" value="nova"><b>Une entreprise d’exemple</b><span>Nova Studio, une entreprise fictive de 20 salariés, déjà remplie.</span></label>
-            <label class="opt"><input type="radio" name="entreprise" value="vierge"><b>La vôtre, à partir de zéro</b><span>L’assistant d’installation : entreprise, convention, sites, services, collaborateurs, paie.</span></label>
+          <h3 class="question" id="q4" tabindex="-1">Quelle est votre adresse e-mail&nbsp;?</h3>
+          <div class="champ">
+            <input type="email" id="email" name="email" autocomplete="email" inputmode="email" placeholder="prenom@entreprise.fr" aria-labelledby="q4">
+            <button class="btn btn-p" type="submit">Préparer ma démo<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           </div>
         </fieldset>
       </div>
 
-      <div class="actions" id="nav-quiz">
-        <button class="btn btn-g retour" type="button" hidden>Retour</button>
-        <button class="btn btn-p suivant" type="submit" disabled>Suivant</button>
+      <div class="pied">
+        <button class="retour cache" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>Retour</button>
       </div>
-      <p class="note">Démo en accès libre, sans inscription.</p>
     </form>
 
-    <div class="resultat" id="resultat" hidden>
-      <div class="ok"><i><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i><h3 class="question" id="pret" tabindex="-1">Votre démo est prête.</h3></div>
-      <ul class="resume" id="resume"></ul>
-      <div class="seuils" id="seuils"></div>
-      <div class="actions">
-        <a class="btn btn-p" id="ouvrir" href="#" data-demo>Ouvrir la démo</a>
-        <button class="btn btn-g" type="button" id="modifier">Modifier</button>
-      </div>
+    <div class="fin" id="fin" hidden>
+      <div class="coche" aria-hidden="true"><svg viewBox="0 0 64 64"><circle class="disque" cx="32" cy="32" r="32"/><path class="trait" d="M19 33.5l8.5 8.5 17.5-18"/></svg></div>
+      <h3 id="pret" tabindex="-1">Votre démo est prête.</h3>
+      <p>Découvrez Teamora sur Nova Studio, une entreprise fictive de 20 salariés.</p>
+      <a class="btn btn-p" id="ouvrir" href="#" data-demo>Tester Teamora<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      <button class="modifier" type="button" id="modifier">Modifier mes réponses</button>
     </div>
   </section>
 </main>
@@ -300,7 +302,7 @@
 (function () {
   'use strict';
   // Aperçu : la démo publiée sur claude.ai, qui ne lit pas encore les réponses. À l'intégration dans le site,
-  // DEMO devient 'demo/' et la démo lit ?profil=…&rubrique=…&entreprise=… pour s'ouvrir au bon endroit.
+  // DEMO devient 'demo/' et la démo lit ?profil=…&rubrique=…&effectif=… pour s'ouvrir au bon endroit.
   var DEMO = 'https://claude.ai/artifact/4pHLrU8bBB6Uz6SMuLx7eq';
   var LIT_LES_REPONSES = DEMO.indexOf('demo/') === 0;
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -316,70 +318,64 @@
     l.innerHTML = '<input type="radio" name="rubrique" value="' + r[0] + '"><span class="pt" style="--c:' + r[2] + '"></span>' + r[1];
     boite.appendChild(l);
   });
-
-  // Les principaux seuils d'effectif, repris du site (section « Votre garde-fou juridique »).
-  var SEUILS = [[11, 'CSE à élire, contribution formation à 1 %'], [20, 'emploi de travailleurs handicapés : 6 %'],
-    [50, 'index égalité, CSE élargi, règlement intérieur, participation'], [250, 'index à 5 indicateurs, 5 % d’alternants']];
-  var ROLES = { dirigeant: ['Dirigeant ou dirigeante', 'rh', 'RH'], rh: ['Responsable RH ou administratif', 'rh', 'RH'],
-    manager: ['Manager d’une équipe', 'manager', 'manager'], comptable: ['Expert-comptable ou gestionnaire de paie', 'rh', 'RH'] };
-  var TAILLES = { 0: 'Moins de 11 salariés', 11: '11 à 19 salariés', 20: '20 à 49 salariés', 50: '50 à 249 salariés', 250: '250 salariés et plus' };
-  var NOMS = ['taille', 'role', 'rubrique', 'entreprise'];
+  var PROFILS = { dirigeant: 'rh', rh: 'rh', manager: 'manager', comptable: 'rh' };
+  var NOMS = ['taille', 'role', 'rubrique'];
 
   var form = document.getElementById('quiz'), etapes = [].slice.call(form.querySelectorAll('.etape'));
-  var barres = [].slice.call(form.querySelectorAll('.progres i')), compteur = document.getElementById('compteur');
-  var retour = form.querySelector('.retour'), suivant = form.querySelector('.suivant');
-  var resultat = document.getElementById('resultat'), n = 0;
+  var barres = [].slice.call(form.querySelectorAll('.progres i'));
+  var retour = form.querySelector('.retour'), fin = document.getElementById('fin'), n = 0, verrou = false;
 
   function valeur(nom) { var x = form.querySelector('input[name="' + nom + '"]:checked'); return x ? x.value : null; }
   function montrer(i, sens) {
     var avant = n; n = i;
     etapes.forEach(function (e, k) {
       var vu = k === i; e.setAttribute('aria-hidden', String(!vu));
-      e.querySelectorAll('input').forEach(function (x) { x.tabIndex = vu ? 0 : -1; });
+      e.querySelectorAll('input, button').forEach(function (x) { x.tabIndex = vu ? 0 : -1; });
       e.classList.remove('entre', 'recule');
       if (vu && avant !== i && !reduce) { void e.offsetWidth; e.classList.add('entre'); if (sens < 0) e.classList.add('recule'); }
     });
     barres.forEach(function (b, k) { b.classList.toggle('fait', k <= i); });
-    compteur.textContent = 'Question ' + (i + 1) + ' sur 4'; document.getElementById('compteur-court').textContent = (i + 1) + ' / 4';
-    retour.hidden = i === 0;
-    suivant.textContent = i === 3 ? 'Préparer ma démo' : 'Suivant';
-    suivant.disabled = !valeur(NOMS[i]);
-    if (avant !== i) document.getElementById('q' + (i + 1)).focus({ preventScroll: true });
+    document.getElementById('compteur').textContent = 'Question ' + (i + 1) + ' sur 4';
+    document.getElementById('compteur-court').textContent = (i + 1) + ' / 4';
+    retour.classList.toggle('cache', i === 0); retour.tabIndex = i === 0 ? -1 : 0;
+    if (avant !== i) {
+      if (i === 3 && sens > 0) document.getElementById('email').focus({ preventScroll: true });
+      else document.getElementById('q' + (i + 1)).focus({ preventScroll: true });
+    }
   }
-  form.addEventListener('change', function () { suivant.disabled = !valeur(NOMS[n]); });
-  retour.addEventListener('click', function () { if (n > 0) montrer(n - 1, -1); });
-  form.addEventListener('submit', function (e) {
-    e.preventDefault();
-    if (!valeur(NOMS[n])) return;
-    if (n < 3) montrer(n + 1, 1); else conclure();
+  // Un clic sur une réponse passe à la question suivante, après un court instant pour voir le choix.
+  function avancer() {
+    if (verrou || n > 2 || !valeur(NOMS[n])) return;
+    verrou = true;
+    setTimeout(function () { verrou = false; montrer(n + 1, 1); }, reduce ? 0 : 260);
+  }
+  var pointeur = 0;
+  form.addEventListener('pointerdown', function (e) { pointeur = e.target.closest('.opt') ? Date.now() : 0; });
+  form.addEventListener('click', function (e) {
+    if (e.target.matches('input[type="radio"]') && Date.now() - pointeur < 1000) { pointeur = 0; avancer(); }
   });
+  // Clavier : les flèches changent la réponse (sans avancer), Entrée ou Espace la valident.
+  form.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.matches('input[type="radio"]')) { e.preventDefault(); avancer(); }
+  });
+  form.addEventListener('keyup', function (e) {
+    if (e.key === ' ' && e.target.matches('input[type="radio"]')) setTimeout(avancer, 0);
+  });
+  retour.addEventListener('click', function () { if (n > 0) montrer(n - 1, -1); });
+  form.addEventListener('submit', function (e) { e.preventDefault(); if (n === 3) conclure(); });
 
   function conclure() {
-    var t = +valeur('taille'), role = ROLES[valeur('role')], rub = RUBRIQUES.filter(function (r) { return r[0] === valeur('rubrique'); })[0];
-    var nova = valeur('entreprise') === 'nova';
-    var lignes = [
-      ['Votre entreprise', TAILLES[t]],
-      ['Entreprise de la démo', nova ? 'Nova Studio (fictive)' : 'La vôtre, avec l’assistant d’installation'],
-      ['Vue', nova ? role[2] : 'RH'],
-      ['Première rubrique', '<span class="pt" style="--c:' + rub[2] + ';margin-right:8px"></span>' + rub[1] + (nova ? '' : ', une fois l’installation faite')]
-    ];
-    document.getElementById('resume').innerHTML = lignes.map(function (l) { return '<li><span>' + l[0] + '</span><span><b>' + l[1] + '</b></span></li>'; }).join('');
-    var atteints = SEUILS.filter(function (s) { return t >= s[0]; }), prochain = SEUILS.filter(function (s) { return t < s[0]; })[0];
-    var h = '<b>Ce que Teamora surveille pour vous</b><ul>';
-    atteints.forEach(function (s) { h += '<li>Dès ' + s[0] + ' salariés : ' + s[1] + '.</li>'; });
-    if (prochain) h += '<li>Prochain seuil, ' + prochain[0] + ' salariés : ' + prochain[1] + '. Teamora vous l’annonce avant qu’il s’applique.</li>';
-    if (t >= 250) h += '<li>Teamora est pensé pour les PME de 10 à 250 salariés : parlons-en avant de vous lancer.</li>';
-    document.getElementById('seuils').innerHTML = h + '</ul>';
-    var q = 'profil=' + (nova ? role[1] : 'rh') + '&rubrique=' + rub[0] + '&entreprise=' + (nova ? 'nova' : 'vierge') + '&effectif=' + t;
+    var q = 'profil=' + (PROFILS[valeur('role')] || 'rh') + '&rubrique=' + (valeur('rubrique') || '') + '&effectif=' + (valeur('taille') || '');
     document.getElementById('ouvrir').href = LIT_LES_REPONSES ? DEMO + '?' + q : DEMO;
-    form.hidden = true; resultat.hidden = false;
-    if (!reduce) { resultat.classList.remove('entre'); void resultat.offsetWidth; resultat.classList.add('entre'); }
+    fin.style.minHeight = form.offsetHeight + 'px';
+    form.hidden = true; fin.hidden = false;
+    fin.classList.remove('joue'); if (!reduce) { void fin.offsetWidth; fin.classList.add('joue'); }
     document.getElementById('pret').focus({ preventScroll: true });
   }
-  document.getElementById('modifier').addEventListener('click', function () { resultat.hidden = true; form.hidden = false; montrer(0, -1); });
+  document.getElementById('modifier').addEventListener('click', function () { fin.hidden = true; form.hidden = false; montrer(0, -1); });
 
   // Liens vers la démo et menu sur téléphone.
-  document.querySelectorAll('[data-demo]').forEach(function (a) { if (a.id !== 'ouvrir') a.href = DEMO; a.target = '_blank'; a.rel = 'noopener'; });
+  document.querySelectorAll('[data-demo]').forEach(function (a) { a.href = DEMO; a.target = '_blank'; a.rel = 'noopener'; });
   var barre = document.getElementById('barre'), menu = barre.querySelector('.menu');
   menu.addEventListener('click', function () { var o = barre.classList.toggle('ouvert'); menu.setAttribute('aria-expanded', String(o)); });
   barre.querySelectorAll('.liens a').forEach(function (a) { a.addEventListener('click', function () { barre.classList.remove('ouvert'); menu.setAttribute('aria-expanded', 'false'); }); });

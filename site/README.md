@@ -1,0 +1,57 @@
+# Site de présentation de Teamora
+
+Une page d'accueil, les mentions légales, la politique de confidentialité, la démo hébergée dans `demo/` et deux petits
+scripts PHP : `contact.php` (formulaire de contact) et `avis.php` (bouton « Donner mon avis » de la démo). Les messages
+partent par e-mail ; rien n'est enregistré sur le serveur. Aucun cookie, aucune mesure d'audience, aucun service tiers :
+polices et bibliothèque d'animation sont hébergées avec le site.
+
+## Ce qu'il faut chez l'hébergeur
+
+Un hébergement mutualisé avec PHP 7.4 ou plus récent et la fonction `mail()` active (c'est le cas par défaut chez la plupart
+des hébergeurs français), plus un nom de domaine. Si l'hébergeur bloque `mail()`, il faudra passer par un envoi SMTP.
+
+## Mettre le site en ligne
+
+1. **Avant d'acheter le nom de domaine**, vérifie qu'il est libre et que la marque « Teamora » n'est pas déjà déposée
+   pour des logiciels (base des marques de l'INPI).
+2. **Assemble le dossier** : `python3 site/build.py --zip teamora-site.zip`. Le dossier `site/dist/` (et l'archive) contient
+   tout ce qu'il faut déposer. Pour remplir l'adresse du site dans l'image de partage et créer le plan du site, renseigne
+   d'abord `ADRESSE_DU_SITE` en haut de `build.py`.
+3. **Règle l'envoi des messages** dans `config.php` : l'adresse qui reçoit les messages, et une adresse d'expédition de ton
+   propre nom de domaine (sinon les messages risquent d'arriver dans les indésirables).
+4. **Complète les passages surlignés** dans `mentions-legales.html` et `confidentialite.html` : éditeur, adresse de contact,
+   hébergeur, date. Les mentions légales sont obligatoires pour un site professionnel.
+5. **Dépose le contenu** du dossier (pas le dossier lui-même) à la racine du site chez l'hébergeur (`www/` ou
+   `public_html/`), avec le gestionnaire de fichiers de l'hébergeur ou un logiciel FTP comme FileZilla. Le fichier caché
+   `.htaccess` doit être déposé aussi.
+6. **Active le certificat SSL** (gratuit chez la plupart des hébergeurs), puis retire les `#` du dernier bloc de `.htaccess`
+   pour forcer le passage en HTTPS.
+7. **Teste** : envoie-toi un message par le formulaire, puis donne un avis dans la démo.
+
+## Mettre à jour
+
+- **La démo** : après une modification de `logiciel-rh-v3`, relance `build.py` et redépose le dossier `demo/`.
+- **Les captures d'écran** : `node site/outils/captures.js` (refait les images de `site/img/` à partir de la démo).
+- **L'image de partage** (aperçu sur LinkedIn et dans les messageries) : `node site/outils/partage.js`.
+- **Un aperçu sans PHP** : `python3 site/build.py --apercu` crée `site/dist-apercu/`, où la démo pointe vers la version
+  publiée sur claude.ai et où le formulaire ne s'envoie pas.
+
+Si tu ajoutes un jour un outil de mesure d'audience ou une vidéo hébergée ailleurs, mets à jour la politique de
+confidentialité (et, selon l'outil, ajoute un bandeau de consentement).
+
+## Contenu
+
+| Fichier | Rôle |
+|---|---|
+| `index.html`, `styles.css`, `site.js` | La page d'accueil : la règle des seuils, l'accueil « Aujourd'hui », les quatre familles, les obligations, les espaces, la paie, la phase de test, les questions, le contact |
+| `mentions-legales.html`, `confidentialite.html` | Pages légales, avec les passages à compléter surlignés |
+| `contact.php`, `avis.php`, `envoi.php`, `config.php` | Envoi par e-mail des messages et des avis ; `config.php` est le seul fichier à modifier |
+| `.htaccess` | Protections du navigateur, cache, accès interdit aux fichiers de réglages, HTTPS à activer |
+| `fonts/`, `vendor/gsap.min.js` | Polices Sora et Plus Jakarta Sans (licence SIL OFL) et bibliothèque d'animation de la démo |
+| `img/` | Captures de la démo (données fictives) et image de partage |
+| `build.py` | Assemble `dist/` (site, démo, PHP) ou `dist-apercu/` |
+| `outils/` | Scripts des captures et de l'image de partage |
+
+Les textes reprennent ce que fait réellement le prototype (module Obligations, parcours, espaces). Les règles juridiques
+citées (seuils, règles de franchissement de la loi PACTE, entretien de parcours professionnel) sont à faire relire par un
+professionnel du droit social avant la mise en ligne.

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teamora · Logiciel RH pour PME, qui prévient avant chaque obligation</title>
+<meta name="description" content="Teamora calcule l’effectif de votre PME selon les règles légales, annonce chaque obligation RH avec sa date et applique votre convention collective dans chaque dossier. Démo en accès libre.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:site_name" content="Teamora">
+<meta property="og:title" content="Teamora · le logiciel RH qui prévient votre PME avant chaque obligation">
+<meta property="og:description" content="Effectif calculé selon les règles légales, obligations annoncées avec leur date, convention collective appliquée dans chaque dossier.">
+<meta property="og:image" content="img/partage.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preload" href="fonts/sora-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs><linearGradient id="logo-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#0ea5c6"/></linearGradient></defs>
+  <symbol id="logo" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="url(#logo-g)"/><circle cx="32" cy="15" r="6" fill="#ffd166"/><path d="M14 28h36M32 28v22" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/></symbol>
+</svg>
+<a class="skip" href="#contenu">Aller au contenu</a>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#contenu" aria-label="Teamora, retour en haut de page"><svg aria-hidden="true"><use href="#logo"/></svg>Teamora</a>
+    <nav class="nav" aria-label="Sections de la page">
+      <a href="#aujourdhui">Le logiciel</a>
+      <a href="#obligations">Obligations</a>
+      <a href="#tests">Phase de test</a>
+      <a href="#questions">Questions</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <a class="btn btn-primary" href="demo/">Essayer la démo</a>
+  </div>
+</header>
+
+<main id="contenu">
+  <!-- 1. Ouverture : la règle graduée des seuils d'effectif -->
+  <section class="hero" aria-labelledby="titre">
+    <div class="wrap">
+      <div class="hero-grid">
+        <div>
+          <p class="eyebrow">Logiciel RH pour les PME de 10 à 250 salariés</p>
+          <h1 id="titre">Teamora vous prévient <em>avant</em> chaque nouvelle obligation RH.</h1>
+          <p class="lead">À 11, 20, 50 ou 250 salariés, les règles changent. Teamora calcule votre effectif comme le prévoit la loi, annonce chaque obligation avec sa date et applique votre convention collective dans chaque dossier. Pour les PME qui gèrent la RH sans service RH.</p>
+          <div class="actions">
+            <a class="btn btn-primary" href="demo/">Essayer la démo</a>
+            <a class="btn btn-ghost" href="#tests">Participer aux tests</a>
+          </div>
+          <p class="hint">Démo en accès libre, sans inscription, avec une entreprise fictive.</p>
+        </div>
+        <aside class="callout" aria-labelledby="exemple">
+          <h2 id="exemple"><b>Exemple : une PME de 44 salariés qui recrute.</b> Au-delà de 50, Teamora lui annonce :</h2>
+          <ul>
+            <li><span>Index de l’égalité professionnelle, à publier avant le 1<sup>er</sup> mars</span> <span class="chip">moyenne sur 12 mois</span></li>
+            <li><span>CSE aux attributions élargies</span> <span class="chip m12">12 mois consécutifs</span></li>
+            <li><span>Délégué syndical et négociations obligatoires</span> <span class="chip m12">12 mois consécutifs</span></li>
+            <li><span>Règlement intérieur</span> <span class="chip y5">5 années civiles</span></li>
+            <li><span>Participation aux résultats</span> <span class="chip y5">5 années civiles</span></li>
+          </ul>
+          <p class="callout-note">Chaque obligation suit sa règle de franchissement (loi PACTE). Teamora projette l’effectif sur 12 mois avec les arrivées et les départs déjà enregistrés. Liste simplifiée.</p>
+        </aside>
+      </div>
+
+      <figure class="ruler" aria-labelledby="regle">
+        <ol>
+          <li class="step" style="--x:12%"><b class="num">11</b><span>CSE à élire, contribution formation à 1 %</span></li>
+          <li class="step" style="--x:30%"><b class="num">20</b><span>Emploi de travailleurs handicapés : 6 %</span></li>
+          <li class="you" style="--x:58.8%" data-de="38" data-a="44"><i aria-hidden="true"></i><span>Votre PME · <b class="num">44</b> salariés</span></li>
+          <li class="step next" style="--x:66%"><b class="num">50</b><span>Index égalité, CSE élargi, règlement intérieur, participation</span></li>
+          <li class="step last" style="--x:100%"><b class="num">250</b><span>Index à 5 indicateurs, 5 % d’alternants</span></li>
+        </ol>
+        <figcaption id="regle">Les principaux seuils d’effectif. Chacun ajoute des obligations, avec ses propres délais.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 2. L'accueil « Aujourd'hui » -->
+  <section class="section" id="aujourdhui" aria-labelledby="t-aujourdhui">
+    <div class="wrap split">
+      <div>
+        <h2 id="t-aujourdhui">Chaque matin, ce qu’il faut faire, dans l’ordre.</h2>
+        <p class="intro">L’accueil affiche les cinq actions les plus urgentes avec leur échéance. Un clic ouvre l’écran où agir : valider une absence, relancer un candidat, préparer une arrivée.</p>
+        <ul class="points">
+          <li><b>« À traiter »</b> range tout le reste en trois groupes : <span class="late">en retard</span>, cette semaine, plus tard.</li>
+          <li><b>Une ligne et un bouton par action</b>, jamais une liste à rallonge.</li>
+          <li><b>Les pastilles rouges</b> ne signalent que les retards : ce qui ressort compte vraiment.</li>
+        </ul>
+      </div>
+      <figure class="shot stack">
+        <img src="img/accueil.jpg" width="2880" height="1800" alt="Accueil de Teamora : à gauche, le bloc Aujourd’hui avec cinq actions datées ; à droite, la roue des douze rubriques du parcours salarié." loading="lazy">
+        <div class="inset"><img src="img/a-traiter.jpg" width="1560" height="1280" alt="La liste À traiter : les actions en retard d’abord, chacune avec sa date et son bouton." loading="lazy"></div>
+        <figcaption>Démo : Nova Studio, entreprise fictive de 20 salariés.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 3. Le parcours, en quatre familles -->
+  <section class="section" id="parcours" aria-labelledby="t-parcours">
+    <div class="wrap">
+      <h2 id="t-parcours">Du besoin de recrutement à l’après-départ, la règle s’applique dans le dossier.</h2>
+      <p class="intro">Douze rubriques suivent la vie du salarié. Vous n’avez pas d’article de loi à lire : Teamora bloque ce qui ne passe pas et calcule ce qui doit l’être.</p>
+      <div class="families">
+        <article class="family" style="--c:#7c3aed">
+          <h3><i aria-hidden="true"></i>Recruter</h3>
+          <ul>
+            <li>Un CDD ne part pas sans cas de recours précis, ni sans le nom de la personne remplacée quand il s’agit d’un remplacement.</li>
+            <li>La période d’essai suit votre convention collective, renouvellement compris.</li>
+            <li>DPAE, registre du personnel et contrat signé en ligne depuis le dossier d’arrivée.</li>
+          </ul>
+        </article>
+        <article class="family" style="--c:#ea580c">
+          <h3><i aria-hidden="true"></i>Gérer</h3>
+          <ul>
+            <li>Absences, heures et arrêts validés au même endroit, compteurs à jour.</li>
+            <li>Visites médicales et accidents du travail suivis avec leurs délais.</li>
+            <li>Variables de paie prêtes pour votre logiciel de paie ou votre cabinet.</li>
+          </ul>
+        </article>
+        <article class="family" style="--c:#16a34a">
+          <h3><i aria-hidden="true"></i>Développer</h3>
+          <ul>
+            <li>Entretiens annuels et entretiens de parcours professionnel, tous les 4 ans depuis la loi du 24 octobre 2025.</li>
+            <li>Demandes de formation et souhaits d’évolution des salariés.</li>
+            <li>États des lieux à 8 ans d’ancienneté préparés à l’avance.</li>
+          </ul>
+        </article>
+        <article class="family" style="--c:#0e8fae">
+          <h3><i aria-hidden="true"></i>Départ</h3>
+          <ul>
+            <li>Préavis et indemnités calculés selon le motif de départ.</li>
+            <li>Solde de tout compte et documents de sortie préparés.</li>
+            <li>Données supprimées à la fin des durées de conservation.</li>
+          </ul>
+        </article>
+      </div>
+      <p class="conv"><b class="num">673</b> conventions collectives au choix. Syntec est intégrée ; pour une autre, vous saisissez une fois ses règles (période d’essai, préavis…) et Teamora les applique.</p>
+    </div>
+  </section>
+
+  <!-- 4. Les obligations selon l'effectif -->
+  <section class="section" id="obligations" aria-labelledby="t-obligations">
+    <div class="wrap split reverse">
+      <div>
+        <h2 id="t-obligations">Votre effectif, calculé comme le prévoit la loi.</h2>
+        <p class="intro">Teamora calcule l’effectif moyen sur 12 mois en équivalent temps plein, hors alternants et stagiaires, à partir des dossiers du quotidien. Personne n’a de tableau à tenir.</p>
+        <ul class="points">
+          <li><b>Chaque obligation a sa règle</b> : moyenne sur 12 mois, 12 mois consécutifs ou 5 années civiles.</li>
+          <li><b>Les mois à venir</b> tiennent compte des arrivées et des départs déjà enregistrés.</li>
+          <li><b>Chaque alerte ouvre l’écran</b> où faire la démarche : index égalité, élections du CSE, affichages, document unique.</li>
+        </ul>
+        <p class="note">Prototype en test : les calculs sont indicatifs et doivent être validés par un professionnel du droit social avant tout usage réel.</p>
+      </div>
+      <figure class="shot">
+        <img src="img/obligations.jpg" width="2880" height="1548" alt="Écran Obligations selon l’effectif : effectif moyen de 52, évolution sur 24 mois et alertes avec un bouton Ouvrir." loading="lazy">
+        <figcaption>Démo : effectif simulé à 52 salariés depuis plus d’un an.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 5. Chacun son espace -->
+  <section class="section" id="espaces" aria-labelledby="t-espaces">
+    <div class="wrap split">
+      <div>
+        <h2 id="t-espaces">Chacun son espace, y compris sur téléphone.</h2>
+        <p class="intro">Les demandes arrivent au bon endroit et chacun ne voit que ce qui le concerne.</p>
+        <ul class="roles">
+          <li><b>RH</b><span>Tout le parcours, les obligations, le reporting et les modèles de documents.</span></li>
+          <li><b>Managers</b><span>Leur équipe : absences à valider, entretiens à mener, arrivées à préparer.</span></li>
+          <li><b>Salariés</b><span>Sur leur téléphone : poser une absence, lire un bulletin, signer un document, écrire aux RH.</span></li>
+        </ul>
+      </div>
+      <figure class="phone">
+        <img src="img/mobile.jpg" width="780" height="1688" alt="Espace salarié sur téléphone : boutons Poser une absence, Bulletin de septembre, Écrire aux RH, et la liste À faire." loading="lazy">
+        <figcaption>L’espace salarié de Léa, dans la démo.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 6. La paie -->
+  <section class="section" id="paie" aria-labelledby="t-paie">
+    <div class="wrap paie">
+      <div>
+        <h2 id="t-paie">Avec votre paie, pas à sa place.</h2>
+        <p class="intro">Teamora ne calcule pas les bulletins. Il prépare les variables du mois et les transmet à votre logiciel de paie ou à votre expert-comptable, qui garde la main.</p>
+      </div>
+      <ol class="flow">
+        <li><span><b>Les événements du mois</b><small>Absences, heures supplémentaires, primes, entrées et sorties, saisis au fil de l’eau.</small></span></li>
+        <li><span><b>Le contrôle avant clôture</b><small>Ce qui manque ou paraît anormal est signalé avant l’envoi.</small></span></li>
+        <li><span><b>Un fichier de variables</b><small>Prêt à importer dans votre logiciel de paie ou à transmettre au cabinet.</small></span></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 7. La phase de test -->
+  <section class="band" id="tests" aria-labelledby="t-tests">
+    <div class="wrap">
+      <p class="eyebrow">Phase de test · Bordeaux</p>
+      <h2 id="t-tests">Teamora se construit avec les PME qui l’essaient.</h2>
+      <p class="intro">Vous dirigez une PME ou vous gérez la RH sans en avoir le titre ? Votre avis construit la première version.</p>
+      <ol class="steps">
+        <li><b>Essayez la démo</b><span>Un quart d’heure, sans inscription, sur une entreprise fictive.</span></li>
+        <li><b>Racontez-nous</b><span>20 minutes d’échange sur ce qui vous aide et ce qui manque.</span></li>
+        <li><b>Suivez la suite</b><span>Vous êtes tenu au courant des versions qui en découlent.</span></li>
+      </ol>
+      <p class="who">Nous cherchons des PME de 20 à 100 salariés et des experts-comptables qui tiennent la paie de PME.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="demo/">Essayer la démo</a>
+        <a class="btn btn-ghost" href="#contact">Proposer un échange</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. Questions -->
+  <section class="section" id="questions" aria-labelledby="t-questions">
+    <div class="wrap">
+      <h2 id="t-questions">Vos questions</h2>
+      <div class="faq">
+        <details>
+          <summary>Teamora remplace-t-il mon logiciel de paie ?</summary>
+          <p>Non. Teamora prépare les variables de paie (absences, heures, primes, entrées et sorties) et les transmet à votre logiciel de paie ou à votre expert-comptable. Le calcul des bulletins reste là où il est aujourd’hui.</p>
+        </details>
+        <details>
+          <summary>Pour quelle taille d’entreprise ?</summary>
+          <p>De 10 à 250 salariés, surtout quand la RH repose sur le dirigeant ou sur une seule personne. Les obligations qui s’appliquent dès le premier salarié (DPAE, registre du personnel, document unique, affichages) sont suivies aussi.</p>
+        </details>
+        <details>
+          <summary>Ma convention collective est-elle prise en compte ?</summary>
+          <p>Vous la choisissez parmi 673 conventions. Les règles de la convention Syntec sont intégrées. Pour une autre, vous saisissez une fois ses règles (période d’essai, préavis, maintien de salaire) dans les paramètres, et Teamora les applique dans chaque dossier.</p>
+        </details>
+        <details>
+          <summary>Combien coûte Teamora ?</summary>
+          <p>Rien pendant la phase de test. Le tarif sera annoncé avant la première version commerciale.</p>
+        </details>
+        <details>
+          <summary>Que deviennent les informations saisies dans la démo ?</summary>
+          <p>La démo fonctionne avec une entreprise fictive. Ce que vous y saisissez reste dans votre navigateur et n’est envoyé nulle part. N’y saisissez aucune donnée réelle.</p>
+        </details>
+        <details>
+          <summary>Et l’intelligence artificielle ?</summary>
+          <p>Teamo, l’assistant de Teamora, répondra bientôt à vos questions RH en langage courant et vous mènera au bon écran. Il ne recevra jamais les données personnelles de vos salariés, seulement des chiffres agrégés.</p>
+        </details>
+        <details>
+          <summary>Teamora fonctionne-t-il sur téléphone ?</summary>
+          <p>L’espace salarié, oui : il est conçu pour le téléphone. La gestion RH et le travail des managers se font sur ordinateur.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. Contact -->
+  <section class="section" id="contact" aria-labelledby="t-contact">
+    <div class="wrap contact">
+      <div class="aside-contact">
+        <h2 id="t-contact">Parlons de votre RH.</h2>
+        <p class="intro">Une question, une envie de tester, un avis sur la démo : laissez-nous un message, nous vous répondons personnellement.</p>
+        <p><b>Teamora est conçu à Bordeaux</b>, avec les entreprises qui le testent.</p>
+      </div>
+      <form class="form" id="form-contact" action="contact.php" method="post" novalidate>
+        <p class="sent" id="contact-envoye" role="status">Merci, votre message est bien parti. Nous vous répondons rapidement.</p>
+        <p class="sent" id="contact-erreur" role="alert">Le message n’a pas pu partir. Vérifiez votre adresse e-mail et réessayez.</p>
+        <div class="field">
+          <label for="f-nom">Nom et prénom</label>
+          <input id="f-nom" name="nom" type="text" autocomplete="name" required maxlength="120">
+        </div>
+        <div class="field">
+          <label for="f-email">E-mail professionnel</label>
+          <input id="f-email" name="email" type="email" autocomplete="email" required maxlength="160">
+        </div>
+        <div class="field">
+          <label for="f-entreprise">Entreprise <small>(facultatif)</small></label>
+          <input id="f-entreprise" name="entreprise" type="text" autocomplete="organization" maxlength="160">
+        </div>
+        <div class="field">
+          <label for="f-effectif">Effectif <small>(facultatif)</small></label>
+          <select id="f-effectif" name="effectif">
+            <option value="">Choisir</option>
+            <option>1 à 10 salariés</option>
+            <option>11 à 49 salariés</option>
+            <option>50 à 249 salariés</option>
+            <option>250 salariés et plus</option>
+          </select>
+        </div>
+        <div class="field wide">
+          <label for="f-fonction">Vous êtes <small>(facultatif)</small></label>
+          <select id="f-fonction" name="fonction">
+            <option value="">Choisir</option>
+            <option>Dirigeant ou dirigeante</option>
+            <option>Responsable RH ou administratif</option>
+            <option>Expert-comptable ou gestionnaire de paie</option>
+            <option>Autre</option>
+          </select>
+        </div>
+        <div class="field wide">
+          <label for="f-message">Votre message</label>
+          <textarea id="f-message" name="message" required maxlength="4000" placeholder="Par exemple : nous sommes 35, la RH repose sur moi, j’aimerais tester Teamora."></textarea>
+        </div>
+        <div class="trap" aria-hidden="true">
+          <label for="f-site">Ne pas remplir</label>
+          <input id="f-site" name="site" type="text" tabindex="-1" autocomplete="off">
+        </div>
+        <input type="hidden" id="f-duree" name="duree" value="">
+        <p class="legal">Vos informations servent uniquement à vous répondre. Voir la <a href="confidentialite.html">politique de confidentialité</a>.</p>
+        <div class="send">
+          <button class="btn btn-primary" type="submit" id="f-envoyer">Envoyer le message</button>
+          <p class="status" id="f-statut" role="status" aria-live="polite"></p>
+        </div>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <a class="brand" href="#contenu" aria-label="Teamora, retour en haut de page"><svg aria-hidden="true"><use href="#logo"/></svg>Teamora</a>
+    <span>Logiciel RH pour les PME, conçu à Bordeaux.</span>
+    <nav aria-label="Liens du pied de page">
+      <a href="demo/">Démo</a>
+      <a href="mentions-legales.html">Mentions légales</a>
+      <a href="confidentialite.html">Confidentialité</a>
+    </nav>
+  </div>
+</footer>
+<script src="site.js"></script>
+</body>
+</html>

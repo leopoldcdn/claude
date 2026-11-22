@@ -1553,6 +1553,14 @@
       const message = (v.message || '').trim(); if (message.length < 3) return formError('Écris en quelques mots ce que tu en penses.');
       const r = { date: new Date().toISOString(), ecran: (v.ecran || '').trim() || avisScreen(), type: v.type || 'aide', note: Number(v.note) || null, message, entreprise: (v.entreprise || '').trim(), taille: v.taille || '', profil: persona(), appareil: isMob() ? 'téléphone' : 'ordinateur', version: 'V3' };
       const fallback = (why) => { ui.modal = { type: 'avis', fallback: avisText(r), why }; render(); };
+      // Démo hébergée sur le site de Teamora : l'avis part vers le script du site (avis.php), qui l'envoie par e-mail.
+      if ((!AVIS.db || !AVIS.user) && window.TEAMORA_AVIS_URL) {
+        const btn = document.getElementById('avis-send'); if (btn) { btn.disabled = true; btn.textContent = 'Envoi…'; }
+        fetch(window.TEAMORA_AVIS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(r) })
+          .then((res) => res.json()).then((j) => { if (!j || !j.ok) throw new Error('refus'); ui.modal = { type: 'avis', done: true }; render(); })
+          .catch(() => fallback(''));
+        return;
+      }
       if (!AVIS.db || !AVIS.user) return fallback(AVIS.ready ? '' : 'La connexion à l’enregistrement des avis n’est pas encore prête.');
       const btn = document.getElementById('avis-send'); if (btn) { btn.disabled = true; btn.textContent = 'Envoi…'; }
       AVIS.user.id().then(async (uid) => {

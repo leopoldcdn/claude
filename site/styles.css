@@ -252,18 +252,13 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .plus:hover { transform: scale(1.1); }
 .rcarte.ouvert .plus { transform: rotate(135deg); background: var(--encre); color: #fff; }
 .rcarte.ouvert .plus:hover { transform: rotate(135deg) scale(1.1); }
-/* Le détail : ce que fait Teamora, la règle appliquée, le lien vers la démo. */
+/* Le détail : les étapes de la rubrique, en puces. */
 .rcarte-d { background: color-mix(in srgb, var(--c) 7%, #fff); border-top: 1px solid color-mix(in srgb, var(--c) 22%, var(--line)); }
-.rcarte-d-in { display: flex; flex-direction: column; gap: 10px; padding: 20px 20px 18px; }
-.rcarte-h { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--encre); padding-right: 44px; }
-.rcarte ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }
-.rcarte li { position: relative; padding-left: 21px; font-size: 13.5px; line-height: 1.45; }
-.rcarte li::before { content: ""; position: absolute; left: 0; top: 3px; width: 13px; height: 13px; border-radius: 4px; background: color-mix(in srgb, var(--c) 22%, #fff) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23141834' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 9px no-repeat; }
-.rcarte .rule { padding: 9px 11px; border-radius: 10px; background: color-mix(in srgb, var(--signal) 28%, #fff); border-left: 3px solid var(--signal); font-size: 13px; line-height: 1.45; color: var(--ink); }
-.rcarte .rule b { display: block; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: #6b4d00; margin-bottom: 1px; }
-.rcarte-demo { margin-top: auto; font-weight: 700; font-size: 14px; color: var(--encre); text-decoration: none; }
-.rcarte-demo:hover { text-decoration: underline; text-underline-offset: 3px; }
-/* Avec JavaScript : la carte s'élargit, le détail se déplie à droite de l'illustration. */
+.rcarte-d-in { display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 64px 24px 24px 22px; }
+.rcarte ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.rcarte li { position: relative; padding-left: 23px; font-size: 14.5px; line-height: 1.45; }
+.rcarte li::before { content: ""; position: absolute; left: 0; top: 3px; width: 14px; height: 14px; border-radius: 4px; background: color-mix(in srgb, var(--c) 22%, #fff) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23141834' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 9px no-repeat; }
+/* Avec JavaScript : la carte s'élargit, les étapes se déplient à droite de l'illustration. */
 .js .rcarte { flex-direction: row; }
 .js .rcarte-a { flex: 0 0 calc(var(--l) - 2px); }
 .js .rcarte-d { position: absolute; top: 0; bottom: 0; left: calc(var(--l) - 2px); width: 340px; border-top: 0; border-left: 1px solid color-mix(in srgb, var(--c) 22%, var(--line)); }
@@ -356,7 +351,7 @@ mark.todo { background: color-mix(in srgb, var(--signal) 55%, var(--surface)); c
   .js .rcarte-d { position: static; width: auto; max-height: 0; overflow: hidden; border-left: 0; border-top: 1px solid color-mix(in srgb, var(--c) 22%, var(--line)); transition: max-height 560ms cubic-bezier(.2, .8, .2, 1); }
   .js .rcarte.ouvert { flex-basis: var(--l); }
   .js .rcarte.ouvert .rcarte-d { max-height: 760px; }
-  .js .rcarte-d-in { height: auto; }
+  .js .rcarte-d-in { height: auto; padding: 20px 20px 22px; }
   .js .rnav { display: none; }
 }
 @media (max-width: 480px) {

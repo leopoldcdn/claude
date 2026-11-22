@@ -283,8 +283,9 @@ def svg_deco(k, h):
 
 # ---------------------------------------------------------------- HTML du carrousel
 def carrousel():
-    # Chaque carte porte un « + » : il élargit la carte et déplie le détail à droite de l'illustration (vers le bas sur
-    # téléphone). Sans JavaScript, le détail reste affiché sous chaque carte.
+    # Chaque carte porte un « + » : il élargit la carte et déplie ses étapes à droite de l'illustration (vers le bas sur
+    # téléphone). Sans JavaScript, les étapes restent affichées sous chaque carte. (La règle de chaque rubrique, `regle`,
+    # n'est plus affichée sur le site.)
     plus = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'
     cartes = '\n'.join(f'''          <article class="rcarte" data-step="{k}" style="--c:{c}" aria-labelledby="rt-{k}">
             <button type="button" class="plus" aria-expanded="false" aria-controls="etape-{k}" aria-label="Voir le détail : {E(n)}" data-nom="{E(n)}">{plus}</button>
@@ -294,9 +295,7 @@ def carrousel():
             </div>
             <div class="rcarte-d" id="etape-{k}">
               <div class="rcarte-d-in">
-                <p class="rcarte-h">Ce que fait Teamora</p>
-                <ul>{''.join(f'<li>{E(p)}</li>' for p in pts)}</ul>{f'<p class="rule"><b>La règle appliquée</b>{E(regle)}</p>' if regle else ''}
-                <a class="rcarte-demo" href="demo/">Essayer dans la démo <span aria-hidden="true">→</span></a>
+                <ul>{''.join(f'<li>{E(p)}</li>' for p in pts)}</ul>
               </div>
             </div>
           </article>''' for i, (k, n, f, c, lead, pts, regle) in enumerate(RUBRIQUES))

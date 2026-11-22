@@ -58,9 +58,10 @@ professionnel du droit social avant la mise en ligne.
 Le carrousel des douze rubriques (section « De A à Z ») est généré par `site/outils/rubriques.py` : textes, couleurs et
 illustrations SVG y sont réunis. Modifie le script puis lance `python3 site/outils/rubriques.py` (il met à jour
 `index.html` entre les repères `rubriques:debut` et `rubriques:fin`, et la planche `site/maquettes/carrousel-rubriques.html`).
-Chaque carte porte un « + » : il élargit la carte dans le carrousel et déplie son détail à droite de l'illustration (ce
-que fait Teamora, la règle appliquée, le lien vers la démo) ; sur téléphone, la carte s'allonge vers le bas. Une seule
-carte est ouverte à la fois, « Échap » la referme. Sans JavaScript, le détail s'affiche sous chaque carte. Les trois
+Chaque carte porte un « + » : il élargit la carte dans le carrousel et déplie les étapes de la rubrique, en puces, à
+droite de l'illustration ; sur téléphone, la carte s'allonge vers le bas. Une seule carte est ouverte à la fois,
+« Échap » la referme. Sans JavaScript, les étapes s'affichent sous chaque carte. La règle de chaque rubrique (`regle`
+dans le script) n'est plus affichée. Les trois
 variantes étudiées sont dans `site/maquettes/detail-plus.html` (c'est la C qui a été retenue).
 Les textes décrivent ce que fait réellement le prototype : à mettre à jour quand l'application évolue.
 Au survol (ou au focus clavier du « + »), une « goutte d'encre » de la teinte de la rubrique part du coin inférieur droit et couvre

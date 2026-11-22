@@ -45,21 +45,23 @@ confidentialité (et, selon l'outil, ajoute un bandeau de consentement).
 
 | Fichier | Rôle |
 |---|---|
-| `index.html`, `styles.css`, `site.js` | La page d'accueil : l'accroche, les aperçus animés (vraies captures de la démo), paie, tarif et démo en trois cartes, les étapes cliquables à côté de la roue, le garde-fou juridique, quatre exemples d'usage (entreprises fictives, signalées comme telles), l'entrée experts-comptables, les questions, puis « Être recontacté » |
+| `index.html`, `styles.css`, `site.js` | La page d'accueil : l'accroche, les aperçus animés (vraies captures de la démo), paie, tarif et démo en trois cartes, le carrousel des douze rubriques (illustrations au trait, teinte de chaque rubrique), le garde-fou juridique, quatre exemples d'usage (entreprises fictives, signalées comme telles), l'entrée experts-comptables, les questions, puis « Être recontacté » |
 | `mentions-legales.html`, `confidentialite.html` | Pages légales, avec les passages à compléter surlignés |
 | `contact.php`, `avis.php`, `envoi.php`, `config.php` | Envoi par e-mail des messages et des avis ; `config.php` est le seul fichier à modifier |
 | `.htaccess` | Protections du navigateur, cache, accès interdit aux fichiers de réglages, HTTPS à activer |
 | `fonts/`, `vendor/gsap.min.js` | Polices Sora et Plus Jakarta Sans (licence SIL OFL) et bibliothèque d'animation (aperçus du site et démo) |
 | `img/` | Image de partage ; `img/apercus/` : captures de la démo pour les aperçus animés et position des boutons (`images.js`) |
 | `build.py` | Assemble `dist/` (site, démo, PHP) ou `dist-apercu/` |
-| `outils/` | Scripts de l'image de partage et des captures des aperçus |
+| `outils/` | Scripts de l'image de partage, des captures des aperçus et du carrousel des rubriques |
 
 Les textes reprennent ce que fait réellement le prototype (module Obligations, parcours, espaces). Les règles juridiques
 citées (seuils, règles de franchissement de la loi PACTE, entretien de parcours professionnel) sont à faire relire par un
 professionnel du droit social avant la mise en ligne.
 
-Le texte des douze étapes (section « De A à Z ») est directement dans `index.html`, un bloc `<article class="detail">` par
-rubrique : il décrit ce que fait réellement le prototype. Mets-le à jour quand l'application évolue.
+Le carrousel des douze rubriques (section « De A à Z ») est généré par `site/outils/rubriques.py` : textes, couleurs et
+illustrations SVG y sont réunis. Modifie le script puis lance `python3 site/outils/rubriques.py` (il met à jour
+`index.html` entre les repères `rubriques:debut` et `rubriques:fin`, et la planche `site/maquettes/carrousel-rubriques.html`).
+Les textes décrivent ce que fait réellement le prototype : à mettre à jour quand l'application évolue.
 
 Les quatre exemples d'usage mettent en scène des entreprises **fictives** : ils sont marqués « Exemple fictif » et ne
 contiennent ni citation, ni logo, ni chiffre de résultat. Remplace-les par de vrais cas clients (avec l'accord écrit des

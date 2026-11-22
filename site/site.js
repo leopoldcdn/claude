@@ -26,68 +26,47 @@
     if ($('.hero')) spy.observe($('.hero'));
   }
 
-  // 1. Explorateur : familles, étapes, roue. Une seule étape affichée à la fois.
-  var details = $$('.detail'), picks = $$('.pick'), fams = $$('.fam'), nodes = $$('.node');
-  var hubFam = $('#hub-fam'), hubNom = $('#hub-nom'), panel = $('.panel');
-  var famName = {}; fams.forEach(function (f) { famName[f.dataset.fam] = f.firstChild.textContent.trim(); });
-  var stepName = {}; picks.forEach(function (p) { stepName[p.dataset.step] = p.textContent.trim(); });
-  var current = null;
-  var showHub = function (step) { var d = $('#etape-' + step); if (!d || !hubNom) return; hubFam.textContent = famName[d.dataset.fam]; hubNom.textContent = stepName[step]; };
-  function select(step, fromWheel) {
+  // 1. Carrousel des rubriques : une carte par rubrique ; le détail de la carte choisie s'affiche dessous.
+  var details = $$('.detail'), cartes = $$('.rcarte'), puces = $$('.rpuce'), track = $('.rtrack');
+  var prev = $('.rnav.prev'), next = $('.rnav.next'), current = null;
+  var ordre = cartes.map(function (c) { return c.dataset.step; });
+  function select(step, opts) {
+    opts = opts || {};
     var d = $('#etape-' + step); if (!d) return;
-    var fam = d.dataset.fam;
     var changed = current !== null && current !== step;
     details.forEach(function (x) { x.hidden = x !== d; });
     if (changed && !reduce) { d.classList.remove('enter'); void d.offsetWidth; d.classList.add('enter'); }
-    picks.forEach(function (p) { p.hidden = p.dataset.fam !== fam; p.setAttribute('aria-pressed', String(p.dataset.step === step)); });
-    fams.forEach(function (f) { f.setAttribute('aria-pressed', String(f.dataset.fam === fam)); });
-    nodes.forEach(function (n) { n.setAttribute('aria-pressed', String(n.dataset.step === step)); });
-    current = step; showHub(step);
-    // Sur téléphone, la roue est au-dessus du panneau : on fait descendre jusqu'au détail choisi.
-    if (fromWheel && panel && window.innerWidth <= 920) panel.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    cartes.concat(puces).forEach(function (c) { c.setAttribute('aria-pressed', String(c.dataset.step === step)); });
+    current = step;
+    var i = ordre.indexOf(step);
+    if (prev) prev.disabled = i <= 0;
+    if (next) next.disabled = i >= ordre.length - 1;
+    // La carte choisie vient au centre de la rangée.
+    var carte = cartes[i];
+    if (carte && track && opts.scroll !== false) {
+      var gauche = carte.offsetLeft - track.offsetLeft - (track.clientWidth - carte.offsetWidth) / 2;
+      track.scrollTo({ left: Math.max(0, gauche), behavior: reduce ? 'auto' : 'smooth' });
+    }
+    // Si le détail est hors de l'écran (téléphone), on descend jusqu'à lui.
+    if (opts.voir) { var r = d.getBoundingClientRect(); if (r.top > window.innerHeight * 0.8 || r.bottom < 0) d.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' }); }
   }
-  if (details.length) {
-    fams.forEach(function (f) { f.addEventListener('click', function () { var first = picks.filter(function (p) { return p.dataset.fam === f.dataset.fam; })[0]; if (first) select(first.dataset.step); }); });
-    picks.forEach(function (p) { p.addEventListener('click', function () { select(p.dataset.step); }); });
-    nodes.forEach(function (n) {
-      n.addEventListener('click', function () { select(n.dataset.step, true); });
-      // Survol ou focus d'une rubrique : son nom s'affiche au centre de la roue, comme dans le logiciel.
-      n.addEventListener('mouseenter', function () { showHub(n.dataset.step); });
-      n.addEventListener('focus', function () { showHub(n.dataset.step); });
-      n.addEventListener('mouseleave', function () { showHub(current); });
-      n.addEventListener('blur', function () { showHub(current); });
+  if (details.length && cartes.length) {
+    cartes.forEach(function (c) { c.addEventListener('click', function () { select(c.dataset.step, { voir: true }); }); });
+    puces.forEach(function (p) { p.addEventListener('click', function () { select(p.dataset.step); }); });
+    var pas = function (k) { var i = ordre.indexOf(current) + k; if (i >= 0 && i < ordre.length) { select(ordre[i]); return cartes[i]; } };
+    if (prev) prev.addEventListener('click', function () { pas(-1); });
+    if (next) next.addEventListener('click', function () { pas(1); });
+    // Clavier : flèches gauche et droite dans la rangée de cartes.
+    if (track) track.addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault(); var c = pas(e.key === 'ArrowRight' ? 1 : -1); if (c) c.focus({ preventScroll: true });
     });
-    select(details[0].dataset.step);
-    // La ligne des étapes garde la hauteur de la famille la plus fournie (« Gérer » passe sur deux lignes) : le panneau ne saute pas.
-    var picksBox = $('.picks');
-    var equalize = function () {
-      if (!picksBox) return;
-      var fam = $('#etape-' + current).dataset.fam, max = 0;
-      picksBox.style.minHeight = '';
-      fams.forEach(function (f) { picks.forEach(function (p) { p.hidden = p.dataset.fam !== f.dataset.fam; }); max = Math.max(max, picksBox.offsetHeight); });
-      picks.forEach(function (p) { p.hidden = p.dataset.fam !== fam; });
-      picksBox.style.minHeight = max + 'px';
-    };
-    equalize();
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(equalize);
-    var resizeTimer = null;
-    window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(equalize, 150); });
+    select(ordre[0], { scroll: false });
   }
 
-  // Liens des exemples : « Voir l'étape… » choisit l'étape dans l'explorateur, « Voir l'aperçu… » lance le bon aperçu.
-  $$('[data-step]').forEach(function (a) { if (a.tagName !== 'A') return; a.addEventListener('click', function () { if (details.length) select(a.dataset.step); }); });
+  // Liens des exemples : « Voir l'étape… » choisit la rubrique dans le carrousel, « Voir l'aperçu… » lance le bon aperçu.
+  $$('a[data-step]').forEach(function (a) { a.addEventListener('click', function () { if (details.length) select(a.dataset.step); }); });
   $$('a[data-apercu]').forEach(function (a) { a.addEventListener('click', function () { document.dispatchEvent(new CustomEvent('teamora:apercu', { detail: a.dataset.apercu })); }); });
-
-  // La roue se déploie un peu quand elle arrive à l'écran (les rubriques restent visibles avant).
-  var wheel = $('.wheel');
-  if (wheel && !reduce && 'IntersectionObserver' in window) {
-    nodes.forEach(function (n, i) { n.style.transitionDelay = (i * 40) + 'ms'; });
-    wheel.classList.add('pop');
-    whenVisible(wheel, function () {
-      wheel.classList.remove('pop');
-      setTimeout(function () { nodes.forEach(function (n) { n.style.transitionDelay = ''; }); }, 1100);
-    });
-  }
 
   // 2. Le repère « Votre PME » glisse de 38 à 44 salariés quand la règle des seuils apparaît.
   var you = $('.you');

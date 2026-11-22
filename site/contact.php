@@ -1,5 +1,5 @@
 <?php
-// Formulaire de contact du site Teamora : vérifie le message et l'envoie par e-mail. Rien n'est enregistré sur le serveur.
+// Formulaire « Être recontacté » du site Teamora : vérifie la demande et l'envoie par e-mail. Rien n'est enregistré sur le serveur.
 require __DIR__ . '/envoi.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') { header('Location: index.html#contact', true, 303); exit; }
@@ -16,17 +16,19 @@ $email = teamora_ligne($_POST['email'] ?? '', 160);
 $entreprise = teamora_ligne($_POST['entreprise'] ?? '', 160);
 $effectif = teamora_ligne($_POST['effectif'] ?? '', 40);
 $fonction = teamora_ligne($_POST['fonction'] ?? '', 80);
+$telephone = preg_replace('/[^0-9+ .()-]/', '', teamora_ligne($_POST['telephone'] ?? '', 30));
 $message = teamora_texte($_POST['message'] ?? '', 4000);
 
-if ($nom === '' || $message === '') teamora_repondre(false, 'Remplissez votre nom et votre message.', 422);
+if ($nom === '') teamora_repondre(false, 'Indiquez votre nom.', 422);
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) teamora_repondre(false, 'Indiquez une adresse e-mail valide.', 422);
 
-$lignes = ["Nouveau message depuis le site Teamora", '', "Nom : $nom", "E-mail : $email"];
+$lignes = ["Demande de rappel depuis le site Teamora", '', "Nom : $nom", "E-mail : $email"];
+if ($telephone !== '') $lignes[] = "Téléphone : $telephone";
 if ($entreprise !== '') $lignes[] = "Entreprise : $entreprise";
 if ($effectif !== '') $lignes[] = "Effectif : $effectif";
 if ($fonction !== '') $lignes[] = "Fonction : $fonction";
-$lignes[] = ''; $lignes[] = $message; $lignes[] = '';
+$lignes[] = ''; $lignes[] = $message !== '' ? $message : '(pas de message)'; $lignes[] = '';
 $lignes[] = '(Répondez directement à ce message pour écrire à cette personne.)';
 
-$ok = teamora_envoyer('Contact Teamora : ' . $nom . ($entreprise !== '' ? " ($entreprise)" : ''), implode("\n", $lignes), $email);
+$ok = teamora_envoyer('Être recontacté : ' . $nom . ($entreprise !== '' ? " ($entreprise)" : ''), implode("\n", $lignes), $email);
 teamora_repondre($ok, $ok ? '' : 'Le message n’a pas pu partir. Réessayez plus tard.', $ok ? 200 : 500);

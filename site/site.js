@@ -1,4 +1,4 @@
-// Teamora · site de présentation : la barre de navigation, le questionnaire de l'accroche, le carrousel des rubriques,
+// Teamora · site de présentation : la barre de navigation, le questionnaire de l'accroche, le carrousel des rubriques (« + »),
 // l'envoi des avis (« Aidez-nous à améliorer Teamora ») et du formulaire « Être recontacté ». Sans JavaScript, toutes les étapes restent lisibles les unes sous les autres.
 (function () {
   'use strict';
@@ -81,41 +81,56 @@
     montrer(0, 0);
   }
 
-  // 1. Carrousel des rubriques : une carte par rubrique ; le détail de la carte choisie s'affiche dessous.
-  var details = $$('.detail'), cartes = $$('.rcarte'), track = $('.rtrack');
-  var prev = $('.rnav.prev'), next = $('.rnav.next'), current = null;
-  var ordre = cartes.map(function (c) { return c.dataset.step; });
-  function select(step, opts) {
-    opts = opts || {};
-    var d = $('#etape-' + step); if (!d) return;
-    var changed = current !== null && current !== step;
-    details.forEach(function (x) { x.hidden = x !== d; });
-    if (changed && !reduce) { d.classList.remove('enter'); void d.offsetWidth; d.classList.add('enter'); }
-    cartes.forEach(function (c) { c.setAttribute('aria-pressed', String(c.dataset.step === step)); });
-    current = step;
-    var i = ordre.indexOf(step);
-    if (prev) prev.disabled = i <= 0;
-    if (next) next.disabled = i >= ordre.length - 1;
-    // La carte choisie vient au centre de la rangée.
-    var carte = cartes[i];
-    if (carte && track && opts.scroll !== false) {
-      var gauche = carte.offsetLeft - track.offsetLeft - (track.clientWidth - carte.offsetWidth) / 2;
-      track.scrollTo({ left: Math.max(0, gauche), behavior: reduce ? 'auto' : 'smooth' });
-    }
-    // Si le détail est hors de l'écran (téléphone), on descend jusqu'à lui.
-    if (opts.voir) { var r = d.getBoundingClientRect(); if (r.top > window.innerHeight * 0.8 || r.bottom < 0) d.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' }); }
-  }
-  if (details.length && cartes.length) {
-    cartes.forEach(function (c) { c.addEventListener('click', function () { select(c.dataset.step, { voir: true }); }); });
-    var pas = function (k) { var i = ordre.indexOf(current) + k; if (i >= 0 && i < ordre.length) { select(ordre[i]); return cartes[i]; } };
-    if (prev) prev.addEventListener('click', function () { pas(-1); });
-    if (next) next.addEventListener('click', function () { pas(1); });
-    // Clavier : flèches gauche et droite dans la rangée de cartes.
-    if (track) track.addEventListener('keydown', function (e) {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      e.preventDefault(); var c = pas(e.key === 'ArrowRight' ? 1 : -1); if (c) c.focus({ preventScroll: true });
+  // 1. Carrousel des rubriques : le « + » d'une carte l'élargit et déplie son détail (une seule carte ouverte à la fois,
+  // « Échap » la referme) ; les flèches font défiler la rangée.
+  var cartes = $$('.rcarte'), track = $('.rtrack'), prev = $('.rnav.prev'), next = $('.rnav.next');
+  if (cartes.length && track) {
+    // Les cartes fermées ont toutes la hauteur de la plus haute ; seule la carte ouverte grandit.
+    var egaliser = function () {
+      track.style.removeProperty('--h');
+      var h = 0; cartes.forEach(function (c) { h = Math.max(h, $('.rcarte-a', c).offsetHeight); });
+      track.style.setProperty('--h', h + 'px');
+    };
+    var basculer = function (carte, ouvrir) {
+      var b = $('.plus', carte), d = $('.rcarte-d', carte), contenu = $('.rcarte-d-in', carte);
+      carte.classList.toggle('ouvert', ouvrir);
+      b.setAttribute('aria-expanded', String(ouvrir));
+      b.setAttribute('aria-label', (ouvrir ? 'Fermer le détail : ' : 'Voir le détail : ') + b.dataset.nom);
+      d.inert = !ouvrir;
+      // Détail à droite (ordinateur) : la carte s'allonge si le détail est plus long que l'illustration et son texte.
+      carte.style.minHeight = ouvrir && getComputedStyle(d).position === 'absolute' ? Math.max($('.rcarte-a', carte).offsetHeight, contenu.scrollHeight) + 2 + 'px' : '';
+      if (ouvrir) track.scrollTo({ left: Math.max(0, carte.offsetLeft - track.offsetLeft - 4), behavior: reduce ? 'auto' : 'smooth' });
+    };
+    cartes.forEach(function (c) {
+      $('.rcarte-d', c).inert = true;
+      $('.plus', c).addEventListener('click', function () {
+        var ouvrir = !c.classList.contains('ouvert');
+        if (ouvrir) cartes.forEach(function (x) { if (x !== c && x.classList.contains('ouvert')) basculer(x, false); });
+        basculer(c, ouvrir);
+      });
     });
-    select(ordre[0], { scroll: false });
+    // Flèches : une carte de plus ou de moins ; elles disparaissent aux deux bouts de la rangée.
+    var bouts = function () {
+      if (prev) prev.disabled = track.scrollLeft <= 2;
+      if (next) next.disabled = track.scrollLeft >= track.scrollWidth - track.clientWidth - 2;
+    };
+    var defiler = function (k) { track.scrollBy({ left: k * (cartes[0].offsetWidth + 16), behavior: reduce ? 'auto' : 'smooth' }); };
+    if (prev) prev.addEventListener('click', function () { defiler(-1); });
+    if (next) next.addEventListener('click', function () { defiler(1); });
+    track.addEventListener('scroll', bouts, { passive: true });
+    // Clavier : les flèches passent d'un « + » à l'autre ; « Échap » referme la carte ouverte.
+    track.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { var o = e.target.closest('.rcarte.ouvert'); if (o) { basculer(o, false); $('.plus', o).focus(); } return; }
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      var ici = e.target.closest('.rcarte'), i = ici ? cartes.indexOf(ici) + (e.key === 'ArrowRight' ? 1 : -1) : 0;
+      if (i < 0 || i >= cartes.length) return;
+      e.preventDefault();
+      $('.plus', cartes[i]).focus({ preventScroll: true });
+      cartes[i].scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest', inline: 'nearest' });
+    });
+    egaliser(); bouts();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(egaliser);
+    window.addEventListener('resize', function () { egaliser(); bouts(); });
   }
 
   // 2. « Aidez-nous à améliorer Teamora » : un avis sans nom, envoyé à avis.php comme « Donner mon avis » dans la démo.

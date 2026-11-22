@@ -283,34 +283,32 @@ def svg_deco(k, h):
 
 # ---------------------------------------------------------------- HTML du carrousel
 def carrousel():
-    cartes = '\n'.join(f'''          <button type="button" class="rcarte" data-step="{k}" style="--c:{c}" aria-pressed="{"true" if i == 0 else "false"}" aria-controls="etape-{k}">
-            <span class="rcarte-ill">{svg_deco(k, c)}</span>
-            <span class="rcarte-b"><span class="reye"><i></i>{FAMILLES[f]} · {i + 1} sur 12</span><span class="rcarte-t">{E(n)}</span><span class="rcarte-p">{E(lead)}</span><span class="rcarte-more">Voir le détail <span aria-hidden="true">→</span></span></span>
-          </button>''' for i, (k, n, f, c, lead, pts, regle) in enumerate(RUBRIQUES))
-    details = '\n'.join(f'''        <article class="detail" id="etape-{k}" data-step="{k}" style="--c:{c}">
-          <div class="detail-tete">
-            <p class="reye"><i></i>{FAMILLES[f]} · rubrique {i + 1} sur 12</p>
-            <h3>{E(n)}</h3>
-            <p class="detail-lead">{E(lead)}</p>
-          </div>
-          <div class="detail-txt">
-            <p class="detail-h">Ce que fait Teamora</p>
-            <ul>{''.join(f'<li>{E(p)}</li>' for p in pts)}</ul>{f'{chr(10)}            <p class="rule"><b>La règle appliquée</b>{E(regle)}</p>' if regle else ''}
-            <a class="btn btn-primary" href="demo/">Essayer dans la démo</a>
-          </div>
-        </article>''' for i, (k, n, f, c, lead, pts, regle) in enumerate(RUBRIQUES))
+    # Chaque carte porte un « + » : il élargit la carte et déplie le détail à droite de l'illustration (vers le bas sur
+    # téléphone). Sans JavaScript, le détail reste affiché sous chaque carte.
+    plus = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'
+    cartes = '\n'.join(f'''          <article class="rcarte" data-step="{k}" style="--c:{c}" aria-labelledby="rt-{k}">
+            <button type="button" class="plus" aria-expanded="false" aria-controls="etape-{k}" aria-label="Voir le détail : {E(n)}" data-nom="{E(n)}">{plus}</button>
+            <div class="rcarte-a">
+              <span class="rcarte-ill">{svg_deco(k, c)}</span>
+              <div class="rcarte-b"><span class="reye"><i></i>{FAMILLES[f]} · {i + 1} sur 12</span><h3 class="rcarte-t" id="rt-{k}">{E(n)}</h3><p class="rcarte-p">{E(lead)}</p></div>
+            </div>
+            <div class="rcarte-d" id="etape-{k}">
+              <div class="rcarte-d-in">
+                <p class="rcarte-h">Ce que fait Teamora</p>
+                <ul>{''.join(f'<li>{E(p)}</li>' for p in pts)}</ul>{f'<p class="rule"><b>La règle appliquée</b>{E(regle)}</p>' if regle else ''}
+                <a class="rcarte-demo" href="demo/">Essayer dans la démo <span aria-hidden="true">→</span></a>
+              </div>
+            </div>
+          </article>''' for i, (k, n, f, c, lead, pts, regle) in enumerate(RUBRIQUES))
     return f'''      <!-- rubriques:debut (généré par site/outils/rubriques.py : modifier le script, pas ce bloc) -->
       <div class="carrousel" id="carrousel">
         <div class="rtrack-wrap">
-          <button type="button" class="rnav prev" aria-label="Rubrique précédente"><span aria-hidden="true">←</span></button>
+          <button type="button" class="rnav prev" aria-label="Rubriques précédentes"><span aria-hidden="true">←</span></button>
           <div class="rtrack" tabindex="0" role="group" aria-label="Cartes des rubriques, défilement horizontal">
 {cartes}
           </div>
-          <button type="button" class="rnav next" aria-label="Rubrique suivante"><span aria-hidden="true">→</span></button>
+          <button type="button" class="rnav next" aria-label="Rubriques suivantes"><span aria-hidden="true">→</span></button>
         </div>
-      </div>
-      <div class="details" aria-live="polite">
-{details}
       </div>
       <!-- rubriques:fin -->'''
 

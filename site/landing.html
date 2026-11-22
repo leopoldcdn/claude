@@ -91,7 +91,8 @@
   .quiz-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .badge { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px 4px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-dark); font-size: 13px; font-weight: 700; }
   .badge svg { width: 15px; height: 15px; color: var(--accent); }
-  .c-court { display: none; }
+  /* Compteur : « 1/4 » à l’écran ; les lecteurs d’écran entendent « Question 1 sur 4 ». */
+  .c-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .compteur { font-size: 13px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
   .progres { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 14px 0 26px; }
   .progres i { height: 4px; border-radius: 99px; background: var(--line); overflow: hidden; }
@@ -189,7 +190,6 @@
     .marque { margin-right: 4px; }
     .essai { gap: 8px; padding-right: 14px; }
     .cta-l { display: none; } .cta-c { display: inline; }
-    .c-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } .c-court { display: inline; }
   }
   @media (prefers-reduced-motion: reduce) {
     .fond i, .monte, .etape.entre, .fin.joue * { animation: none !important; }
@@ -240,7 +240,7 @@
     <form id="quiz" novalidate>
       <div class="quiz-tete">
         <span class="badge"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>Votre démo en 4 questions</span>
-        <span class="compteur" aria-live="polite"><span class="c-long" id="compteur">Question 1 sur 4</span><span class="c-court" id="compteur-court" aria-hidden="true">1 / 4</span></span>
+        <span class="compteur" aria-live="polite"><span class="c-long" id="compteur">Question 1 sur 4</span><span class="c-court" id="compteur-court" aria-hidden="true">1/4</span></span>
       </div>
       <div class="progres" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 
@@ -336,7 +336,7 @@
     });
     barres.forEach(function (b, k) { b.classList.toggle('fait', k <= i); });
     document.getElementById('compteur').textContent = 'Question ' + (i + 1) + ' sur 4';
-    document.getElementById('compteur-court').textContent = (i + 1) + ' / 4';
+    document.getElementById('compteur-court').textContent = (i + 1) + '/4';
     retour.classList.toggle('cache', i === 0); retour.tabIndex = i === 0 ? -1 : 0;
     if (avant !== i) {
       if (i === 3 && sens > 0) document.getElementById('email').focus({ preventScroll: true });

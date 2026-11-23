@@ -107,6 +107,17 @@
       var h = 0; cartes.forEach(function (c) { h = Math.max(h, $('.rcarte-a', c).offsetHeight); });
       track.style.setProperty('--h', h + 'px');
     };
+    // Le détail : la liste prend la largeur de sa ligne la plus longue, pour se centrer dans sa zone.
+    var resserrer = function () {
+      var r = document.createRange();
+      cartes.forEach(function (c) {
+        var ul = $('.rcarte-d ul', c); if (!ul) return;
+        ul.style.width = '';
+        var g = ul.getBoundingClientRect().left, d = g;
+        $$('li', ul).forEach(function (li) { r.selectNodeContents(li); Array.prototype.forEach.call(r.getClientRects(), function (x) { d = Math.max(d, x.right); }); });
+        if (d > g) ul.style.width = Math.ceil(d - g) + 1 + 'px';
+      });
+    };
     var basculer = function (carte, ouvrir) {
       var b = $('.plus', carte), d = $('.rcarte-d', carte), contenu = $('.rcarte-d-in', carte);
       carte.classList.toggle('ouvert', ouvrir);
@@ -156,9 +167,9 @@
       $('.plus', cartes[i]).focus({ preventScroll: true });
       cartes[i].scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest', inline: 'nearest' });
     });
-    egaliser(); bouts();
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(egaliser);
-    window.addEventListener('resize', function () { egaliser(); bouts(); });
+    egaliser(); resserrer(); bouts();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { egaliser(); resserrer(); });
+    window.addEventListener('resize', function () { egaliser(); resserrer(); bouts(); });
   }
 
   // 2. « Aidez-nous à améliorer Teamora » : un avis sans nom, envoyé à avis.php comme « Donner mon avis » dans la démo.

@@ -282,7 +282,9 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .js .rcarte { flex-direction: row; }
 .js .rcarte-a { flex: 0 0 calc(var(--l) - 2px); }
 .js .rcarte-d { position: absolute; top: 0; bottom: 0; left: calc(var(--l) - 2px); width: 340px; border-top: 0; border-left: 1px solid color-mix(in srgb, var(--c) 22%, var(--line)); }
-.js .rcarte-d-in { height: 100%; opacity: 0; transform: translateX(-12px); transition: opacity 180ms ease, transform 180ms ease; }
+/* Zone du texte : à gauche de la colonne du « × » ; la liste se resserre sur sa ligne la plus longue (site.js) et s'y centre. */
+.js .rcarte-d-in { height: 100%; padding: 24px 66px 24px 16px; opacity: 0; transform: translateX(-12px); transition: opacity 180ms ease, transform 180ms ease; }
+.js .rcarte-d ul { align-self: center; }
 .js .rcarte.ouvert { flex-basis: calc(var(--l) + 340px); }
 .js .rcarte.ouvert .rcarte-d-in { opacity: 1; transform: none; transition: opacity 320ms var(--ease) 260ms, transform 320ms var(--ease) 260ms; }
 .rnav { display: none; position: absolute; top: calc(50% - 32px); z-index: 4; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 700 18px/1 var(--f-body); place-items: center; cursor: pointer; box-shadow: var(--shadow);

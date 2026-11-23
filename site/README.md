@@ -59,7 +59,8 @@ Le carrousel des douze rubriques (section « De A à Z ») est généré par `si
 illustrations SVG y sont réunis. Modifie le script puis lance `python3 site/outils/rubriques.py` (il met à jour
 `index.html` entre les repères `rubriques:debut` et `rubriques:fin`, et la planche `site/maquettes/carrousel-rubriques.html`).
 Chaque carte porte un « + » : il élargit la carte dans le carrousel et déplie les étapes de la rubrique, en puces, à
-droite de l'illustration ; sur téléphone, la carte s'allonge vers le bas. Une seule carte est ouverte à la fois,
+droite de l'illustration, centrées dans la zone à gauche du « × » (la liste se resserre sur sa ligne la plus longue) ;
+sur téléphone, la carte s'allonge vers le bas. Une seule carte est ouverte à la fois,
 « Échap » la referme. Sans JavaScript, les étapes s'affichent sous chaque carte. Les bords de la rangée sont en fondu,
 seulement du côté où il reste des cartes à faire défiler ; sous la rangée, douze segments aux couleurs des rubriques
 remplacent la barre de défilement. La règle de chaque rubrique (`regle`

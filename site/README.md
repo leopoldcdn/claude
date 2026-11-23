@@ -63,8 +63,7 @@ droite de l'illustration ; sur téléphone, la carte s'allonge vers le bas. Une 
 « Échap » la referme. Sans JavaScript, les étapes s'affichent sous chaque carte. Les bords de la rangée sont en fondu,
 seulement du côté où il reste des cartes à faire défiler ; sous la rangée, douze segments aux couleurs des rubriques
 remplacent la barre de défilement. La règle de chaque rubrique (`regle`
-dans le script) n'est plus affichée. Les trois
-variantes étudiées sont dans `site/maquettes/detail-plus.html` (c'est la C qui a été retenue).
+dans le script) n'est plus affichée.
 Les textes décrivent ce que fait réellement le prototype : à mettre à jour quand l'application évolue.
 Au survol (ou au focus clavier du « + »), une « goutte d'encre » de la teinte de la rubrique part du coin inférieur droit et couvre
 la carte, puis se résorbe au départ du pointeur (`.rcarte-a::before` dans `styles.css`). Elle est désactivée si le visiteur a

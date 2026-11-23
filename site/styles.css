@@ -297,7 +297,7 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .rprog i.on { opacity: 1; }
 .rprog i.ouvert { height: 8px; }
 
-/* ---------- 5. Être recontacté ---------- */
+/* ---------- 6. Être recontacté ---------- */
 .contact { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(32px, 5vw, 64px); align-items: start; }
 .aside-contact { display: grid; gap: 16px; color: var(--muted); justify-items: start; }
 .aside-contact h2 { font-size: clamp(30px, 4vw, 48px); color: var(--ink); }

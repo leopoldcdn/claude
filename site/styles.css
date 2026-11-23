@@ -227,6 +227,19 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .rtrack { display: flex; align-items: flex-start; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-inline: 4px; padding: 8px 4px 20px; scrollbar-width: thin; overscroll-behavior-x: contain; }
 .js .rtrack { padding-bottom: 40px; scrollbar-width: none; }
 .js .rtrack::-webkit-scrollbar { display: none; }
+/* Bords en fondu : les cartes coupées par le bord s'estompent au lieu d'être tranchées net. Le fondu n'apparaît que du
+   côté où il reste des cartes à faire défiler (classes posées par site.js), pour que la première et la dernière carte
+   restent nettes une fois arrivé au bout. */
+@property --fondu-g { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --fondu-d { syntax: "<length>"; inherits: false; initial-value: 0px; }
+.js .rtrack { --fondu-g: 0px; --fondu-d: 0px;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fondu-g), #000 calc(100% - var(--fondu-d)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--fondu-g), #000 calc(100% - var(--fondu-d)), transparent 100%);
+  transition: --fondu-g var(--t-slow) var(--ease), --fondu-d var(--t-slow) var(--ease); }
+.js .rtrack.fondu-g { --fondu-g: 80px; }
+.js .rtrack.fondu-d { --fondu-d: 80px; }
+/* Les cartes se calent juste après la zone de fondu : seule la fin de la carte précédente s’estompe. */
+.js .rtrack { scroll-padding-inline: 84px; }
 .rtrack:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 16px; }
 .rcarte { --l: clamp(250px, 27vw, 300px); --encre: color-mix(in srgb, var(--c) 72%, #000); position: relative; flex: 0 0 var(--l); scroll-snap-align: start; display: flex; flex-direction: column;
   border: 1px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--ink); overflow: hidden;
@@ -364,6 +377,9 @@ mark.todo { background: color-mix(in srgb, var(--signal) 55%, var(--surface)); c
   .js .rcarte.ouvert .rcarte-d { max-height: 760px; }
   .js .rcarte-d-in { height: auto; padding: 20px 20px 22px; }
   .js .rnav { display: none; }
+  .js .rtrack.fondu-g { --fondu-g: 32px; }
+  .js .rtrack.fondu-d { --fondu-d: 32px; }
+  .js .rtrack { scroll-padding-inline: 36px; }
 }
 @media (max-width: 480px) {
   .essai { right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); height: 48px; font-size: 14.5px; }
@@ -371,7 +387,7 @@ mark.todo { background: color-mix(in srgb, var(--signal) 55%, var(--surface)); c
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .btn, .faq summary::after, .liens a, .essai, .opt, .champ input, .retour, .progres i::after, .quiz .btn svg, .rcarte, .rnav, .rcarte-a::before, .rcarte-b > *, .reye i, .plus, .rcarte-d, .rcarte-d-in, .rprog i { transition: none !important; }
+  .btn, .faq summary::after, .liens a, .essai, .opt, .champ input, .retour, .progres i::after, .quiz .btn svg, .rcarte, .rnav, .rcarte-a::before, .rcarte-b > *, .reye i, .plus, .rcarte-d, .rcarte-d-in, .rprog i, .rtrack { transition: none !important; }
   .btn:active { transform: none; }
   .btn:hover, .essai:hover { transform: none; }
   .essai { animation: none; }

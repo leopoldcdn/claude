@@ -60,7 +60,9 @@ illustrations SVG y sont réunis. Modifie le script puis lance `python3 site/out
 `index.html` entre les repères `rubriques:debut` et `rubriques:fin`, et la planche `site/maquettes/carrousel-rubriques.html`).
 Chaque carte porte un « + » : il élargit la carte dans le carrousel et déplie les étapes de la rubrique, en puces, à
 droite de l'illustration ; sur téléphone, la carte s'allonge vers le bas. Une seule carte est ouverte à la fois,
-« Échap » la referme. Sans JavaScript, les étapes s'affichent sous chaque carte. La règle de chaque rubrique (`regle`
+« Échap » la referme. Sans JavaScript, les étapes s'affichent sous chaque carte. Les bords de la rangée sont en fondu,
+seulement du côté où il reste des cartes à faire défiler ; sous la rangée, douze segments aux couleurs des rubriques
+remplacent la barre de défilement. La règle de chaque rubrique (`regle`
 dans le script) n'est plus affichée. Les trois
 variantes étudiées sont dans `site/maquettes/detail-plus.html` (c'est la C qui a été retenue).
 Les textes décrivent ce que fait réellement le prototype : à mettre à jour quand l'application évolue.

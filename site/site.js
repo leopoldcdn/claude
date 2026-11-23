@@ -115,7 +115,8 @@
       d.inert = !ouvrir;
       // Détail à droite (ordinateur) : la carte s'allonge si le détail est plus long que l'illustration et son texte.
       carte.style.minHeight = ouvrir && getComputedStyle(d).position === 'absolute' ? Math.max($('.rcarte-a', carte).offsetHeight, contenu.scrollHeight) + 2 + 'px' : '';
-      if (ouvrir) track.scrollTo({ left: Math.max(0, carte.offsetLeft - track.offsetLeft - (parseFloat(getComputedStyle(track).paddingLeft) || 0)), behavior: reduce ? 'auto' : 'smooth' });
+      // La carte ouverte se cale juste après la zone de fondu de gauche (ou au tout début pour la première).
+      if (ouvrir) track.scrollTo({ left: Math.max(0, carte.offsetLeft - track.offsetLeft - (parseFloat(getComputedStyle(track).scrollPaddingLeft) || 0)), behavior: reduce ? 'auto' : 'smooth' });
       bouts(); setTimeout(bouts, 620);
     };
     cartes.forEach(function (c) {
@@ -132,6 +133,9 @@
     var bouts = function () {
       if (prev) prev.disabled = track.scrollLeft <= 2;
       if (next) next.disabled = track.scrollLeft >= track.scrollWidth - track.clientWidth - 2;
+      // Bords en fondu seulement du côté où il reste des cartes.
+      track.classList.toggle('fondu-g', track.scrollLeft > 2);
+      track.classList.toggle('fondu-d', track.scrollLeft < track.scrollWidth - track.clientWidth - 2);
       var t = track.getBoundingClientRect();
       cartes.forEach(function (c, i) {
         var r = c.getBoundingClientRect(), vu = Math.min(r.right, t.right) - Math.max(r.left, t.left);

@@ -42,7 +42,7 @@ confidentialité (et, selon l'outil, ajoute un bandeau de consentement).
 
 | Fichier | Rôle |
 |---|---|
-| `index.html`, `styles.css`, `site.js` | La page d'accueil, sur le fond coloré de l'accueil du logiciel : une barre de navigation flottante, l'accroche (« Toute votre GRH, dans les règles », avec à droite un questionnaire en quatre questions qui prépare la démo), le carrousel des douze rubriques (illustrations au trait, teinte de chaque rubrique), « Aidez-nous à améliorer Teamora » (un avis sans nom), l'entrée experts-comptables, les questions, puis « Être recontacté » |
+| `index.html`, `styles.css`, `site.js` | La page d'accueil, sur le fond coloré de l'accueil du logiciel : une barre de navigation flottante (rubriques centrées), un bouton « Tester la démo » fixé en bas à droite de l’écran (aussi sur les pages légales), l'accroche (« Toute votre GRH, dans les règles », avec à droite un questionnaire en quatre questions qui prépare la démo), le carrousel des douze rubriques (illustrations au trait, teinte de chaque rubrique), « Aidez-nous à améliorer Teamora » (un avis sans nom), l'entrée experts-comptables, les questions, puis « Être recontacté » |
 | `mentions-legales.html`, `confidentialite.html` | Pages légales, avec les passages à compléter surlignés |
 | `contact.php`, `avis.php`, `envoi.php`, `config.php` | Envoi par e-mail des messages et des avis (formulaire du site et bouton de la démo) ; `config.php` est le seul fichier à modifier |
 | `.htaccess` | Protections du navigateur, cache, accès interdit aux fichiers de réglages, HTTPS à activer |

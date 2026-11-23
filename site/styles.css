@@ -48,25 +48,27 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 
 /* ---------- En-tête : barre flottante, alignée sur la largeur du contenu ---------- */
 .barre { position: sticky; top: 16px; z-index: 20; width: min(1120px, calc(100% - 2 * clamp(16px, 4vw, 40px))); margin: 16px auto 0; }
-.barre-in { display: flex; align-items: center; gap: 4px; min-height: 58px; padding: 7px 7px 7px 20px; border-radius: 999px;
+.barre-in { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 4px; min-height: 58px; padding: 7px 14px; border-radius: 999px;
   background: rgba(255, 255, 255, .72); -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5);
   border: 1px solid rgba(255, 255, 255, .85); box-shadow: 0 1px 0 rgba(255, 255, 255, .7) inset, 0 12px 32px -14px rgba(20, 24, 52, .2), 0 2px 6px -2px rgba(20, 24, 52, .05); }
-.marque { display: flex; align-items: center; gap: 9px; margin-right: 16px; text-decoration: none; font: 700 18px/1 var(--f-display); letter-spacing: -0.02em; color: var(--ink); white-space: nowrap; }
+.marque { justify-self: start; margin-left: 6px; display: flex; align-items: center; gap: 9px; text-decoration: none; font: 700 18px/1 var(--f-display); letter-spacing: -0.02em; color: var(--ink); white-space: nowrap; }
 .marque svg { width: 28px; height: 28px; flex: none; }
-.liens { display: flex; align-items: center; margin: 0; padding: 0; list-style: none; }
+.liens { grid-column: 2; justify-self: center; display: flex; align-items: center; margin: 0; padding: 0; list-style: none; }
 .liens a { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14.5px; white-space: nowrap;
   transition: background-color var(--t-std) var(--ease), color var(--t-std) var(--ease), box-shadow var(--t-std) var(--ease); }
 .liens svg { opacity: .8; }
 .liens a:hover { color: var(--ink); background: rgba(255, 255, 255, .7); }
 .liens a[aria-current="true"] { color: var(--accent-dark); font-weight: 650; background: var(--surface); box-shadow: var(--pastille); }
 .liens a[aria-current="true"] svg { color: var(--accent); opacity: 1; }
-.essai { margin-left: auto; display: inline-flex; align-items: center; gap: 9px; height: 44px; padding: 0 16px 0 6px; border-radius: 999px; background: var(--surface); color: var(--ink); text-decoration: none; font-weight: 600; font-size: 14.5px; white-space: nowrap;
-  box-shadow: var(--pastille); transition: transform var(--t-std) var(--ease), box-shadow var(--t-std) var(--ease); }
-.essai:hover { transform: translateY(-1px); box-shadow: 0 1px 2px rgba(20, 24, 52, .06), 0 10px 20px -8px rgba(79, 70, 229, .35); }
-.essai .rond { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; }
-.essai .rond svg { width: 13px; height: 13px; fill: currentColor; margin-left: 2px; }
-.cta-c { display: none; }
-.menu { display: none; width: 42px; height: 42px; border: 0; border-radius: 50%; background: var(--surface); color: var(--ink); cursor: pointer; place-items: center; box-shadow: var(--pastille); }
+/* « Tester la démo » : bouton flottant, toujours en bas à droite de l'écran. */
+.essai { position: fixed; right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); z-index: 30; display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 20px 0 7px;
+  border-radius: 999px; border: 1px solid rgba(223, 225, 238, .9); background: var(--surface); color: var(--ink); text-decoration: none; font-weight: 650; font-size: 15px; white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(20, 24, 52, .06), 0 14px 32px -12px rgba(20, 24, 52, .32); transition: transform var(--t-std) var(--ease), box-shadow var(--t-std) var(--ease);
+  animation: monte var(--t-slow) var(--ease) 300ms both; }
+.essai:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(20, 24, 52, .06), 0 18px 36px -12px rgba(79, 70, 229, .45); }
+.essai .rond { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; }
+.essai .rond svg { width: 14px; height: 14px; fill: currentColor; margin-left: 2px; }
+.menu { grid-column: 3; justify-self: end; display: none; width: 42px; height: 42px; border: 0; border-radius: 50%; background: var(--surface); color: var(--ink); cursor: pointer; place-items: center; box-shadow: var(--pastille); }
 .menu svg { width: 19px; height: 19px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font: 700 21px/1 var(--f-display); letter-spacing: -0.02em; }
 .brand svg { width: 34px; height: 34px; flex: none; }
@@ -311,7 +313,7 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 #contact-erreur { background: #fde8ec; color: var(--late); }
 
 /* ---------- Pied de page ---------- */
-.foot { border-top: 1px solid var(--line); padding: 32px 0 40px; font-size: 14px; color: var(--muted); }
+.foot { border-top: 1px solid var(--line); padding: 32px 0 104px; font-size: 14px; color: var(--muted); }
 .foot .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; }
 .foot nav { display: flex; flex-wrap: wrap; gap: 18px; margin-left: auto; }
 .foot a { color: var(--muted); }
@@ -334,7 +336,7 @@ mark.todo { background: color-mix(in srgb, var(--signal) 55%, var(--surface)); c
   .liens a { padding: 0 10px; }
 }
 @media (max-width: 980px) {
-  .js .menu { display: grid; margin-left: 4px; }
+  .js .menu { display: grid; }
   .liens { display: none; position: absolute; top: calc(100% + 8px); left: 0; right: 0; flex-direction: column; align-items: stretch; padding: 8px; border-radius: 22px; background: rgba(255, 255, 255, .95); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); box-shadow: var(--shadow); }
   .barre.ouvert .liens { display: flex; }
   .liens a { height: 46px; padding: 0 16px; }
@@ -348,7 +350,7 @@ mark.todo { background: color-mix(in srgb, var(--signal) 55%, var(--surface)); c
 }
 @media (max-width: 560px) {
   body { font-size: 16px; }
-  .barre-in { padding-left: 16px; min-height: 56px; }
+  .barre-in { padding: 7px 8px 7px 10px; min-height: 56px; }
   .choix, .rub { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .choix.deux { grid-template-columns: minmax(0, 1fr); }
   .quiz { border-radius: 22px; }
@@ -364,14 +366,14 @@ mark.todo { background: color-mix(in srgb, var(--signal) 55%, var(--surface)); c
   .js .rnav { display: none; }
 }
 @media (max-width: 480px) {
-  .marque { margin-right: 4px; }
-  .essai { gap: 8px; padding-right: 14px; }
-  .cta-l { display: none; } .cta-c { display: inline; }
+  .essai { right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); height: 48px; font-size: 14.5px; }
+  .essai .rond { width: 34px; height: 34px; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .btn, .faq summary::after, .liens a, .essai, .opt, .champ input, .retour, .progres i::after, .quiz .btn svg, .rcarte, .rnav, .rcarte-a::before, .rcarte-b > *, .reye i, .plus, .rcarte-d, .rcarte-d-in, .rprog i { transition: none !important; }
   .btn:active { transform: none; }
   .btn:hover, .essai:hover { transform: none; }
+  .essai { animation: none; }
   .fond i, .monte, .etape.entre, .quiz-fin.joue *, .quiz-fin.joue .coche::after { animation: none !important; }
 }

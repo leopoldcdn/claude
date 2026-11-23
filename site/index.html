@@ -40,7 +40,29 @@
   </nav>
 </header>
 <!-- « Tester la démo » : bouton flottant, toujours en bas à droite de l’écran -->
-<a class="essai" href="demo/"><span class="rond"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg></span>Tester la démo</a>
+<a class="essai" href="demo/"><span class="rond"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg></span><span class="essai-t">Tester la démo</span></a>
+<!-- Teamo : « Posez-nous vos questions sur Teamora », barre fixe en bas de l’écran ; la conversation s’ouvre au-dessus.
+     Affichée seulement quand Teamo peut répondre (teamo.js) : aujourd’hui, dans l’aperçu publié sur claude.ai. -->
+<div class="teamo-zone" id="teamo" hidden>
+  <section class="teamo-panneau" id="teamo-panneau" aria-label="Conversation avec Teamo" hidden>
+    <header class="teamo-tete">
+      <span class="teamo-av"><svg class="teamo" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="teamo-g0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#0ea5c6"/></linearGradient></defs><circle cx="32" cy="32" r="32" fill="url(#teamo-g0)"/><path d="M32 10.5v5.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle class="teamo-dot" cx="32" cy="9" r="3.4" fill="#fde68a"/><path d="M13.5 31c0-8.3 7.6-14.5 18.5-14.5S50.5 22.7 50.5 31v5c0 8.3-7.6 13.5-18.5 13.5h-5.6l-7.6 5.6 1.7-7C15.6 45.6 13.5 41.6 13.5 36z" fill="#fff"/><g class="teamo-eyes"><ellipse cx="25" cy="32.5" rx="3.1" ry="3.7" fill="#1e1b4b"/><ellipse cx="39" cy="32.5" rx="3.1" ry="3.7" fill="#1e1b4b"/><circle cx="26.1" cy="31.2" r="1" fill="#fff"/><circle cx="40.1" cy="31.2" r="1" fill="#fff"/></g><path d="M26.5 40.2c3.2 3 7.8 3 11 0" stroke="#1e1b4b" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="20.2" cy="38.6" r="2.3" fill="#f9a8d4" opacity=".85"/><circle cx="43.8" cy="38.6" r="2.3" fill="#f9a8d4" opacity=".85"/></svg></span>
+      <div class="teamo-nom"><b>Teamo</b><small><i aria-hidden="true"></i><span id="teamo-etat">L’assistant Teamora</span></small></div>
+      <button type="button" class="teamo-ico" id="teamo-nouveau" title="Nouvelle conversation" aria-label="Nouvelle conversation" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg></button>
+      <button type="button" class="teamo-ico" id="teamo-fermer" title="Fermer" aria-label="Fermer la conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </header>
+    <div class="teamo-fil" id="teamo-fil" aria-live="polite"></div>
+    <p class="teamo-note">Teamo s’appuie sur Claude : ses réponses peuvent contenir des erreurs. N’indiquez pas de données personnelles.<span class="teamo-apercu"> Aperçu : Teamo répond via votre compte Claude.</span></p>
+  </section>
+  <form class="teamo-barre" id="teamo-form" novalidate>
+    <div class="teamo-champ">
+      <svg class="teamo-etincelle" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="teamo-e" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f46e5"/><stop offset=".55" stop-color="#a855f7"/><stop offset="1" stop-color="#0ea5c6"/></linearGradient></defs><path fill="url(#teamo-e)" d="M10 4.5q1 7.3 7.5 8.5-6.5 1.2-7.5 8.5-1-7.3-7.5-8.5 6.5-1.2 7.5-8.5z"/><path fill="url(#teamo-e)" d="M18.5 2q.5 3.1 3 3.5-2.5.4-3 3.5-.5-3.1-3-3.5 2.5-.4 3-3.5z"/></svg>
+      <label class="sr" for="teamo-q">Votre question sur Teamora</label>
+      <input id="teamo-q" type="text" maxlength="500" autocomplete="off" enterkeyhint="send" placeholder="Posez-nous vos questions sur Teamora" aria-controls="teamo-panneau">
+      <button class="teamo-envoyer" id="teamo-envoyer" aria-label="Envoyer la question" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
+    </div>
+  </form>
+</div>
 
 <main id="contenu">
   <!-- 1. Accroche : la promesse à gauche, à droite un questionnaire en quatre questions qui prépare la démo -->
@@ -474,5 +496,6 @@
   </div>
 </footer>
 <script src="site.js"></script>
+<script src="teamo.js"></script>
 </body>
 </html>

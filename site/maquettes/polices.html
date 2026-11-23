@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teamora · choisir la police du site (maquette)</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700&family=Manrope:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600;700&family=Lexend:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../styles.css">
+<!-- Maquette : le premier écran du site (barre, promesse, questionnaire), à l'identique, avec huit associations de
+     polices. Les polices viennent de Google Fonts pour la comparaison ; celle qui sera retenue sera hébergée sur le site,
+     comme Sora et Plus Jakarta Sans aujourd'hui (toutes sous licence SIL OFL). -->
+<style>
+  .hero h1 { letter-spacing: var(--suivi, -0.035em); }
+  .polices { position: relative; z-index: 25; width: min(1120px, calc(100% - 32px)); margin: 16px auto 0; padding: 14px 16px 16px; border-radius: 22px; background: rgba(255, 255, 255, .86);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid var(--line); box-shadow: var(--shadow); font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif; }
+  .polices-tete { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+  .polices-tete h2 { margin: 0; font: 700 16px/1.3 "Plus Jakarta Sans", sans-serif; letter-spacing: 0; }
+  .polices-tete p { font-size: 13.5px; color: var(--muted); }
+  .rangee { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .pol { flex: none; display: flex; align-items: center; gap: 9px; padding: 7px 12px 7px 7px; border-radius: 14px; border: 1.5px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; text-align: left; }
+  .pol b { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--paper); font: 700 14px/1 "Plus Jakarta Sans", sans-serif; }
+  .pol strong { display: block; font: 700 15px/1.15 var(--f-display); }
+  .pol small { display: block; margin-top: 2px; font: 500 12px/1.2 var(--f-body); color: var(--muted); }
+  .pol:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+  .pol[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, #fff); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .pol[aria-pressed="true"] b { background: var(--accent); color: #fff; }
+  .fiche { margin-top: 10px; font-size: 14px; color: var(--muted); }
+  .fiche b { color: var(--ink); }
+  .vue { width: min(1120px, calc(100% - 32px)); margin: 24px auto 120px; }
+  .vue h2 { font: 700 clamp(24px, 2.6vw, 32px)/1.2 "Plus Jakarta Sans", sans-serif; letter-spacing: -0.01em; }
+  .vue > p { margin-top: 6px; color: var(--muted); }
+  .grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 18px; }
+  .mini { display: grid; gap: 9px; align-content: start; padding: 18px; border-radius: 20px; background: #fff; border: 1px solid var(--line); box-shadow: var(--shadow); font-family: var(--f-body); }
+  .mini-nom { font: 600 13px/1.3 "Plus Jakarta Sans", sans-serif; color: var(--muted); }
+  .mini-nom b { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 7px; border-radius: 6px; background: var(--ink); color: var(--signal); font-size: 12px; }
+  .mini-nom span { font-weight: 500; }
+  .mini-h1 { font: 700 25px/1.06 var(--f-display); letter-spacing: var(--suivi); color: var(--ink); white-space: nowrap; }
+  .mini-h1 em { font-style: normal; background: linear-gradient(transparent 64%, var(--signal) 64%, var(--signal) 92%, transparent 92%); }
+  .mini-acc { font: 600 15px/1.4 var(--f-display); color: var(--ink); }
+  .mini-txt { font-size: 13.5px; line-height: 1.6; color: var(--muted); }
+  .mini-q { margin-top: 4px; font: 700 17px/1.2 var(--f-display); color: var(--ink); letter-spacing: -0.01em; }
+  .mini-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mini-opts span { padding: 7px 11px; border-radius: 11px; border: 1.5px solid var(--line); font-weight: 600; font-size: 13.5px; }
+  .mini-chiffres { font-size: 13.5px; color: var(--muted); }
+  .mini-chiffres b { font: 700 20px/1 var(--f-display); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .mini-desc { padding-top: 8px; border-top: 1px solid var(--line); font: 400 13px/1.5 "Plus Jakarta Sans", sans-serif; color: var(--muted); }
+  .mini-choisir { justify-self: start; padding: 8px 14px; border-radius: 999px; border: 0; background: var(--accent); color: #fff; font: 700 13.5px/1 "Plus Jakarta Sans", sans-serif; cursor: pointer; }
+  .mini-choisir:hover { background: var(--accent-dark); }
+  @media (max-width: 560px) { .rangee { display: grid; grid-template-columns: 1fr 1fr; } .pol { min-width: 0; } .pol small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .polices-tete p { display: none; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs><linearGradient id="logo-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#0ea5c6"/></linearGradient></defs>
+  <symbol id="logo" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="url(#logo-g)"/><circle cx="32" cy="15" r="6" fill="#ffd166"/><path d="M14 28h36M32 28v22" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/></symbol>
+</svg>
+<div class="fond" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+<section class="polices" aria-labelledby="t-polices">
+  <div class="polices-tete">
+    <h2 id="t-polices">Quelle police pour Teamora ?</h2>
+    <p>Cliquez sur une association : tout le premier écran change. Flèches ← → pour passer de l'une à l'autre.</p>
+  </div>
+  <div class="rangee" role="group" aria-label="Associations de polices">
+    <button type="button" class="pol" data-p="a" aria-pressed="true" style="--f-display:&quot;Sora&quot;, ui-sans-serif, system-ui, sans-serif; --f-body:&quot;Plus Jakarta Sans&quot;, ui-sans-serif, system-ui, sans-serif"><b>A</b><span><strong>Sora</strong><small>Plus Jakarta Sans</small></span></button>
+    <button type="button" class="pol" data-p="b" aria-pressed="false" style="--f-display:&quot;Inter Tight&quot;, ui-sans-serif, system-ui, sans-serif; --f-body:&quot;Inter&quot;, ui-sans-serif, system-ui, sans-serif"><b>B</b><span><strong>Inter Tight</strong><small>Inter</small></span></button>
+    <button type="button" class="pol" data-p="c" aria-pressed="false" style="--f-display:&quot;Manrope&quot;, ui-sans-serif, system-ui, sans-serif; --f-body:&quot;Manrope&quot;, ui-sans-serif, system-ui, sans-serif"><b>C</b><span><strong>Manrope</strong><small>titres et texte</small></span></button>
+    <button type="button" class="pol" data-p="d" aria-pressed="false" style="--f-display:&quot;Bricolage Grotesque&quot;, ui-sans-serif, system-ui, sans-serif; --f-body:&quot;Inter&quot;, ui-sans-serif, system-ui, sans-serif"><b>D</b><span><strong>Bricolage Grotesque</strong><small>Inter</small></span></button>
+    <button type="button" class="pol" data-p="e" aria-pressed="false" style="--f-display:&quot;Fraunces&quot;, ui-serif, Georgia, serif; --f-body:&quot;Plus Jakarta Sans&quot;, ui-sans-serif, system-ui, sans-serif"><b>E</b><span><strong>Fraunces</strong><small>Plus Jakarta Sans</small></span></button>
+    <button type="button" class="pol" data-p="f" aria-pressed="false" style="--f-display:&quot;Space Grotesk&quot;, ui-sans-serif, system-ui, sans-serif; --f-body:&quot;IBM Plex Sans&quot;, ui-sans-serif, system-ui, sans-serif"><b>F</b><span><strong>Space Grotesk</strong><small>IBM Plex Sans</small></span></button>
+    <button type="button" class="pol" data-p="g" aria-pressed="false" style="--f-display:&quot;Outfit&quot;, ui-sans-serif, system-ui, sans-serif; --f-body:&quot;Figtree&quot;, ui-sans-serif, system-ui, sans-serif"><b>G</b><span><strong>Outfit</strong><small>Figtree</small></span></button>
+    <button type="button" class="pol" data-p="h" aria-pressed="false" style="--f-display:&quot;Lexend&quot;, ui-sans-serif, system-ui, sans-serif; --f-body:&quot;Lexend&quot;, ui-sans-serif, system-ui, sans-serif"><b>H</b><span><strong>Lexend</strong><small>titres et texte</small></span></button>
+  </div>
+  <p class="fiche" id="fiche" aria-live="polite"></p>
+</section>
+<header class="barre" id="barre">
+  <nav class="barre-in" aria-label="Sections de la page">
+    <a class="marque" href="#contenu" aria-label="Teamora, retour en haut de page"><svg aria-hidden="true"><use href="#logo"/></svg>Teamora</a>
+    <ul class="liens" id="liens">
+      <li><a href="#accueil" aria-current="true"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9v11h4.5v-6h4v6h4.5V9"/></svg>Accueil</a></li>
+      <li><a href="#logiciel"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>Le logiciel</a></li>
+      <li><a href="#avis"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5a2 2 0 0 1-2 2H9l-4.5 4v-4H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/><path d="M8.5 9h7M8.5 12.5h4.5"/></svg>Votre avis</a></li>
+      <li><a href="#questions"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8 1c0 1.7-2.4 2.2-2.4 3.7M12 17.2h.01"/></svg>Questions</a></li>
+    </ul>
+    <button class="menu" type="button" aria-expanded="false" aria-controls="liens" aria-label="Menu"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </nav>
+</header>
+<a class="essai" href="#"><span class="rond"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg></span>Tester la démo</a>
+<main id="contenu">
+  <section class="hero" id="accueil" aria-labelledby="titre">
+    <div class="wrap hero-in">
+      <div class="promesse">
+        <h1 id="titre" class="monte">Toute votre GRH<br> <em>Dans les règles</em></h1>
+        <p class="accroche monte">Le logiciel RH qui vous prévient avant chaque nouvelle obligation.</p>
+        <p class="promesse-texte monte">Du besoin de recrutement à l’après-départ : Teamora vous accompagne dans votre Gestion des Ressources Humaines. Effectif, seuils, convention collective, échéances : Teamora applique les règles et vous prévient avant chaque obligation.</p>
+        <div class="reperes monte">
+          <p class="reperes-t">En bref</p>
+          <ul>
+            <li><b>12</b><span>rubriques, du recrutement au départ</span></li>
+            <li><b>673</b><span>conventions collectives au choix</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <section class="quiz monte" aria-labelledby="quiz-titre">
+        <h2 id="quiz-titre" class="sr">Préparer votre démo</h2>
+        <form id="quiz" novalidate>
+          <div class="quiz-tete">
+            <span class="quiz-badge"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>Votre démo en 4 questions</span>
+            <span class="compteur" aria-live="polite"><span class="sr" id="compteur">Question 1 sur 4</span><span id="compteur-court" aria-hidden="true">1/4</span></span>
+          </div>
+          <div class="progres" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+          <div class="etapes">
+            <fieldset class="etape" aria-labelledby="q1">
+              <h3 class="question" id="q1" tabindex="-1">Combien de salariés compte votre entreprise&nbsp;?</h3>
+              <p class="aide">Les principaux seuils d’effectif : 11, 20, 50 et 250 salariés.</p>
+              <div class="choix">
+                <label class="opt"><input type="radio" name="taille" value="0">Moins de 11</label>
+                <label class="opt"><input type="radio" name="taille" value="11">11 à 19</label>
+                <label class="opt"><input type="radio" name="taille" value="20">20 à 49</label>
+                <label class="opt"><input type="radio" name="taille" value="50">50 à 249</label>
+                <label class="opt"><input type="radio" name="taille" value="250">250 et plus</label>
+              </div>
+            </fieldset>
+
+            <fieldset class="etape" aria-labelledby="q2">
+              <h3 class="question" id="q2" tabindex="-1">Quel est votre rôle&nbsp;?</h3>
+              <div class="choix deux">
+                <label class="opt"><input type="radio" name="role" value="dirigeant">Dirigeant ou dirigeante</label>
+                <label class="opt"><input type="radio" name="role" value="rh">Responsable RH ou administratif</label>
+                <label class="opt"><input type="radio" name="role" value="manager">Manager d’une équipe</label>
+                <label class="opt"><input type="radio" name="role" value="comptable">Expert-comptable ou gestionnaire de paie</label>
+              </div>
+            </fieldset>
+
+            <!-- Les douze rubriques sont reprises des cartes du carrousel (site.js). -->
+            <fieldset class="etape" aria-labelledby="q3">
+              <h3 class="question" id="q3" tabindex="-1">Que souhaitez-vous découvrir&nbsp;?</h3>
+              <div class="choix rub" id="quiz-rubriques"></div>
+            </fieldset>
+
+            <!-- Champ e-mail : pour le rendu seulement. Rien n'est envoyé ni enregistré. Avant de le brancher : mention
+                 d'information (finalité, durée, droits) près du champ et mise à jour de confidentialite.html. -->
+            <fieldset class="etape" aria-labelledby="q4">
+              <h3 class="question" id="q4" tabindex="-1">Quelle est votre adresse e-mail&nbsp;?</h3>
+              <div class="champ">
+                <input type="email" id="quiz-email" autocomplete="email" inputmode="email" placeholder="prenom@entreprise.fr" aria-labelledby="q4">
+                <button class="btn btn-primary" type="submit">Préparer ma démo<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+              </div>
+            </fieldset>
+          </div>
+
+          <div class="pied">
+            <button class="retour cache" type="button" tabindex="-1"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>Retour</button>
+          </div>
+        </form>
+
+        <div class="quiz-fin" id="quiz-fin" hidden>
+          <div class="coche" aria-hidden="true"><svg viewBox="0 0 64 64"><circle class="cercle" cx="32" cy="32" r="30"/><path class="trait" d="M19 33.5l8.5 8.5 17.5-18"/></svg></div>
+          <h3 id="quiz-pret" tabindex="-1">Votre démo est prête.</h3>
+          <p>Découvrez Teamora sur Nova Studio, une entreprise fictive de 20 salariés.</p>
+          <a class="btn btn-primary" id="quiz-ouvrir" href="#">Tester Teamora<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          <button class="modifier" type="button" id="quiz-modifier">Modifier mes réponses</button>
+        </div>
+      </section>
+    </div>
+  </section>
+
+</main>
+<section class="vue" aria-labelledby="t-vue">
+  <h2 id="t-vue">Les huit associations côte à côte</h2>
+  <p>Mêmes textes, mêmes tailles : seule la police change. « Voir en grand » l'applique au premier écran ci-dessus.</p>
+  <div class="grille">
+    <article class="mini" style="--f-display:&quot;Sora&quot;, ui-sans-serif, system-ui, sans-serif; --f-body:&quot;Plus Jakarta Sans&quot;, ui-sans-serif, system-ui, sans-serif; --suivi:-0.035em">
+      <p class="mini-nom"><b>A</b>Sora + Plus Jakarta Sans <span>· Actuelle</span></p>
+      <p class="mini-h1">Toute votre GRH<br><em>Dans les règles</em></p>
+      <p class="mini-acc">Le logiciel RH qui vous prévient avant chaque nouvelle obligation.</p>
+      <p class="mini-txt">Effectif, seuils, convention collective, échéances : Teamora applique les règles et vous prévient avant chaque obligation.</p>
+      <p class="mini-q">Combien de salariés compte votre entreprise&nbsp;?</p>
+      <p class="mini-opts"><span>Moins de 11</span><span>11 à 19</span><span>20 à 49</span></p>
+      <p class="mini-chiffres"><b>12</b> rubriques · <b>673</b> conventions</p>
+      <p class="mini-desc">Géométrique et moderne : titres affirmés, texte doux et lisible. Elle est déjà dans le logiciel.</p>
+      <button type="button" class="mini-choisir" data-p="a">Voir en grand</button>
+    </article>
+    <article class="mini" style="--f-display:&quot;Inter Tight&quot;, ui-sans-serif, system-ui, sans-serif; --f-body:&quot;Inter&quot;, ui-sans-serif, system-ui, sans-serif; --suivi:-0.03em">
+      <p class="mini-nom"><b>B</b>Inter Tight + Inter <span>· La plus neutre</span></p>
+      <p class="mini-h1">Toute votre GRH<br><em>Dans les règles</em></p>
+      <p class="mini-acc">Le logiciel RH qui vous prévient avant chaque nouvelle obligation.</p>
+      <p class="mini-txt">Effectif, seuils, convention collective, échéances : Teamora applique les règles et vous prévient avant chaque obligation.</p>
+      <p class="mini-q">Combien de salariés compte votre entreprise&nbsp;?</p>
+      <p class="mini-opts"><span>Moins de 11</span><span>11 à 19</span><span>20 à 49</span></p>
+      <p class="mini-chiffres"><b>12</b> rubriques · <b>673</b> conventions</p>
+      <p class="mini-desc">La police de référence des logiciels : très lisible, chiffres nets. Sobre et sûre, mais vue partout.</p>
+      <button type="button" class="mini-choisir" data-p="b">Voir en grand</button>
+    </article>
+    <article class="mini" style="--f-display:&quot;Manrope&quot;, ui-sans-serif, system-ui, sans-serif; --f-body:&quot;Manrope&quot;, ui-sans-serif, system-ui, sans-serif; --suivi:-0.035em">
+      <p class="mini-nom"><b>C</b>Manrope <span>· Géométrique et chaleureuse</span></p>
+      <p class="mini-h1">Toute votre GRH<br><em>Dans les règles</em></p>
+      <p class="mini-acc">Le logiciel RH qui vous prévient avant chaque nouvelle obligation.</p>
+      <p class="mini-txt">Effectif, seuils, convention collective, échéances : Teamora applique les règles et vous prévient avant chaque obligation.</p>
+      <p class="mini-q">Combien de salariés compte votre entreprise&nbsp;?</p>
+      <p class="mini-opts"><span>Moins de 11</span><span>11 à 19</span><span>20 à 49</span></p>
+      <p class="mini-chiffres"><b>12</b> rubriques · <b>673</b> conventions</p>
+      <p class="mini-desc">Une seule famille pour tout : ronde sans être enfantine, chiffres très lisibles.</p>
+      <button type="button" class="mini-choisir" data-p="c">Voir en grand</button>
+    </article>
+    <article class="mini" style="--f-display:&quot;Bricolage Grotesque&quot;, ui-sans-serif, system-ui, sans-serif; --f-body:&quot;Inter&quot;, ui-sans-serif, system-ui, sans-serif; --suivi:-0.03em">
+      <p class="mini-nom"><b>D</b>Bricolage Grotesque + Inter <span>· Du caractère</span></p>
+      <p class="mini-h1">Toute votre GRH<br><em>Dans les règles</em></p>
+      <p class="mini-acc">Le logiciel RH qui vous prévient avant chaque nouvelle obligation.</p>
+      <p class="mini-txt">Effectif, seuils, convention collective, échéances : Teamora applique les règles et vous prévient avant chaque obligation.</p>
+      <p class="mini-q">Combien de salariés compte votre entreprise&nbsp;?</p>
+      <p class="mini-opts"><span>Moins de 11</span><span>11 à 19</span><span>20 à 49</span></p>
+      <p class="mini-chiffres"><b>12</b> rubriques · <b>673</b> conventions</p>
+      <p class="mini-desc">Titres un peu excentriques qui se remarquent, texte neutre. Tendance, se démarque des concurrents.</p>
+      <button type="button" class="mini-choisir" data-p="d">Voir en grand</button>
+    </article>
+    <article class="mini" style="--f-display:&quot;Fraunces&quot;, ui-serif, Georgia, serif; --f-body:&quot;Plus Jakarta Sans&quot;, ui-sans-serif, system-ui, sans-serif; --suivi:-0.02em">
+      <p class="mini-nom"><b>E</b>Fraunces + Plus Jakarta Sans <span>· Humaine et éditoriale</span></p>
+      <p class="mini-h1">Toute votre GRH<br><em>Dans les règles</em></p>
+      <p class="mini-acc">Le logiciel RH qui vous prévient avant chaque nouvelle obligation.</p>
+      <p class="mini-txt">Effectif, seuils, convention collective, échéances : Teamora applique les règles et vous prévient avant chaque obligation.</p>
+      <p class="mini-q">Combien de salariés compte votre entreprise&nbsp;?</p>
+      <p class="mini-opts"><span>Moins de 11</span><span>11 à 19</span><span>20 à 49</span></p>
+      <p class="mini-chiffres"><b>12</b> rubriques · <b>673</b> conventions</p>
+      <p class="mini-desc">Titres à empattements, chaleureux : un ton de conseil, moins « logiciel », plus « accompagnement ».</p>
+      <button type="button" class="mini-choisir" data-p="e">Voir en grand</button>
+    </article>
+    <article class="mini" style="--f-display:&quot;Space Grotesk&quot;, ui-sans-serif, system-ui, sans-serif; --f-body:&quot;IBM Plex Sans&quot;, ui-sans-serif, system-ui, sans-serif; --suivi:-0.03em">
+      <p class="mini-nom"><b>F</b>Space Grotesk + IBM Plex Sans <span>· Technique et précise</span></p>
+      <p class="mini-h1">Toute votre GRH<br><em>Dans les règles</em></p>
+      <p class="mini-acc">Le logiciel RH qui vous prévient avant chaque nouvelle obligation.</p>
+      <p class="mini-txt">Effectif, seuils, convention collective, échéances : Teamora applique les règles et vous prévient avant chaque obligation.</p>
+      <p class="mini-q">Combien de salariés compte votre entreprise&nbsp;?</p>
+      <p class="mini-opts"><span>Moins de 11</span><span>11 à 19</span><span>20 à 49</span></p>
+      <p class="mini-chiffres"><b>12</b> rubriques · <b>673</b> conventions</p>
+      <p class="mini-desc">Évoque la rigueur, la donnée, le juridique. Plus froide.</p>
+      <button type="button" class="mini-choisir" data-p="f">Voir en grand</button>
+    </article>
+    <article class="mini" style="--f-display:&quot;Outfit&quot;, ui-sans-serif, system-ui, sans-serif; --f-body:&quot;Figtree&quot;, ui-sans-serif, system-ui, sans-serif; --suivi:-0.025em">
+      <p class="mini-nom"><b>G</b>Outfit + Figtree <span>· Ronde et accessible</span></p>
+      <p class="mini-h1">Toute votre GRH<br><em>Dans les règles</em></p>
+      <p class="mini-acc">Le logiciel RH qui vous prévient avant chaque nouvelle obligation.</p>
+      <p class="mini-txt">Effectif, seuils, convention collective, échéances : Teamora applique les règles et vous prévient avant chaque obligation.</p>
+      <p class="mini-q">Combien de salariés compte votre entreprise&nbsp;?</p>
+      <p class="mini-opts"><span>Moins de 11</span><span>11 à 19</span><span>20 à 49</span></p>
+      <p class="mini-chiffres"><b>12</b> rubriques · <b>673</b> conventions</p>
+      <p class="mini-desc">Ton amical et simple, très facile à lire ; un peu moins « sérieux ».</p>
+      <button type="button" class="mini-choisir" data-p="g">Voir en grand</button>
+    </article>
+    <article class="mini" style="--f-display:&quot;Lexend&quot;, ui-sans-serif, system-ui, sans-serif; --f-body:&quot;Lexend&quot;, ui-sans-serif, system-ui, sans-serif; --suivi:-0.03em">
+      <p class="mini-nom"><b>H</b>Lexend <span>· Pensée pour la lisibilité</span></p>
+      <p class="mini-h1">Toute votre GRH<br><em>Dans les règles</em></p>
+      <p class="mini-acc">Le logiciel RH qui vous prévient avant chaque nouvelle obligation.</p>
+      <p class="mini-txt">Effectif, seuils, convention collective, échéances : Teamora applique les règles et vous prévient avant chaque obligation.</p>
+      <p class="mini-q">Combien de salariés compte votre entreprise&nbsp;?</p>
+      <p class="mini-opts"><span>Moins de 11</span><span>11 à 19</span><span>20 à 49</span></p>
+      <p class="mini-chiffres"><b>12</b> rubriques · <b>673</b> conventions</p>
+      <p class="mini-desc">Dessinée pour faciliter la lecture ; claire et rassurante, un peu large.</p>
+      <button type="button" class="mini-choisir" data-p="h">Voir en grand</button>
+    </article>
+  </div>
+</section>
+<script src="../site.js"></script>
+<script>
+(function () {
+  'use strict';
+  var P = {
+    a: { titre: '\"Sora\"', texte: '\"Plus Jakarta Sans\"', d: '\"Sora\", ui-sans-serif, system-ui, sans-serif', b: '\"Plus Jakarta Sans\", ui-sans-serif, system-ui, sans-serif', suivi: '-0.035em', nom: 'Sora + Plus Jakarta Sans', ton: 'Actuelle', desc: 'Géométrique et moderne : titres affirmés, texte doux et lisible. Elle est déjà dans le logiciel.' },
+    b: { titre: '\"Inter Tight\"', texte: '\"Inter\"', d: '\"Inter Tight\", ui-sans-serif, system-ui, sans-serif', b: '\"Inter\", ui-sans-serif, system-ui, sans-serif', suivi: '-0.03em', nom: 'Inter Tight + Inter', ton: 'La plus neutre', desc: 'La police de référence des logiciels : très lisible, chiffres nets. Sobre et sûre, mais vue partout.' },
+    c: { titre: '\"Manrope\"', texte: '\"Manrope\"', d: '\"Manrope\", ui-sans-serif, system-ui, sans-serif', b: '\"Manrope\", ui-sans-serif, system-ui, sans-serif', suivi: '-0.035em', nom: 'Manrope', ton: 'Géométrique et chaleureuse', desc: 'Une seule famille pour tout : ronde sans être enfantine, chiffres très lisibles.' },
+    d: { titre: '\"Bricolage Grotesque\"', texte: '\"Inter\"', d: '\"Bricolage Grotesque\", ui-sans-serif, system-ui, sans-serif', b: '\"Inter\", ui-sans-serif, system-ui, sans-serif', suivi: '-0.03em', nom: 'Bricolage Grotesque + Inter', ton: 'Du caractère', desc: 'Titres un peu excentriques qui se remarquent, texte neutre. Tendance, se démarque des concurrents.' },
+    e: { titre: '\"Fraunces\"', texte: '\"Plus Jakarta Sans\"', d: '\"Fraunces\", ui-serif, Georgia, serif', b: '\"Plus Jakarta Sans\", ui-sans-serif, system-ui, sans-serif', suivi: '-0.02em', nom: 'Fraunces + Plus Jakarta Sans', ton: 'Humaine et éditoriale', desc: 'Titres à empattements, chaleureux : un ton de conseil, moins « logiciel », plus « accompagnement ».' },
+    f: { titre: '\"Space Grotesk\"', texte: '\"IBM Plex Sans\"', d: '\"Space Grotesk\", ui-sans-serif, system-ui, sans-serif', b: '\"IBM Plex Sans\", ui-sans-serif, system-ui, sans-serif', suivi: '-0.03em', nom: 'Space Grotesk + IBM Plex Sans', ton: 'Technique et précise', desc: 'Évoque la rigueur, la donnée, le juridique. Plus froide.' },
+    g: { titre: '\"Outfit\"', texte: '\"Figtree\"', d: '\"Outfit\", ui-sans-serif, system-ui, sans-serif', b: '\"Figtree\", ui-sans-serif, system-ui, sans-serif', suivi: '-0.025em', nom: 'Outfit + Figtree', ton: 'Ronde et accessible', desc: 'Ton amical et simple, très facile à lire ; un peu moins « sérieux ».' },
+    h: { titre: '\"Lexend\"', texte: '\"Lexend\"', d: '\"Lexend\", ui-sans-serif, system-ui, sans-serif', b: '\"Lexend\", ui-sans-serif, system-ui, sans-serif', suivi: '-0.03em', nom: 'Lexend', ton: 'Pensée pour la lisibilité', desc: 'Dessinée pour faciliter la lecture ; claire et rassurante, un peu large.' }
+  };
+  var ordre = Object.keys(P), boutons = [].slice.call(document.querySelectorAll('.pol')), fiche = document.getElementById('fiche');
+  function choisir(k, defiler) {
+    var p = P[k]; if (!p) return;
+    var r = document.documentElement.style;
+    r.setProperty('--f-display', p.d); r.setProperty('--f-body', p.b); r.setProperty('--suivi', p.suivi);
+    boutons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.p === k)); });
+    fiche.innerHTML = '<b>' + k.toUpperCase() + ' · ' + p.nom + '</b> — ' + p.ton + '. ' + p.desc;
+    if (location.hash !== '#police-' + k) history.replaceState(null, '', '#police-' + k);
+    if (defiler) window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  boutons.forEach(function (b) { b.addEventListener('click', function () { choisir(b.dataset.p); }); });
+  document.querySelectorAll('.mini-choisir').forEach(function (b) { b.addEventListener('click', function () { choisir(b.dataset.p, true); }); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    if (e.target.closest && e.target.closest('input, textarea, .quiz, .rtrack')) return;
+    var i = ordre.indexOf((boutons.filter(function (b) { return b.getAttribute('aria-pressed') === 'true'; })[0] || boutons[0]).dataset.p);
+    i = (i + (e.key === 'ArrowRight' ? 1 : ordre.length - 1)) % ordre.length;
+    choisir(ordre[i]); boutons[i].focus({ preventScroll: true });
+  });
+  var depart = (location.hash.match(/^#police-([a-h])$/) || [])[1] || 'a';
+  choisir(depart);
+})();
+</script>
+</body>
+</html>

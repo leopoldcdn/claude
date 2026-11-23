@@ -99,7 +99,8 @@
       d.inert = !ouvrir;
       // Détail à droite (ordinateur) : la carte s'allonge si le détail est plus long que l'illustration et son texte.
       carte.style.minHeight = ouvrir && getComputedStyle(d).position === 'absolute' ? Math.max($('.rcarte-a', carte).offsetHeight, contenu.scrollHeight) + 2 + 'px' : '';
-      if (ouvrir) track.scrollTo({ left: Math.max(0, carte.offsetLeft - track.offsetLeft - 4), behavior: reduce ? 'auto' : 'smooth' });
+      if (ouvrir) track.scrollTo({ left: Math.max(0, carte.offsetLeft - track.offsetLeft - (parseFloat(getComputedStyle(track).paddingLeft) || 0)), behavior: reduce ? 'auto' : 'smooth' });
+      bouts(); setTimeout(bouts, 620);
     };
     cartes.forEach(function (c) {
       $('.rcarte-d', c).inert = true;
@@ -109,10 +110,17 @@
         basculer(c, ouvrir);
       });
     });
-    // Flèches : une carte de plus ou de moins ; elles disparaissent aux deux bouts de la rangée.
+    // Flèches : une carte de plus ou de moins ; elles disparaissent aux deux bouts de la rangée. Repère : les segments
+    // des cartes visibles (au moins à moitié) s'allument, celui de la carte ouverte s'épaissit.
+    var segments = $$('.rprog i');
     var bouts = function () {
       if (prev) prev.disabled = track.scrollLeft <= 2;
       if (next) next.disabled = track.scrollLeft >= track.scrollWidth - track.clientWidth - 2;
+      var t = track.getBoundingClientRect();
+      cartes.forEach(function (c, i) {
+        var r = c.getBoundingClientRect(), vu = Math.min(r.right, t.right) - Math.max(r.left, t.left);
+        if (segments[i]) { segments[i].classList.toggle('on', vu >= r.width / 2); segments[i].classList.toggle('ouvert', c.classList.contains('ouvert')); }
+      });
     };
     var defiler = function (k) { track.scrollBy({ left: k * (cartes[0].offsetWidth + 16), behavior: reduce ? 'auto' : 'smooth' }); };
     if (prev) prev.addEventListener('click', function () { defiler(-1); });

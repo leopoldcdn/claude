@@ -223,11 +223,13 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .carrousel { margin-top: 24px; }
 .rtrack-wrap { position: relative; }
 .rtrack { display: flex; align-items: flex-start; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-inline: 4px; padding: 8px 4px 20px; scrollbar-width: thin; overscroll-behavior-x: contain; }
+.js .rtrack { padding-bottom: 40px; scrollbar-width: none; }
+.js .rtrack::-webkit-scrollbar { display: none; }
 .rtrack:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 16px; }
 .rcarte { --l: clamp(250px, 27vw, 300px); --encre: color-mix(in srgb, var(--c) 72%, #000); position: relative; flex: 0 0 var(--l); scroll-snap-align: start; display: flex; flex-direction: column;
   border: 1px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--ink); overflow: hidden;
   transition: flex-basis 560ms cubic-bezier(.2, .8, .2, 1), min-height 560ms cubic-bezier(.2, .8, .2, 1), border-color var(--t-std) var(--ease), box-shadow var(--t-std) var(--ease); }
-.rcarte:hover, .rcarte.ouvert { box-shadow: var(--shadow); }
+.rcarte:hover, .rcarte.ouvert { box-shadow: 0 1px 2px rgba(20, 24, 52, .06), 0 16px 24px -20px rgba(20, 24, 52, .45); }
 .rcarte.ouvert { border-color: color-mix(in srgb, var(--c) 45%, var(--line)); }
 .rcarte-a { position: relative; isolation: isolate; display: flex; flex-direction: column; min-height: var(--h, 0px); }
 /* Goutte d'encre au survol d'une carte fermée (ou au focus clavier de son « + ») : elle part du coin inférieur droit. */
@@ -272,6 +274,13 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .rnav.next { right: -16px; }
 .rnav:hover { transform: scale(1.06); }
 .rnav:disabled { opacity: 0; pointer-events: none; }
+/* Repère de défilement : un segment par rubrique, dans sa couleur ; ceux des cartes visibles s'allument, celui de la
+   carte ouverte s'épaissit. Il remplace la barre de défilement du navigateur. */
+.rprog { display: none; }
+.js .rprog { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: center; gap: 5px; width: min(320px, 72%); height: 10px; margin: -20px auto 0; }
+.rprog i { height: 4px; border-radius: 99px; background: var(--c); opacity: .2; transition: opacity var(--t-std) var(--ease), height var(--t-std) var(--ease); }
+.rprog i.on { opacity: 1; }
+.rprog i.ouvert { height: 8px; }
 
 /* ---------- 5. Être recontacté ---------- */
 .contact { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(32px, 5vw, 64px); align-items: start; }
@@ -361,7 +370,7 @@ mark.todo { background: color-mix(in srgb, var(--signal) 55%, var(--surface)); c
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .btn, .faq summary::after, .liens a, .essai, .opt, .champ input, .retour, .progres i::after, .quiz .btn svg, .rcarte, .rnav, .rcarte-a::before, .rcarte-b > *, .reye i, .plus, .rcarte-d, .rcarte-d-in { transition: none !important; }
+  .btn, .faq summary::after, .liens a, .essai, .opt, .champ input, .retour, .progres i::after, .quiz .btn svg, .rcarte, .rnav, .rcarte-a::before, .rcarte-b > *, .reye i, .plus, .rcarte-d, .rcarte-d-in, .rprog i { transition: none !important; }
   .btn:active { transform: none; }
   .btn:hover, .essai:hover { transform: none; }
   .fond i, .monte, .etape.entre, .quiz-fin.joue *, .quiz-fin.joue .coche::after { animation: none !important; }

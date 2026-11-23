@@ -308,6 +308,7 @@ def carrousel():
           </div>
           <button type="button" class="rnav next" aria-label="Rubriques suivantes"><span aria-hidden="true">→</span></button>
         </div>
+        <div class="rprog" aria-hidden="true">{''.join(f'<i style="--c:{c}"></i>' for k, n, f, c, *_r in RUBRIQUES)}</div>
       </div>
       <!-- rubriques:fin -->'''
 

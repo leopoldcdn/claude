@@ -236,10 +236,10 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
   -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fondu-g), #000 calc(100% - var(--fondu-d)), transparent 100%);
   mask-image: linear-gradient(to right, transparent 0, #000 var(--fondu-g), #000 calc(100% - var(--fondu-d)), transparent 100%);
   transition: --fondu-g var(--t-slow) var(--ease), --fondu-d var(--t-slow) var(--ease); }
-.js .rtrack.fondu-g { --fondu-g: 80px; }
-.js .rtrack.fondu-d { --fondu-d: 80px; }
+.js .rtrack.fondu-g { --fondu-g: 40px; }
+.js .rtrack.fondu-d { --fondu-d: 40px; }
 /* Les cartes se calent juste après la zone de fondu : seule la fin de la carte précédente s’estompe. */
-.js .rtrack { scroll-padding-inline: 84px; }
+.js .rtrack { scroll-padding-inline: 44px; }
 .rtrack:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 16px; }
 .rcarte { --l: clamp(250px, 27vw, 300px); --encre: color-mix(in srgb, var(--c) 72%, #000); position: relative; flex: 0 0 var(--l); scroll-snap-align: start; display: flex; flex-direction: column;
   border: 1px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--ink); overflow: hidden;
@@ -377,9 +377,9 @@ mark.todo { background: color-mix(in srgb, var(--signal) 55%, var(--surface)); c
   .js .rcarte.ouvert .rcarte-d { max-height: 760px; }
   .js .rcarte-d-in { height: auto; padding: 20px 20px 22px; }
   .js .rnav { display: none; }
-  .js .rtrack.fondu-g { --fondu-g: 32px; }
-  .js .rtrack.fondu-d { --fondu-d: 32px; }
-  .js .rtrack { scroll-padding-inline: 36px; }
+  .js .rtrack.fondu-g { --fondu-g: 16px; }
+  .js .rtrack.fondu-d { --fondu-d: 16px; }
+  .js .rtrack { scroll-padding-inline: 20px; }
 }
 @media (max-width: 480px) {
   .essai { right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); height: 48px; font-size: 14.5px; }

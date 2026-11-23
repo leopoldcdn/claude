@@ -46,7 +46,7 @@ confidentialité (et, selon l'outil, ajoute un bandeau de consentement).
 | `mentions-legales.html`, `confidentialite.html` | Pages légales, avec les passages à compléter surlignés |
 | `contact.php`, `avis.php`, `envoi.php`, `config.php` | Envoi par e-mail des messages et des avis (formulaire du site et bouton de la démo) ; `config.php` est le seul fichier à modifier |
 | `.htaccess` | Protections du navigateur, cache, accès interdit aux fichiers de réglages, HTTPS à activer |
-| `fonts/`, `vendor/gsap.min.js` | Polices Sora et Plus Jakarta Sans (licence SIL OFL) ; bibliothèque d'animation de la démo (copiée dans `demo/`) |
+| `fonts/`, `vendor/gsap.min.js` | Polices Sora, Plus Jakarta Sans et Agrave Pro (licence SIL OFL ; Agrave Pro pour le grand titre, les questions du questionnaire et « De A à Z ») ; bibliothèque d'animation de la démo (copiée dans `demo/`) |
 | `img/` | Image de partage. `img/apercus/` (captures de l'ancienne section « Aperçus », refaites par `outils/apercus.js`) n'est plus affiché ni copié dans `dist/` |
 | `build.py` | Assemble `dist/` (site, démo, PHP) ou `dist-apercu/` |
 | `outils/` | Scripts de l'image de partage et du carrousel des rubriques (et des captures de l'ancienne section « Aperçus ») |

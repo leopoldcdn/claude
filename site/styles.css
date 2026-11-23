@@ -21,6 +21,8 @@
   --accent-on-ink: #8f88ff;
   --f-display: "Sora", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-body: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Police manuscrite des titres choisis : grand titre de l'accueil, questions du questionnaire, « De A à Z ». */
+  --f-titre: "Agrave Pro", "Sora", ui-sans-serif, system-ui, sans-serif;
   --radius: 16px;
   --shadow: 0 1px 2px rgba(20, 24, 52, .06), 0 18px 40px -18px rgba(20, 24, 52, .28);
   /* Mouvement : une courbe (décélération nette) et trois durées, appliquées partout sauf à la roue. */
@@ -99,8 +101,8 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .hero-in { min-height: calc(100svh - 90px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 480px); gap: clamp(40px, 7vw, 104px); align-items: center;
   padding-block: clamp(40px, 6vh, 80px); padding-inline: calc(clamp(16px, 4vw, 40px) + clamp(0px, 2vw, 24px)); }
 .promesse { display: grid; gap: 18px; justify-items: start; }
-.hero h1 { font-size: clamp(33px, 3.7vw, 52px); font-weight: 700; line-height: 1.04; letter-spacing: -0.035em; }
-.hero h1 em { font-style: normal; background: linear-gradient(transparent 64%, var(--signal) 64%, var(--signal) 92%, transparent 92%); }
+.hero h1 { font-family: var(--f-titre); font-size: clamp(33px, 3.7vw, 52px); font-weight: 700; line-height: 1.04; letter-spacing: -0.035em; }
+.hero h1 em { font-style: italic; background: linear-gradient(transparent 64%, var(--signal) 64%, var(--signal) 92%, transparent 92%); }
 .accroche { font: 600 clamp(16px, 1.25vw, 18px)/1.45 var(--f-display); letter-spacing: -0.01em; max-width: 27ch; }
 .promesse-texte { color: var(--muted); font-size: 15.5px; line-height: 1.7; max-width: 46ch; }
 .reperes { margin-top: 12px; display: grid; gap: 10px; }
@@ -133,7 +135,7 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 .etape.entre.recule { animation-name: entre-recule; }
 @keyframes entre { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
 @keyframes entre-recule { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
-.question { font-size: clamp(21px, 1.9vw, 25px); font-weight: 700; line-height: 1.22; outline: none; }
+.question { font-family: var(--f-titre); font-size: clamp(21px, 1.9vw, 25px); font-weight: 700; line-height: 1.22; outline: none; }
 .aide { margin-top: -10px; font-size: 14px; line-height: 1.5; color: var(--muted); }
 .choix { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
 .choix.deux { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -222,6 +224,7 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 
 /* ---------- 2. Carrousel des rubriques : un « + » sur chaque carte l'élargit et déplie son détail à droite ---------- */
 #logiciel { overflow-x: clip; }
+#logiciel > .wrap > h2 { font-family: var(--f-titre); font-size: clamp(26px, 3vw, 38px); }
 .carrousel { margin-top: 12px; }
 .rtrack-wrap { position: relative; }
 .rtrack { display: flex; align-items: flex-start; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-inline: 4px; padding: 8px 4px 20px; scrollbar-width: thin; overscroll-behavior-x: contain; }

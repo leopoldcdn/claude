@@ -222,7 +222,7 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 
 /* ---------- 2. Carrousel des rubriques : un « + » sur chaque carte l'élargit et déplie son détail à droite ---------- */
 #logiciel { overflow-x: clip; }
-.carrousel { margin-top: 24px; }
+.carrousel { margin-top: 12px; }
 .rtrack-wrap { position: relative; }
 .rtrack { display: flex; align-items: flex-start; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-inline: 4px; padding: 8px 4px 20px; scrollbar-width: thin; overscroll-behavior-x: contain; }
 .js .rtrack { padding-bottom: 40px; scrollbar-width: none; }

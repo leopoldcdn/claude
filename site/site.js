@@ -16,12 +16,28 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && barre.classList.contains('ouvert')) { fermer(); menu.focus(); } });
     document.addEventListener('click', function (e) { if (barre.classList.contains('ouvert') && !barre.contains(e.target)) fermer(); });
   }
-  var navLinks = $$('.liens a[href^="#"]');
-  if (navLinks.length && 'IntersectionObserver' in window) {
-    var spy = new IntersectionObserver(function (es) {
-      es.forEach(function (e) { if (!e.isIntersecting) return; navLinks.forEach(function (a) { a.setAttribute('aria-current', String(!!e.target.id && a.getAttribute('href') === '#' + e.target.id)); }); });
-    }, { rootMargin: '-45% 0px -50% 0px' });
-    navLinks.forEach(function (a) { var t = $(a.getAttribute('href')); if (t && t.tagName === 'SECTION') spy.observe(t); });
+  // Rubrique en cours : recalculée à chaque défilement à partir de la position des sections (et non d'événements
+  // d'entrée ou de sortie, qui ratent les sauts, les rechargements à mi-page ou les sections sans lien). La section en
+  // cours est la dernière dont le haut a passé le tiers supérieur de l'écran ; tout en haut, l'accueil ; tout en bas, la
+  // dernière section. Si elle n'a pas de lien dans la barre (« Être recontacté »), aucune rubrique n'est allumée.
+  var navLinks = $$('.liens a[href^="#"]'), sections = $$('main > section[id]');
+  if (navLinks.length && sections.length) {
+    var allumer = function (id) { navLinks.forEach(function (a) { a.setAttribute('aria-current', String(a.getAttribute('href') === '#' + id)); }); };
+    var enCours = function () {
+      var doc = document.documentElement, ligne = window.innerHeight / 3, id = sections[0].id;
+      if (window.scrollY + window.innerHeight >= doc.scrollHeight - 4) id = sections[sections.length - 1].id;
+      else if (window.scrollY > 4) sections.forEach(function (sec) { if (sec.getBoundingClientRect().top <= ligne) id = sec.id; });
+      allumer(id);
+    };
+    var prevu = false;
+    var planifier = function () { if (!prevu) { prevu = true; window.requestAnimationFrame(function () { prevu = false; enCours(); }); } };
+    window.addEventListener('scroll', planifier, { passive: true });
+    window.addEventListener('resize', planifier);
+    window.addEventListener('hashchange', planifier);
+    window.addEventListener('load', enCours);
+    // Un clic dans la barre allume tout de suite la rubrique visée ; le défilement confirme ensuite.
+    navLinks.forEach(function (a) { a.addEventListener('click', function () { allumer(a.getAttribute('href').slice(1)); }); });
+    enCours();
   }
 
   // 0 bis. Questionnaire de l'accroche : quatre questions, un clic sur une réponse passe à la suivante ; au clavier,

@@ -76,17 +76,12 @@
   7 jours après la demande (`REPLY_DAYS`, délai interne de réponse, pas une règle légale). La paie du mois compte pour une action.
 - **Pastilles** : sur la roue, dans le menu et sur le bouton « À traiter », une pastille (rouge) ne compte plus que les actions
   en retard. Les onglets des rubriques gardent leurs compteurs.
-- **Menu** : hors de l'accueil, les rubriques sont dans une colonne à gauche, chacune avec son nom, regroupées en quatre
-  familles (Recruter, Gérer, Développer, Départ ; « Piloter » pour les outils RH). Sous 1280 px, la colonne devient un bandeau
-  horizontal. Dans l'espace salarié, les familles s'appellent Arrivée, Au quotidien, Évolution, Départ.
-- **Dossier d'arrivée ou de départ en page, avec sommaire** (novembre 2026) : la page Arrivées (ou Départs) liste les
-  personnes en pleine largeur ; un clic ouvre le dossier sur sa propre page. Le bandeau affiche « ← Arrivées » et le nom de la
-  personne, le menu de gauche se réduit aux icônes (le nom au survol). À gauche, un sommaire : la personne, l'avancement
-  (« 3 étapes sur 16 ») et, pour chaque temps (pré-embauche, embauche, intégration ; préparation, formalités de sortie, après
-  le départ), ses sections avec leur état (fait, à faire, à revoir, en attente, « 5/6 »). Un clic mène à la section, et le
-  sommaire suit la section visible. Au centre, les temps et leurs sections s'enchaînent, chaque section dans son cadre ; plus
-  d'onglets de phase. « À traiter » ouvre le dossier sur la première section à faire du temps concerné (la DPAE ouvre
-  « Formalités »). L'état d'une section est déduit de ses lignes (`secState`) ; l'état civil a le sien (`civSt`).
+- **Menu** : hors de l'accueil, les rubriques sont dans une colonne fine à gauche, en icônes seules (couleur de la rubrique),
+  regroupées en quatre familles séparées par un trait (Recruter, Gérer, Développer, Départ ; « Piloter » pour les outils RH).
+  Le nom de la rubrique s'affiche dans une bulle au survol ou au clavier, avec ses actions en retard (`railTip`) ; les
+  lecteurs d'écran lisent le nom. Sous 1280 px, la colonne devient un bandeau d'icônes. Dans l'espace salarié, les familles
+  s'appellent Arrivée, Au quotidien, Évolution, Départ. (Un essai de dossier en page avec sommaire a été retiré : on garde la
+  liste et le dossier à onglets.)
 - **Date** : les données fictives de Nova Studio sont toutes datées, écrites pour le 6 octobre 2026.
   - La **version de travail** s'ouvre à cette date (`TEAMORA_DEMO_DATE` dans `data.js`, lue par `clockDay` dans `app.js`)
     et l'accueil l'indique (« date de la démo »). Sans cela, presque tout basculait « en retard » au fil des semaines.
@@ -246,7 +241,7 @@ commercialisation. Les contributions sont des estimations : le calcul exact rest
 ## Ce qui change par rapport à la V1
 
 - **Arrivées et Départs** : pré-embauche, embauche et intégration forment un seul dossier par recrue (liste à gauche,
-  dossier à onglets à droite, barres d'avancement par temps ; depuis novembre 2026, le dossier est une page avec sommaire) ; préparation, formalités de sortie et après le départ, un
+  dossier à onglets à droite, barres d'avancement par temps) ; préparation, formalités de sortie et après le départ, un
   seul dossier de départ. La roue passe de 16 à 12 rubriques. Le programme d'intégration et l'analyse des départs sont des
   onglets de ces rubriques.
 - **« À traiter »** : un bouton en haut rassemble tout ce qui attend le profil, rubrique par rubrique et, pour les arrivées

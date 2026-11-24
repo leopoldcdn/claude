@@ -205,7 +205,116 @@
     const pr = db.payroll['2026-10'] = Object.assign({ closed: false, bonus: {} }, db.payroll['2026-10'] || {});
     pr.acks = Object.assign({}, pr.acks); pr.mgrOk = Object.assign({}, pr.mgrOk);
     db.employees.forEach((e) => { ['tsmiss', 'conv', 'ecart'].forEach((t) => { pr.acks[`${t}-${e.id}`] = true; }); if (e.managerId && e.managerId !== 'e2') pr.mgrOk[e.managerId] = '2026-10-05'; });
-    db.demo = { effectif: N, poste: sc.poste };
+
+    // 6. La démo vit à la date du jour : tout est recalé sur sc.today (voir recaler ci-dessous).
+    const T = sc.today || TODAY;
+    recaler(db, T, N);
+    db.demo = { effectif: N, poste: sc.poste, built: T };
     return db;
   };
+
+  // ---------------------------------------------------------------- Recalage à la date du jour
+  // Les données sont écrites pour le mardi 6 octobre 2026. Pour une autre date T :
+  // - chaque date avance du nombre exact de jours qui séparent T de cette date : les échéances gardent leur distance à
+  //   aujourd'hui (les dix actions restent les mêmes, avec la même urgence) ;
+  // - les mois (paie, baromètre) avancent de mois entiers, les années (historique d'effectif, campagne) d'années entières ;
+  // - congés, feuilles de temps, réunions, entretiens et visites gardent leur jour de la semaine (écart de 3 jours au plus) ;
+  // - ce qui dépend du calendrier est replacé : arrivée de Nathan lundi prochain, autres recrues au mois où l'effectif
+  //   franchit le seuil, clôture de la paie du mois en cours, publication de l'index ;
+  // - les textes datés suivent (« fin novembre », « bulletin de septembre 2026 », « le 13 octobre »).
+  const ANCRE = '2026-10-06';
+  const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  const jours = (a, b) => Math.round((parse(a) - parse(b)) / 864e5);
+  const dow = (s) => parse(s).getDay();
+  const addMonths = (s, n) => { const d = parse(s); d.setMonth(d.getMonth() + n); return iso(d); };
+  const moisDe = (m, n) => { const d = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1 + n, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
+  // Fériés légaux (mêmes règles que l'application) : une arrivée ne tombe pas un jour férié.
+  const paques = (y) => { const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451), n = h + l - 7 * m + 114;
+    return `${y}-${pad(Math.floor(n / 31))}-${pad((n % 31) + 1)}`; };
+  const ferie = (s) => { const y = Number(s.slice(0, 4)), p = paques(y); return ['01-01', '05-01', '05-08', '07-14', '08-15', '11-01', '11-11', '12-25'].includes(s.slice(5)) || [addDays(p, 1), addDays(p, 39), addDays(p, 50)].includes(s); };
+  const ouvre = (s) => { let d = s; while (dow(d) === 0 || dow(d) === 6 || ferie(d)) d = addDays(d, 1); return d; };
+  const lundiApres = (s) => addDays(s, ((8 - dow(s)) % 7) || 7);
+  const fmtJour = (s) => `${Number(s.slice(8))}${s.slice(8) === '01' ? 'er' : ''} ${MOIS[Number(s.slice(5, 7)) - 1]}`;
+
+  function recaler(db, T, N) {
+    const D = jours(T, ANCRE), M = (Number(T.slice(0, 4)) * 12 + Number(T.slice(5, 7))) - (2026 * 12 + 10), Y = Number(T.slice(0, 4)) - 2026;
+    const jour = (s) => addDays(s, D), mois = (s) => moisDe(s, M);
+    // Textes : « 13 octobre » avance de D jours, « septembre 2026 » de M mois, « fin novembre » de M mois, « plan 2026 » de Y ans.
+    const texte = (t) => t.replace(/(\b\d{1,2}(?:er)? )?\b(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\b( \d{4})?|\b(20[12]\d)\b/g, (m0, j, mo, an, y) => {
+      if (y) return String(Number(y) + Y);
+      const k = MOIS.indexOf(mo), yy = an ? Number(an) : 2026;
+      if (j) { const d = jour(`${yy}-${pad(k + 1)}-${pad(parseInt(j, 10))}`); return `${fmtJour(d)}${an ? ` ${d.slice(0, 4)}` : ''}`; }
+      const m = moisDe(`${yy}-${pad(k + 1)}`, M); return `${MOIS[Number(m.slice(5)) - 1]}${an ? ` ${m.slice(0, 4)}` : ''}`;
+    });
+    const TEXTES = ['text', 'note', 'comment', 'notes', 'experience', 'detail', 'description', 'subject', 'title'];
+    const val = (v, key) => {
+      if (typeof v === 'string') {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return jour(v);
+        if (/^\d{4}-\d{2}-\d{2}T/.test(v)) return jour(v.slice(0, 10)) + v.slice(10);
+        if (/^\d{4}-\d{2}$/.test(v)) return mois(v);
+        if (/^\d{4}-\d{2}:/.test(v)) return mois(v.slice(0, 7)) + v.slice(7);
+        if (TEXTES.includes(key) && /\d{4}|janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre/.test(v)) return texte(v);
+        return v;
+      }
+      if (typeof v === 'number' && key === 'year') return v + Y;
+      if (v && typeof v === 'object') return walk(v);
+      return v;
+    };
+    const cle = (k) => (/^\d{4}-\d{2}$/.test(k) ? mois(k) : /^\d{4}$/.test(k) ? String(Number(k) + Y) : /_\d{4}-\d{2}-\d{2}$/.test(k) ? k.slice(0, -10) + jour(k.slice(-10)) : k);
+    function walk(o) {
+      if (Array.isArray(o)) return o.map((x) => val(x, null));
+      const out = {}; Object.keys(o).forEach((k) => { out[cle(k)] = val(o[k], k); }); return out;
+    }
+    if (D) Object.keys(db).forEach((k) => { db[k] = val(db[k], k); });
+    db.valueShare.years = db.valueShare.years.map(([y, ca, res]) => [Number(y) + Y, ca, res]);
+
+    // Jour de la semaine conservé (décalage de 3 jours au plus) pour ce qui se planifie un jour précis.
+    // futur : un rendez-vous qui était à venir le reste (une semaine plus tard s'il tombait aujourd'hui ou avant).
+    const garde = (s, futur) => { if (!s || !D) return s; const d = s.slice(0, 10), avant = addDays(d, -D), k = ((dow(avant) - dow(d) + 10) % 7) - 3; let r = addDays(d, k);
+      if (futur && avant > ANCRE && r <= T) r = addDays(r, 7); return r + s.slice(10); };
+    const EXACTS = ['l2', 'l7'];
+    db.leaves.forEach((l) => { if (EXACTS.includes(l.id)) return; const s = garde(l.start), k = jours(s, l.start); l.start = s; l.end = addDays(l.end, k); });
+    db.timesheets.forEach((t) => { t.week = garde(t.week); });
+    db.compliance.cse.meetings.forEach((x) => { x.date = garde(x.date); });
+    db.candidates.forEach((c) => (c.interviews || []).forEach((iv) => { iv.date = garde(iv.date, true); }));
+    db.reviews.forEach((r) => { if (r.date) r.date = garde(r.date, true); });
+    db.visits.forEach((v) => { if (v.status === 'Planifiée') v.date = garde(v.date, true); });
+    db.trainings.forEach((t) => { t.sessions = (t.sessions || []).map((x) => garde(x, true)); });
+    const PLACES = ['e10', 'e12', 'e18', 'e19', 'e22', 'e23', 'e401', 'e402'];
+    db.employees.forEach((e) => { if (!PLACES.includes(e.id) && e.stage !== 2) e.startDate = garde(e.startDate); });
+
+    // Ce qui est passé depuis : entretiens évalués, visites faites.
+    db.candidates.forEach((c) => (c.interviews || []).forEach((iv) => { if (!iv.eval && iv.date.slice(0, 10) < T) iv.eval = { date: iv.date.slice(0, 10), ratings: [4, 4, 3], evidence: ['Expérience solide sur le périmètre du poste.', 'Exemples concrets et chiffrés.', 'À approfondir lors de l’entretien suivant.'], reco: 'Favorable', comment: '' }; }));
+    db.visits.forEach((v) => { if (v.status === 'Planifiée' && v.date < T) Object.assign(v, { status: 'Réalisée', result: 'Apte' }); });
+
+    // Congés de Hugo : une semaine complète, du lundi au vendredi, environ trois semaines plus tard.
+    const l2 = db.leaves.find((l) => l.id === 'l2');
+    if (l2) { l2.start = garde(l2.start); l2.end = addDays(l2.start, 4); l2.comment = 'Congés';
+      const n1 = db.notifications.find((n) => n.id === 'n1'); if (n1) n1.text = `Hugo Laurent demande 5 jours de congés payés du ${fmtJour(l2.start)} au ${fmtJour(l2.end)}.`; }
+    db.leaves.forEach((l) => { if (/Toussaint|fin d’année/.test(l.comment || '')) l.comment = 'Congés'; });
+
+    // Arrivées : Nathan lundi prochain ; Aisha (et, à 46 salariés, deux autres recrues) le mois où l'effectif franchit le seuil.
+    const set = (id, o) => { const e = db.employees.find((x) => x.id === id); if (e) Object.assign(e, o); return e; };
+    // (Si le lundi suivant est férié et tombe à plus de 7 jours, Nathan arrive dès le lendemain.)
+    let nathan = ouvre(lundiApres(T)); if (jours(nathan, T) > 7) nathan = ouvre(addDays(T, 1)); set('e18', { startDate: nathan });
+    const prochain = moisDe(T.slice(0, 7), 1), m = `${prochain}-01` > addDays(T, 7) ? prochain : moisDe(T.slice(0, 7), 2);
+    const aisha = ouvre(lundiApres(addDays(`${m}-01`, -1)));
+    [['e12', aisha], ['e401', addDays(aisha, 14)], ['e402', addDays(aisha, 21)]].forEach(([id, d]) => {
+      if (!set(id, { startDate: d })) return;
+      Object.assign(db.onboarding[id] = db.onboarding[id] || {}, { dpae: { date: addDays(T, -1), ref: `DPAE-${id.toUpperCase()}` }, mutuelle: 'Affiliation', prevoyance: true, assignedAt: addDays(T, -1) });
+    });
+
+    // Paie du mois en cours : clôture des variables le 20, ou au moins 10 jours plus tard.
+    const pm = T.slice(0, 7), pr = db.payroll[pm];
+    if (pr) { const vingt = `${pm}-20`; pr.cutoff = addDays(T, 10) > vingt ? addDays(T, 10) : vingt; }
+
+    // Obligations datées de l'année en cours.
+    const C = db.compliance, YEAR = String(T.slice(0, 4));
+    const cons = C.cse.consult[YEAR]; if (cons) ['strategie', 'eco', 'social'].forEach((k, i) => { if (cons[k] > T) cons[k] = addDays(T, -10 * (3 - i)); });
+    if (C.index[YEAR] && C.index[YEAR].publishedAt > T) C.index[YEAR].publishedAt = addDays(T, -10);
+    // À 120 salariés, l'alerte porte sur l'index… sauf la dernière semaine avant le 1er mars : l'accord de participation prend le relais.
+    if (N >= 50 && N < 250) { const due = `${Number(YEAR) + (T.slice(5) > '03-01' ? 1 : 0)}-03-01`;
+      if (jours(due, T) <= 7) { C.index[YEAR] = { publishedAt: addDays(T, -3), score: 86 }; delete C.accords.participation; } }
+  }
 })();

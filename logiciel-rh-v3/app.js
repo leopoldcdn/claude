@@ -77,6 +77,8 @@
     nSort: 'since', nDir: -1, recTab: 'todo', offerTab: 'cands', colOpen: {}, oSort: 'status', oDir: 1, nq: '', nDept: '', nStatus: 'auto', nFrom: '', rq: '', rDept: '', rStatus: '', rFrom: '', adminTab: 'annuaire', payTab: 'paie', payStep: null, procTab: 'cours', procSel: null, procPhase: null, orgQ: '', orgDept: '', orgSite: '', profTab: 'profil', tsWeek: null, revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
   // Deux versions : « travail » (index.html, toutes les options) et « démo » (demo.html, lien partagé aux PME testeuses).
   const DEMO = window.TEAMORA_MODE === 'demo';
+  // Démo préparée (demo-scenario.js) : elle vit à la date du jour, ses données sont recalées sur cette date.
+  const DEMO_LIVE = DEMO && typeof window.TEAMORA_DEMO_SCENARIO === 'function';
   let ui = Object.assign({ profile: 'rh', view: 'accueil', stage: null }, loadUI(), freshUI());
   if (!PROFILES[ui.profile]) ui.profile = 'rh';
   ui.orgZoom = Number(ui.orgZoom) || 1; ui.orgFold = ui.orgFold || {};
@@ -87,10 +89,11 @@
   const pad = (n) => String(n).padStart(2, '0');
   const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const parse = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d || 1); };
-  // Date du jour. Les données fictives de Nova Studio sont datées : la démo vit à leur date (TEAMORA_DEMO_DATE, dans data.js),
-  // sinon tout paraîtrait en retard dès le mois suivant. Une « nouvelle entreprise » vit à la date réelle.
-  const clockDay = () => (TENANT === 'nova' && window.TEAMORA_DEMO_DATE) || iso(new Date());
-  const demoDay = () => TENANT === 'nova' && !!window.TEAMORA_DEMO_DATE;
+  // Date du jour. Les données fictives de Nova Studio sont datées : la version de travail vit à leur date (TEAMORA_DEMO_DATE,
+  // dans data.js), sinon tout paraîtrait en retard dès le mois suivant. La démo préparée et une « nouvelle entreprise » vivent
+  // à la date réelle (la démo recale ses données sur ce jour).
+  const clockDay = () => (TENANT === 'nova' && !DEMO_LIVE && window.TEAMORA_DEMO_DATE) || iso(new Date());
+  const demoDay = () => TENANT === 'nova' && !DEMO_LIVE && !!window.TEAMORA_DEMO_DATE;
   let TODAY = clockDay();
   const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
   const fmtDate = (s, o = { day: 'numeric', month: 'short', year: 'numeric' }) => (s ? new Intl.DateTimeFormat('fr-FR', o).format(parse(s)) : '—');
@@ -269,8 +272,9 @@
   }
 
   // ---------------------------------------------------------------- Payroll
-  const PAY_FIRST = '2026-07';
-  function payMonths() { const last = monthKey(TODAY) > '2026-10' ? monthKey(TODAY) : '2026-10'; const out = []; for (let m = PAY_FIRST; m <= last; m = shiftMonth(m, 1)) out.push(m); return out; }
+  // Premier mois de paie : juillet 2026 (version de travail) ; dans la démo recalée, le premier mois enregistré.
+  const payFirst = () => { const ks = DEMO_LIVE ? Object.keys(db.payroll || {}).sort() : []; return ks.length ? ks[0] : '2026-07'; };
+  function payMonths() { const last = DEMO_LIVE || monthKey(TODAY) > '2026-10' ? monthKey(TODAY) : '2026-10'; const out = []; for (let m = payFirst(); m <= last; m = shiftMonth(m, 1)) out.push(m); return out; }
   const payrollOf = (m) => (db.payroll[m] = db.payroll[m] || { closed: false, bonus: {} });
   function inPayroll(e, m) { const start = m + '-01', end = monthEnd(m); if (e.startDate > end) return false; if (e.exit && e.exit.lastDay < start) return false; return e.stage >= 2 || e.startDate <= end; }
   // A raise or a job change can take effect later: until then the current salary applies.
@@ -1660,7 +1664,14 @@
   const demoTaille = (n) => (Object.entries(window.TEAMORA_DEMO_SIZES || {}).find(([, v]) => v === n) || [])[0];
   function demoFromUrl() { try { const q = new URLSearchParams(location.search); return demoSc(q.get('effectif'), q.get('poste')); } catch (e) { return null; } }
   // Les données de l'entreprise à cette taille (à compléter par les normalisations habituelles du démarrage).
-  function demoBuild(sc) { db = window.TEAMORA_SEED(); normalizeSettings(); normalizeCompliance(); window.TEAMORA_DEMO_SCENARIO(db, sc); }
+  function demoBuild(sc) { db = window.TEAMORA_SEED(); normalizeSettings(); normalizeCompliance(); window.TEAMORA_DEMO_SCENARIO(db, Object.assign({}, sc, { today: TODAY })); }
+  // Une démo préparée un autre mois, ou il y a plus de 7 jours, est refaite à la date du jour (mêmes réponses).
+  const demoStale = (d) => !d.built || d.built.slice(0, 7) !== TODAY.slice(0, 7) || dayDiff(d.built, TODAY) > 7 || d.built > TODAY;
+  // Démo complète à cette taille : données, puis les normalisations habituelles du démarrage.
+  function demoPrepare(sc) {
+    demoBuild(sc); applySettings(); normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); applyDueSalaries(); applyDueManagers(); applyDueChanges();
+    purgeCandidates(); purgeLeavers(); syncArrivals(); arrivalReminders(); needReminders(); TASKS.clear();
+  }
   // L'écran d'arrivée : l'accueil du profil, ou la paie pour l'expert-comptable.
   function demoLanding(sc) {
     if (isMob()) return { profile: 'salarie', view: 'accueil', stage: null };
@@ -1671,10 +1682,7 @@
   }
   const demoUI = (sc) => { ui = Object.assign({ selfOf: null, asEmp: null, asMgr: null }, freshUI(), demoLanding(sc)); };
   // Reconstruit la démo avec d'autres réponses (bouton « Changer la taille ou le poste »).
-  function demoApply(sc) {
-    demoBuild(sc); applySettings(); normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); applyDueSalaries(); applyDueManagers(); applyDueChanges();
-    purgeCandidates(); purgeLeavers(); syncArrivals(); arrivalReminders(); needReminders(); TASKS.clear(); demoUI(sc); save(); render();
-  }
+  function demoApply(sc) { demoPrepare(sc); demoUI(sc); save(); render(); }
   // Présentation de la personne incarnée, pour la visite guidée.
   function demoWho() {
     const d = db.demo || {}, n = d.effectif ? `, une entreprise fictive de ${fmtN(d.effectif)} salariés` : ', une entreprise fictive';
@@ -2950,7 +2958,8 @@
   MOD_ACT.tab = (d) => { ui[d.k] = d.t; render(); };
 
   // ---------------------------------------------------------------- Performance & entretiens
-  const CAMPAIGN = 2026;
+  // Campagne d'entretiens : 2026 dans la version de travail, l'année en cours dans la démo recalée.
+  let CAMPAIGN = DEMO_LIVE ? Number(TODAY.slice(0, 4)) : 2026;
   const REVIEW_FLOW = ['À planifier', 'Planifié', 'Auto-évaluation faite', 'À signer', 'Signé'];
   const REVIEW_PILL = { 'À planifier': 'warn', Planifié: 'info', 'Auto-évaluation faite': 'accent', 'À signer': 'accent', Signé: 'ok' };
   const reviewPill = (r) => `<span class="pill ${REVIEW_PILL[r.status]}">${r.status}</span>`;
@@ -2996,7 +3005,7 @@
       } else if (ui.revTab === 'objectifs') {
         const list = db.objectives.filter((o) => o.empId === m.id);
         const avg = list.length ? Math.round(list.reduce((s, o) => s + o.progress, 0) / list.length) : 0;
-        body = card('Mes objectifs 2026', `<span class="pill ok num">Avancement moyen ${avg} %</span>`, `<div class="card-b">${objectivesList(list, !mob)}<p class="hint" style="margin:12px 0 0">${mob ? 'La mise à jour de l’avancement se fait sur ordinateur.' : 'Faites glisser le curseur pour mettre à jour l’avancement : votre manager le voit aussitôt.'}</p></div>`);
+        body = card(`Mes objectifs ${CAMPAIGN}`, `<span class="pill ok num">Avancement moyen ${avg} %</span>`, `<div class="card-b">${objectivesList(list, !mob)}<p class="hint" style="margin:12px 0 0">${mob ? 'La mise à jour de l’avancement se fait sur ordinateur.' : 'Faites glisser le curseur pour mettre à jour l’avancement : votre manager le voit aussitôt.'}</p></div>`);
       } else body = feedbackTab();
       return tabsBar('revTab', tabs) + body;
     }
@@ -7979,6 +7988,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
   let demoAskFirst = false;
   if (DEMO_SC && TENANT === 'nova') { const sc = demoFromUrl(), cur = db.demo;
     if (sc && !(cur && cur.effectif === sc.effectif && cur.poste === sc.poste)) { demoBuild(sc); demoUI(sc); }
+    else if (cur && demoStale(cur)) demoBuild({ effectif: cur.effectif, poste: cur.poste });
     else if (!cur) { demoBuild({ effectif: 46, poste: 'rh' }); delete db.demo; demoUI({ effectif: 46, poste: 'rh' }); demoAskFirst = true; } }
   normalizeSettings(); applySettings(); normalizeCompliance();
   normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); applyDueSalaries(); applyDueManagers(); applyDueChanges(); purgeCandidates(); purgeLeavers(); syncArrivals(); arrivalReminders(); needReminders(); save();
@@ -8049,7 +8059,8 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
   // Tests du tronçon « départ » : préavis, indemnités, calendrier de rupture conventionnelle.
   // Tests de la démo : les actions « À traiter » d'un profil, l'effectif et les obligations.
   if (window.TEAMORA_TEST === true) Object.assign(window.__teamoraTest, { db: () => db, effState: () => effState(), obligations: () => obligations(),
-    tasksOf: (p, self) => inSpace(p, self || null, () => { TASKS.clear(); const r = todoTasks().map((t) => ({ k: t.k, l: t.l, due: t.due, u: urgency(t), who: t.who ? fullName(t.who) : t.name })); TASKS.clear(); return r; }) });
+    tasksOf: (p, self) => inSpace(p, self || null, () => { TASKS.clear(); const r = todoTasks().map((t) => ({ k: t.k, l: t.l, due: t.due, u: urgency(t), who: t.who ? fullName(t.who) : t.name })); TASKS.clear(); return r; }),
+    simulate: (day, sc) => { TODAY = day; WEEK_END = addDays(TODAY, 7); YEAR = Number(day.slice(0, 4)); CAMPAIGN = Number(day.slice(0, 4)); demoPrepare(sc); return db.demo; } });
   if (window.TEAMORA_TEST === true) Object.assign(window.__teamoraTest, { rcCalendar, exitIndemnities, cpExit, refSalary, noticeInfo, noticeEndOf, exitChecks, exitBlockers, licInterviewMin, licLetterMin });
   if (DEMO) { let seen = false; try { seen = !!localStorage.getItem(TOUR_KEY); } catch (e) { /* ignore */ }
     // Sans réponses dans l'adresse ni démo déjà préparée : les deux questions d'abord, puis la visite guidée.

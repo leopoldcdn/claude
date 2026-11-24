@@ -54,18 +54,29 @@
 - **Menu** : hors de l'accueil, les rubriques sont dans une colonne à gauche, chacune avec son nom, regroupées en quatre
   familles (Recruter, Gérer, Développer, Départ ; « Piloter » pour les outils RH). Sous 1280 px, la colonne devient un bandeau
   horizontal. Dans l'espace salarié, les familles s'appellent Arrivée, Au quotidien, Évolution, Départ.
-- **Date de la démo** : les données fictives de Nova Studio sont toutes datées, écrites pour le 6 octobre 2026. Tant qu'on
-  reste dans la démo, l'application s'ouvre donc à cette date (`TEAMORA_DEMO_DATE` dans `data.js`, lue par `clockDay` dans
-  `app.js`) et l'accueil l'indique (« date de la démo »). Sans cela, presque tout basculait « en retard » au fil des
-  semaines (69 actions sur 83 au 16 novembre, contre 22 sur 62 au 6 octobre). Une « nouvelle entreprise » créée depuis la
-  version de travail vit, elle, à la date réelle. Pour faire avancer la démo, il faut changer cette date et les données
-  ensemble.
+- **Date** : les données fictives de Nova Studio sont toutes datées, écrites pour le 6 octobre 2026.
+  - La **version de travail** s'ouvre à cette date (`TEAMORA_DEMO_DATE` dans `data.js`, lue par `clockDay` dans `app.js`)
+    et l'accueil l'indique (« date de la démo »). Sans cela, presque tout basculait « en retard » au fil des semaines.
+  - La **démo** (`demo.html`) vit à la **date du jour** : `demo-scenario.js` recale toutes les données sur ce jour. Chaque
+    date avance du nombre exact de jours écoulés depuis le 6 octobre 2026, si bien que chaque échéance garde sa distance à
+    aujourd'hui et que les dix actions restent les mêmes, avec la même urgence (1 en retard, 5 cette semaine, 4 plus tard).
+    Les mois de paie et du baromètre avancent de mois entiers, les années (historique d'effectif, campagne d'entretiens)
+    d'années entières. Congés, feuilles de temps, réunions, entretiens et visites gardent leur jour de la semaine (3 jours
+    d'écart au plus ; un rendez-vous à venir reste à venir). Ce qui dépend du calendrier est replacé : Nathan arrive lundi
+    prochain (le lendemain si ce lundi est férié et trop loin), les autres recrues arrivent le mois où l'effectif franchit le
+    seuil (au moins 8 jours plus tard), la paie du mois en cours se clôt le 20 ou au moins 10 jours plus tard, l'index
+    égalité laisse la place à l'accord de participation la dernière semaine avant le 1er mars (à 120 salariés). Les textes
+    datés suivent (« fin novembre », « bulletin de septembre 2026 »). Une démo préparée un autre mois, ou il y a plus de
+    7 jours, est refaite à la date du jour avec les mêmes réponses. Le contrôle `simulate` (crochet de test) a été passé
+    sur chaque jour d'une année, pour les cinq tailles.
+  - Une « nouvelle entreprise » créée depuis la version de travail vit, elle aussi, à la date réelle.
 
 ## Tests
 
 Les tests sont dans `tests/` et se lancent avec Node et Playwright : `node tests/parcours.js` (chaque profil ouvre l'accueil,
 « À traiter » et toutes ses rubriques, sans erreur) et `node tests/accueil_a_traiter.js` (accueil, urgence, pastilles, menu).
-Ils vérifient aussi que la démo reste au 6 octobre 2026 quand la date réelle avance. Les scripts de test des versions précédentes
+Ils vérifient aussi que la version de travail reste au 6 octobre 2026 quand la date réelle avance, et que la démo suit
+la date réelle avec ses 10 actions. Les scripts de test des versions précédentes
 étaient gardés dans un dossier temporaire, hors du dépôt, et n'existent plus.
 
 ## Téléchargements dans les artefacts

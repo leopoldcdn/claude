@@ -104,13 +104,14 @@ const { chromium, ouvrir, compteur } = require('./outils');
   t.ok(await p.evaluate(() => [...document.querySelectorAll('.node')].every((n) => getComputedStyle(n).opacity === '0')) && !p.erreurs.length, 'visite : à l’étape suivante, la roue se replie');
   await p.close();
 
-  // 9. La démo reste au 6 octobre 2026 quand la date réelle avance ; une « nouvelle entreprise » suit la date réelle.
-  // La démo (préparée pour 46 salariés, vue RH) n'affiche que ses 10 actions.
+  // 9. La version de travail reste au 6 octobre 2026 quand la date réelle avance ; la démo préparée (46 salariés, vue RH)
+  // et une « nouvelle entreprise » suivent la date réelle. La démo garde ses 10 actions, recalées sur ce jour.
   for (const page of ['index.html', 'demo.html?effectif=20&poste=rh']) {
     p = await ouvrir(b, { page, jour: '2026-11-16' });
     const d = await p.evaluate(() => ({ jour: document.querySelector('.today-h small').textContent, resume: document.querySelector('.today-sum').textContent, etiquette: !!document.querySelector('.today-h .demo-day') }));
-    const attendu = page === 'index.html' ? /22 actions en retard · 19 cette semaine · 21 plus tard/ : /1 action en retard · 5 cette semaine · 4 plus tard/;
-    t.ok(/mardi 6 octobre 2026/i.test(d.jour) && d.etiquette && attendu.test(d.resume), `${page} ouverte le 16 novembre : ${d.jour} · ${d.resume}`);
+    const ok = page === 'index.html' ? /mardi 6 octobre 2026/i.test(d.jour) && d.etiquette && /22 actions en retard · 19 cette semaine · 21 plus tard/.test(d.resume)
+      : /16 novembre/i.test(d.jour) && !d.etiquette && /1 action en retard · 5 cette semaine · 4 plus tard/.test(d.resume);
+    t.ok(ok, `${page} ouverte le 16 novembre : ${d.jour} · ${d.resume}`);
     if (page !== 'index.html') { t.ok(!p.erreurs.length, 'démo : aucune erreur'); await p.close(); }
   }
   p = await ouvrir(b, { jour: '2026-11-16' });

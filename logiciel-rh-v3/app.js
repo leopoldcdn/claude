@@ -5012,7 +5012,12 @@
     return w.length ? { level: 'warn', msg: `Numéro de sécurité sociale à vérifier : ${w.join(' ; ')}.`, value: n } : { level: 'ok', msg: '', value: n };
   }
   // Données d'état civil demandées par la DPAE (art. R1221-1) et le registre ; le NIR peut manquer s'il n'est pas encore connu.
-  const civMissing = (e) => [[e.sex, 'sexe'], [e.birthDate, 'date de naissance'], [e.birthPlace, 'lieu de naissance'], [e.nationality, 'nationalité']].filter(([v]) => !v).map(([, l]) => l);
+  // Lieu de naissance : commune et pays saisis dans deux champs, réunis dans birthPlace (« Nantes, France ») pour le contrat, la DPAE et le registre.
+  // Une fiche plus ancienne n'a que birthPlace : on la découpe à la dernière virgule.
+  const birthParts = (e) => { if (e.birthCity != null || e.birthCountry != null) return [e.birthCity || '', e.birthCountry || ''];
+    const p = String(e.birthPlace || ''), i = p.lastIndexOf(','); return i < 0 ? [p.trim(), ''] : [p.slice(0, i).trim(), p.slice(i + 1).trim()]; };
+  const setBirth = (e, city, country) => { e.birthCity = String(city || '').trim(); e.birthCountry = String(country || '').trim(); e.birthPlace = [e.birthCity, e.birthCountry].filter(Boolean).join(', '); };
+  const civMissing = (e) => [[e.sex, 'sexe'], [e.birthDate, 'date de naissance'], [birthParts(e)[0], 'commune de naissance'], [birthParts(e)[1], 'pays de naissance'], [e.nationality, 'nationalité']].filter(([v]) => !v).map(([, l]) => l);
   // Durée du travail : forfait en jours pour un cadre autonome (choix fait à la création, convention individuelle signée avec le contrat), sinon horaire collectif.
   const arrForfait = (e) => !['Stage', 'Alternance'].includes(e.contract) && (e.worktime === 'forfait' || (!e.worktime && e.category === 'Cadre'));
   function dureeTravail(e) {
@@ -5160,9 +5165,10 @@
         const sel = (f, list, v) => `<select class="select" data-change="arr-civ" data-id="${e.id}" data-f="${f}" aria-label="${f}">${list.map((x) => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
         const inp = (f, label, v, extra = '') => `<div class="field"><label>${label}</label><input class="input" value="${esc(v || '')}" data-change="arr-civ" data-id="${e.id}" data-f="${f}" aria-label="${label}" ${extra}></div>`;
         const nir = nirCheck(e.nir, e);
-        html += sec('État civil (DPAE et registre du personnel)', `<p class="hint" style="margin:0 0 6px">${esc(e.firstName)} complète ces informations depuis son espace ; vous pouvez les corriger ici. Elles remplissent le contrat, la DPAE et le registre.</p><div class="form-grid civ"><div class="field"><label>Sexe</label>${sel('sex', ['—', 'F', 'H'], e.sex || '—')}</div><div class="field"><label>Nationalité</label>${nationalitySelect(e, `data-change="arr-civ" data-id="${e.id}" data-f="nationality" aria-label="Nationalité"`)}</div>
-          <div class="field"><label>Zone</label>${sel('zone', ['—', 'France', 'UE', 'Hors UE'], e.zone || '—')}<small class="field-hint">${e.nationality ? 'Déduite de la nationalité ; « Hors UE » demande un titre de séjour' : 'À déterminer : renseignez la nationalité'}</small></div><div class="field"><label>Date de naissance</label><input type="date" class="input" value="${esc(e.birthDate || '')}" max="${addYears(TODAY, -14)}" data-change="arr-civ" data-id="${e.id}" data-f="birthDate" aria-label="Date de naissance"></div>
-          ${inp('birthPlace', 'Lieu de naissance (commune, pays)', e.birthPlace, 'maxlength="80"')}<div class="field"><label>N° de sécurité sociale</label><input class="input num" value="${esc(e.nir || '')}" data-change="arr-civ" data-id="${e.id}" data-f="nir" aria-label="Numéro de sécurité sociale" maxlength="21" inputmode="numeric">${nir.msg ? `<small class="field-hint" style="color:var(--${nir.level === 'error' ? 'bad' : 'warn'})">${esc(nir.msg)}</small>` : ''}</div>
+        html += sec('État civil (DPAE et registre du personnel)', `<p class="hint" style="margin:0 0 6px">${esc(e.firstName)} complète ces informations depuis son espace ; vous pouvez les corriger ici. Elles remplissent le contrat, la DPAE et le registre.</p><div class="form-grid civ"><div class="field"><label>Sexe</label>${sel('sex', ['—', 'F', 'H'], e.sex || '—')}</div><div class="field"><label>Date de naissance</label><input type="date" class="input" value="${esc(e.birthDate || '')}" max="${addYears(TODAY, -14)}" data-change="arr-civ" data-id="${e.id}" data-f="birthDate" aria-label="Date de naissance"></div>
+          ${inp('birthCity', 'Commune de naissance', birthParts(e)[0], 'maxlength="60" placeholder="Ex. Lyon"')}${inp('birthCountry', 'Pays de naissance', birthParts(e)[1], 'maxlength="40" placeholder="Ex. France"')}
+          <div class="field"><label>Nationalité</label>${nationalitySelect(e, `data-change="arr-civ" data-id="${e.id}" data-f="nationality" aria-label="Nationalité"`)}</div><div class="field"><label>Zone</label>${sel('zone', ['—', 'France', 'UE', 'Hors UE'], e.zone || '—')}<small class="field-hint">${e.nationality ? 'Déduite de la nationalité ; « Hors UE » demande un titre de séjour' : 'À déterminer : renseignez la nationalité'}</small></div>
+          <div class="field"><label>N° de sécurité sociale</label><input class="input num" value="${esc(e.nir || '')}" data-change="arr-civ" data-id="${e.id}" data-f="nir" aria-label="Numéro de sécurité sociale" maxlength="21" inputmode="numeric">${nir.msg ? `<small class="field-hint" style="color:var(--${nir.level === 'error' ? 'bad' : 'warn'})">${esc(nir.msg)}</small>` : ''}</div>
           ${inp('address', 'Adresse', e.address, 'maxlength="140"')}${inp('emergency', 'Contact d’urgence', e.emergency, 'maxlength="80"')}
           ${needsTitre(e) ? `${inp('titreType', 'Type du titre de travail', e.titreType, 'maxlength="60" placeholder="Ex. carte de séjour « salarié »"')}${inp('titreNum', 'Numéro du titre', e.titreNum, 'maxlength="30"')}<div class="field"><label>Fin de validité du titre</label><input type="date" class="input" value="${esc(e.titreEnd || '')}" data-change="arr-civ" data-id="${e.id}" data-f="titreEnd" aria-label="Fin de validité du titre"></div>` : ''}</div>`);
         html += sec(`Pièces du dossier · contrat ${esc(e.contract)}`, `<p class="hint" style="margin:0 0 6px">${esc(e.firstName)} dépose ses pièces depuis son espace ; vous les vérifiez ici.</p>` + reqDocs(e).map(([k, l]) => { const st = docState(d, k), f = d.files[k];
@@ -5293,10 +5299,11 @@
       <form data-form="arr-me" novalidate><div class="form-grid">
         ${fld('me-sex', 'Sexe (registre du personnel)', `<select id="me-sex" name="sex" class="select"><option value="">Choisir…</option><option value="F" ${e.sex === 'F' ? 'selected' : ''}>Femme</option><option value="H" ${e.sex === 'H' ? 'selected' : ''}>Homme</option></select>`)}
         ${fld('me-birth', 'Date de naissance', `<input id="me-birth" name="birthDate" type="date" class="input" value="${v(e.birthDate)}" max="${addYears(TODAY, -14)}">`)}
-        ${fld('me-place', 'Lieu de naissance (commune, pays)', `<input id="me-place" name="birthPlace" class="input" maxlength="80" value="${v(e.birthPlace)}" placeholder="Ex. Lyon, France">`)}
+        ${fld('me-city', 'Commune de naissance', `<input id="me-city" name="birthCity" class="input" maxlength="60" value="${v(birthParts(e)[0])}" placeholder="Ex. Lyon">`)}
+        ${fld('me-country', 'Pays de naissance', `<input id="me-country" name="birthCountry" class="input" maxlength="40" value="${v(birthParts(e)[1])}" placeholder="Ex. France">`)}
         ${fld('me-nat', 'Nationalité', nationalitySelect(e, 'id="me-nat" name="nationality"'))}
         ${fld('me-nir', 'Numéro de sécurité sociale (15 chiffres)', `<input id="me-nir" name="nir" class="input num" inputmode="numeric" maxlength="21" value="${v(e.nir)}" placeholder="1 90 01 75 056 123 45">`)}
-        ${fld('me-addr', 'Adresse', `<input id="me-addr" name="address" class="input" maxlength="140" value="${v(e.address)}" autocomplete="street-address">`)}
+        ${fld('me-addr', 'Adresse', `<input id="me-addr" name="address" class="input" maxlength="140" value="${v(e.address)}" autocomplete="street-address">`, true)}
         ${fld('me-urg', 'Contact en cas d’urgence (nom et téléphone)', `<input id="me-urg" name="emergency" class="input" maxlength="80" value="${v(e.emergency)}">`, true)}
       </div><p class="err" aria-live="polite"></p><div class="toolbar"><button class="btn primary sm" style="margin-left:auto">Enregistrer mes informations</button></div></form></div>`);
   }
@@ -5577,6 +5584,7 @@
   });
   Object.assign(MOD_CHG, {
     'arr-civ'(v, d) { const e = emp(d.id);
+      if (d.f === 'birthCity' || d.f === 'birthCountry') { const [c, p] = birthParts(e); setBirth(e, d.f === 'birthCity' ? v : c, d.f === 'birthCountry' ? v : p); commit(); return; }
       if (d.f === 'nir') { const n = nirCheck(v, e); e.nir = n.value || ''; if (n.msg) toast(n.msg, 'info'); commit(); return; }
       if (d.f === 'birthDate' && v && (v > addYears(TODAY, -14) || v < '1930-01-01')) { toast('Date de naissance invalide : vérifiez l’année.', 'info'); render(); return; }
       e[d.f] = v === '—' || v === '' ? null : String(v).trim();
@@ -5624,8 +5632,10 @@
       if (v.birthDate && (v.birthDate > addYears(TODAY, -14) || v.birthDate < '1930-01-01')) return err('Date de naissance invalide : vérifie l’année.');
       const next = Object.assign({}, e, { sex: v.sex || null, birthDate: v.birthDate || '' }), n = nirCheck(v.nir, next);
       if (n.level === 'error') return err(n.msg);
-      if (v.birthPlace && !/[a-zà-ÿ]/i.test(v.birthPlace)) return err('Lieu de naissance : indique la commune et le pays.');
-      Object.assign(e, { sex: v.sex || e.sex || null, birthDate: v.birthDate || e.birthDate || '', birthPlace: (v.birthPlace || '').trim(), nir: n.value || '', address: (v.address || '').trim(), emergency: (v.emergency || '').trim() });
+      if (v.birthCity && !/[a-zà-ÿ]/i.test(v.birthCity)) return err('Commune de naissance : indique le nom de la commune.');
+      if (v.birthCountry && !/[a-zà-ÿ]/i.test(v.birthCountry)) return err('Pays de naissance : indique le nom du pays.');
+      setBirth(e, v.birthCity, v.birthCountry);
+      Object.assign(e, { sex: v.sex || e.sex || null, birthDate: v.birthDate || e.birthDate || '', nir: n.value || '', address: (v.address || '').trim(), emergency: (v.emergency || '').trim() });
       if (v.nationality) { e.nationality = v.nationality; e.zone = zoneOf(v.nationality); }
       if (ui.profile === 'salarie') notify('e1', `${fullName(e)} a complété ses informations personnelles.`);
       toast(n.level === 'warn' ? n.msg : e.zone === 'Hors UE' && !dossier(e).files.titre ? 'Informations enregistrées · dépose aussi ton titre de séjour autorisant à travailler' : 'Informations enregistrées', n.level === 'warn' ? 'info' : 'ok'); commit();

@@ -516,6 +516,8 @@ details p { margin: 8px 0 0; font-size: 13.5px; }
 
 /* ---------- Arrivée : pré-embauche, embauche, intégration ---------- */
 .civ { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* État civil : les libellés d'une même ligne prennent la hauteur du plus long ; les champs restent alignés même quand un libellé passe à la ligne. */
+@supports (grid-template-rows: subgrid) { .civ > .field { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 6px; } .civ > .field > label { align-self: end; } }
 .todo .t + .pill, .todo .t ~ .btn, .todo .t ~ .select { flex: none; }
 .todo > .select { width: auto; max-width: 200px; }
 .todo.checkin .input { width: 100%; margin-top: 8px; }

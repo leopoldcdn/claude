@@ -168,5 +168,21 @@
   </section>
 </main>
 <footer class="wrap">Nova Studio est une entreprise fictive, créée pour la démo de Teamora. Toute ressemblance avec une entreprise existante serait fortuite.</footer>
+<script>
+// Publiée sur claude.ai, la page ne peut pas suivre un lien de téléchargement : la capacité « downloads » propose le
+// fichier au visiteur, qui confirme. Ouverte en local, le lien habituel fonctionne.
+document.querySelector('.fichiers').addEventListener('click', async (ev) => {
+  const a = ev.target.closest('a[download]');
+  if (!a || !window.claude || typeof window.claude.use !== 'function') return;
+  ev.preventDefault();
+  try {
+    const cap = await window.claude.use('downloads');
+    const data = await (await fetch(a.getAttribute('href'))).blob();
+    await cap.save({ filename: a.getAttribute('href'), data });
+  } catch (err) {
+    if (!err || err.code !== 'declined') a.title = 'Téléchargement indisponible ici';
+  }
+});
+</script>
 </body>
 </html>

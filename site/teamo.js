@@ -22,7 +22,7 @@
     var l = [];
     l.push('ACCUEIL : ' + [texte($('#titre')), texte($('.accroche')), texte($('.promesse-texte'))].join(' '));
     l.push('En bref : ' + $$('.reperes li').map(texte).join(' ; ') + '.');
-    l.push('Questionnaire de l’accueil (4 questions qui préparent la démo) : ' + $$('.quiz .question').map(texte).join(' / '));
+    l.push('Questionnaire de l’accueil (3 questions qui préparent la démo, à la taille de l’entreprise et selon le rôle) : ' + $$('.quiz .question').map(texte).join(' / '));
     l.push('', 'LES 12 RUBRIQUES (« De A à Z, au même endroit ») — [clé] nom (famille · rang) : description. Étapes :');
     $$('.rcarte').forEach(function (c) {
       l.push('- [' + c.dataset.step + '] ' + texte($('.rcarte-t', c)) + ' (' + texte($('.reye', c)) + ') : ' + texte($('.rcarte-p', c)) + ' Étapes : ' + $$('.rcarte-d li', c).map(texte).join(' / '));

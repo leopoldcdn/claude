@@ -40,22 +40,15 @@
     enCours();
   }
 
-  // 0 bis. Questionnaire de l'accroche : quatre questions, un clic sur une réponse passe à la suivante ; au clavier,
-  // les flèches changent la réponse et Entrée ou Espace la valident. Le champ e-mail sert au rendu : rien n'est envoyé.
+  // 0 bis. Questionnaire de l'accroche : trois questions (effectif, rôle, e-mail), un clic sur une réponse passe à la
+  // suivante ; au clavier, les flèches changent la réponse et Entrée ou Espace la valident. Le champ e-mail sert au rendu :
+  // rien n'est envoyé. La démo s'ouvre à la taille de l'entreprise et sur la vue du rôle (demo/?effectif=20&poste=rh).
   var quiz = $('#quiz');
   if (quiz) {
-    var boite = $('#quiz-rubriques');
-    // Les douze rubriques, reprises des cartes du carrousel (même ordre, mêmes couleurs).
-    $$('.rcarte').forEach(function (c) {
-      var l = document.createElement('label'); l.className = 'opt';
-      var i = document.createElement('input'); i.type = 'radio'; i.name = 'rubrique'; i.value = c.dataset.step;
-      var pt = document.createElement('span'); pt.className = 'pt'; pt.style.setProperty('--c', c.style.getPropertyValue('--c'));
-      l.appendChild(i); l.appendChild(pt); l.appendChild(document.createTextNode($('.rcarte-t', c).textContent));
-      boite.appendChild(l);
-    });
     var etapes = $$('.etape', quiz), barres = $$('.progres i', quiz), retour = $('.retour', quiz);
     var fin = $('#quiz-fin'), ouvrir = $('#quiz-ouvrir'), baseDemo = ouvrir.getAttribute('href');
-    var NOMS = ['taille', 'role', 'rubrique'], PROFILS = { dirigeant: 'rh', rh: 'rh', manager: 'manager', comptable: 'rh' };
+    // Effectif de Nova Studio dans la démo selon la tranche choisie (le même tableau que demo-scenario.js).
+    var NOMS = ['taille', 'role'], TAILLES = { 0: 9, 11: 18, 20: 46, 50: 120, 250: 250 }, DERNIERE = 2;
     var n = 0, verrou = false, pointeur = 0;
     var valeur = function (nom) { var x = $('input[name="' + nom + '"]:checked', quiz); return x ? x.value : null; };
     var montrer = function (i, sens) {
@@ -67,13 +60,13 @@
         if (vu && avant !== i && !reduce) { void e.offsetWidth; e.classList.add('entre'); if (sens < 0) e.classList.add('recule'); }
       });
       barres.forEach(function (b, k) { b.classList.toggle('fait', k <= i); });
-      $('#compteur').textContent = 'Question ' + (i + 1) + ' sur 4';
-      $('#compteur-court').textContent = (i + 1) + '/4';
+      $('#compteur').textContent = 'Question ' + (i + 1) + ' sur 3';
+      $('#compteur-court').textContent = (i + 1) + '/3';
       retour.classList.toggle('cache', i === 0); retour.tabIndex = i === 0 ? -1 : 0;
-      if (avant !== i) $(i === 3 && sens > 0 ? '#quiz-email' : '#q' + (i + 1)).focus({ preventScroll: true });
+      if (avant !== i) $(i === DERNIERE && sens > 0 ? '#quiz-email' : '#q' + (i + 1)).focus({ preventScroll: true });
     };
     var avancer = function () {
-      if (verrou || n > 2 || !valeur(NOMS[n])) return;
+      if (verrou || n >= DERNIERE || !valeur(NOMS[n])) return;
       verrou = true;
       setTimeout(function () { verrou = false; montrer(n + 1, 1); }, reduce ? 0 : 260);
     };
@@ -84,10 +77,11 @@
     retour.addEventListener('click', function () { if (n > 0) montrer(n - 1, -1); });
     quiz.addEventListener('submit', function (e) {
       e.preventDefault();
-      if (n !== 3) return;
-      // La démo hébergée (demo/) recevra les réponses pour s'ouvrir au bon endroit ; l'aperçu garde le lien tel quel.
-      var q = 'profil=' + (PROFILS[valeur('role')] || 'rh') + '&rubrique=' + (valeur('rubrique') || '') + '&effectif=' + (valeur('taille') || '');
-      ouvrir.href = baseDemo === 'demo/' ? baseDemo + '?' + q : baseDemo;
+      if (n !== DERNIERE) return;
+      // La démo hébergée (demo/) reçoit les réponses ; sur claude.ai, le lien ne les transmet pas et la démo pose elle-même les deux questions.
+      var t = valeur('taille') || '20', r = valeur('role') || 'rh', heberge = baseDemo === 'demo/';
+      ouvrir.href = heberge ? baseDemo + '?effectif=' + t + '&poste=' + r : baseDemo;
+      $('#quiz-resume').textContent = 'Découvrez Teamora sur Nova Studio, une entreprise fictive ' + (heberge ? 'de ' + TAILLES[t] + ' salariés.' : 'à la taille de la vôtre.');
       fin.style.minHeight = quiz.offsetHeight + 'px';
       quiz.hidden = true; fin.hidden = false;
       fin.classList.remove('joue'); if (!reduce) { void fin.offsetWidth; fin.classList.add('joue'); }

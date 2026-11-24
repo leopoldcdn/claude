@@ -71,10 +71,11 @@ Au survol (ou au focus clavier du « + »), une « goutte d'encre » de la teint
 la carte, puis se résorbe au départ du pointeur (`.rcarte-a::before` dans `styles.css`). Elle est désactivée si le visiteur a
 demandé à réduire les animations.
 
-Le questionnaire de l'accroche pose quatre questions (effectif, rôle, rubrique à découvrir, adresse e-mail), puis
-affiche « Votre démo est prête » et le bouton « Tester Teamora ». Un clic sur une réponse passe à la question suivante.
-Les rubriques proposées sont reprises des cartes du carrousel. Le lien vers la démo hébergée porte les réponses
-(`demo/?profil=…&rubrique=…&effectif=…`) ; la démo ne les lit pas encore. **Le champ e-mail sert au rendu : rien n'est
+Le questionnaire de l'accroche pose trois questions (effectif, rôle, adresse e-mail), puis affiche « Votre démo est
+prête » et le bouton « Tester Teamora ». Un clic sur une réponse passe à la question suivante. Le lien vers la démo
+hébergée porte les réponses (`demo/?effectif=20&poste=rh`) : la démo s'ouvre sur Nova Studio à la taille correspondante
+(9, 18, 46, 120 ou 250 salariés) et sur la vue du rôle (voir `logiciel-rh-v3/README.md`). Sur claude.ai, le lien ne
+transmet pas les réponses : la démo pose alors elle-même les deux questions. **Le champ e-mail sert au rendu : rien n'est
 envoyé ni enregistré.** Avant de le brancher, ajoute près du champ une mention d'information (finalité, durée de
 conservation, droits) et complète la politique de confidentialité.
 

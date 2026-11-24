@@ -723,7 +723,7 @@
     return `<button type="button" class="btn ${all.length ? 'primary' : 'ghost'} sm todo-btn" data-act="todo-open" aria-label="À traiter : ${late} en retard, ${week} cette semaine, ${all.length - late - week} plus tard">${ic('check')}<span class="todo-l">À traiter</span>${late ? `<span class="todo-n u-late num" title="${plural(late, 'action en retard', 'actions en retard')}">${late}</span>` : all.length ? `<span class="todo-n num">${all.length}</span>` : ''}</button>`; }
   // Démo hébergée sur le site de Teamora : un lien ramène au formulaire « Être recontacté » (TEAMORA_RETOUR, défini par site/build.py).
   const RETOUR = typeof window.TEAMORA_RETOUR === 'string' ? window.TEAMORA_RETOUR : '';
-  const footer = () => (DEMO ? `<footer class="foot"><p class="demo-note">Démo de Teamora : toutes les données sont fictives et restent dans ton navigateur. N’y saisis aucune donnée réelle. Teamo, le futur assistant IA, n’est pas disponible dans cette démo.</p>${RETOUR ? `<a class="btn primary sm" href="${esc(RETOUR)}">Envie d’en parler ? Être recontacté</a>` : ''}</footer>` : footerWork());
+  const footer = () => (DEMO ? `<footer class="foot"><p class="demo-note">Démo de Teamora : toutes les données sont fictives et restent dans ton navigateur. N’y saisis aucune donnée réelle. Teamo, le futur assistant IA, n’est pas disponible dans cette démo.</p>${DEMO_SC ? `<button type="button" class="btn ghost sm" data-act="demo-ask">${ic('refresh')}${db.demo ? `Nova Studio à ${fmtN(db.demo.effectif)} salariés · changer la taille ou le poste` : 'Choisir la taille et le poste'}</button>` : ''}${RETOUR ? `<a class="btn primary sm" href="${esc(RETOUR)}">Envie d’en parler ? Être recontacté</a>` : ''}</footer>` : footerWork());
   const footerWork = () => `<footer class="foot">${TENANT === 'new' ? `<button type="button" class="btn ghost sm" data-act="tenant-nova">${ic('left')}Revenir à la démo Nova Studio</button><button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Recommencer l’installation</button>`
       : `<button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Réinitialiser la démo</button><button type="button" class="btn ghost sm" data-act="tenant-new">${ic('plus')}Tester l’installation (nouvelle entreprise)</button>`}<button type="button" class="btn ghost sm" data-act="v3-news">${ic('star')}Nouveautés de la V3</button>
     <p class="demo-note">Aperçu de démonstration : toutes les données sont fictives et enregistrées uniquement dans ce navigateur.</p></footer>`;
@@ -774,6 +774,7 @@
     const { rest } = mobSplit();
     return `<div class="scrim on" data-act="mob-more"></div><div class="mob-sheet" role="dialog" aria-modal="true" aria-label="Plus de rubriques"><div class="mob-grab"></div>
       ${rest.length ? `<h4 class="sub">Autres rubriques</h4>${rest.map((x) => `<button type="button" class="mob-row" data-act="stage" data-i="${x.i}"><span class="mob-ic" style="--c:${STAGE_COLORS[x.i]}">${ic(x.icon)}</span><span class="t"><b>${esc(x.name)}</b></span>${x.n ? `<i class="badge todo num">${x.n}</i>` : ''}${ic('right')}</button>`).join('')}` : ''}
+      ${DEMO_SC ? `<button type="button" class="mob-row" data-act="demo-ask"><span class="mob-ic">${ic('refresh')}</span><span class="t"><b>Changer la taille de l’entreprise</b><small>${db.demo ? `Nova Studio à ${fmtN(db.demo.effectif)} salariés` : 'Choisir la taille et le poste'}</small></span>${ic('right')}</button>` : ''}
       ${DEMO ? `<button type="button" class="mob-row" data-act="tour-start"><span class="mob-ic">${ic('star')}</span><span class="t"><b>Revoir la visite guidée</b><small>Teamo te montre l’essentiel</small></span>${ic('right')}</button>` : ''}
       <button type="button" class="mob-row" data-act="avis-open"><span class="mob-ic">${ic('chat')}</span><span class="t"><b>Donner mon avis</b><small>Ce qui t’aide, ce qui manque, ce qui bloque</small></span>${ic('right')}</button>
       <h4 class="sub">Démo : voir l’application en tant que</h4>
@@ -824,7 +825,7 @@
     const hubText = sal && locked(m) ? `<small>MON ARRIVÉE</small><b>${esc(fmtDate(m.startDate, { day: 'numeric', month: 'long' }))}</b><span class="hub-n num">J-${dayDiff(TODAY, m.startDate)}</span>`
       : sal ? '<b>Mon espace<br>RH</b>'
       : ui.profile === 'manager' ? `<small>MON ÉQUIPE</small><b>${esc(m.dept)}</b><span class="hub-n num">${plural(scopeEmployees().filter(isEmployed).length, 'personne', 'personnes')}</span>`
-        : `<small>NOVA STUDIO</small><b>Collaborateurs</b><span class="hub-n num">${plural(db.employees.filter(isEmployed).length, 'collaborateur', 'collaborateurs')}</span>`;
+        : `<small>NOVA STUDIO</small><b>Collaborateurs</b><span class="hub-n num">${/* Démo : le nombre de salariés choisi par le visiteur (hors alternants, stagiaires et recrues pas encore arrivées). */ ''}${DEMO_SC && db.demo ? plural(db.employees.filter((e) => isEmployed(e) && countsInEff(e) && e.startDate <= TODAY).length, 'salarié', 'salariés') : plural(db.employees.filter(isEmployed).length, 'collaborateur', 'collaborateurs')}</span>`;
     return `<div class="wheel-box" id="wheel-box"><div class="wheel" id="wheel">${labels}${nodes}
       <button type="button" class="hub" data-act="hub" aria-expanded="${ui.wheelOpen}" aria-label="${ui.wheelOpen ? 'Replier' : 'Déplier'} le menu">${hubText}</button></div></div>
       <p class="wheel-hint" id="wheel-hint">${wheelHint(ui.wheelOpen)}</p>`;
@@ -1588,8 +1589,10 @@
       { sel: '.mob-avis', title: 'Ton avis compte', text: 'Après ton essai, dis-nous ce qui t’aide, ce qui manque ou ce qui bloque : deux minutes, sans ton nom.' },
       { title: 'Bientôt : Teamo, ton assistant IA', text: 'Dans la version complète, je répondrai à tes questions en langage courant (« combien de congés me reste-t-il ? », « comment déclarer un arrêt ? ») et je t’emmènerai vers le bon écran. Je ne suis pas encore disponible dans cette démo.' },
       { title: 'À toi de jouer', text: 'La gestion RH et manager se découvre sur ordinateur. Tu peux revoir cette visite depuis le menu « Plus ».' }];
+    // Démo préparée : la visite suit le profil du visiteur (RH ou manager) et se termine sur son écran d'arrivée.
+    const tourProfile = DEMO_SC && db.demo && db.demo.poste === 'manager' ? 'manager' : 'rh', landing = DEMO_SC && db.demo ? demoLanding(db.demo) : { view: 'accueil', stage: null };
     return [
-      { title: 'Bonjour, je suis Teamo', text: 'Je te fais visiter Teamora en deux minutes. Tu es dans la peau d’Olivia, responsable RH de Nova Studio, une entreprise fictive.', go: tourGo({ profile: 'rh', view: 'accueil', stage: null }) },
+      { title: 'Bonjour, je suis Teamo', text: `Je te fais visiter Teamora en deux minutes. ${DEMO_SC && db.demo ? demoWho() : 'Tu es dans la peau d’Olivia, responsable RH de Nova Studio, une entreprise fictive.'}`, go: tourGo({ profile: tourProfile, view: 'accueil', stage: null }) },
       { sel: '.today', title: 'Aujourd’hui', text: 'En arrivant, tu vois les cinq actions les plus urgentes, avec leur date. Un clic ouvre l’écran où faire l’action.' },
       { sel: '.home-wheel', wheel: true, title: 'La roue du collaborateur', text: 'Survole la roue : elle se déploie. Chaque rubrique est un moment de la vie du collaborateur, du besoin de recrutement au départ. Clique sur une rubrique pour l’ouvrir ; une pastille rouge signale des actions en retard.' },
       { sel: '.persona', title: 'Change de point de vue', text: 'Teamora s’adapte à chaque rôle. Passe de la RH au manager ou au salarié pour voir ce que chacun voit et fait.' },
@@ -1598,10 +1601,10 @@
       { sel: '[data-act="notif"]', title: 'Les notifications', text: 'Les nouvelles du jour : une demande d’absence, un document déposé, une obligation qui approche.' },
       { sel: '.rail', title: 'Passer d’une rubrique à l’autre', text: 'Dans une rubrique, ce menu donne accès à toutes les autres, regroupées en quatre familles : recruter, gérer, développer, départ. « Accueil » ramène à la roue. Ici, nous sommes dans les absences.', go: tourGo({ profile: 'rh', view: 'absences', stage: 6 }) },
       { sel: '#view .tabs', title: 'Les onglets', text: 'Chaque module est organisé en onglets : clique sur un onglet pour passer des demandes à valider au planning ou aux compteurs.' },
-      { sel: '.rail [data-v="obligations"]', title: 'Les obligations selon l’effectif', text: 'Le cœur de Teamora : l’effectif est calculé automatiquement et les obligations légales apparaissent à chaque seuil (11, 20, 50, 250 salariés), avec des alertes avant.' },
+      tourProfile === 'rh' && { sel: '.rail [data-v="obligations"]', title: 'Les obligations selon l’effectif', text: 'Le cœur de Teamora : l’effectif est calculé automatiquement et les obligations légales apparaissent à chaque seuil (11, 20, 50, 250 salariés), avec des alertes avant.' },
       { sel: '.avis-fab', title: 'Ton avis compte', text: 'Après ton essai, dis-nous ce qui t’aide, ce qui manque ou ce qui bloque : deux minutes, sans ton nom.' },
       { title: 'Bientôt : Teamo, ton assistant IA', text: 'Dans la version complète, je répondrai à tes questions en langage courant : comment poser une absence, quel préavis appliquer, ce qui change en passant 50 salariés. Je t’emmènerai vers le bon écran, je t’aiderai à rédiger une offre ou un message et je te rappellerai les échéances, sans jamais recevoir les données personnelles de tes salariés. Je ne suis pas encore disponible dans cette démo.' },
-      { sel: '.tour-fab', title: 'À toi de jouer', text: 'Explore librement : toutes les données sont fictives. Tu peux relancer cette visite à tout moment avec ce bouton.', go: tourGo({ view: 'accueil', stage: null }) }];
+      { sel: '.tour-fab', title: 'À toi de jouer', text: 'Explore librement : toutes les données sont fictives. Tu peux relancer cette visite à tout moment avec ce bouton.', go: tourGo(landing) }].filter(Boolean);
   }
   function tourStart() { tour = { i: 0, steps: tourSteps() }; tourShow(); }
   function tourEnd() { tour = null; try { localStorage.setItem(TOUR_KEY, '1'); } catch (e) { /* ignore */ } const el = document.getElementById('tour'); if (el) el.remove(); }
@@ -1644,6 +1647,68 @@
   document.addEventListener('keydown', (ev) => { if (tour && ev.key === 'Escape') { ev.stopPropagation(); tourEnd(); } }, true);
   window.addEventListener('resize', () => { if (tour) tourPlace(); });
   Object.assign(MOD_ACT, { 'tour-start'() { ui.mobMore = false; tourStart(); } });
+
+  // ---------------------------------------------------------------- Démo · taille de l'entreprise et poste du visiteur
+  // Le questionnaire du site transmet ses réponses dans l'adresse (demo/?effectif=20&poste=rh) ; sans elles, la démo pose
+  // les deux questions à la première ouverture. Nova Studio est alors construite à cette taille (demo-scenario.js), et la
+  // démo s'ouvre sur la vue du poste : RH pour le dirigeant (sous les traits de la dirigeante), la RH et l'expert-comptable
+  // (sur la paie), manager pour le manager.
+  const DEMO_SC = DEMO && typeof window.TEAMORA_DEMO_SCENARIO === 'function';
+  const DEMO_TAILLES = [['0', 'Moins de 11'], ['11', '11 à 19'], ['20', '20 à 49'], ['50', '50 à 249'], ['250', '250 et plus']];
+  const DEMO_POSTES = [['dirigeant', 'Dirigeant ou dirigeante'], ['rh', 'Responsable RH ou administratif'], ['manager', 'Manager d’une équipe'], ['comptable', 'Expert-comptable ou gestionnaire de paie']];
+  const demoSc = (t, p) => { const n = (window.TEAMORA_DEMO_SIZES || {})[t]; return n && DEMO_POSTES.some(([k]) => k === p) ? { effectif: n, poste: p } : null; };
+  const demoTaille = (n) => (Object.entries(window.TEAMORA_DEMO_SIZES || {}).find(([, v]) => v === n) || [])[0];
+  function demoFromUrl() { try { const q = new URLSearchParams(location.search); return demoSc(q.get('effectif'), q.get('poste')); } catch (e) { return null; } }
+  // Les données de l'entreprise à cette taille (à compléter par les normalisations habituelles du démarrage).
+  function demoBuild(sc) { db = window.TEAMORA_SEED(); normalizeSettings(); normalizeCompliance(); window.TEAMORA_DEMO_SCENARIO(db, sc); }
+  // L'écran d'arrivée : l'accueil du profil, ou la paie pour l'expert-comptable.
+  function demoLanding(sc) {
+    if (isMob()) return { profile: 'salarie', view: 'accueil', stage: null };
+    const profile = sc.poste === 'manager' ? 'manager' : 'rh';
+    if (sc.poste !== 'comptable') return { profile, view: 'accueil', stage: null };
+    const i = inSpace(profile, null, () => visibleStages().find((x) => stageView(x) === 'paie'));
+    return i === undefined ? { profile, view: 'accueil', stage: null } : { profile, view: 'paie', stage: i, payTab: 'paie' };
+  }
+  const demoUI = (sc) => { ui = Object.assign({ selfOf: null, asEmp: null, asMgr: null }, freshUI(), demoLanding(sc)); };
+  // Reconstruit la démo avec d'autres réponses (bouton « Changer la taille ou le poste »).
+  function demoApply(sc) {
+    demoBuild(sc); applySettings(); normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); applyDueSalaries(); applyDueManagers(); applyDueChanges();
+    purgeCandidates(); purgeLeavers(); syncArrivals(); arrivalReminders(); needReminders(); TASKS.clear(); demoUI(sc); save(); render();
+  }
+  // Présentation de la personne incarnée, pour la visite guidée.
+  function demoWho() {
+    const d = db.demo || {}, n = d.effectif ? `, une entreprise fictive de ${fmtN(d.effectif)} salariés` : ', une entreprise fictive';
+    if (d.poste === 'comptable') return `Tu découvres Teamora côté paie, avec les accès RH de Nova Studio${n}.`;
+    const m = profileEmp(d.poste === 'manager' ? 'manager' : 'rh');
+    return `Tu es dans la peau de ${m.firstName}, ${m.title.charAt(0).toLowerCase()}${m.title.slice(1)} de Nova Studio${n}.`;
+  }
+  // Les deux questions : une fenêtre au-dessus de la démo, comme le questionnaire du site.
+  function demoAsk(onDone) {
+    const cur = db.demo, first = !cur, box = document.createElement('div');
+    const opts = (name, list, v) => list.map(([k, l]) => `<label class="da-opt"><input type="radio" name="${name}" value="${k}" ${k === v ? 'checked' : ''}><span>${l}</span></label>`).join('');
+    box.className = 'demo-ask';
+    box.innerHTML = `<form class="da-card" role="dialog" aria-modal="true" aria-labelledby="da-t" novalidate><div class="da-h">${teamoSVG('tour-av')}<div><small>Démo de Teamora</small><h2 id="da-t">Préparons ta démo</h2></div></div>
+      <p class="da-intro">Teamora s’adapte à la taille de l’entreprise : deux questions pour te montrer ce qui te concerne. Nova Studio, l’entreprise de la démo, est fictive.</p>
+      <fieldset><legend>Combien de salariés compte ton entreprise ?</legend><div class="da-grid">${opts('effectif', DEMO_TAILLES, cur && demoTaille(cur.effectif))}</div></fieldset>
+      <fieldset><legend>Quel est ton poste ?</legend><div class="da-grid deux">${opts('poste', DEMO_POSTES, cur && cur.poste)}</div></fieldset>
+      <div class="da-f">${first ? '' : '<button type="button" class="btn ghost" data-da="close">Annuler</button>'}<span class="grow"></span><button class="btn primary" data-da="ok">${first ? 'Ouvrir la démo' : 'Préparer la démo'}${ic('arrow')}</button></div>
+      ${first ? '' : '<p class="da-note">Les données de la démo repartent de zéro.</p>'}</form>`;
+    document.body.appendChild(box);
+    const form = box.querySelector('form'), ok = box.querySelector('[data-da="ok"]'), before = document.activeElement;
+    const sync = () => { ok.disabled = !(form.elements.effectif.value && form.elements.poste.value); };
+    const close = () => { box.remove(); if (before && before.focus) before.focus(); };
+    sync(); form.addEventListener('change', sync);
+    form.addEventListener('submit', (ev) => { ev.preventDefault(); const sc = demoSc(form.elements.effectif.value, form.elements.poste.value); if (!sc) return; box.remove(); onDone(sc); });
+    box.addEventListener('click', (ev) => { if (ev.target.closest('[data-da="close"]')) close(); });
+    box.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && !first) { ev.stopPropagation(); close(); }
+      // Le focus reste dans la fenêtre.
+      if (ev.key === 'Tab') { const f = ['effectif', 'poste'].map((nm) => { const rs = [...form.querySelectorAll(`input[name="${nm}"]`)]; return rs.find((r) => r.checked) || rs[0]; }).concat([...form.querySelectorAll('button:not(:disabled)')]), a = f[0], z = f[f.length - 1];
+        if (ev.shiftKey && document.activeElement === a) { ev.preventDefault(); z.focus(); } else if (!ev.shiftKey && document.activeElement === z) { ev.preventDefault(); a.focus(); } }
+    });
+    (box.querySelector('input:checked') || box.querySelector('input')).focus();
+  }
+  Object.assign(MOD_ACT, { 'demo-ask'() { ui.mobMore = false; render(); demoAsk((sc) => { demoApply(sc); toast(`Démo préparée : ${fmtN(sc.effectif)} salariés, ${DEMO_POSTES.find(([k]) => k === sc.poste)[1].toLowerCase()}`); }); } });
 
   const avisFab = () => (isMob() ? '' : `<button type="button" class="avis-fab" data-act="avis-open">${ic('chat')}Donner mon avis</button>${DEMO ? `<button type="button" class="tour-fab" data-act="tour-start">${teamoSVG('fab-av')}<span>Visite guidée</span></button>` : ''}`);
 
@@ -7911,6 +7976,10 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
     ui.orgZoom = Number(ui.orgZoom) || 1; ui.orgFold = ui.orgFold || {}; if (!PROFILES[ui.profile]) ui.profile = 'rh';
     window.scrollTo(0, 0); render(); toast(t === 'new' ? 'Nouvelle entreprise : suis l’assistant pour paramétrer Teamora' : 'Retour à la démo Nova Studio');
   }
+  let demoAskFirst = false;
+  if (DEMO_SC && TENANT === 'nova') { const sc = demoFromUrl(), cur = db.demo;
+    if (sc && !(cur && cur.effectif === sc.effectif && cur.poste === sc.poste)) { demoBuild(sc); demoUI(sc); }
+    else if (!cur) { demoBuild({ effectif: 46, poste: 'rh' }); delete db.demo; demoUI({ effectif: 46, poste: 'rh' }); demoAskFirst = true; } }
   normalizeSettings(); applySettings(); normalizeCompliance();
   normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); applyDueSalaries(); applyDueManagers(); applyDueChanges(); purgeCandidates(); purgeLeavers(); syncArrivals(); arrivalReminders(); needReminders(); save();
   // Les nouveautés ne s'ouvrent plus d'elles-mêmes (un testeur arrive directement dans l'application) : bouton « Nouveautés de la V3 » en bas de page.
@@ -7978,6 +8047,12 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
   // Tests du tronçon « vie en poste » : calcul des bulletins et des compteurs.
   if (window.TEAMORA_TEST === true) Object.assign(window.__teamoraTest, { calcPay: (id, m) => calcPay(emp(id), m), calcPayLive: (id, m) => calcPayLive(emp(id), m), cpAcquired: (id, d) => cpAcquired(emp(id), d), maintienRate: (id, lid, d) => maintienRate(emp(id), db.leaves.find((l) => l.id === lid), d), isForfait: (id) => isForfait(emp(id)), avg12: (id) => avg12(emp(id)) });
   // Tests du tronçon « départ » : préavis, indemnités, calendrier de rupture conventionnelle.
+  // Tests de la démo : les actions « À traiter » d'un profil, l'effectif et les obligations.
+  if (window.TEAMORA_TEST === true) Object.assign(window.__teamoraTest, { db: () => db, effState: () => effState(), obligations: () => obligations(),
+    tasksOf: (p, self) => inSpace(p, self || null, () => { TASKS.clear(); const r = todoTasks().map((t) => ({ k: t.k, l: t.l, due: t.due, u: urgency(t), who: t.who ? fullName(t.who) : t.name })); TASKS.clear(); return r; }) });
   if (window.TEAMORA_TEST === true) Object.assign(window.__teamoraTest, { rcCalendar, exitIndemnities, cpExit, refSalary, noticeInfo, noticeEndOf, exitChecks, exitBlockers, licInterviewMin, licLetterMin });
-  if (DEMO) { let seen = false; try { seen = !!localStorage.getItem(TOUR_KEY); } catch (e) { /* ignore */ } if (!seen) setTimeout(tourStart, 500); }
+  if (DEMO) { let seen = false; try { seen = !!localStorage.getItem(TOUR_KEY); } catch (e) { /* ignore */ }
+    // Sans réponses dans l'adresse ni démo déjà préparée : les deux questions d'abord, puis la visite guidée.
+    if (demoAskFirst) setTimeout(() => demoAsk((sc) => { demoApply(sc); if (!seen) setTimeout(tourStart, 300); }), 300);
+    else if (!seen) setTimeout(tourStart, 500); }
 })();

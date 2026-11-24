@@ -19,7 +19,23 @@
   (ou « Revoir la visite guidée » dans le menu Plus sur téléphone). Sur téléphone, la démo s'ouvre dans l'espace salarié.
   La démo n'utilise pas de base de données (pas de bandeau de connexion pour les visiteurs) : « Donner mon avis » y propose
   de publier l'avis en commentaire sur la page ou de le copier pour l'envoyer.
-  La fenêtre des nouveautés ne s'ouvre plus d'elle-même, dans aucune des deux versions. Les anciennes pages V1 et V2 ont été
+  La fenêtre des nouveautés ne s'ouvre plus d'elle-même, dans aucune des deux versions.
+- **Démo à la taille de l'entreprise du visiteur** (`demo-scenario.js`, chargé par `demo.html` seulement) : Nova Studio
+  compte 9, 18, 46, 120 ou 250 salariés selon la tranche choisie (moins de 11, 11 à 19, 20 à 49, 50 à 249, 250 et plus).
+  Les réponses arrivent du questionnaire du site (`demo/?effectif=20&poste=rh`) ; sans elles, la démo pose les deux
+  questions à la première ouverture, puis lance la visite guidée. Un bouton en bas de page (« Changer la taille ou le
+  poste ») et le menu « Plus » sur téléphone permettent de recommencer. Vue selon le poste : dirigeant → vue RH sous les
+  traits de Claire Durand, la dirigeante (elle prend la place du compte RH) ; RH → Olivia ; manager → Thomas ;
+  expert-comptable → vue RH ouverte sur la paie.
+  La base compte 250 salariés fictifs : les 22 de Nova Studio puis 232 générés de façon fixe (mêmes noms à chaque
+  ouverture). Pour un effectif N, la démo garde les N premiers, en commençant par les personnes concernées par une action.
+  « À traiter » ne montre que **10 actions** pour la RH (1 en retard, 5 cette semaine, 4 plus tard), parmi les plus
+  fréquentes de la vie d'un gestionnaire RH : congés à valider, paie du mois (contrôles avant envoi), attestation de
+  salaire après un arrêt, DPAE d'une arrivée lundi, décision de fin de période d'essai, entretien professionnel à
+  planifier, visite d'information et de prévention, changement de RIB, candidature à trier, plus une alerte liée à
+  l'effectif (seuil de 11, 20 ou 50 en vue ; index égalité à 120 ; référents à désigner à 250). Le manager en a 4, le
+  salarié 2. Tout le reste des données est à jour. L'historique d'effectif (12 mois, 5 ans) correspond à la taille.
+  La version de travail n'est pas concernée : elle garde ses 22 salariés et tous ses cas de test. Les anciennes pages V1 et V2 ont été
   supprimées de claude.ai ; leur code reste dans `logiciel-rh/` et `logiciel-rh-v2/`.
 
 ## Accueil « Aujourd'hui », « À traiter » par urgence, menu avec libellés (novembre 2026)

@@ -94,7 +94,7 @@ const { chromium, ouvrir, compteur } = require('./outils');
   t.ok(!p.erreurs.length, 'salarié : aucune erreur'); await p.close();
 
   // 8. Visite guidée de la démo : elle présente « Aujourd'hui ».
-  p = await ouvrir(b, { page: 'demo.html', visite: true }); await p.waitForTimeout(900);
+  p = await ouvrir(b, { page: 'demo.html?effectif=20&poste=rh', visite: true }); await p.waitForTimeout(900);
   let vu = false; for (let k = 0; k < 14 && !vu; k++) { vu = /Aujourd’hui/.test(await p.locator('#tour').innerText()); if (!vu) { await p.click('#tour [data-tour="next"], #tour .btn.primary'); await p.waitForTimeout(250); } }
   t.ok(vu && !p.erreurs.length, 'démo : la visite guidée présente « Aujourd’hui »');
   await p.click('#tour [data-tour="next"]'); await p.waitForTimeout(900);
@@ -105,11 +105,13 @@ const { chromium, ouvrir, compteur } = require('./outils');
   await p.close();
 
   // 9. La démo reste au 6 octobre 2026 quand la date réelle avance ; une « nouvelle entreprise » suit la date réelle.
-  for (const page of ['index.html', 'demo.html']) {
+  // La démo (préparée pour 46 salariés, vue RH) n'affiche que ses 10 actions.
+  for (const page of ['index.html', 'demo.html?effectif=20&poste=rh']) {
     p = await ouvrir(b, { page, jour: '2026-11-16' });
     const d = await p.evaluate(() => ({ jour: document.querySelector('.today-h small').textContent, resume: document.querySelector('.today-sum').textContent, etiquette: !!document.querySelector('.today-h .demo-day') }));
-    t.ok(/mardi 6 octobre 2026/i.test(d.jour) && d.etiquette && /22 actions en retard · 19 cette semaine · 21 plus tard/.test(d.resume), `${page} ouverte le 16 novembre : ${d.jour} · ${d.resume}`);
-    if (page === 'demo.html') { t.ok(!p.erreurs.length, 'démo : aucune erreur'); await p.close(); }
+    const attendu = page === 'index.html' ? /22 actions en retard · 19 cette semaine · 21 plus tard/ : /1 action en retard · 5 cette semaine · 4 plus tard/;
+    t.ok(/mardi 6 octobre 2026/i.test(d.jour) && d.etiquette && attendu.test(d.resume), `${page} ouverte le 16 novembre : ${d.jour} · ${d.resume}`);
+    if (page !== 'index.html') { t.ok(!p.erreurs.length, 'démo : aucune erreur'); await p.close(); }
   }
   p = await ouvrir(b, { jour: '2026-11-16' });
   await p.click('[data-act="tenant-new"]'); await p.click('[data-act="tenant-new-ok"]'); await p.waitForTimeout(300);

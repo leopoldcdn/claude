@@ -20,7 +20,7 @@ PAGES = ['index.html', 'mentions-legales.html', 'confidentialite.html']
 FICHIERS = ['styles.css', 'site.js', 'teamo.js', 'favicon.svg']
 DOSSIERS = ['fonts', 'img']  # vendor/gsap.min.js ne sert plus qu'à la démo, copiée à part
 PHP = ['contact.php', 'avis.php', 'envoi.php', 'config.php', '.htaccess']
-DEMO = ['app.js', 'data.js', 'conventions.js', 'styles.css']
+DEMO = ['app.js', 'data.js', 'demo-scenario.js', 'conventions.js', 'styles.css']
 
 
 def remplacer(texte, avant, apres, fichier):

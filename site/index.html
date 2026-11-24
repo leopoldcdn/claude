@@ -65,7 +65,7 @@
 </div>
 
 <main id="contenu">
-  <!-- 1. Accroche : la promesse à gauche, à droite un questionnaire en quatre questions qui prépare la démo -->
+  <!-- 1. Accroche : la promesse à gauche, à droite un questionnaire en trois questions qui prépare la démo -->
   <section class="hero" id="accueil" aria-labelledby="titre">
     <div class="wrap hero-in">
       <div class="promesse">
@@ -85,10 +85,10 @@
         <h2 id="quiz-titre" class="sr">Préparer votre démo</h2>
         <form id="quiz" novalidate>
           <div class="quiz-tete">
-            <span class="quiz-badge"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>Votre démo en 4 questions</span>
-            <span class="compteur" aria-live="polite"><span class="sr" id="compteur">Question 1 sur 4</span><span id="compteur-court" aria-hidden="true">1/4</span></span>
+            <span class="quiz-badge"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>Votre démo en 3 questions</span>
+            <span class="compteur" aria-live="polite"><span class="sr" id="compteur">Question 1 sur 3</span><span id="compteur-court" aria-hidden="true">1/3</span></span>
           </div>
-          <div class="progres" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <div class="progres" aria-hidden="true"><i></i><i></i><i></i></div>
 
           <div class="etapes">
             <fieldset class="etape" aria-labelledby="q1">
@@ -113,18 +113,12 @@
               </div>
             </fieldset>
 
-            <!-- Les douze rubriques sont reprises des cartes du carrousel (site.js). -->
-            <fieldset class="etape" aria-labelledby="q3">
-              <h3 class="question" id="q3" tabindex="-1">Que souhaitez-vous découvrir&nbsp;?</h3>
-              <div class="choix rub" id="quiz-rubriques"></div>
-            </fieldset>
-
             <!-- Champ e-mail : pour le rendu seulement. Rien n'est envoyé ni enregistré. Avant de le brancher : mention
                  d'information (finalité, durée, droits) près du champ et mise à jour de confidentialite.html. -->
-            <fieldset class="etape" aria-labelledby="q4">
-              <h3 class="question" id="q4" tabindex="-1">Quelle est votre adresse e-mail&nbsp;?</h3>
+            <fieldset class="etape" aria-labelledby="q3">
+              <h3 class="question" id="q3" tabindex="-1">Quelle est votre adresse e-mail&nbsp;?</h3>
               <div class="champ">
-                <input type="email" id="quiz-email" autocomplete="email" inputmode="email" placeholder="prenom@entreprise.fr" aria-labelledby="q4">
+                <input type="email" id="quiz-email" autocomplete="email" inputmode="email" placeholder="prenom@entreprise.fr" aria-labelledby="q3">
                 <button class="btn btn-primary" type="submit">Préparer ma démo<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
               </div>
             </fieldset>
@@ -138,7 +132,7 @@
         <div class="quiz-fin" id="quiz-fin" hidden>
           <div class="coche" aria-hidden="true"><svg viewBox="0 0 64 64"><circle class="cercle" cx="32" cy="32" r="30"/><path class="trait" d="M19 33.5l8.5 8.5 17.5-18"/></svg></div>
           <h3 id="quiz-pret" tabindex="-1">Votre démo est prête.</h3>
-          <p>Découvrez Teamora sur Nova Studio, une entreprise fictive de 20 salariés.</p>
+          <p id="quiz-resume">Découvrez Teamora sur Nova Studio, une entreprise fictive à la taille de la vôtre.</p>
           <a class="btn btn-primary" id="quiz-ouvrir" href="demo/">Tester Teamora<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
           <button class="modifier" type="button" id="quiz-modifier">Modifier mes réponses</button>
         </div>

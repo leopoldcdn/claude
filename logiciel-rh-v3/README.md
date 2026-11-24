@@ -43,13 +43,30 @@
   et certificats. Son identité visuelle (entreprise fictive) est dans `nova-studio/` : `charte.html` (symbole, logo,
   construction, couleurs, typographie Space Grotesk, exemples, usages à éviter), les logos en SVG (couleur, négatif, noir,
   symbole seul) et en PNG, et la police (licence SIL OFL). `demo-scenario.js` en embarque une copie (`LOGO_NOVA`).
+- **DPAE envoyée à l'Urssaf (démo, simulée)** : dans la démo, « Envoyer la DPAE » montre les données transmises
+  (employeur, salarié, contrat), les contrôles, puis les réponses de l'Urssaf l'une après l'autre : connexion au compte
+  Urssaf de l'entreprise, accusé d'enregistrement électronique, certificat de conformité, accusé de réception avec la
+  référence du dossier. « Réponses de l'Urssaf » les rouvre depuis le dossier d'arrivée. Rien ne part à l'Urssaf, et la
+  fenêtre le dit. Nathan et les autres recrues de la démo ont un lieu de naissance ; pas de numéro de sécurité sociale
+  fictif (un numéro valide pourrait être celui d'une vraie personne) : la DPAE le signale sans bloquer. La version de
+  travail garde sa saisie manuelle (case « J'atteste… », numéro de l'accusé facultatif).
+  Pour un **vrai envoi**, l'Urssaf propose l'API DPAE (mode machine à machine, guide d'implémentation d'octobre 2021,
+  principes de fonctionnement d'octobre 2023, sur dpae-edi.urssaf.fr). Il faudrait : demander l'accès (accès restreint,
+  api-dpae@acoss.fr) ; un serveur, car l'authentification se fait avec les identifiants Urssaf en ligne de l'entreprise
+  (Siret, nom, prénom, mot de passe), qui ne doivent jamais passer par le navigateur ni être stockés en clair, pas plus
+  que le numéro de sécurité sociale ; produire le fichier DPAE au format de l'Urssaf (« 120 », XML ou texte) d'après
+  son dessin d'enregistrement ; ajouter les données que Teamora n'a pas encore (code Urssaf de l'établissement, code du
+  service de santé au travail, département de naissance) ; récupérer les retours en différé (accusé d'enregistrement,
+  certificat de conformité ou bilan d'anomalies, accusé de réception avec la référence du dossier ; téléchargeables
+  3 mois) ; tester d'abord en mode « test » (contrôles techniques seulement, rien n'est déclaré), avec le compte d'une
+  vraie entreprise. Teamo n'a jamais accès à ces données.
   La version de travail n'est pas concernée : elle garde ses 22 salariés et tous ses cas de test. Les anciennes pages V1 et V2 ont été
   supprimées de claude.ai ; leur code reste dans `logiciel-rh/` et `logiciel-rh-v2/`.
 
 ## Accueil « Aujourd'hui », « À traiter » par urgence, menu avec libellés (novembre 2026)
 
 - **Accueil** : à gauche, le bloc « Aujourd'hui » affiche les 5 actions les plus urgentes avec leur échéance ; un clic ouvre
-  l'écran où faire l'action. À droite, la roue garde son animation : repliée au repos, elle se déploie au survol (ou quand on
+  l'écran où faire l'action (pour une arrivée, l'onglet du dossier concerné : la DPAE ouvre « Embauche »). À droite, la roue garde son animation : repliée au repos, elle se déploie au survol (ou quand on
   touche son centre) et se replie quand la souris s'en va. La visite guidée la déploie elle-même. Sous 1180 px, les deux
   blocs s'empilent. Chaque profil voit ses propres actions.
 - **« À traiter »** : une ligne et un bouton par action (plus de liste à virgules par personne), en trois groupes : en retard,

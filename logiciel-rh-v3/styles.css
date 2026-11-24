@@ -1201,6 +1201,8 @@ body:has(.help-panel) .toasts { right: 440px; }
   .gate-box { max-width: 420px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
   .gate-box h1 { margin: 6px 0 0; font-size: 22px; } .gate-box p { margin: 0 0 6px; color: var(--muted); line-height: 1.55; } .gate-box .btn { width: 100%; justify-content: center; gap: 8px; }
   .app.mob .foot { padding: 0 16px 16px; gap: 8px; } .app.mob .foot .btn { font-size: 12px; } .app.mob .demo-note { font-size: 11.5px; }
+  /* Démo : le bouton « Nova Studio à N salariés · changer… » passe à la ligne au lieu de déborder de l'écran. */
+  .app.mob .foot .btn { max-width: 100%; height: auto; padding-block: 8px; white-space: normal; text-align: left; }
   /* Écrans de l'espace salarié : une colonne, tableaux défilants, fenêtres en plein écran */
   .app.mob .grid-2, .app.mob .grid-3, .app.mob .two-col, .app.mob .cols, .app.mob .form-grid, .app.mob .form-grid.three, .app.mob .info-grid { grid-template-columns: minmax(0, 1fr) !important; }
   .app.mob .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
@@ -1379,3 +1381,31 @@ body:has(.help-panel) .avis-fab { display: none; }
 .da-note { margin: 10px 0 0; color: var(--muted); font-size: 12.5px; text-align: right; }
 @media (max-width: 560px) { .da-grid, .da-grid.deux { grid-template-columns: minmax(0, 1fr); } .da-card { padding: 20px 18px 18px; } }
 @media (prefers-reduced-motion: reduce) { .da-card { animation: none; } }
+
+/* DPAE envoyée à l'Urssaf (démo) : données envoyées, puis réponses de l'Urssaf étape par étape. */
+.dpae-recap { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 0 12px; }
+.dpae-recap > div { padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.dpae-recap h4 { margin: 0 0 6px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.dpae-recap dl { margin: 0; font-size: 13px; }
+.dpae-recap dt { color: var(--muted); font-size: 12px; }
+.dpae-recap dd { margin: 0 0 6px; font-weight: 600; overflow-wrap: anywhere; }
+.dpae-recap dd:last-child { margin-bottom: 0; }
+@media (max-width: 760px) { .dpae-recap { grid-template-columns: 1fr; } }
+.dpae-note { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
+.dpae-steps { list-style: none; margin: 0; padding: 0; }
+.dpae-steps li { position: relative; display: grid; grid-template-columns: 28px 1fr; gap: 12px; padding-bottom: 18px; }
+.dpae-steps li:not(:last-child)::before { content: ''; position: absolute; left: 13px; top: 30px; bottom: 2px; width: 2px; border-radius: 2px; background: var(--line); transition: background .3s; }
+.dpae-steps li.done:not(:last-child)::before { background: var(--ok); }
+.dpae-steps li:has(+ .dpae-end)::before { display: none; }
+.dpae-steps b { display: block; font-size: 14px; line-height: 28px; }
+.dpae-steps small { display: block; color: var(--muted); font-size: 13px; }
+.dpae-steps li.next b { color: var(--faint); font-weight: 500; }
+.dpae-dot { display: grid; place-items: center; width: 28px; height: 28px; border: 2px solid var(--line-strong); border-radius: 50%; background: var(--surface); color: var(--surface); }
+.dpae-dot svg { width: 15px; height: 15px; }
+.dpae-steps li.done .dpae-dot { border-color: var(--ok); background: var(--ok); animation: dpae-pop .28s cubic-bezier(.175, .885, .32, 1.275) both; }
+.dpae-steps li.now .dpae-dot { border-color: var(--accent); border-top-color: transparent; animation: dpae-spin .8s linear infinite; }
+.dpae-steps li.dpae-end { display: block; padding: 12px 14px; border-radius: 12px; background: var(--ok-soft); color: var(--fg); animation: dpae-pop .28s cubic-bezier(.2, 0, 0, 1) both; }
+.dpae-end p { margin: 0; font-size: 14px; }
+@keyframes dpae-spin { to { transform: rotate(360deg); } }
+@keyframes dpae-pop { from { transform: scale(.8); opacity: .3; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .dpae-steps li.now .dpae-dot { animation: none; border-top-color: var(--accent); } }

@@ -584,7 +584,7 @@
     const p = ui.profile, rh = p === 'rh', m = me(), out = [], vis = visibleStages(), iOf = (v) => vis.find((i) => stageView(i) === v), has = (v) => iOf(v) !== undefined;
     const reply = (d) => (d ? addDays(d, REPLY_DAYS) : null), first = (...ds) => ds.filter(Boolean).sort()[0] || null, up = (t) => t.charAt(0).toUpperCase() + t.slice(1);
     const add = (v, k, l, o = {}) => { const i = iOf(v); if (i === undefined) return;
-      out.push({ k: `${v}:${k}`, i, l: up(l), who: o.who || null, name: o.name || '', sub: o.sub || '', due: o.due || null, btn: o.btn || 'Ouvrir', go: o.person ? { person: o.person } : { i, ui: o.ui || null } }); };
+      out.push({ k: `${v}:${k}`, i, l: up(l), who: o.who || null, name: o.name || '', sub: o.sub || '', due: o.due || null, btn: o.btn || 'Ouvrir', go: o.person ? { person: o.person, phase: o.phase || null } : { i, ui: o.ui || null } }); };
     // Obligations selon l'effectif (RH)
     complianceTodo().forEach((x) => out.push({ k: `obl:${x.k}`, i: 'obl', l: x.l, who: null, name: '', sub: x.sub, due: x.due || null, btn: 'Ouvrir', go: { obl: x.go } }));
     // Besoins de recrutement
@@ -595,7 +595,7 @@
       add('recrutement', `${g}:${c.id}${x.iv ? `:${x.iv.date}` : ''}`, g === 'tri' ? 'Candidature à trier' : g === 'eval' ? `Évaluation à remplir (${x.iv.kind})` : g === 'prop' ? 'Proposition d’embauche à préparer' : `Sans nouvelles depuis ${plural(waitingDays(c), 'jour', 'jours')} : écrire au candidat`,
         { name: c.name, sub: j ? j.title : '', due: g === 'tri' ? reply(c.appliedAt) : g === 'eval' ? reply(x.iv.date.slice(0, 10)) : g === 'late' ? addDays(lastContact(c), ANSWER_DAYS) : reply(lastContact(c)), btn: x.act, ui: { drawer: { type: 'cand', id: c.id, tab: 'evaluation' } } }); }));
     // Arrivées et départs : une ligne par action du dossier
-    ['arrivees', 'departs'].forEach((v) => { if (has(v)) procPeople(v).forEach((e) => procTasks(e).forEach((t) => add(v, `${e.id}:${t.l}`, t.l, { who: e, due: t.due, person: e.id, btn: 'Ouvrir le dossier' }))); });
+    ['arrivees', 'departs'].forEach((v) => { if (has(v)) procPeople(v).forEach((e) => procTasks(e).forEach((t) => add(v, `${e.id}:${t.l}`, t.l, { who: e, due: t.due, person: e.id, phase: t.ph, btn: 'Ouvrir le dossier' }))); });
     // Vie administrative (RH) : demandes de modification et échéances des 14 prochains jours (celles du dossier d'arrivée y figurent déjà)
     if (rh && has('collaborateurs')) {
       pendingChanges().forEach((r) => add('collaborateurs', `chg:${r.id}`, `${r.label} : modification à valider`, { who: emp(r.empId), due: reply(r.createdAt), btn: 'Valider', ui: { adminTab: 'demandes' } }));
@@ -2574,7 +2574,7 @@
     'todo-all'() { if (ui.modal) ui.modal.all = true; render(); },
     // Ouvre l'écran où faire l'action : le dossier de la personne, l'obligation, ou la rubrique sur le bon onglet.
     'todo-do'(d) { TASKS.clear(); const t = todoTasks().find((x) => x.k === d.k); ui.modal = null; if (!t) { render(); return; }
-      if (t.go.person) { ACT['open-dossier']({ id: t.go.person }); return; }
+      if (t.go.person) { ACT['open-dossier']({ id: t.go.person, phase: t.go.phase }); return; }
       if (t.go.obl) { if (t.go.obl.tab) ACT['obl-go']({ t: t.go.obl.tab }); else ACT['obl-view']({ v: t.go.obl.v, s: t.go.obl.sec }); return; }
       const v = stageView(t.go.i); if (!v) { render(); return; }
       Object.assign(ui, { view: v, stage: t.go.i, selPerson: null, notif: false, drawer: null, mobMore: false }, v === 'recrutement' ? { recTab: 'todo', recJob: null } : {}, t.go.ui || {});
@@ -5060,7 +5060,7 @@
   // Actions qui attendent le profil courant pour une arrivée, sur la page de l'étape i (2 pré-embauche, 3 embauche, 4 intégration).
   // Actions d'arrivée, chacune avec son échéance : la liste « À traiter » les classe par urgence.
   function arrivalTasks(e, i = e.stage) {
-    const d = dossier(e), rh = ui.profile === 'rh', mine = (o) => (rh ? o === 'rh' : o !== 'rh'), out = [], start = e.startDate, A = (l, due) => out.push({ l, due: due || null });
+    const d = dossier(e), rh = ui.profile === 'rh', mine = (o) => (rh ? o === 'rh' : o !== 'rh'), out = [], start = e.startDate, A = (l, due) => out.push({ l, due: due || null, ph: i });
     if (i === 2 && e.stage === 2) {
       const check = reqDocs(e).filter(([k]) => docState(d, k) === 'check').length, miss = reqDocs(e).filter(([k]) => ['missing', 'refused'].includes(docState(d, k))).length;
       if (rh && check) A(plural(check, 'pièce à vérifier', 'pièces à vérifier'), start);
@@ -5202,8 +5202,8 @@
       else {
         const chk = dpaeChecks(e);
         // À VÉRIFIER (juriste) : la DPAE vaut demande d'examen médical d'embauche ; l'adhésion au service de prévention et de santé au travail est une démarche distincte.
-        html += sec('Formalités', row('Déclaration préalable à l’embauche (DPAE)', `Auprès de l’Urssaf, au plus tôt 8 jours avant l’embauche et au plus tard avant la prise de poste. Elle vaut demande de la visite d’information et de prévention ; l’adhésion au service de prévention et de santé au travail se fait à part. Simulée dans la démonstration : la déclaration réelle se fait sur net-entreprises.fr ou urssaf.fr.${!d.dpae && chk.err.length ? `<span style="display:block;color:var(--bad)">${esc(chk.err[0])}</span>` : ''}`,
-          d.dpae ? `${ok(d.dpae.date, `N° ${esc(d.dpae.ref)}`)}${d.dpaeDoc ? docBtn(db.documents.find((x) => x.id === d.dpaeDoc), 'Copie remise') : ''}` : open ? b('arr-dpae', TODAY > start ? 'Faire la DPAE (en retard)' : 'Effectuer la DPAE', '', TODAY > start ? 'bad' : 'primary') : `<span class="pill neutral">Possible dès le ${fmtShort(addDays(start, -8))}</span>`)
+        html += sec('Formalités', row('Déclaration préalable à l’embauche (DPAE)', `Auprès de l’Urssaf, au plus tôt 8 jours avant l’embauche et au plus tard avant la prise de poste. Elle vaut demande de la visite d’information et de prévention ; l’adhésion au service de prévention et de santé au travail se fait à part. ${DEMO_LIVE ? 'Teamora l’envoie à l’Urssaf et range ses réponses dans le dossier (envoi simulé dans la démonstration).' : 'Simulée dans la démonstration : la déclaration réelle se fait sur net-entreprises.fr ou urssaf.fr.'}${!d.dpae && chk.err.length ? `<span style="display:block;color:var(--bad)">${esc(chk.err[0])}</span>` : ''}`,
+          d.dpae ? `${ok(d.dpae.date, `N° ${esc(d.dpae.ref)}`)}${d.dpae.via === 'urssaf' ? b('dpae-track', 'Réponses de l’Urssaf') : ''}${d.dpaeDoc ? docBtn(db.documents.find((x) => x.id === d.dpaeDoc), 'Copie remise') : ''}` : open ? b('arr-dpae', DEMO_LIVE ? (TODAY > start ? 'Envoyer la DPAE (en retard)' : 'Envoyer la DPAE') : TODAY > start ? 'Faire la DPAE (en retard)' : 'Effectuer la DPAE', '', TODAY > start ? 'bad' : 'primary') : `<span class="pill neutral">Possible dès le ${fmtShort(addDays(start, -8))}</span>`)
           + row('Registre unique du personnel', 'Inscription le jour de l’embauche, dans l’ordre des embauches', reg('Inscrire')));
       }
       const signed = d.contract.status === 'Signé';
@@ -5463,10 +5463,10 @@
   const renewVars = (e) => { const t = trialInfo(e); return { essai_renouv: `${t.months} mois`, essai_fin_renouv: longDate(addDays(addMonths(addDays(t.end, 1), t.months), -1)) }; };
   const arrE = (d) => emp(d.id);
   Object.assign(MOD_ACT, {
-    // Pendant l'arrivée, on ouvre la pré-embauche, ou l'embauche (RH) quand la pré-embauche est terminée.
+    // Pendant l'arrivée, on ouvre la pré-embauche, ou l'embauche (RH) quand la pré-embauche est terminée ; depuis « À traiter », l'onglet de l'action.
     'open-dossier'(d) { const e = emp(d.id), k = procOf(e);
       if (!k || ui.profile === 'salarie') { const i = e.stage; Object.assign(ui, { view: 'etape', stage: i, selPerson: e.id, drawer: null, notif: false }); }
-      else Object.assign(ui, { view: k, stage: PROC[k].node, procTab: e.stage === 15 ? 'apres' : 'cours', procSel: e.id, procPhase: null, drawer: null, notif: false, modal: null });
+      else Object.assign(ui, { view: k, stage: PROC[k].node, procTab: e.stage === 15 ? 'apres' : 'cours', procSel: e.id, procPhase: d.phase ? Number(d.phase) : null, drawer: null, notif: false, modal: null });
       window.scrollTo(0, 0); render(); },
     'register-view'() { ui.modal = { type: 'register' }; render(); },
     'register-csv'() {
@@ -5526,6 +5526,7 @@
     },
     'arr-prep'(d) { const e = arrE(d); dossier(e).prep[d.k] = TODAY; toast('Tâche terminée'); commit(); },
     'arr-dpae'(d) { const e = arrE(d); if (isIntern(e)) return; ui.modal = { type: 'arr-dpae', id: e.id }; render(); },
+    'dpae-track'(d) { const e = arrE(d); ui.modal = { type: 'dpae-send', id: e.id, step: DPAE_STEPS, copy: !!dossier(e).dpaeDoc }; render(); },
     'arr-register'(d) { const e = arrE(d); if (TODAY < e.startDate) { toast(`L’inscription au registre se fait le jour de l’embauche, le ${fmtDate(e.startDate)}.`, 'info'); return; } e.registeredAt = TODAY; toast(isIntern(e) ? 'Inscrit dans la partie « stagiaires » du registre' : 'Inscrit au registre unique du personnel'); commit(); },
     'arr-info'(d) { const e = arrE(d), x = dossier(e), doc = addDoc(e.id, d.k); x[d.k + 'Doc'] = doc.id; ui.modal = { type: 'doc-edit', id: doc.id }; toast('Brouillon créé : relisez-le avant de le remettre'); commit(); },
     // Décret du 30 octobre 2023 : les informations peuvent être remises dans le contrat signé, qui les contient.
@@ -5643,11 +5644,13 @@
       if (chk.err.length) return formError(chk.err.join(' '));
       if (TODAY < addDays(e.startDate, -8)) return formError(`La DPAE se fait au plus tôt 8 jours avant l’embauche, soit à partir du ${fmtDate(addDays(e.startDate, -8))}.`);
       if (!/^\d{2}:\d{2}$/.test(v.hour || '')) return formError('Indiquez l’heure d’embauche déclarée.');
-      if (v.attest !== 'on') return formError('Cochez la case pour confirmer que la déclaration a été faite.');
+      if (!DEMO_LIVE && v.attest !== 'on') return formError('Cochez la case pour confirmer que la déclaration a été faite.');
       const key = JSON.stringify(chk.warn);
       if (chk.warn.length && ui.modal.warnOk !== key) { ui.modal.warnOk = key; return formError(`${chk.warn.join(' ')} Pour déclarer malgré tout, cliquez à nouveau.`); }
       x.dpae = { date: TODAY, ref: (v.ref || '').trim() || `DPAE-75-${TODAY.slice(0, 4)}-${String(Math.floor(Math.random() * 9000) + 1000)}`, hour: v.hour, simulated: !(v.ref || '').trim() };
+      if (DEMO_LIVE) Object.assign(x.dpae, { via: 'urssaf', depot: String(Math.floor(Math.random() * 9e9) + 1e9) });
       if (v.copy === 'on') { const doc = addDoc(e.id, 'dpae'); issueDoc(doc); x.dpaeDoc = doc.id; }
+      if (DEMO_LIVE) { ui.modal = { type: 'dpae-send', id: e.id, step: 0, copy: v.copy === 'on' }; commit(); dpaeRun(); return; }
       ui.modal = null; toast(`DPAE enregistrée${v.copy === 'on' ? ' · copie remise au salarié' : ''}`); commit();
     },
     'trial-renew'(v) {
@@ -5704,12 +5707,45 @@
     '<div class="modal-f"><button type="button" class="btn ghost" data-act="register-csv">Exporter (CSV)</button><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>', true);
   MODALS['arr-dpae'] = (m, shell, formShell, opt, f) => { const e = emp(m.id), chk = dpaeChecks(e);
     const li = (x, cls) => `<li style="color:var(--${cls})">${esc(x)}</li>`;
+    if (DEMO_LIVE) return dpaeSendForm(e, chk, li, formShell, f);
     return formShell(`Déclaration préalable à l’embauche · ${esc(fullName(e))}`, 'arr-dpae', `<p style="margin:0 0 10px">Démonstration : la déclaration est <b>simulée</b>. En réel, elle se fait sur net-entreprises.fr ou urssaf.fr, au plus tôt 8 jours avant l’embauche et avant la prise de poste.</p>
       <p style="margin:0 0 6px"><b>Données déclarées</b> : ${esc(fullName(e))} · ${e.sex === 'F' ? 'femme' : e.sex === 'H' ? 'homme' : 'sexe ?'} · née ou né le ${e.birthDate ? esc(fmtDateY(e.birthDate)) : '?'} à ${esc(e.birthPlace || '?')} · ${esc(e.nationality || 'nationalité ?')} · NIR ${esc(e.nir || 'non renseigné')} · embauche le ${esc(fmtDateY(e.startDate))} · ${esc(e.contract)}${e.endDate ? ` jusqu’au ${esc(fmtDateY(e.endDate))}` : ''}.</p>
       ${chk.err.length || chk.warn.length ? `<ul style="margin:0 0 10px;padding-left:18px">${chk.err.map((x) => li(x, 'bad')).join('')}${chk.warn.map((x) => li(x, 'warn')).join('')}</ul>` : '<p class="hint" style="margin:0 0 10px">Toutes les données requises sont présentes.</p>'}
       <div class="form-grid">${f('dp-h', 'Heure d’embauche déclarée', '<input id="dp-h" name="hour" type="time" class="input" value="09:00">')}${f('dp-r', 'N° de l’accusé de réception (facultatif)', '<input id="dp-r" name="ref" class="input" maxlength="40" placeholder="Sinon, un numéro de démonstration">')}
       <label class="full agree"><input type="checkbox" name="copy" checked> Remettre une copie de la déclaration au salarié (art. R1221-9), dans son espace</label>
       <label class="full agree"><input type="checkbox" name="attest"> J’atteste que la déclaration a été transmise à l’Urssaf</label></div>`, chk.err.length ? 'Vérifier à nouveau' : 'Enregistrer la DPAE'); };
+  // Démo : Teamora envoie la DPAE à l'Urssaf (API DPAE, mode machine à machine) et suit ses réponses. L'envoi est simulé :
+  // le vrai envoi demande un serveur, l'accès accordé par l'Urssaf et les identifiants Urssaf en ligne de l'entreprise (voir README).
+  function dpaeSendForm(e, chk, li, formShell, f) {
+    const kv = (k, v) => `<dt>${k}</dt><dd>${v ? esc(v) : '<span class="muted">non renseigné</span>'}</dd>`;
+    const sexe = e.sex === 'F' ? 'Femme' : e.sex === 'H' ? 'Homme' : '';
+    return formShell(`Déclaration préalable à l’embauche · ${esc(fullName(e))}`, 'arr-dpae', `<p style="margin:0 0 12px">Teamora envoie la déclaration à l’Urssaf depuis le compte Urssaf de ${esc(COMPANY.entreprise)}, puis range ses réponses dans le dossier. À faire au plus tôt 8 jours avant l’embauche et avant la prise de poste. <b>Démonstration : l’envoi est simulé</b>, rien ne part à l’Urssaf.</p>
+      <div class="dpae-recap"><div><h4>Employeur</h4><dl>${kv('Raison sociale', COMPANY.entreprise)}${kv('Siret', COMPANY.siret)}${kv('Code NAF', COMPANY_PAY.naf.split(' ·')[0])}${kv('Organisme', COMPANY_PAY.urssaf)}</dl></div>
+      <div><h4>Salarié</h4><dl>${kv('Nom et prénom', `${e.lastName.toUpperCase()} ${e.firstName}`)}${kv('Sexe', sexe)}${kv('Naissance', e.birthDate ? `${fmtDateY(e.birthDate)}${e.birthPlace ? ` à ${e.birthPlace}` : ''}` : '')}${kv('N° de sécurité sociale', e.nir)}</dl></div>
+      <div><h4>Contrat</h4><dl>${kv('Nature', e.contract)}${kv('Embauche', `${fmtDateY(e.startDate)}, à l’heure indiquée ci-dessous`)}${e.endDate ? kv('Fin', fmtDateY(e.endDate)) : ''}</dl></div></div>
+      ${chk.err.length || chk.warn.length ? `<ul style="margin:0 0 10px;padding-left:18px">${chk.err.map((x) => li(x, 'bad')).join('')}${chk.warn.map((x) => li(x, 'warn')).join('')}</ul>` : '<p class="hint" style="margin:0 0 10px">Toutes les données requises sont présentes.</p>'}
+      <div class="form-grid">${f('dp-h', 'Heure d’embauche déclarée', '<input id="dp-h" name="hour" type="time" class="input" value="09:00">')}
+      <label class="full agree"><input type="checkbox" name="copy" checked> Remettre une copie de la déclaration au salarié (art. R1221-9), dans son espace</label></div>`, chk.err.length ? 'Vérifier à nouveau' : 'Envoyer à l’Urssaf', true);
+  }
+  // Réponses de l'Urssaf, dans l'ordre où elles arrivent : accusé d'enregistrement, certificat de conformité, accusé de réception.
+  const DPAE_STEPS = 4;
+  function dpaeStepsHTML(step, d, e, copy) {
+    const steps = [['Connexion à l’Urssaf', `Compte Urssaf en ligne de ${COMPANY.entreprise}`], ['Déclaration déposée', `Accusé d’enregistrement électronique · dépôt n° ${d.depot}`],
+      ['Contrôles de l’Urssaf réussis', 'Certificat de conformité : aucune anomalie'], ['DPAE enregistrée par l’Urssaf', `Accusé de réception · référence ${d.ref}`]];
+    return steps.map(([t, s], i) => `<li class="${i < step ? 'done' : i === step ? 'now' : 'next'}"><span class="dpae-dot" aria-hidden="true">${i < step ? ic('check') : ''}</span><div><b>${t}</b>${i < step ? `<small>${esc(s)}</small>` : i === step ? '<small>En cours…</small>' : ''}</div><span class="sr">${i < step ? 'fait' : i === step ? 'en cours' : 'à venir'}</span></li>`).join('')
+      + (step >= DPAE_STEPS ? `<li class="dpae-end"><p>Déclaration faite le ${fmtDateY(d.date)}, embauche le ${fmtDateY(e.startDate)} à ${esc(d.hour)}.${copy ? ` Copie remise à ${esc(e.firstName)} dans son espace.` : ''} L’accusé de réception reste dans le dossier d’arrivée.</p></li>` : '');
+  }
+  MODALS['dpae-send'] = (m, shell) => { const e = emp(m.id), d = dossier(e).dpae;
+    return shell(`DPAE envoyée à l’Urssaf · ${esc(fullName(e))}`, `<div class="modal-b"><p class="dpae-note">Démonstration : l’envoi et les réponses sont simulés. En réel, ces réponses arrivent de l’Urssaf l’une après l’autre ; Teamora les récupère et vous prévient.</p><ol class="dpae-steps" aria-live="polite">${dpaeStepsHTML(m.step, d, e, m.copy)}</ol></div>`,
+      '<div class="modal-f"><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>'); };
+  let DPAE_T = null;
+  function dpaeRun() {
+    clearTimeout(DPAE_T);
+    const tick = () => { const m = ui.modal; if (!m || m.type !== 'dpae-send' || m.step >= DPAE_STEPS) return; m.step++;
+      const ol = document.querySelector('.dpae-steps'), e = emp(m.id); if (ol) ol.innerHTML = dpaeStepsHTML(m.step, dossier(e).dpae, e, m.copy);
+      if (m.step < DPAE_STEPS) DPAE_T = setTimeout(tick, 900); };
+    DPAE_T = setTimeout(tick, 700);
+  }
   MODALS['trial-renew'] = (m, shell, formShell, opt, f) => { const e = emp(m.id), t = trialInfo(e), nEnd = addDays(addMonths(addDays(t.end, 1), t.months), -1);
     return formShell(`Renouveler la période d’essai · ${esc(fullName(e))}`, 'trial-renew', `<p style="margin:0 0 12px">La période d’essai serait prolongée de ${t.months} mois, du ${fmtDate(addDays(t.end, 1))} au ${fmtDate(nEnd)}. Le renouvellement doit être prévu par le contrat et par la convention collective (${CONV().kind === 'syntec' ? 'Syntec l’autorise' : 'prévu par la convention saisie dans les paramètres'}), et accepté par écrit par le salarié <b>au plus tard le ${fmtDate(t.end)}</b>.</p>
       <div class="form-grid"><label class="full agree"><input type="radio" name="mode" value="sign" checked> Envoyer l’accord de renouvellement à signer dans l’espace de ${esc(e.firstName)} (le renouvellement prend effet à sa signature)</label>

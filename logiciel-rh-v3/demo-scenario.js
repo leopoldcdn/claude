@@ -14,8 +14,8 @@
   window.TEAMORA_DEMO_SIZES = { 0: 9, 11: 18, 20: 46, 50: 120, 250: 250 };
   window.TEAMORA_DEMO_POSTES = ['dirigeant', 'rh', 'manager', 'comptable'];
   // Version des données de la démo : une démo enregistrée d'une version antérieure est refaite (mêmes réponses).
-  // 2 : logo de Nova Studio dans Paramètres > Entreprise.
-  window.TEAMORA_DEMO_VERSION = 2;
+  // 2 : logo de Nova Studio dans Paramètres > Entreprise. 3 : lieu de naissance des recrues (DPAE envoyée à l'Urssaf).
+  window.TEAMORA_DEMO_VERSION = 3;
 
   const pad = (n) => String(n).padStart(2, '0');
   const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -128,7 +128,9 @@
     // Arrivées : Nathan arrive lundi (contrat envoyé, DPAE à faire) ; Aisha arrive le 2 novembre (dossier prêt).
     const ALL = (d) => ({ identite: d, secu: d, rib: d, domicile: d, diplome: d, titre: d });
     const PREP = (d) => ({ poste: d, ordinateur: d, comptes: d, badge: d, bienvenue: d });
-    Object.assign(find('e18'), { startDate: '2026-10-12', stage: 2, registeredAt: null });
+    Object.assign(find('e18'), { startDate: '2026-10-12', stage: 2, registeredAt: null, birthPlace: 'Nantes, France' });
+    // Lieu de naissance (demandé par la DPAE) des autres recrues ; pas de numéro de sécurité sociale fictif : la DPAE le signale sans bloquer.
+    Object.assign(find('e12'), { birthPlace: 'Pune, Inde' });
     db.onboarding.e18 = { docs: ALL('2026-09-25'), files: {}, contract: { status: 'Envoyé', sentAt: '2026-10-02' }, prep: PREP('2026-10-05'), plan: {}, checkins: {}, buddy: 'e13', mutuelle: 'Affiliation', prevoyance: true, assignedAt: '2026-10-05' };
     db.onboarding.e12 = { docs: ALL('2026-10-02'), files: {}, titreCheck: '2026-10-02', contract: { status: 'Signé', sentAt: '2026-10-01', signedAt: '2026-10-03' }, prep: PREP('2026-10-05'), plan: {}, checkins: {}, buddy: 'e4' };
     Object.assign(db.onboarding.e19.plan, { mission: '2026-09-17', formation: '2026-09-22' });
@@ -148,7 +150,7 @@
     db.employees = db.employees.filter((e) => keep.has(e.id)).concat(gen.filter((e) => keep.has(e.id)));
     // À 46 salariés : deux autres recrues déjà prêtes portent l'effectif prévu à 50 en décembre.
     if (N === 46) [['e401', 'Romane', 'Fleury', 'F', 'Développeuse front-end', 'Tech', 'e6', '2026-11-16', 45000], ['e402', 'Valentin', 'Caron', 'H', 'Account Executive', 'Sales', 'e8', '2026-12-01', 44000]].forEach(([id, fn, ln, sex, title, dept, mgr, start, salary]) => {
-      db.employees.push(salarie(id, { firstName: fn, lastName: ln, sex, title, dept, managerId: mgr, stage: 2, startDate: start, contract: 'CDI', salary, location: 'Paris', birthDate: '1994-06-12', registeredAt: null, lastPro: null }));
+      db.employees.push(salarie(id, { firstName: fn, lastName: ln, sex, title, dept, managerId: mgr, stage: 2, startDate: start, contract: 'CDI', salary, location: 'Paris', birthDate: '1994-06-12', birthPlace: id === 'e401' ? 'Rennes, France' : 'Lille, France', registeredAt: null, lastPro: null }));
       db.onboarding[id] = { docs: ALL('2026-10-01'), files: {}, contract: { status: 'Signé', sentAt: '2026-09-28', signedAt: '2026-10-01' }, prep: PREP('2026-10-02'), plan: {}, checkins: {}, buddy: mgr };
     });
     // À partir de 120 salariés : deux départs de l'été, dossiers archivés (ils comptent dans l'effectif moyen des 12 derniers mois).

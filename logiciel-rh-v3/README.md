@@ -76,12 +76,12 @@
   7 jours après la demande (`REPLY_DAYS`, délai interne de réponse, pas une règle légale). La paie du mois compte pour une action.
 - **Pastilles** : sur la roue, dans le menu et sur le bouton « À traiter », une pastille (rouge) ne compte plus que les actions
   en retard. Les onglets des rubriques gardent leurs compteurs.
-- **Menu** : hors de l'accueil, les rubriques sont dans une colonne fine à gauche, en icônes seules (couleur de la rubrique),
-  regroupées en quatre familles séparées par un trait (Recruter, Gérer, Développer, Départ ; « Piloter » pour les outils RH).
-  Le nom de la rubrique s'affiche dans une bulle au survol ou au clavier, avec ses actions en retard (`railTip`) ; les
-  lecteurs d'écran lisent le nom. Sous 1280 px, la colonne devient un bandeau d'icônes. Dans l'espace salarié, les familles
-  s'appellent Arrivée, Au quotidien, Évolution, Départ. (Un essai de dossier en page avec sommaire a été retiré : on garde la
-  liste et le dossier à onglets.)
+- **Menu** : hors de l'accueil, les rubriques sont dans un menu à gauche, regroupées en quatre familles (Recruter, Gérer,
+  Développer, Départ ; « Piloter » pour les outils RH). Sur grand écran, il est replié en une colonne d'icônes (72 px), les
+  familles séparées par un trait ; au survol (ou au clavier), il s'élargit par-dessus le contenu, sans le déplacer, et affiche
+  le nom des rubriques et des familles. La visite guidée le montre élargi. Sous 1280 px, il devient un bandeau horizontal,
+  avec les noms. Dans l'espace salarié, les familles s'appellent Arrivée, Au quotidien, Évolution, Départ. (Un essai de
+  dossier en page avec sommaire a été retiré : on garde la liste et le dossier à onglets.)
 - **Date** : les données fictives de Nova Studio sont toutes datées, écrites pour le 6 octobre 2026.
   - La **version de travail** s'ouvre à cette date (`TEAMORA_DEMO_DATE` dans `data.js`, lue par `clockDay` dans `app.js`)
     et l'accueil l'indique (« date de la démo »). Sans cela, presque tout basculait « en retard » au fil des semaines.

@@ -1607,7 +1607,7 @@
       { sel: '.space-sw', title: 'Gestion ou espace personnel', text: 'La RH et les managers ont aussi leur propre espace salarié : leurs absences, leurs bulletins, leurs entretiens.' },
       { sel: '.todo-btn', title: 'À traiter', text: 'Toutes les actions qui t’attendent, classées par urgence : en retard, cette semaine, plus tard. Une ligne et un bouton par action.' },
       { sel: '[data-act="notif"]', title: 'Les notifications', text: 'Les nouvelles du jour : une demande d’absence, un document déposé, une obligation qui approche.' },
-      { sel: '.rail', title: 'Passer d’une rubrique à l’autre', text: 'Dans une rubrique, ce menu donne accès à toutes les autres, regroupées en quatre familles : recruter, gérer, développer, départ. Survole une icône pour voir son nom. « Accueil » ramène à la roue. Ici, nous sommes dans les absences.', go: tourGo({ profile: 'rh', view: 'absences', stage: 6 }) },
+      { sel: '.rail-in', rail: true, title: 'Passer d’une rubrique à l’autre', text: 'Dans une rubrique, ce menu donne accès à toutes les autres, regroupées en quatre familles : recruter, gérer, développer, départ. Replié, il n’affiche que les icônes ; au survol, il s’élargit et donne le nom de chaque rubrique. « Accueil » ramène à la roue. Ici, nous sommes dans les absences.', go: tourGo({ profile: 'rh', view: 'absences', stage: 6 }) },
       { sel: '#view .tabs', title: 'Les onglets', text: 'Chaque module est organisé en onglets : clique sur un onglet pour passer des demandes à valider au planning ou aux compteurs.' },
       tourProfile === 'rh' && { sel: '.rail [data-v="obligations"]', title: 'Les obligations selon l’effectif', text: 'Le cœur de Teamora : l’effectif est calculé automatiquement et les obligations légales apparaissent à chaque seuil (11, 20, 50, 250 salariés), avec des alertes avant.' },
       { sel: '.avis-fab', title: 'Ton avis compte', text: 'Après ton essai, dis-nous ce qui t’aide, ce qui manque ou ce qui bloque : deux minutes, sans ton nom.' },
@@ -1619,7 +1619,10 @@
   function tourShow() {
     const st = tour.steps[tour.i]; if (st.go) st.go();
     // La visite bloque la souris : à l'étape de la roue, elle la déploie elle-même ; ailleurs, la roue reste repliée.
-    ui.wheelOpen = false; window.scrollTo(0, 0); render(); requestAnimationFrame(tourPlace); if (st.wheel) setTimeout(openWheel, 250);
+    ui.wheelOpen = false; window.scrollTo(0, 0); render();
+    // La visite bloque aussi le survol du menu : à son étape, elle l'affiche élargi.
+    if (st.rail) { const r = document.querySelector('.rail'); if (r) r.classList.add('open'); }
+    requestAnimationFrame(tourPlace); if (st.wheel) setTimeout(openWheel, 250);
   }
   function tourPlace() {
     if (!tour) return;
@@ -7478,7 +7481,7 @@
     try { renderNow(); } finally { rendering = false; }
   }
   function renderNow() {
-    route(); TASKS.clear(); railTip(null);
+    route(); TASKS.clear();
     if (ui.orgPreview && !orgDrag && !(ui.modal && ui.modal.type === 'org-move')) ui.orgPreview = null;
     const scrollY = window.scrollY, railWas = document.querySelector('.rail-in'), railTop = railWas ? railWas.scrollTop : 0;
     const mob = isMob(); if (!mob || ui.profile !== 'salarie') ui.mobMore = false;
@@ -7509,20 +7512,6 @@
     bindSignature(); bindTplEditor(); bindDocEditor(); bindOrg(); if (tour) requestAnimationFrame(tourPlace);
     saveUI();
   }
-  // Menu en icônes : le nom de la rubrique s'affiche dans une bulle au survol ou au clavier, avec ses actions en retard.
-  function railTip(b) {
-    let t = document.getElementById('rail-tip');
-    if (!b) { if (t) t.classList.remove('on'); return; }
-    const l = b.querySelector('.rail-l'); if (!l) return;
-    if (!t) { t = document.createElement('div'); t.id = 'rail-tip'; t.className = 'rail-tip'; t.setAttribute('aria-hidden', 'true'); document.body.appendChild(t); }
-    const n = b.querySelector('.badge'), r = b.getBoundingClientRect(), band = b.closest('.rail').offsetWidth > 200;
-    t.textContent = l.textContent + (n ? ` · ${n.title || n.textContent}` : '');
-    t.classList.toggle('below', band); t.style.left = `${band ? r.left + r.width / 2 : r.right + 10}px`; t.style.top = `${band ? r.bottom + 8 : r.top + r.height / 2}px`;
-    t.classList.add('on');
-  }
-  document.addEventListener('pointerover', (ev) => railTip(ev.target.closest && ev.target.closest('.rail-i')));
-  document.addEventListener('focusin', (ev) => { const b = ev.target.closest && ev.target.closest('.rail-i'); railTip(b && b.matches(':focus-visible') ? b : null); });
-  document.addEventListener('scroll', () => railTip(null), true);
   const commit = () => { syncArrivals(); arrivalReminders(); needReminders(); complianceSync(); save(); render(); };
   // Keep (view, stage) consistent with what the profile is allowed to open.
   function route() {

@@ -130,14 +130,14 @@
     // Jade, développeuse arrivée en juillet : sa visite d'information et de prévention est à organiser avant le 9 octobre.
     db.employees.push(salarie('e23', { firstName: 'Jade', lastName: 'Morin', sex: 'F', title: 'Développeuse back-end', dept: 'Tech', managerId: 'e6', stage: 5, startDate: '2026-07-09', contract: 'CDI', salary: 42000, location: 'Paris', birthDate: '1998-04-17', family: 'Célibataire', cp: 7, rtt: 2, lastPro: null }));
 
-    // 2. Les salariés générés, et ceux que garde la démo (les N premiers dans l'ordre ci-dessous, hors alternants et stagiaires).
+    // 2. Les salariés générés, et ceux que garde la démo : les N premiers dans l'ordre ci-dessous. Pas d'alternant ni de
+    // stagiaire : les personnes présentes sont exactement l'effectif choisi (que l'annuaire, le reporting et les obligations affichent).
     const gen = generer();
     const ORDRE_BASE = ['e5', 'e1', 'e2', 'e3', 'e4', 'e10', 'e11', 'e6', 'e23', 'e13', 'e7', 'e8', 'e9', 'e14', 'e15', 'e17', 'e16', 'e21'];
     const counts = (e) => !['Stage', 'Alternance'].includes(e.contract);
     const keep = new Set(), present = ORDRE_BASE.map(find).concat(gen);
-    let n = 0; for (const e of present) { if (n >= N && counts(e)) break; if (counts(e)) n++; keep.add(e.id); }
-    // Alternante, stagiaire et ancienne salariée de Nova Studio : présentes dès que leur service l'est ; arrivées de Nathan et Aisha toujours.
-    ['e19', 'e22'].forEach((id) => { if (keep.has(find(id).managerId) && N >= 18) keep.add(id); });
+    for (const e of present) { if (keep.size >= N) break; if (counts(e)) keep.add(e.id); }
+    // Ancienne salariée de Nova Studio (partie en 2025) dès 18 salariés ; arrivées de Nathan et Aisha toujours.
     if (N >= 18) keep.add('e20');
     keep.add('e18'); keep.add('e12');
     db.employees = db.employees.filter((e) => keep.has(e.id)).concat(gen.filter((e) => keep.has(e.id)));

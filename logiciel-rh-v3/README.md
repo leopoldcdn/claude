@@ -28,7 +28,11 @@
   traits de Claire Durand, la dirigeante (elle prend la place du compte RH) ; RH → Olivia ; manager → Thomas ;
   expert-comptable → vue RH ouverte sur la paie.
   La base compte 250 salariés fictifs : les 22 de Nova Studio puis 232 générés de façon fixe (mêmes noms à chaque
-  ouverture). Pour un effectif N, la démo garde les N premiers, en commençant par les personnes concernées par une action.
+  ouverture). Pour un effectif N, la démo garde les N premiers, en commençant par les personnes concernées par une action,
+  sans alternant ni stagiaire : les personnes présentes sont exactement l'effectif choisi, et la roue, l'annuaire, le
+  reporting et les obligations affichent le même nombre. L'annuaire de la démo compte les salariés présents, puis à part
+  les arrivées prévues (« 46 salariés · 4 arrivées prévues ») ; les anciens salariés s'affichent avec le filtre « Sorti ».
+  L'effectif moyen sur 12 mois est un peu plus bas que l'effectif du jour : deux recrues sont arrivées dans l'année.
   « À traiter » ne montre que **10 actions** pour la RH (1 en retard, 5 cette semaine, 4 plus tard), parmi les plus
   fréquentes de la vie d'un gestionnaire RH : congés à valider, paie du mois (contrôles avant envoi), attestation de
   salaire après un arrêt, DPAE d'une arrivée lundi, décision de fin de période d'essai, entretien professionnel à

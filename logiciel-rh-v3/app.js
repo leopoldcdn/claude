@@ -949,7 +949,7 @@
   function filteredEmployees() {
     const q = ui.q.trim().toLowerCase();
     const list = scopeEmployees().filter((e) => (!q || `${fullName(e)} ${e.title} ${e.email} ${e.dept}`.toLowerCase().includes(q))
-      && (!ui.fDept || e.dept === ui.fDept) && (!ui.fStatus || statusOf(e)[2] === ui.fStatus));
+      && (!ui.fDept || e.dept === ui.fDept) && (ui.fStatus ? statusOf(e)[2] === ui.fStatus : !(DEMO_LIVE && e.stage >= 15)));
     const key = { name: (e) => e.lastName, dept: (e) => e.dept, start: (e) => e.startDate }[ui.sort];
     return list.sort((a, b) => key(a).localeCompare(key(b), 'fr') * ui.sortDir);
   }
@@ -960,13 +960,17 @@
       ${list.map((e) => `<tr class="click" data-act="open-emp" data-id="${e.id}" tabindex="0"><td><div class="who-cell">${avatar(e)}<div><b>${esc(fullName(e))}</b><small>${esc(e.email)}</small></div></div></td>
         <td>${esc(e.title)}</td><td>${esc(e.dept)}</td><td>${statusPill(e)}</td><td class="num">${fmtDate(e.startDate)}</td><td>${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}</td></tr>`).join('')}</tbody></table>`;
   }
+  // Démo : l'annuaire compte les salariés présents (l'effectif choisi), puis à part les arrivées prévues et les anciens salariés.
+  const empCount = (list) => { if (!DEMO_LIVE) return plural(list.length, 'collaborateur', 'collaborateurs');
+    const venir = list.filter((e) => e.stage === 2 && e.startDate > TODAY).length, partis = list.filter((e) => e.stage >= 15).length, la = list.length - venir - partis;
+    return [la || !list.length ? plural(la, 'salarié', 'salariés') : '', venir ? plural(venir, 'arrivée prévue', 'arrivées prévues') : '', partis ? plural(partis, 'ancien salarié', 'anciens salariés') : ''].filter(Boolean).join(' · '); };
   function viewEmployees() {
     const list = filteredEmployees();
     const statuses = ['En poste', 'Absent', 'Télétravail', 'Arrivée prévue', 'Période d’essai', 'En intégration', 'Départ en cours', 'Sorti'];
     return `<div class="toolbar"><div class="search">${ic('search')}<label class="sr" for="emp-q">Rechercher</label><input id="emp-q" class="input" type="search" placeholder="Nom, poste, e-mail…" value="${esc(ui.q)}" data-input="q"></div>
       ${ui.profile === 'rh' ? `<label class="sr" for="f-dept">Service</label><select id="f-dept" class="select" data-change="fDept"><option value="">Tous les services</option>${DEPTS.map((d) => `<option ${ui.fDept === d ? 'selected' : ''}>${d}</option>`).join('')}</select>` : ''}
       <label class="sr" for="f-status">Statut</label><select id="f-status" class="select" data-change="fStatus"><option value="">Tous les statuts</option>${statuses.map((s) => `<option ${ui.fStatus === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
-      <span class="muted" id="emp-count">${plural(list.length, 'collaborateur', 'collaborateurs')}</span>
+      <span class="muted" id="emp-count">${empCount(list)}</span>
       ${ui.profile === 'rh' ? `<button type="button" class="btn primary" style="margin-left:auto" data-act="emp-new">${ic('plus')}Ajouter un collaborateur</button>` : ''}</div>
       <div class="card"><div class="table-wrap" id="emp-table">${empTable(list)}</div></div>`;
   }
@@ -7629,7 +7633,7 @@
     nq(v) { ui.nq = v; const el = document.getElementById('need-list'), list = needFiltered(); if (el) el.innerHTML = needTable(list); const c = document.getElementById('need-count'); if (c) c.textContent = plural(list.length, 'besoin', 'besoins'); },
     rq(v) { ui.rq = v; const el = document.getElementById('rec-list'); if (el) el.innerHTML = recJobList(recJobs()); },
     orgq(v) { ui.orgQ = v; refreshOrg(); },
-    q(v) { ui.q = v; const list = filteredEmployees(); document.getElementById('emp-table').innerHTML = empTable(list); document.getElementById('emp-count').textContent = plural(list.length, 'collaborateur', 'collaborateurs'); },
+    q(v) { ui.q = v; const list = filteredEmployees(); document.getElementById('emp-table').innerHTML = empTable(list); document.getElementById('emp-count').textContent = empCount(list); },
   };
   const LIVE = {
     leave(form) { const fd = new FormData(form); leaveFormSync(form, 'lv'); document.getElementById('lv-preview').innerHTML = leavePreview(fd.get('type'), fd.get('start'), fd.get('end'), me(), fd.get('event'), !!fd.get('young')); },

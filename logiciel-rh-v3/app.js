@@ -681,8 +681,9 @@
   }
   function topbar() {
     const st = ui.view === 'accueil' ? null : ui.stage;
-    const title = ui.view === 'etape' ? esc(STAGES[st].title) : VIEW_LABELS[ui.profile][ui.view];
-    const crumb = st === null ? `${esc(COMPANY.nom)} · ${esc(fullName(me()))}` : `<b style="color:${STAGE_COLORS[st]}">${esc(stageDef(st).title)}</b>`;
+    const dp = procPageSel();
+    const title = dp ? esc(fullName(dp)) : ui.view === 'etape' ? esc(STAGES[st].title) : VIEW_LABELS[ui.profile][ui.view];
+    const crumb = dp ? `<button type="button" class="dback" data-act="proc-back" style="color:${STAGE_COLORS[PROC[ui.view].node]}">${ic('left')}${PROC[ui.view].title}</button>` : st === null ? `${esc(COMPANY.nom)} · ${esc(fullName(me()))}` : `<b style="color:${STAGE_COLORS[st]}">${esc(stageDef(st).title)}</b>`;
     const mine = db.notifications.filter((n) => n.to === me().id);
     const unread = mine.filter((n) => !n.read).length;
     return `<header class="top"><button type="button" class="brand" data-act="go" data-v="accueil" aria-label="Teamora · retour à l’accueil" title="Teamora · retour à l’accueil"><span class="brand-mark">${LOGO}</span></button>
@@ -710,8 +711,11 @@
   function stageRail() {
     if (ui.view === 'accueil') return '';
     const vis = visibleStages(), sal = ui.profile === 'salarie', cur = (on) => (on ? 'aria-current="page"' : '');
-    const item = (i) => `<button type="button" class="rail-i" data-act="stage" data-i="${i}" style="--c:${STAGE_COLORS[i]}" ${cur(ui.stage === i)}><span class="rail-ic">${ic(stageDef(i).icon)}</span><span class="rail-l">${esc(sal && stageView(i) === 'relations' ? VIEW_LABELS.salarie.relations : RAIL_NAME[stageDef(i).short] || stageDef(i).short)}</span>${stageBadge(i)}</button>`;
-    const tool = (v, icon, label, badge = '') => `<button type="button" class="rail-i rail-tool" data-act="go" data-v="${v}" ${cur(ui.view === v)}><span class="rail-ic">${ic(icon)}</span><span class="rail-l">${label}</span>${badge}</button>`;
+    // Page dossier : le menu se réduit aux icônes ; le nom de chaque rubrique s'affiche au survol.
+    const tip = (l) => (procPageSel() ? `title="${l}"` : '');
+    const item = (i) => { const l = esc(sal && stageView(i) === 'relations' ? VIEW_LABELS.salarie.relations : RAIL_NAME[stageDef(i).short] || stageDef(i).short);
+      return `<button type="button" class="rail-i" data-act="stage" data-i="${i}" style="--c:${STAGE_COLORS[i]}" ${cur(ui.stage === i)} ${tip(l)}><span class="rail-ic">${ic(stageDef(i).icon)}</span><span class="rail-l">${l}</span>${stageBadge(i)}</button>`; };
+    const tool = (v, icon, label, badge = '') => `<button type="button" class="rail-i rail-tool" data-act="go" data-v="${v}" ${cur(ui.view === v)} ${tip(label)}><span class="rail-ic">${ic(icon)}</span><span class="rail-l">${label}</span>${badge}</button>`;
     const fams = RAIL_FAM.map(([g, own, ids]) => { const list = ids.filter((i) => vis.includes(i)), t = sal ? own : g;
       return list.length ? `<div class="rail-g" role="group" aria-label="${t}"><span class="rail-t">${t}</span>${list.map(item).join('')}</div>` : ''; }).join('');
     return `<nav class="rail" aria-label="Rubriques"><div class="rail-in"><div class="rail-g">${tool('accueil', 'home', 'Accueil')}</div>${fams}
@@ -2613,18 +2617,61 @@
       return `<span class="ph ${cur ? 'cur' : ''} ${n === s.length && s.length ? 'done' : ''}" title="${esc(l)} : ${n}/${s.length}"><i style="width:${s.length ? (n / s.length) * 100 : 0}%"></i></span>`; }).join('');
     return `<button type="button" class="proc-row" data-act="proc-sel" data-id="${e.id}" aria-pressed="${sel}">${avatar(e)}<span class="who"><b>${esc(fullName(e))}</b><small>${esc(e.title)} · ${statusOf(e)[0]}</small><span class="phs">${bars}</span></span>${todo.length ? `<span class="badge-dot" title="${esc(todo.join(', '))}">${todo.length}</span>` : ''}</button>`;
   }
+  // Le dossier d'une personne est une page : à gauche un sommaire (les sections de chaque temps, avec leur état), au centre les sections
+  // à la suite. dsec() fabrique les sections : en page dossier (DPAGE), un bloc avec ancre et état ; ailleurs, l'ancien intertitre.
+  let DPAGE = null;
+  const DST_PILL = { ok: 'ok', todo: 'warn', bad: 'bad', wait: 'neutral' };
+  // État d'une section, d'après ses lignes : toutes faites, une action à mener (bouton principal, alerte), ou en attente.
+  function secState(h) {
+    const rows = (h.match(/class="todo[ "]/g) || []).length, ok = Math.min(rows, (h.match(/class="pill ok"/g) || []).length), n = rows > 1 ? `${ok}/${rows}` : '';
+    if (/class="pill bad"/.test(h)) return ['bad', n || 'à revoir'];
+    if (rows && ok === rows) return ['ok', n || 'fait'];
+    if (/class="btn (primary|ok|bad) sm"|class="pill (warn|info)"/.test(h)) return ['todo', n || 'à faire'];
+    return ['wait', n];
+  }
+  const civSt = (e) => { const miss = civMissing(e); return miss.length ? ['todo', 'à compléter', `À compléter : ${miss.join(', ')}`] : !e.nir ? ['todo', 'à compléter', 'N° de sécurité sociale manquant'] : ['ok', 'complet']; };
+  function dsec(title, body, st) {
+    if (!DPAGE) return `<h4 class="sub" style="margin-top:18px">${title}</h4>${body}`;
+    const id = `ds-${DPAGE.ph}-${DPAGE.list.length}`, x = st || secState(body), short = title.replace(/<[^>]+>/g, '').split(' · ')[0].replace(/\s*\(.*\)\s*$/, '');
+    DPAGE.list.push({ id, short, st: x });
+    return `<section class="card dsec" id="${id}" data-st="${x[0]}" tabindex="-1" aria-labelledby="${id}-t"><div class="dsec-h"><h3 id="${id}-t">${title}</h3>${x[1] ? `<span class="pill ${DST_PILL[x[0]]}">${esc(x[2] || x[1])}</span>` : ''}</div>${body}</section>`;
+  }
+  // Onglet de la liste et personne dont le dossier est ouvert (la page dossier remplace alors la liste).
+  const procTabOf = (k) => { const rh = ui.profile === 'rh', tabs = k === 'arrivees' ? ['cours'].concat(rh ? ['programme'] : []) : ['cours'].concat(rh ? ['apres', 'stats'] : []); return tabs.includes(ui.procTab) ? ui.procTab : 'cours'; };
+  function procPageSel() {
+    const k = ui.view; if (!PROC[k] || !ui.procSel || ui.profile === 'salarie') return null;
+    const tab = procTabOf(k); if (tab === 'programme' || tab === 'stats') return null;
+    const e = procPeople(k).find((x) => x.id === ui.procSel);
+    return e && (k === 'arrivees' || (tab === 'apres' ? e.stage === 15 : e.stage < 15)) ? e : null;
+  }
   function procDossier(e, k) {
-    const rh = ui.profile === 'rh', phases = PROC[k].phases;
-    const cur = curPhases(e), ph = phases.some(([i]) => i === ui.procPhase) && phaseOpen(e, ui.procPhase) ? ui.procPhase : (k === 'arrivees' && e.stage === 2 && arrivalSteps(e, 2).every(Boolean) ? 3 : cur[0]);
-    const tabs = phases.map(([i, l]) => { const s = phaseSteps(e, i), n = s.filter(Boolean).length, open = phaseOpen(e, i), done = s.length && n === s.length;
-      return `<button type="button" role="tab" aria-selected="${ph === i}" data-act="proc-phase" data-i="${i}" ${open ? '' : 'disabled title="Pas encore commencé"'}>${done ? ic('check') : ''}${l}<span class="count num">${n}/${s.length}</span></button>`; }).join('');
-    const steps = phaseSteps(e, ph), arrival = k === 'arrivees';
-    const next = rh && !arrival && (ph === 13 || ph === 14) && e.stage === ph ? `<button type="button" class="btn ${steps.every(Boolean) ? 'primary' : 'ghost'} sm" data-act="advance" data-id="${e.id}">Passer aux « ${esc(phases.find(([i]) => i === ph + 1)[1].toLowerCase())} »${ic('arrow')}</button>` : '';
-    const hint = arrival && ph !== 4 ? `<p class="hint" style="margin:10px 0 0">La pré-embauche et l’embauche avancent en parallèle. ${esc(e.firstName)} passe en intégration quand les deux sont terminées et le contrat signé.</p>` : '';
-    return `<div class="card proc-dossier"><div class="proc-head">${avatar(e, 'lg')}<div style="flex:1;min-width:0"><h2>${esc(fullName(e))}</h2><p>${esc(e.title)} · ${esc(e.dept)} · ${statusPill(e)}</p></div>
-        <button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir la fiche</button></div>
-      <div class="tabs proc-tabs" role="tablist" aria-label="Temps du dossier">${tabs}</div>
-      <div class="card-b">${stepsList(steps, stageSteps(ph), false)}${arrival ? arrivalDossier(e, ph) : departDossier(e, ph)}${next ? `<div class="toolbar" style="margin-top:16px">${next}</div>` : ''}${hint}</div></div>`;
+    const P = PROC[k], rh = ui.profile === 'rh', arrival = k === 'arrivees';
+    let meta = '';
+    const parts = P.phases.map(([i, l]) => {
+      const st = phaseSteps(e, i), open = phaseOpen(e, i);
+      let html = '', list = [];
+      DPAGE = { ph: i, list };
+      try { html = open ? (arrival ? arrivalDossier(e, i) : departDossier(e, i)) : ''; } finally { DPAGE = null; }
+      const m = html.match(/^<p class="hint dmeta"[^>]*>([\s\S]*?)<\/p>/); if (m) { meta = meta || m[1]; html = html.slice(m[0].length); }
+      return { i, l, st, n: st.filter(Boolean).length, open, html, list };
+    });
+    const total = parts.reduce((t, p) => t + p.st.length, 0), done = parts.reduce((t, p) => t + p.n, 0);
+    const lock = arrival ? 'S’ouvre quand la pré-embauche et l’embauche sont terminées' : 'Pas encore commencé';
+    const toc = parts.map((p) => `<div class="dtoc-g"><h4><span>${p.l}</span><span class="num">${p.n}/${p.st.length}</span></h4>${!p.open ? `<p class="dtoc-none">${lock}</p>`
+      : p.list.length ? p.list.map((x) => `<button type="button" class="dtoc-i" data-act="dsec-go" data-t="${x.id}"><span class="dst s-${x.st[0]}" aria-hidden="true">${x.st[0] === 'ok' ? ic('check') : ''}</span><span class="l">${x.short}</span>${x.st[1] ? `<em>${esc(x.st[1])}</em>` : ''}</button>`).join('')
+      : `<p class="dtoc-none">${rh ? 'Rien à remplir pour l’instant' : 'Suivi par les RH'}</p>`}</div>`).join('');
+    const next = (i) => (rh && !arrival && (i === 13 || i === 14) && e.stage === i ? `<button type="button" class="btn ${phaseSteps(e, i).every(Boolean) ? 'primary' : 'ghost'} sm" data-act="advance" data-id="${e.id}">Passer aux « ${esc(P.phases.find(([x]) => x === i + 1)[1].toLowerCase())} »${ic('arrow')}</button>` : '');
+    const chips = (p) => `<ul class="dsteps" aria-label="Étapes · ${esc(p.l)}">${stageSteps(p.i).map((t, j) => `<li class="${p.st[j] ? 'ok' : ''}">${p.st[j] ? ic('check') : '<i aria-hidden="true"></i>'}<span>${esc(t)}${p.st[j] ? '<span class="sr"> (fait)</span>' : ''}</span></li>`).join('')}</ul>`;
+    const main = parts.map((p) => `<div class="dphase" id="ph-${p.i}"><div class="dphase-h"><h2>${p.l}</h2><span class="count num">${p.n}/${p.st.length}</span>${next(p.i)}</div>
+      ${p.open ? chips(p) + p.html : `<p class="hint" style="margin:0">${lock}.</p>`}</div>`).join('');
+    const hint = arrival && e.stage !== 4 ? `La pré-embauche et l’embauche avancent en parallèle. ${esc(e.firstName)} passe en intégration quand les deux sont terminées et le contrat signé.` : '';
+    return `<div class="dpage"><aside class="card dtoc" aria-label="Sommaire du dossier">
+        <div class="dtoc-h">${avatar(e)}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)} · ${esc(e.dept)}</small></div></div>
+        <div class="dtoc-pill">${statusPill(e)}</div>
+        <div class="dtoc-prog"><span>${arrival ? 'Arrivée' : 'Départ'} : ${done} ${done > 1 ? 'étapes' : 'étape'} sur ${total}</span><span class="bar" aria-hidden="true"><i style="width:${total ? Math.round((done / total) * 100) : 0}%"></i></span></div>
+        <nav class="dtoc-n" aria-label="Sections du dossier">${toc}</nav>
+        <button type="button" class="btn ghost sm dtoc-f" data-act="open-emp" data-id="${e.id}">Ouvrir la fiche</button></aside>
+      <div class="dmain">${meta || hint ? `<div class="dintro">${meta ? `<p>${meta}</p>` : ''}${hint ? `<p class="hint">${hint}</p>` : ''}</div>` : ''}${main}</div></div>`;
   }
   function viewProc(k) {
     const P = PROC[k], rh = ui.profile === 'rh', all = procPeople(k), c = STAGE_COLORS[P.node];
@@ -2637,15 +2684,17 @@
     if (tab === 'stats') return head + exitStats();
     const people = all.filter((e) => (k === 'arrivees' ? true : tab === 'apres' ? e.stage === 15 : e.stage < 15))
       .sort((a, b) => procActions(b).length - procActions(a).length || (k === 'arrivees' ? a.startDate.localeCompare(b.startDate) : ((a.exit || {}).lastDay || '').localeCompare((b.exit || {}).lastDay || '')));
-    const sel = people.find((e) => e.id === ui.procSel);
+    const sel = procPageSel();
+    if (sel) return procDossier(sel, k);
     const legend = `<p class="hint" style="margin:8px 0 0">Barres : ${P.phases.map(([, l]) => l.toLowerCase()).join(', ')}.</p>`;
-    return `${head}<div class="proc-grid"><div class="card proc-list"><div class="card-h"><h3>${k === 'arrivees' ? 'Recrues' : tab === 'apres' ? 'Anciens collaborateurs' : 'Départs en cours'}</h3><span class="pill accent num">${people.length}</span>${k === 'arrivees' && rh ? `<button type="button" class="btn primary sm" style="margin-left:auto" data-act="arr-new">${ic('plus')}Nouvelle arrivée</button>` : ''}</div>
-        <div class="card-b">${people.length ? people.map((e) => procRow(e, k)).join('') + legend : `<p class="muted" style="margin:0">${k === 'arrivees' ? 'Aucune arrivée en cours.' : 'Aucun départ en cours.'}</p>`}</div></div>
-      <div>${sel ? procDossier(sel, k) : `<div class="card empty proc-empty">${people.length ? 'Choisis une personne pour ouvrir son dossier.' : k === 'arrivees' ? `Les recrues apparaissent ici dès qu’un candidat est embauché${rh ? ', ou avec « Nouvelle arrivée » pour une entrée hors offre (cooptation, candidature spontanée, réembauche…)' : ''}.` : 'Les départs apparaissent ici dès qu’un départ est lancé depuis la fiche du collaborateur.'}</div>`}</div></div>`;
+    return `${head}<div class="card proc-list full"><div class="card-h"><h3>${k === 'arrivees' ? 'Recrues' : tab === 'apres' ? 'Anciens collaborateurs' : 'Départs en cours'}</h3><span class="pill accent num">${people.length}</span>${k === 'arrivees' && rh ? `<button type="button" class="btn primary sm" style="margin-left:auto" data-act="arr-new">${ic('plus')}Nouvelle arrivée</button>` : ''}</div>
+        ${people.length ? `<div class="card-b proc-rows">${people.map((e) => procRow(e, k)).join('')}</div>${legend.replace('<p class="hint" style="margin:8px 0 0">', '<p class="hint proc-legend">')}` : `<div class="card-b proc-none">${k === 'arrivees' ? `Les recrues apparaissent ici dès qu’un candidat est embauché${rh ? ', ou avec « Nouvelle arrivée » pour une entrée hors offre (cooptation, candidature spontanée, réembauche…)' : ''}.` : 'Les départs apparaissent ici dès qu’un départ est lancé depuis la fiche du collaborateur.'}</div>`}</div>`;
   }
   Object.assign(MOD_ACT, {
-    'proc-sel'(d) { if (ui.procSel !== d.id) ui.procPhase = null; ui.procSel = d.id; render(); },
-    'proc-phase'(d) { ui.procPhase = Number(d.i); render(); },
+    'proc-sel'(d) { ui.procSel = d.id; ui.procJump = null; window.scrollTo(0, 0); render(); },
+    'proc-back'() { ui.procSel = null; ui.procJump = null; window.scrollTo(0, 0); render(); },
+    'proc-phase'(d) { ui.procJump = Number(d.i); render(); },
+    'dsec-go'(d) { const el = document.getElementById(d.t); if (!el) return; window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - topH() - 16, behavior: REDUCED() ? 'auto' : 'smooth' }); el.focus({ preventScroll: true }); dtocMark(d.t); },
     'proc-tab'(d) { ui.procTab = d.t; ui.procSel = null; ui.procPhase = null; render(); },
     'arr-new'() { ui.modal = { type: 'arr-new' }; render(); },
   });
@@ -2722,7 +2771,7 @@
       normalizeEmployees();
       if (v.managerId) notify(v.managerId, `${first} ${last} rejoint votre équipe le ${fmtDate(v.startDate)} (${v.title.trim()}).`);
       notify(id, `Bienvenue chez ${COMPANY.nom} ! Dépose tes documents dans « Mon arrivée » : ton contrat suivra.`);
-      ui.modal = null; ui.procTab = 'cours'; ui.procSel = id; ui.procPhase = null;
+      ui.modal = null; ui.procTab = 'cours'; ui.procSel = id; ui.procJump = null;
       toast(`${first} ${last} : arrivée créée${v.personalEmail ? ' · invitation envoyée' : ''}`); commit();
     },
   });
@@ -5156,10 +5205,10 @@
     const pend = (txt = 'À faire', cls = 'warn') => `<span class="pill ${cls}">${txt}</span>`;
     const days = dayDiff(TODAY, e.startDate), start = e.startDate;
     const when = days > 0 ? `Arrivée dans ${plural(days, 'jour', 'jours')}, le ${fmtDate(start)}` : days === 0 ? 'Arrivée aujourd’hui' : `Arrivée le ${fmtDate(start)} · J+${-days}`;
-    const sec = (title, body) => `<h4 class="sub" style="margin-top:18px">${title}</h4>${body}`;
+    const sec = (title, body, st) => dsec(title, body, st);
     // Le manager ne voit en embauche que l'avancement (les puces), sans le détail administratif.
     if (i === 3 && !rh) return '';
-    let html = `<p class="hint" style="margin:12px 0 0">${when} · ${esc(e.contract)} · ${esc(e.title)} · ${isIntern(e) ? 'tuteur' : 'manager'} : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}${d.buddy && emp(d.buddy) ? ` · parrain : ${esc(fullName(emp(d.buddy)))}` : d.buddy === 'none' ? ' · sans parrain' : ''}</p>`;
+    let html = `<p class="hint dmeta" style="margin:12px 0 0">${when} · ${esc(e.contract)} · ${esc(e.title)} · ${isIntern(e) ? 'tuteur' : 'manager'} : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}${d.buddy && emp(d.buddy) ? ` · parrain : ${esc(fullName(emp(d.buddy)))}` : d.buddy === 'none' ? ' · sans parrain' : ''}</p>`;
     if (i === 2) {
       if (rh) {
         const sel = (f, list, v) => `<select class="select" data-change="arr-civ" data-id="${e.id}" data-f="${f}" aria-label="${f}">${list.map((x) => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
@@ -5170,7 +5219,7 @@
           <div class="field"><label>Nationalité</label>${nationalitySelect(e, `data-change="arr-civ" data-id="${e.id}" data-f="nationality" aria-label="Nationalité"`)}</div><div class="field"><label>Zone</label>${sel('zone', ['—', 'France', 'UE', 'Hors UE'], e.zone || '—')}<small class="field-hint">${e.nationality ? 'Déduite de la nationalité ; « Hors UE » demande un titre de séjour' : 'À déterminer : renseignez la nationalité'}</small></div>
           <div class="field"><label>N° de sécurité sociale</label><input class="input num" value="${esc(e.nir || '')}" data-change="arr-civ" data-id="${e.id}" data-f="nir" aria-label="Numéro de sécurité sociale" maxlength="21" inputmode="numeric">${nir.msg ? `<small class="field-hint" style="color:var(--${nir.level === 'error' ? 'bad' : 'warn'})">${esc(nir.msg)}</small>` : ''}</div>
           ${inp('address', 'Adresse', e.address, 'maxlength="140"')}${inp('emergency', 'Contact d’urgence', e.emergency, 'maxlength="80"')}
-          ${needsTitre(e) ? `${inp('titreType', 'Type du titre de travail', e.titreType, 'maxlength="60" placeholder="Ex. carte de séjour « salarié »"')}${inp('titreNum', 'Numéro du titre', e.titreNum, 'maxlength="30"')}<div class="field"><label>Fin de validité du titre</label><input type="date" class="input" value="${esc(e.titreEnd || '')}" data-change="arr-civ" data-id="${e.id}" data-f="titreEnd" aria-label="Fin de validité du titre"></div>` : ''}</div>`);
+          ${needsTitre(e) ? `${inp('titreType', 'Type du titre de travail', e.titreType, 'maxlength="60" placeholder="Ex. carte de séjour « salarié »"')}${inp('titreNum', 'Numéro du titre', e.titreNum, 'maxlength="30"')}<div class="field"><label>Fin de validité du titre</label><input type="date" class="input" value="${esc(e.titreEnd || '')}" data-change="arr-civ" data-id="${e.id}" data-f="titreEnd" aria-label="Fin de validité du titre"></div>` : ''}</div>`, civSt(e));
         html += sec(`Pièces du dossier · contrat ${esc(e.contract)}`, `<p class="hint" style="margin:0 0 6px">${esc(e.firstName)} dépose ses pièces depuis son espace ; vous les vérifiez ici.</p>` + reqDocs(e).map(([k, l]) => { const st = docState(d, k), f = d.files[k];
           const file = f ? `<button type="button" class="btn ghost sm" data-act="file-view" data-id="${e.id}" data-k="${k}">${ic('file')}Voir</button>` : '';
           const sub = k === 'titre' ? 'Salarié hors Union européenne : le titre doit autoriser à travailler' : f ? `${esc(f.name)} · déposé le ${fmtShort(f.date)}${f.refused ? ` · refusé : ${esc(f.refused)}` : ''}` : '';
@@ -5241,7 +5290,7 @@
           ? `<form class="todo checkin" data-form="arr-checkin" data-id="${e.id}" data-k="${k}"><div class="t"><b>${l}</b><small>Prévu le ${fmtDate(due)} · manager et nouvel arrivant${c ? ' · compte rendu à saisir' : ''}</small><label class="sr" for="ck-${k}">Compte rendu</label><input id="ck-${k}" name="note" class="input" placeholder="Ce qui va bien, les points à ajuster, les objectifs suivants"></div><button class="btn ghost sm">Enregistrer</button></form>`
           : row(l, `Prévu le ${fmtDate(due)}`, '<span class="pill neutral">À venir</span>'); }).join(''));
       html += sec('Rapport d’étonnement', d.astonish ? `<q>${esc(d.astonish.text)}</q><p class="hint" style="margin:6px 0 0">Rédigé le ${fmtDate(d.astonish.date)}</p>`
-        : '<p class="hint" style="margin:0">Rédigé par le nouvel arrivant depuis son espace, conseillé vers J+30.</p>');
+        : '<p class="hint" style="margin:0">Rédigé par le nouvel arrivant depuis son espace, conseillé vers J+30.</p>', d.astonish ? ['ok', 'rédigé'] : ['wait', 'vers J+30']);
       const t = trialInfo(e);
       if (t) {
         const over = trialOver(e, t), near = !d.trialDecision && !over && dayDiff(TODAY, t.decideBy) <= 14, rdoc = d.renewPending && db.documents.find((x) => x.id === d.renewPending);
@@ -5473,7 +5522,7 @@
     // Pendant l'arrivée, on ouvre la pré-embauche, ou l'embauche (RH) quand la pré-embauche est terminée ; depuis « À traiter », l'onglet de l'action.
     'open-dossier'(d) { const e = emp(d.id), k = procOf(e);
       if (!k || ui.profile === 'salarie') { const i = e.stage; Object.assign(ui, { view: 'etape', stage: i, selPerson: e.id, drawer: null, notif: false }); }
-      else Object.assign(ui, { view: k, stage: PROC[k].node, procTab: e.stage === 15 ? 'apres' : 'cours', procSel: e.id, procPhase: d.phase ? Number(d.phase) : null, drawer: null, notif: false, modal: null });
+      else Object.assign(ui, { view: k, stage: PROC[k].node, procTab: e.stage === 15 ? 'apres' : 'cours', procSel: e.id, procJump: d.phase ? Number(d.phase) : null, drawer: null, notif: false, modal: null });
       window.scrollTo(0, 0); render(); },
     'register-view'() { ui.modal = { type: 'register' }; render(); },
     'register-csv'() {
@@ -6449,9 +6498,9 @@
     const row = (label, sub, state) => `<div class="todo"><div class="t"><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div>${state}</div>`;
     const ok = (date, txt = 'Fait') => `<span class="pill ok">${txt}${date ? ` · ${fmtShort(date)}` : ''}</span>`;
     const b = (act, label, extra = '', cls = 'ghost') => (rh ? `<button type="button" class="btn ${cls} sm" data-act="${act}" data-id="${e.id}" ${extra}>${label}</button>` : '<span class="pill warn">À faire</span>');
-    const sec = (title, body) => `<h4 class="sub" style="margin-top:18px">${title}</h4>${body}`;
+    const sec = (title, body, st) => dsec(title, body, st);
     const n = noticeInfo(e), notif = exitNotif(e), nEnd = noticeEndOf(notif, n.months), out = x.lastDay || TODAY;
-    let html = `<p class="hint" style="margin:12px 0 0">${esc(x.reason || '—')} · fin du contrat ${x.lastDay ? `le ${fmtDateY(x.lastDay)}` : 'à fixer'}${x.workedUntil ? ` · dernier jour travaillé le ${fmtDateY(x.workedUntil)}` : ''} · ${esc(e.contract)} · ${esc(e.category || '')} · entré·e le ${fmtDate(e.startDate)} (${seniority(e.startDate, out)} à la fin du contrat)</p>`;
+    let html = `<p class="hint dmeta" style="margin:12px 0 0">${esc(x.reason || '—')} · fin du contrat ${x.lastDay ? `le ${fmtDateY(x.lastDay)}` : 'à fixer'}${x.workedUntil ? ` · dernier jour travaillé le ${fmtDateY(x.workedUntil)}` : ''} · ${esc(e.contract)} · ${esc(e.category || '')} · entré·e le ${fmtDate(e.startDate)} (${seniority(e.startDate, out)} à la fin du contrat)</p>`;
     if (i === 13) {
       const short = n.months && x.lastDay && x.lastDay < nEnd && x.dispense !== 'salarie';
       let notice = row('Préavis', `${n.label}${n.months ? ` · notifié le ${fmtDateY(notif)}, fin le ${fmtDateY(nEnd)}` : ''}${x.dispense ? ` · dispense ${x.dispense === 'employeur' ? 'à l’initiative de l’employeur (préavis payé)' : 'demandée par le salarié (accord écrit)'}` : ''}.${noticeLeaveNote(n, x.reason)}${short ? ' <b class="warn-t">· la fin du contrat précède la fin du préavis</b>' : ''}`,
@@ -7484,7 +7533,7 @@
     const mob = isMob(); if (!mob || ui.profile !== 'salarie') ui.mobMore = false;
     document.getElementById('app').innerHTML = mob && (ui.view === 'setup' || ui.profile !== 'salarie') ? mobGate()
       : mob ? `<div class="app mob">${mobTop()}<main class="view" id="view">${ui.view === 'accueil' || MOB_OFF.includes(ui.view) ? mobHome() : VIEWS[ui.view]()}</main>${footer()}${mobNav()}</div>`
-      : ui.view === 'setup' ? `<div class="app setup">${viewSetup()}${footer()}${avisFab()}</div>` : `<div class="app">${topbar()}<div class="shell">${stageRail()}<div class="shell-main"><main class="view" id="view">${VIEWS[ui.view]()}</main>${footer()}</div></div>${avisFab()}</div>`;
+      : ui.view === 'setup' ? `<div class="app setup">${viewSetup()}${footer()}${avisFab()}</div>` : `<div class="app${procPageSel() ? ' focus' : ''}">${topbar()}<div class="shell">${stageRail()}<div class="shell-main"><main class="view" id="view">${VIEWS[ui.view]()}</main>${footer()}</div></div>${avisFab()}</div>`;
     let ov = '';
     if (ui.drawer) {
       const dt = ui.drawer.type, cs = dt === 'case' && db.cases.find((c) => c.id === ui.drawer.id);
@@ -7506,9 +7555,20 @@
       if (cur && (cur.offsetTop < rail.scrollTop || cur.offsetTop + cur.offsetHeight > rail.scrollTop + rail.clientHeight)) rail.scrollTop = cur.offsetTop - 80; }
     if (ui.view === 'accueil' && !mob) bindWheel();
     if (ui.view === 'recrutement') bindBoard();
-    bindSignature(); bindTplEditor(); bindDocEditor(); bindOrg(); if (tour) requestAnimationFrame(tourPlace);
+    bindSignature(); bindTplEditor(); bindDocEditor(); bindOrg(); bindDossier(); if (tour) requestAnimationFrame(tourPlace);
     saveUI();
   }
+  const topH = () => parseInt(getComputedStyle(document.documentElement).getPropertyValue('--top-h'), 10) || 71;
+  const REDUCED = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function dtocMark(id) { document.querySelectorAll('.dtoc-i').forEach((b) => { const on = b.dataset.t === id; b.classList.toggle('on', on); if (on) b.setAttribute('aria-current', 'location'); else b.removeAttribute('aria-current'); }); }
+  function dtocSpy() { const secs = document.querySelectorAll('.dsec'); if (!secs.length) return; const lim = topH() + 60; let cur = secs[0].id; secs.forEach((x) => { if (x.getBoundingClientRect().top <= lim) cur = x.id; }); dtocMark(cur); }
+  function bindDossier() {
+    if (!document.querySelector('.dpage')) return;
+    if (ui.procJump) { const w = document.getElementById(`ph-${ui.procJump}`); ui.procJump = null;
+      if (w) { const t = w.querySelector('.dsec[data-st="bad"], .dsec[data-st="todo"]') || w; window.scrollTo(0, t.getBoundingClientRect().top + window.scrollY - topH() - 16); } }
+    dtocSpy();
+  }
+  window.addEventListener('scroll', () => { if (document.querySelector('.dpage')) dtocSpy(); }, { passive: true });
   const commit = () => { syncArrivals(); arrivalReminders(); needReminders(); complianceSync(); save(); render(); };
   // Keep (view, stage) consistent with what the profile is allowed to open.
   function route() {
@@ -7607,6 +7667,7 @@
       const i = Number(d.i), v = stageView(i); if (!v) return;
       if (v === 'recrutement') Object.assign(ui, { recTab: 'todo', recJob: null });
       Object.assign(ui, { view: v, stage: i, selPerson: null, notif: false, drawer: null, mobMore: false });
+      if (PROC[v]) ui.procSel = null; // depuis le menu, Arrivées et Départs s'ouvrent sur la liste
       window.scrollTo(0, 0); render();
     },
     person(d) { ui.selPerson = ui.selPerson === d.id ? null : d.id; document.getElementById('panel').innerHTML = stagePanel(ui.stage); },

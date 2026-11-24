@@ -63,7 +63,7 @@ const { chromium, ouvrir, compteur } = require('./outils');
 
   // 5. Le bouton d'une action ouvre le bon écran.
   await p.click('.task:has-text("Aisha Patel") [data-act="todo-do"] >> nth=0'); await p.waitForTimeout(300);
-  t.ok(await p.locator('.top h1').textContent() === 'Arrivées' && /Aisha Patel/.test(await p.locator('#view').innerText()) && await p.locator('.modal-box').count() === 0, 'action d’arrivée : le dossier de la personne s’ouvre');
+  t.ok(await p.locator('.top h1').textContent() === 'Aisha Patel' && /Arrivées/.test(await p.locator('.top .dback').textContent()) && await p.locator('.dpage .dsec').count() > 0 && await p.locator('.modal-box').count() === 0, 'action d’arrivée : la page dossier de la personne s’ouvre (fil d’Ariane « Arrivées »)');
   await p.click('.todo-btn'); await p.waitForTimeout(150);
   await p.click('.task:has-text("Document unique") [data-act="todo-do"]'); await p.waitForTimeout(300);
   t.ok(await p.locator('.top h1').textContent() !== 'Arrivées', `obligation : ouvre l’écran « ${await p.locator('.top h1').textContent()} »`);

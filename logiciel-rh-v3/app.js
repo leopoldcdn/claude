@@ -1669,8 +1669,8 @@
   function demoFromUrl() { try { const q = new URLSearchParams(location.search); return demoSc(q.get('effectif'), q.get('poste')); } catch (e) { return null; } }
   // Les données de l'entreprise à cette taille (à compléter par les normalisations habituelles du démarrage).
   function demoBuild(sc) { db = window.TEAMORA_SEED(); normalizeSettings(); normalizeCompliance(); window.TEAMORA_DEMO_SCENARIO(db, Object.assign({}, sc, { today: TODAY })); }
-  // Une démo préparée un autre mois, ou il y a plus de 7 jours, est refaite à la date du jour (mêmes réponses).
-  const demoStale = (d) => !d.built || d.built.slice(0, 7) !== TODAY.slice(0, 7) || dayDiff(d.built, TODAY) > 7 || d.built > TODAY;
+  // Une démo préparée un autre mois, il y a plus de 7 jours ou avec une version antérieure des données est refaite à la date du jour (mêmes réponses).
+  const demoStale = (d) => d.v !== window.TEAMORA_DEMO_VERSION || !d.built || d.built.slice(0, 7) !== TODAY.slice(0, 7) || dayDiff(d.built, TODAY) > 7 || d.built > TODAY;
   // Démo complète à cette taille : données, puis les normalisations habituelles du démarrage.
   function demoPrepare(sc) {
     demoBuild(sc); applySettings(); normalizeEmployees(); ensureSignedContracts(); normalizeDocs(); applyDueSalaries(); applyDueManagers(); applyDueChanges();

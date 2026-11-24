@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nova Studio · identité visuelle (entreprise fictive)</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="nova-studio-symbole.svg">
+<style>
+  /* Charte de Nova Studio, l'entreprise fictive de la démo Teamora. Les logos et les spécimens de Space Grotesk sont des
+     tracés (SVG) : la page n'a besoin d'aucune police. */
+  :root { --nuit: #1C1A33; --nova: #F25440; --nova-fonce: #C93A28; --aube: #FFE3D6; --papier: #FBF7F2; --gris: #5E5B73; --trait: #E6DFD6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--papier); color: var(--nuit); font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { width: min(1040px, calc(100% - 40px)); margin: 0 auto; }
+  header.tete { padding: 48px 0 28px; }
+  .tete .fictif { display: inline-block; margin-bottom: 22px; padding: 5px 12px; border-radius: 99px; background: var(--aube); color: var(--nova-fonce); font-size: 13.5px; font-weight: 650; }
+  .tete img { display: block; width: min(420px, 100%); height: auto; }
+  .tete p { max-width: 640px; margin: 18px 0 0; color: var(--gris); font-size: 17px; }
+  section { padding: 34px 0; border-top: 1px solid var(--trait); }
+  h2 { margin: 0 0 6px; font-size: 13px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; color: var(--nova-fonce); }
+  h3 { margin: 0 0 18px; font-size: 26px; line-height: 1.2; letter-spacing: -0.01em; }
+  p { margin: 0; }
+  .muted { color: var(--gris); }
+  .grille { display: grid; gap: 16px; }
+  .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .g5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .carte { border-radius: 18px; background: #fff; border: 1px solid var(--trait); padding: 26px; }
+  .carte.nuit { background: var(--nuit); border-color: var(--nuit); color: #fff; }
+  .carte.creme { background: var(--papier); }
+  .carte img { display: block; max-width: 100%; height: auto; }
+  .legende { margin-top: 14px; font-size: 14px; color: var(--gris); }
+  .nuit .legende { color: #C9C6DA; }
+  .idee { display: grid; grid-template-columns: 220px 1fr; gap: 28px; align-items: center; }
+  .idee img { width: 220px; height: 220px; }
+  .idee ul { margin: 12px 0 0; padding-left: 20px; }
+  /* Grille de 16 cases (4 unités chacune) posée sur le symbole. */
+  .construction { position: relative; width: 256px; height: 256px; }
+  .construction img { width: 256px; height: 256px; }
+  .construction::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 60px;
+    background: repeating-linear-gradient(0deg, transparent 0 15px, rgba(255, 255, 255, .22) 15px 16px), repeating-linear-gradient(90deg, transparent 0 15px, rgba(255, 255, 255, .22) 15px 16px); }
+  .zone { display: inline-block; padding: 18px; outline: 2px dashed var(--nova); outline-offset: -2px; background: repeating-linear-gradient(45deg, rgba(242, 84, 64, .08) 0 6px, transparent 6px 12px); }
+  .zone img { display: block; width: 284px; height: 64px; background: #fff; }
+  .couleur { border-radius: 16px; overflow: hidden; border: 1px solid var(--trait); background: #fff; }
+  .couleur i { display: block; height: 96px; }
+  .couleur div { padding: 12px 14px 14px; font-size: 14px; }
+  .couleur b { display: block; font-size: 15.5px; }
+  .couleur code { font: 600 13px/1.5 ui-monospace, Menlo, monospace; }
+  .specimen img { display: block; height: auto; max-width: 100%; margin: 10px 0; }
+  .doc { background: #fff; border-radius: 6px; box-shadow: 0 1px 2px rgba(28, 26, 51, .06), 0 18px 40px -22px rgba(28, 26, 51, .4); padding: 34px 38px; font-size: 13.5px; }
+  .doc header img { display: block; max-height: 48px; max-width: 160px; margin-bottom: 8px; }
+  .doc header b { display: block; }
+  .doc header span { color: var(--gris); font-size: 12.5px; }
+  .doc h4 { margin: 26px 0 10px; font-size: 17px; }
+  .doc .ligne { height: 8px; border-radius: 4px; background: #EFEAE3; margin: 8px 0; }
+  .carte-visite { width: min(100%, 420px); aspect-ratio: 85 / 55; border-radius: 12px; background: var(--nuit); color: #fff; padding: 22px; display: flex; flex-direction: column; justify-content: space-between; }
+  .carte-visite img { width: 150px; }
+  .carte-visite small { color: #C9C6DA; font-size: 12.5px; line-height: 1.5; }
+  .eviter { position: relative; height: 110px; display: grid; place-items: center; border-radius: 14px; background: #fff; border: 1px solid var(--trait); overflow: hidden; }
+  .eviter img { width: 190px; }
+  .eviter::after { content: "✕"; position: absolute; top: 8px; right: 12px; color: var(--nova-fonce); font-weight: 800; }
+  .fichiers { display: flex; flex-wrap: wrap; gap: 10px; }
+  .fichiers a { display: inline-flex; padding: 9px 14px; border-radius: 99px; border: 1px solid var(--trait); background: #fff; color: var(--nuit); text-decoration: none; font-weight: 600; font-size: 14.5px; }
+  .fichiers a:hover { border-color: var(--nova); color: var(--nova-fonce); }
+  footer { padding: 30px 0 60px; border-top: 1px solid var(--trait); color: var(--gris); font-size: 14px; }
+  @media (max-width: 820px) { .g3, .g5 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .idee { grid-template-columns: 1fr; } }
+  @media (max-width: 520px) { .g2, .g3, .g5 { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<header class="tete wrap">
+  <span class="fictif">Entreprise fictive · démo de Teamora</span>
+  <img src="nova-studio-logo.svg" alt="Nova Studio" width="568" height="128">
+  <p>Nova Studio conçoit des applications et des sites pour ses clients, à Paris et à Lyon. C’est l’entreprise de la démo de Teamora : elle n’existe pas, ses salariés non plus. Cette charte donne à la démo une identité crédible, à commencer par le logo des documents RH.</p>
+</header>
+
+<main class="wrap">
+  <section>
+    <h2>1 · Le symbole</h2>
+    <h3>Une arche qui abrite une étoile naissante</h3>
+    <div class="idee">
+      <img src="nova-studio-symbole.svg" alt="Symbole de Nova Studio" width="220" height="220">
+      <div>
+        <p>Une <b>nova</b> est une étoile qui s’allume soudain dans le ciel : le point clair, au cœur du symbole. Autour, l’<b>arche</b> figure l’atelier, le studio où les idées prennent forme. Elle dessine aussi le « n » de nova.</p>
+        <ul class="muted">
+          <li>Tuile aux angles arrondis : le symbole sert aussi d’avatar et d’icône d’application.</li>
+          <li>Formes pleines et épaisses : il reste lisible jusqu’à 16 pixels.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Le logo</h2>
+    <h3>Trois versions, selon le fond</h3>
+    <div class="grille g3">
+      <div class="carte"><img src="nova-studio-logo.svg" alt="Logo couleur" width="284" height="64"><p class="legende"><b>Couleur</b> · sur fond blanc ou papier. C’est la version principale, celle des documents RH.</p></div>
+      <div class="carte nuit"><img src="nova-studio-logo-negatif.svg" alt="Logo négatif" width="284" height="64"><p class="legende"><b>Négatif</b> · sur fond Nuit ou sur une photo sombre.</p></div>
+      <div class="carte creme"><img src="nova-studio-logo-noir.svg" alt="Logo monochrome" width="284" height="64"><p class="legende"><b>Une couleur</b> · impression en noir, tampon, gravure.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · Construction</h2>
+    <h3>Une grille de 64 et une marge de sécurité</h3>
+    <div class="grille g2">
+      <div class="carte"><div class="construction"><img src="nova-studio-symbole.svg" alt="Symbole sur sa grille" width="256" height="256"></div>
+        <p class="legende">Tuile de 64 × 64 (rayon 15). Arche : jambages de 9, centre à mi-largeur. Étoile : rayon 4,6, posée à 40 du haut.</p></div>
+      <div class="carte"><div class="zone"><img src="nova-studio-logo.svg" alt="Logo et sa zone de protection" width="284" height="64"></div>
+        <p class="legende">Autour du logo, laisser libre au moins un quart de la hauteur du symbole. Taille minimale : 24 px de haut pour le logo, 16 px pour le symbole seul.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4 · Couleurs</h2>
+    <h3>Une encre, une lumière</h3>
+    <div class="grille g5">
+      <div class="couleur"><i style="background:#1C1A33"></i><div><b>Nuit</b><code>#1C1A33</code><p class="muted">Textes, fonds sombres. 16,9:1 sur blanc.</p></div></div>
+      <div class="couleur"><i style="background:#F25440"></i><div><b>Nova</b><code>#F25440</code><p class="muted">Symbole, grands titres, accents. 3,4:1 sur blanc : jamais pour un petit texte.</p></div></div>
+      <div class="couleur"><i style="background:#C93A28"></i><div><b>Nova foncé</b><code>#C93A28</code><p class="muted">Liens et petits textes d’accent. 5,1:1 sur blanc.</p></div></div>
+      <div class="couleur"><i style="background:#FFE3D6"></i><div><b>Aube</b><code>#FFE3D6</code><p class="muted">Fonds d’accent, « studio » en négatif. 13,8:1 avec Nuit.</p></div></div>
+      <div class="couleur"><i style="background:#FBF7F2"></i><div><b>Papier</b><code>#FBF7F2</code><p class="muted">Fond des pages et des supports imprimés.</p></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>5 · Typographie</h2>
+    <h3>Space Grotesk, une grotesque au caractère technique</h3>
+    <div class="grille g2">
+      <div class="carte specimen"><img src="specimen-aa.svg" alt="Aa en Space Grotesk Bold" style="width:150px"><img src="specimen-alphabet.svg" alt="abcdefghijklmnopqrstuvwxyz 0123456789"><img src="specimen-phrase.svg" alt="Des produits numériques qui donnent envie."></div>
+      <div class="carte specimen"><img src="specimen-700.svg" alt="Bold 700 · Titres et logo"><img src="specimen-500.svg" alt="Medium 500 · Intertitres, boutons"><img src="specimen-400.svg" alt="Regular 400 · Textes courants">
+        <p class="legende">Police libre (SIL Open Font License), dessinée par Florian Karsten. Le logo : « nova » en Bold, « studio » en Regular, approche légèrement resserrée.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>6 · Applications</h2>
+    <h3>Le logo dans la vie de l’entreprise</h3>
+    <div class="grille g2">
+      <div class="doc"><header><img src="nova-studio-logo.svg" alt="Nova Studio" width="284" height="64"><b>Nova Studio SAS</b><span>12 rue de la Paix, 75002 Paris · SIRET 000 000 000 00000</span></header>
+        <h4>Attestation employeur</h4><div class="ligne"></div><div class="ligne" style="width:92%"></div><div class="ligne" style="width:70%"></div>
+        <p class="legende">En-tête des documents RH générés par Teamora (contrats, attestations, certificats).</p></div>
+      <div><div class="carte-visite"><img src="nova-studio-logo-negatif.svg" alt="Nova Studio" width="284" height="64"><small><b style="color:#fff">Claire Durand</b><br>Directrice générale<br>12 rue de la Paix, 75002 Paris</small></div>
+        <p class="legende">Carte de visite, fond Nuit (personnage fictif de la démo).</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>7 · À éviter</h2>
+    <h3>Le logo ne se modifie pas</h3>
+    <div class="grille g3">
+      <div><div class="eviter"><img src="nova-studio-logo.svg" alt="" style="transform:scaleX(1.35)"></div><p class="legende">Déformer ou étirer.</p></div>
+      <div><div class="eviter"><img src="nova-studio-logo.svg" alt="" style="filter:hue-rotate(150deg)"></div><p class="legende">Changer les couleurs.</p></div>
+      <div><div class="eviter" style="background:repeating-linear-gradient(45deg,#F25440 0 14px,#FFE3D6 14px 28px)"><img src="nova-studio-logo.svg" alt="" style="filter:drop-shadow(4px 4px 3px rgba(0,0,0,.5))"></div><p class="legende">Ajouter une ombre, le poser sur un fond chargé.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>8 · Fichiers</h2>
+    <h3>À télécharger</h3>
+    <div class="fichiers">
+      <a href="nova-studio-logo.png" download>Logo couleur · PNG</a><a href="nova-studio-logo.svg" download>Logo couleur · SVG</a>
+      <a href="nova-studio-logo-negatif.svg" download>Logo négatif · SVG</a><a href="nova-studio-logo-noir.svg" download>Logo une couleur · SVG</a>
+      <a href="nova-studio-symbole.png" download>Symbole · PNG</a><a href="nova-studio-symbole.svg" download>Symbole · SVG</a>
+    </div>
+    <p class="legende">Dans la démo de Teamora, le logo couleur est déjà enregistré dans Paramètres › Entreprise : il s’affiche en tête des documents. On peut le remplacer ou le retirer au même endroit.</p>
+  </section>
+</main>
+<footer class="wrap">Nova Studio est une entreprise fictive, créée pour la démo de Teamora. Toute ressemblance avec une entreprise existante serait fortuite.</footer>
+</body>
+</html>

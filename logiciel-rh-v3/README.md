@@ -39,6 +39,10 @@
   planifier, visite d'information et de prévention, changement de RIB, candidature à trier, plus une alerte liée à
   l'effectif (seuil de 11, 20 ou 50 en vue ; index égalité à 120 ; référents à désigner à 250). Le manager en a 4, le
   salarié 2. Tout le reste des données est à jour. L'historique d'effectif (12 mois, 5 ans) correspond à la taille.
+  Le logo de Nova Studio est déjà en place dans Paramètres > Entreprise ; il s'affiche en tête des contrats, attestations
+  et certificats. Son identité visuelle (entreprise fictive) est dans `nova-studio/` : `charte.html` (symbole, logo,
+  construction, couleurs, typographie Space Grotesk, exemples, usages à éviter), les logos en SVG (couleur, négatif, noir,
+  symbole seul) et en PNG, et la police (licence SIL OFL). `demo-scenario.js` en embarque une copie (`LOGO_NOVA`).
   La version de travail n'est pas concernée : elle garde ses 22 salariés et tous ses cas de test. Les anciennes pages V1 et V2 ont été
   supprimées de claude.ai ; leur code reste dans `logiciel-rh/` et `logiciel-rh-v2/`.
 
@@ -70,8 +74,9 @@
     prochain (le lendemain si ce lundi est férié et trop loin), les autres recrues arrivent le mois où l'effectif franchit le
     seuil (au moins 8 jours plus tard), la paie du mois en cours se clôt le 20 ou au moins 10 jours plus tard, l'index
     égalité laisse la place à l'accord de participation la dernière semaine avant le 1er mars (à 120 salariés). Les textes
-    datés suivent (« fin novembre », « bulletin de septembre 2026 »). Une démo préparée un autre mois, ou il y a plus de
-    7 jours, est refaite à la date du jour avec les mêmes réponses. Le contrôle `simulate` (crochet de test) a été passé
+    datés suivent (« fin novembre », « bulletin de septembre 2026 »). Une démo préparée un autre mois, il y a plus de
+    7 jours ou avec une version antérieure des données (`TEAMORA_DEMO_VERSION`, à augmenter quand le scénario change)
+    est refaite à la date du jour avec les mêmes réponses. Le contrôle `simulate` (crochet de test) a été passé
     sur chaque jour d'une année, pour les cinq tailles.
   - Une « nouvelle entreprise » créée depuis la version de travail vit, elle aussi, à la date réelle.
 

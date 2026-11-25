@@ -289,6 +289,8 @@
       // Situation familiale : valeur par défaut seulement pour les anciennes données ; une recrue garde un champ vide jusqu'à sa saisie.
       if (e.sex === undefined) e.sex = null; if (e.family === undefined) e.family = 'Célibataire'; if (e.iban === undefined) e.iban = '—';
       if (e.registeredAt === undefined) e.registeredAt = e.stage >= 3 ? e.startDate : null;
+      // Vocabulaire (novembre 2026) : la fonction d'Olivia, dans les données fictives de Nova Studio déjà enregistrées.
+      if (TENANT !== 'new' && e.id === 'e1') e.title = { 'Responsable RH': 'Gestionnaire des RH', 'Responsable administrative et RH': 'Gestionnaire administrative et des RH' }[e.title] || e.title;
     });
     normalizeVie();
   }

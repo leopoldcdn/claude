@@ -68,6 +68,9 @@ h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; letter-spacing: -0
 .top-title { min-width: 0; padding-left: 16px; border-left: 1px solid var(--line); }
 .foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 0 28px 28px; margin-top: auto; }
 .demo-note { font-size: 12px; color: var(--faint); line-height: 1.45; margin: 0; }
+/* La mention prend toute la ligne : les boutons du pied de page (taille de la démo, être recontacté) sont toujours dessous, à
+   gauche, quelle que soit la largeur de l'écran (avant, sur grand écran, ils remontaient à droite du texte). */
+.foot .demo-note { flex: 1 0 100%; }
 
 /* Stage strip: the wheel's stages as a compact menu on every module page. */
 /* Menu des rubriques : colonne à gauche, chaque rubrique avec son nom, regroupées en familles ; bandeau horizontal sous 1280 px. */

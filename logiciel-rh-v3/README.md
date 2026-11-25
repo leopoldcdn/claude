@@ -92,7 +92,9 @@
 - **Menu** : hors de l'accueil, les rubriques sont dans un menu à gauche, regroupées en quatre familles (Recruter, Gérer,
   Développer, Départ ; « Piloter » pour les outils RH). Sur grand écran, il est replié en une colonne d'icônes (72 px), les
   familles séparées par un trait ; au survol (ou au clavier), il s'élargit par-dessus le contenu, sans le déplacer, et affiche
-  le nom des rubriques et des familles. La visite guidée le montre élargi. Sous 1280 px, il devient un bandeau horizontal,
+  le nom des rubriques et des familles ; élargi, c'est un seul panneau sur toute la hauteur (bande du bouton « Donner mon
+  avis » comprise). Sur un écran peu haut, il se resserre, et un fondu signale les rubriques à faire défiler (`railFade`).
+  La visite guidée le montre élargi. Sous 1280 px, il devient un bandeau horizontal,
   avec les noms. Dans l'espace salarié, les familles s'appellent Arrivée, Au quotidien, Évolution, Départ. (Un essai de
   dossier en page avec sommaire a été retiré : on garde la liste et le dossier à onglets.)
 - **Date** : les données fictives de Nova Studio sont toutes datées, écrites pour le 6 octobre 2026.

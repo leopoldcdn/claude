@@ -7510,11 +7510,20 @@
     if (rail) { rail.scrollTop = railTop;
       if (cur && rail.scrollWidth > rail.clientWidth) rail.scrollLeft = cur.offsetLeft - 80;
       if (cur && (cur.offsetTop < rail.scrollTop || cur.offsetTop + cur.offsetHeight > rail.scrollTop + rail.clientHeight)) rail.scrollTop = cur.offsetTop - 80; }
+    railFade();
     if (ui.view === 'accueil' && !mob) bindWheel();
     if (ui.view === 'recrutement') bindBoard();
     bindSignature(); bindTplEditor(); bindDocEditor(); bindOrg(); if (tour) requestAnimationFrame(tourPlace);
     saveUI();
   }
+  // Menu des rubriques plus long que la place : un fondu en bas (ou en haut) montre qu'il reste des rubriques à faire défiler.
+  function railFade() {
+    const ri = document.querySelector('.rail-in'); if (!ri) return;
+    const r = ri.closest('.rail'), down = ri.scrollTop + ri.clientHeight < ri.scrollHeight - 2, up = ri.scrollTop > 2;
+    r.classList.toggle('more-down', down); r.classList.toggle('more-up', up);
+  }
+  document.addEventListener('scroll', (ev) => { if (ev.target && ev.target.classList && ev.target.classList.contains('rail-in')) railFade(); }, true);
+  window.addEventListener('resize', railFade);
   const commit = () => { syncArrivals(); arrivalReminders(); needReminders(); complianceSync(); save(); render(); };
   // Keep (view, stage) consistent with what the profile is allowed to open.
   function route() {

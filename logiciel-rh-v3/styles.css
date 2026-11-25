@@ -102,11 +102,20 @@ h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; letter-spacing: -0
 /* Grand écran : le menu est replié en une colonne d'icônes ; au survol (ou au clavier), il s'élargit par-dessus le contenu
    et affiche le nom des rubriques et des familles. Repliées, les familles sont séparées par un trait. */
 @media (min-width: 1280px) {
-  .rail { width: 72px; z-index: 18; }
-  .rail::after { margin-top: auto; }
-  .rail-in { position: absolute; top: 0; left: 0; bottom: 76px; z-index: 1; width: 71px; padding: 8px 10px; gap: 4px; overflow-x: hidden; background: var(--surface); scrollbar-width: none; transition: width .18s cubic-bezier(.2, 0, 0, 1), box-shadow .18s; }
-  .rail:hover .rail-in, .rail-in:focus-within { width: 252px; border-right: 1px solid var(--line); box-shadow: 10px 0 30px rgba(21, 25, 53, .12); scrollbar-width: thin; }
-  .rail:hover .rail-in { transition-delay: .08s; }
+  /* Le fond du menu (::before) couvre toute la hauteur, bande du bouton « Donner mon avis » comprise : élargi, c'est un
+     seul panneau. Le trait (::after) sépare la liste de cette bande. */
+  .rail { width: 72px; z-index: 18; border-right: 0; background: none; }
+  .rail::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 72px; background: var(--surface); border-right: 1px solid var(--line); transition: width .18s cubic-bezier(.2, 0, 0, 1), box-shadow .18s; }
+  .rail::after { position: absolute; left: 0; bottom: 76px; z-index: 1; width: 71px; height: 0; transition: width .18s cubic-bezier(.2, 0, 0, 1); }
+  .rail-in { position: absolute; top: 0; left: 0; bottom: 77px; z-index: 1; width: 71px; padding: 8px 10px; gap: 4px; overflow-x: hidden; background: none; scrollbar-width: none; transition: width .18s cubic-bezier(.2, 0, 0, 1); }
+  .rail:hover::before, .rail:focus-within::before, .rail.open::before { width: 252px; box-shadow: 10px 0 30px rgba(21, 25, 53, .12); }
+  .rail:hover::after, .rail:focus-within::after, .rail.open::after { width: 251px; }
+  .rail:hover .rail-in, .rail:focus-within .rail-in, .rail.open .rail-in { width: 251px; }
+  .rail:hover::before, .rail:hover::after, .rail:hover .rail-in { transition-delay: .08s; }
+  /* Liste plus longue que la place : un fondu montre qu'elle continue (classes posées par railFade dans app.js). */
+  .rail.more-down .rail-in { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent); }
+  .rail.more-up .rail-in { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px); mask-image: linear-gradient(to bottom, transparent, #000 28px); }
+  .rail.more-up.more-down .rail-in { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to bottom, transparent, #000 28px, #000 calc(100% - 36px), transparent); }
   .rail-i { position: relative; min-height: 34px; padding: 4px 12px; gap: 12px; white-space: nowrap; }
   .rail-t { position: relative; height: 18px; padding: 0 12px; line-height: 18px; white-space: nowrap; overflow: hidden; color: transparent; transition: color .12s; }
   .rail-t::before { content: ''; position: absolute; top: 50%; left: 12px; width: 27px; height: 1px; background: var(--line); transition: opacity .12s; }
@@ -117,12 +126,21 @@ h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; letter-spacing: -0
   .rail:hover .rail-l, .rail-in:focus-within .rail-l { opacity: 1; }
   .rail:hover .badge, .rail-in:focus-within .badge { position: static; min-width: 20px; height: 20px; padding: 0 6px; font-size: 11px; box-shadow: none; }
   /* Visite guidée : le menu est montré élargi, sans animation. */
-  .rail.open .rail-in { width: 252px; border-right: 1px solid var(--line); box-shadow: 10px 0 30px rgba(21, 25, 53, .12); transition: none; }
+  .rail.open::before, .rail.open::after, .rail.open .rail-in { transition: none; }
   .rail.open .rail-t { color: var(--faint); transition: none; } .rail.open .rail-t::before { opacity: 0; }
   .rail.open .rail-l { opacity: 1; transition: none; }
   .rail.open .badge { position: static; min-width: 20px; height: 20px; padding: 0 6px; font-size: 11px; box-shadow: none; }
 }
-@media (min-width: 1280px) and (prefers-reduced-motion: reduce) { .rail-in, .rail-t, .rail-t::before, .rail-l { transition: none; } }
+@media (min-width: 1280px) and (prefers-reduced-motion: reduce) { .rail::before, .rail::after, .rail-in, .rail-t, .rail-t::before, .rail-l { transition: none; } }
+/* Écran peu haut : rubriques et familles plus serrées, pour que la liste tienne sans défiler. */
+@media (min-width: 1280px) and (max-height: 860px) {
+  .rail-in { padding: 6px 10px; gap: 2px; }
+  .rail-g { gap: 1px; }
+  .rail-i { min-height: 30px; padding-block: 2px; }
+  .rail-ic { width: 24px; height: 24px; } .rail-ic svg { width: 14px; height: 14px; }
+  .rail-t { height: 14px; line-height: 14px; }
+  .rail .badge { left: 29px; }
+}
 @media (min-width: 1280px) { .avis-fab { left: 14px; } }
 /* Sous 1280 px, le menu passe en haut : le pied de page laisse la place au bouton « Donner mon avis », en bas à gauche. */
 @media (max-width: 1279px) { .shell-main .foot { padding-left: 84px; } }

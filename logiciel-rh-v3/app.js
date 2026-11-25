@@ -2633,12 +2633,12 @@
       <div class="card-b">${stepsList(steps, stageSteps(ph), false)}${arrival ? arrivalDossier(e, ph) : departDossier(e, ph)}${next ? `<div class="toolbar" style="margin-top:16px">${next}</div>` : ''}${hint}</div></div>`;
   }
   function viewProc(k) {
-    const P = PROC[k], rh = ui.profile === 'rh', all = procPeople(k), c = STAGE_COLORS[P.node];
+    const P = PROC[k], rh = ui.profile === 'rh', all = procPeople(k);
     const tabs = k === 'arrivees' ? [['cours', 'Recrues', all.length]].concat(rh ? [['programme', 'Programme d’intégration']] : [])
       : [['cours', 'En cours', all.filter((e) => e.stage < 15).length]].concat(rh ? [['apres', 'Après le départ', all.filter((e) => e.stage === 15).length], ['stats', 'Analyse des départs']] : []);
     const tab = tabs.some(([t]) => t === ui.procTab) ? ui.procTab : 'cours';
-    const head = `<div class="card card-b"><div class="stage-head"><span class="stage-ic" style="background:${c}">${ic(P.icon)}</span><div style="flex:1;min-width:0"><small style="color:${c}">${P.label}</small><h2>${P.title}</h2></div></div></div>
-      <div class="tabs" role="tablist">${tabs.map(([t, l, n]) => `<button type="button" role="tab" aria-selected="${tab === t}" data-act="proc-tab" data-t="${t}">${l}${n !== undefined ? `<span class="count num">${n}</span>` : ''}</button>`).join('')}</div>`;
+    // Comme les autres rubriques (Recrutement…), la page commence par ses onglets : le titre est déjà dans le bandeau.
+    const head = `<div class="tabs" role="tablist">${tabs.map(([t, l, n]) => `<button type="button" role="tab" aria-selected="${tab === t}" data-act="proc-tab" data-t="${t}">${l}${n !== undefined ? `<span class="count num">${n}</span>` : ''}</button>`).join('')}</div>`;
     if (tab === 'programme') return head + planConfig();
     if (tab === 'stats') return head + exitStats();
     const people = all.filter((e) => (k === 'arrivees' ? true : tab === 'apres' ? e.stage === 15 : e.stage < 15))

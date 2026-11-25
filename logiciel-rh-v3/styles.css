@@ -103,15 +103,14 @@ h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; letter-spacing: -0
    et affiche le nom des rubriques et des familles. Repliées, les familles sont séparées par un trait. */
 @media (min-width: 1280px) {
   /* Le fond du menu (::before) couvre toute la hauteur, bande du bouton « Donner mon avis » comprise : élargi, c'est un
-     seul panneau. Le trait (::after) sépare la liste de cette bande. */
+     seul panneau, sans trait au-dessus de cette bande. */
   .rail { width: 72px; z-index: 18; border-right: 0; background: none; }
   .rail::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 72px; background: var(--surface); border-right: 1px solid var(--line); transition: width .18s cubic-bezier(.2, 0, 0, 1), box-shadow .18s; }
-  .rail::after { position: absolute; left: 0; bottom: 76px; z-index: 1; width: 71px; height: 0; transition: width .18s cubic-bezier(.2, 0, 0, 1); }
+  .rail::after { display: none; }
   .rail-in { position: absolute; top: 0; left: 0; bottom: 77px; z-index: 1; width: 71px; padding: 8px 10px; gap: 4px; overflow-x: hidden; background: none; scrollbar-width: none; transition: width .18s cubic-bezier(.2, 0, 0, 1); }
   .rail:hover::before, .rail:focus-within::before, .rail.open::before { width: 252px; box-shadow: 10px 0 30px rgba(21, 25, 53, .12); }
-  .rail:hover::after, .rail:focus-within::after, .rail.open::after { width: 251px; }
   .rail:hover .rail-in, .rail:focus-within .rail-in, .rail.open .rail-in { width: 251px; }
-  .rail:hover::before, .rail:hover::after, .rail:hover .rail-in { transition-delay: .08s; }
+  .rail:hover::before, .rail:hover .rail-in { transition-delay: .08s; }
   /* Liste plus longue que la place : un fondu montre qu'elle continue (classes posées par railFade dans app.js). */
   .rail.more-down .rail-in { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent); }
   .rail.more-up .rail-in { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px); mask-image: linear-gradient(to bottom, transparent, #000 28px); }
@@ -126,12 +125,12 @@ h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; letter-spacing: -0
   .rail:hover .rail-l, .rail-in:focus-within .rail-l { opacity: 1; }
   .rail:hover .badge, .rail-in:focus-within .badge { position: static; min-width: 20px; height: 20px; padding: 0 6px; font-size: 11px; box-shadow: none; }
   /* Visite guidée : le menu est montré élargi, sans animation. */
-  .rail.open::before, .rail.open::after, .rail.open .rail-in { transition: none; }
+  .rail.open::before, .rail.open .rail-in { transition: none; }
   .rail.open .rail-t { color: var(--faint); transition: none; } .rail.open .rail-t::before { opacity: 0; }
   .rail.open .rail-l { opacity: 1; transition: none; }
   .rail.open .badge { position: static; min-width: 20px; height: 20px; padding: 0 6px; font-size: 11px; box-shadow: none; }
 }
-@media (min-width: 1280px) and (prefers-reduced-motion: reduce) { .rail::before, .rail::after, .rail-in, .rail-t, .rail-t::before, .rail-l { transition: none; } }
+@media (min-width: 1280px) and (prefers-reduced-motion: reduce) { .rail::before, .rail-in, .rail-t, .rail-t::before, .rail-l { transition: none; } }
 /* Écran peu haut : rubriques et familles plus serrées, pour que la liste tienne sans défiler. */
 @media (min-width: 1280px) and (max-height: 860px) {
   .rail-in { padding: 6px 10px; gap: 2px; }

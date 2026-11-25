@@ -53,7 +53,7 @@ window.TEAMORA_SEED = function () {
     titreEnd: extra.titreEnd || null, endDate: extra.endDate || null,
   });
   const employees = [
-    E('e1', 'Olivia', 'Bennett', 'Responsable RH', 'RH', 'e5', 7, '2019-01-14', 'CDI', 62000, { phone: '06 21 44 18 90', cp: 21, rtt: 7 }),
+    E('e1', 'Olivia', 'Bennett', 'Gestionnaire des RH', 'RH', 'e5', 7, '2019-01-14', 'CDI', 62000, { phone: '06 21 44 18 90', cp: 21, rtt: 7 }),
     E('e2', 'Thomas', 'Petit', 'Manager Design', 'Design', 'e5', 8, '2020-03-02', 'CDI', 68000, { phone: '06 33 10 72 41', cp: 15, rtt: 5 }),
     E('e3', 'Léa', 'Martin', 'UX Designer', 'Design', 'e2', 6, '2024-11-04', 'CDI', 41400, { phone: '06 48 25 61 07', address: '18 rue des Martyrs, 75009 Paris', emergency: 'Julien Martin · 06 11 22 33 44', cp: 20, rtt: 6, birthDate: '1996-05-12' }),
     E('e4', 'Hugo', 'Laurent', 'Senior Product Designer', 'Design', 'e2', 9, '2021-09-06', 'CDI', 54000, { cp: 12, rtt: 4 }),
@@ -147,7 +147,7 @@ window.TEAMORA_SEED = function () {
       convention: '2026-09-04', assignedAt: '2026-09-10', checkins: { j30: { date: '2026-10-05', note: 'Bonne intégration dans l’équipe research ; premiers entretiens utilisateurs menés en autonomie. Objectif : synthèse de l’étude d’ici fin novembre.', by: 'e2' } },
       plan: { accueil: '2026-09-14', materiel: '2026-09-14', entreprise: '2026-09-16', equipe: '2026-09-18', mission: '2026-09-25', formation: '2026-09-28' } },
   };
-  // Programme d'intégration : modèle commun à toute l'entreprise, modifiable par les RH (jour = J+n après l'arrivée).
+  // Programme d'intégration : modèle commun à toute l'entreprise, modifiable par les gestionnaires des RH (jour = J+n après l'arrivée).
   const onboardingPlan = [
     { k: 'accueil', label: 'Accueil par le manager et visite des locaux', day: 0, owner: 'manager' }, { k: 'materiel', label: 'Remise du matériel et des accès', day: 0, owner: 'rh' },
     { k: 'entreprise', label: 'Présentation de l’entreprise, des valeurs et de l’organisation', day: 2, owner: 'rh' }, { k: 'equipe', label: 'Déjeuner d’équipe et rencontre des interlocuteurs clés', day: 4, owner: 'parrain' },

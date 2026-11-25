@@ -68,7 +68,7 @@
 
   let db = load();
   const PROFILES = {
-    rh: { emp: 'e1', label: 'RH' },
+    rh: { emp: 'e1', label: 'Gestionnaire des RH' },
     manager: { emp: 'e2', label: 'Manager' },
     salarie: { emp: 'e3', label: 'Salarié' },
   };
@@ -188,7 +188,7 @@
   }
   const profileOk = (k) => k === 'rh' || profileBase(k) !== 'e1';
   const profileEmp = (k) => emp(k === 'salarie' && ui.asEmp && emp(ui.asEmp) ? ui.asEmp : k === 'manager' && ui.asMgr && emp(ui.asMgr) ? ui.asMgr : profileBase(k));
-  // RH et managers ont aussi leur espace personnel : le profil « salarié » s'affiche alors sous leurs propres traits (ui.selfOf).
+  // Gestionnaires des RH et management ont aussi leur espace personnel : le profil « salarié » s'affiche alors sous leurs propres traits (ui.selfOf).
   const persona = () => ui.selfOf || ui.profile;
   const meOf = (k) => (k === 'salarie' && ui.selfOf ? profileEmp(ui.selfOf) : profileEmp(k));
   const me = () => meOf(ui.profile);
@@ -260,7 +260,7 @@
     t.innerHTML = (kind === 'ok' ? ic('check') : '') + `<span>${esc(msg)}</span>`;
     box.appendChild(t); while (box.children.length > 3) box.firstChild.remove(); setTimeout(() => t.remove(), 3600);
   }
-  // Points à suivre d'une rubrique d'arrivée ou de départ ; ceux de l'intégration suivent le programme défini par les RH.
+  // Points à suivre d'une rubrique d'arrivée ou de départ ; ceux de l'intégration suivent le programme défini par les gestionnaires des RH.
   const CHECK_STEPS = ['Point de suivi à 30 jours', 'Rapport d’étonnement', 'Décision sur la période d’essai (ou bilan s’il n’y en a pas)'];
   const stageSteps = (i) => (i === 4 ? (db.onboardingPlan || []).map((x) => x.label).concat(CHECK_STEPS) : STAGES[i].steps);
   function journeyOf(id, stage) {
@@ -766,7 +766,7 @@
   function mobHome() {
     const m = me(), { items } = mobSplit(), todo = items.filter((x) => x.n);
     const has = (v) => items.find((x) => x.v === v), pay = has('bulletins') && payMonths().filter((k) => db.payroll[k] && db.payroll[k].closed && inPayroll(m, k)).slice(-1)[0];
-    const quick = [has('absences') && ['absence', 'clock', 'Poser une absence'], pay && ['bulletin', 'file', `Bulletin de ${monthLabel(pay).split(' ')[0].toLowerCase()}`], has('relations') && ['rh', 'chat', 'Écrire aux RH']].filter(Boolean);
+    const quick = [has('absences') && ['absence', 'clock', 'Poser une absence'], pay && ['bulletin', 'file', `Bulletin de ${monthLabel(pay).split(' ')[0].toLowerCase()}`], has('relations') && ['rh', 'chat', 'Écrire aux gestionnaires des RH']].filter(Boolean);
     return `<section class="mob-hello"><h2>Bonjour ${esc(m.firstName)}</h2><p>${esc(m.title)} · ${esc(m.dept)}</p></section>
       ${quick.length ? `<section class="mob-quick" aria-label="Actions rapides">${quick.map(([k, icon, l]) => `<button type="button" data-act="mob-quick" data-k="${k}">${ic(icon)}<span>${l}</span></button>`).join('')}</section>` : ''}
       ${todo.length ? `<section class="card mob-todo"><div class="card-h"><h3>À faire</h3></div>${todo.map((x) => `<button type="button" class="mob-row" data-act="stage" data-i="${x.i}"><span class="mob-ic" style="--c:${STAGE_COLORS[x.i]}">${ic(x.icon)}</span><span class="t"><b>${esc(x.name)}</b><small>${plural(x.n, 'action en attente', 'actions en attente')}</small></span>${ic('right')}</button>`).join('')}</section>` : ''}
@@ -786,11 +786,11 @@
       ${!ui.selfOf ? `<div class="field" style="margin-top:10px">${asEmpSelect().replace('class="sr"', 'class="lbl"')}</div>` : `<button type="button" class="btn ghost sm" data-act="space" data-s="gestion" style="margin-top:10px">${ic('left')}Revenir à la gestion (ordinateur)</button>`}
       <p class="hint" style="margin:12px 0 0">Sur téléphone, Teamora affiche l’espace salarié. La gestion RH et manager s’utilise sur ordinateur.</p></div>`;
   }
-  // RH et managers sur téléphone : la gestion demande un écran d'ordinateur ; leur espace personnel reste accessible.
+  // Gestionnaires des RH et management sur téléphone : la gestion demande un écran d'ordinateur ; leur espace personnel reste accessible.
   function mobGate() {
     const setup = ui.view === 'setup';
     return `<div class="app mob gate"><div class="gate-box"><span class="brand-mark">${LOGO}</span><h1>Teamora sur téléphone</h1>
-      <p>${setup ? 'L’installation de Teamora se fait sur ordinateur (écran de 1 024 px de large au moins).' : `La gestion ${ui.profile === 'rh' ? 'RH' : 'de l’équipe'} s’utilise sur ordinateur. Sur téléphone, tu retrouves l’espace salarié : absences, bulletins, entretiens, échanges avec les RH…`}</p>
+      <p>${setup ? 'L’installation de Teamora se fait sur ordinateur (écran de 1 024 px de large au moins).' : `La gestion ${ui.profile === 'rh' ? 'RH' : 'de l’équipe'} s’utilise sur ordinateur. Sur téléphone, tu retrouves l’espace salarié : absences, bulletins, entretiens, échanges avec les gestionnaires des RH…`}</p>
       ${setup ? '' : `<button type="button" class="btn primary" data-act="space" data-s="perso">${avatar(me())}Ouvrir mon espace personnel</button>
       ${TENANT === 'new' ? '' : `<button type="button" class="btn ghost" data-act="persona" data-p="salarie">Voir l’espace d’un salarié (démo)</button>`}`}</div></div>`;
   }
@@ -1073,7 +1073,7 @@
     const t = form.elements.type.value, show = (id, on) => { const el = form.querySelector(`#${px}-${id}`); if (el) el.hidden = !on; };
     show('event-f', t === 'Événement familial'); show('young-f', t === 'Enfant malade'); show('proof-f', PROOF_TYPES.includes(t));
   }
-  // Aperçu du décompte (impersonnel : il sert au salarié comme aux RH qui saisissent pour lui).
+  // Aperçu du décompte (impersonnel : il sert au salarié comme aux gestionnaires des RH qui saisissent pour lui).
   function leavePreview(type, start, end, e, ev, young) {
     if (!start || !end) return 'Dates de début et de fin à choisir.';
     if (end < start) return '<span class="err">La date de fin doit être après la date de début.</span>';
@@ -1114,7 +1114,7 @@
     });
     return out;
   }
-  // Enregistre une absence pour e : par le salarié lui-même, ou par les RH (opts.rh : avis d'arrêt reçu par courrier ou par e-mail, congé validé à la saisie).
+  // Enregistre une absence pour e : par le salarié lui-même, ou par les gestionnaires des RH (opts.rh : avis d'arrêt reçu par courrier ou par e-mail, congé validé à la saisie).
   // err(message) affiche l'erreur ; renvoie la nouvelle absence, ou null.
   async function recordLeave(e, v, err, opts = {}) {
     const k = balanceKey(v.type), rh = !!opts.rh;
@@ -1147,7 +1147,7 @@
     if (sick) { tickJourney(e.id, 6, 2); notify('e1', `Arrêt de travail de ${who} ${per} : attestation de salaire à transmettre.`); }
     else if (declared) notify('e1', `${who} déclare : ${v.type.toLowerCase()} ${per}.`);
     if (e.managerId && direct && e.managerId !== me().id) notify(e.managerId, `${who} sera absent·e ${per}${hide ? '' : ` (${v.type.toLowerCase()})`}.`);
-    if (rh) notify(e.id, `Les RH ont enregistré : ${v.type.toLowerCase()} ${per}.`);
+    if (rh) notify(e.id, `Les gestionnaires des RH ont enregistré : ${v.type.toLowerCase()} ${per}.`);
     if (back.cp || back.rtt) notify(e.id, `Arrêt pendant des congés : ${[back.cp ? `${back.cp} j de congés payés` : '', back.rtt ? `${back.rtt} j de RTT` : ''].filter(Boolean).join(' et ')} recrédités, à reposer plus tard.`);
     const res = { l, back: back.cp + back.rtt, to: '' };
     if (!direct) { const ap = approverOf(e), bk = backupOf(e);
@@ -1221,7 +1221,7 @@
   let PROVIDER = 'Silae (cabinet Expert & Paie)';
   const payStatus = (m) => { const pr = payrollOf(m); return pr.closed ? 'Diffusée' : pr.status || 'Préparation'; };
   const payPeople = (m) => db.employees.filter((e) => inPayroll(e, m)).sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr'));
-  // Managers dont l'équipe figure dans la paie du mois : ils valident les variables de leur équipe (l'équipe RH et la direction sont validées par les RH).
+  // Managers dont l'équipe figure dans la paie du mois : ils valident les variables de leur équipe (l'équipe RH et la direction sont validées par les gestionnaires des RH).
   const payManagers = (m) => [...new Set(payPeople(m).map((e) => e.managerId).filter(Boolean))].map(emp).filter((x) => x && !['e1', DIR_ID()].includes(x.id));
   const teamOf = (mgr, m) => payPeople(m).filter((e) => e.managerId === mgr.id);
   // Contrôles avant envoi : chaque anomalie est corrigée à la source ou marquée « vérifiée ».
@@ -1278,7 +1278,7 @@
       const mgrs = payManagers(m).map((g) => { const okd = (pr.mgrOk || {})[g.id];
         return `<span class="who-chip">${avatar(g, 'sm')}${esc(fullName(g))} · ${okd ? `validé le ${fmtShort(okd)}` : 'en attente'}${!okd && edit ? `<button type="button" class="linkish" data-act="pay-remind" data-id="${g.id}">Relancer</button>` : ''}</span>`; }).join('');
       body = `<div class="card"><div class="card-h"><h3>Éléments variables</h3><span class="muted" style="font-size:13px">Absences, heures et entrées-sorties remontent automatiquement de Teamora</span></div>
-        <div class="card-b" style="border-bottom:1px solid var(--line)"><div class="team"><span class="team-l">Validation des managers</span>${mgrs}</div></div>
+        <div class="card-b" style="border-bottom:1px solid var(--line)"><div class="team"><span class="team-l">Validation du management</span>${mgrs}</div></div>
         <div class="table-wrap"><table class="pay-vars"><thead><tr><th>Collaborateur</th><th>Absences</th><th class="r">Heures sup.</th><th class="r">Prime</th><th class="r">Transport (50 %)</th><th class="r">Titres-resto</th><th class="r">Notes de frais</th><th class="r">Acompte</th><th>Manager</th></tr></thead><tbody>${rows}</tbody></table></div></div>
         <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn primary" data-act="pay-step" data-s="controles">Passer aux contrôles${ic('arrow')}</button></div>`;
     }
@@ -1398,7 +1398,7 @@
     return `<div class="card"><div class="card-h"><h3>Mes bulletins de paie</h3><span class="muted">${plural(months.length, 'bulletin', 'bulletins')}</span></div><div class="req-list">${months.length ? months.map((m) => { const p = calcPay(e, m);
       return `<div class="req"><div class="what"><b>${monthLabel(m)}</b><small class="num">Brut ${eur(p.gross)} · net social ${eur(p.netSocial)} · net payé ${eur(p.net)}</small></div><button type="button" class="btn ghost sm" data-act="payslip" data-id="${e.id}" data-m="${m}">${ic('file')}Voir le bulletin</button></div>`; }).join('') : '<div class="empty">Aucun bulletin pour le moment.</div>'}</div>
       ${mob ? '' : `<div class="card-b" style="border-top:1px solid var(--line)"><label class="agree"><input type="checkbox" data-change="paper-slip" ${e.paperSlip ? 'checked' : ''}> Je préfère recevoir mes bulletins en version papier</label><p class="hint" style="margin:6px 0 0">Les bulletins sont remis sous forme électronique ; tu peux t’y opposer à tout moment (article L3243-2 du Code du travail). Ils restent consultables ici.</p></div>`}</div>
-      <p class="hint">Le bulletin du mois apparaît ici dès que les RH le diffusent${mob ? '' : ' (essaie depuis le profil RH, menu Paie)'}.</p>`;
+      <p class="hint">Le bulletin du mois apparaît ici dès que les gestionnaires des RH le diffusent${mob ? '' : ' (essaie depuis le profil gestionnaire des RH, menu Paie)'}.</p>`;
   }
   function payCsv(m) {
     const head = ['Matricule', 'Nom', 'Prénom', 'Contrat', 'Salaire mensuel', 'Jours CP', 'Jours RTT', 'Jours maladie', 'Jours sans solde', 'Jours télétravail', 'Heures sup 25 %', 'Heures sup 50 %', 'Prime', 'Prime partage valeur', 'Transport', 'Titres-restaurant', 'Notes de frais', 'Acompte', 'Entrée', 'Sortie', 'Motif de sortie', 'Indemnité CP', 'Indemnité de rupture', 'Indemnité de fin de contrat'];
@@ -1432,9 +1432,9 @@
       <div class="card-b" style="border-top:1px solid var(--line)"><div class="info-grid"><div><span>E-mail professionnel</span>${esc(e.email)}</div><div><span>Manager</span>${mgr ? esc(fullName(mgr)) : '—'}</div><div><span>Contrat</span>${esc(e.contract)}</div>
         <div><span>Date d’entrée</span>${fmtDate(e.startDate)} · ${seniority(e.startDate)}</div><div><span>Salaire annuel brut</span><span class="num">${eur0(e.salary)}</span></div>
         <div><span>Adresse postale</span>${esc(e.address) || '—'}</div><div><span>Coordonnées bancaires</span><span class="num">${esc(maskIban(e.iban))}</span></div><div><span>Situation familiale</span>${esc(e.family || '—')}</div><div><span>Lieu de travail</span>${esc(e.location || '—')}</div></div></div></div>
-      <form class="card" data-form="profile" novalidate><div class="card-h"><h3>Mes informations personnelles</h3><span class="muted" style="font-size:13px">Les RH sont prévenus de chaque modification</span></div><div class="card-b"><div class="form-grid">
+      <form class="card" data-form="profile" novalidate><div class="card-h"><h3>Mes informations personnelles</h3><span class="muted" style="font-size:13px">Les gestionnaires des RH sont prévenus de chaque modification</span></div><div class="card-b"><div class="form-grid">
         <div class="field"><label for="p-phone">Téléphone</label><input id="p-phone" name="phone" type="tel" inputmode="tel" class="input" value="${esc(e.phone)}" autocomplete="tel"></div>
-        <div class="field"><span class="lbl">Lieu de travail</span><p class="hint" style="margin:6px 0 0">${esc(e.location || '—')} · il touche au contrat, aux frais de transport et au suivi médical : demande à faire ci-dessous, validée par les RH.</p></div>
+        <div class="field"><span class="lbl">Lieu de travail</span><p class="hint" style="margin:6px 0 0">${esc(e.location || '—')} · il touche au contrat, aux frais de transport et au suivi médical : demande à faire ci-dessous, validée par les gestionnaires des RH.</p></div>
         <div class="field full"><label for="p-emerg">Contact d’urgence</label><input id="p-emerg" name="emergency" class="input" value="${esc(e.emergency)}" placeholder="Nom · téléphone"></div></div>
         <div class="toolbar" style="margin-top:16px"><span class="err" id="p-err"></span><button class="btn primary" style="margin-left:auto">Enregistrer</button></div></div></form>
       ${myChangesHTML(e)}
@@ -1590,21 +1590,21 @@
   function tourSteps() {
     if (isMob()) return [
       { title: 'Bonjour, je suis Teamo', text: 'Je te fais visiter Teamora sur téléphone en une minute : c’est l’espace du salarié, celui que chacun utilise au quotidien.', go: tourGo({ profile: 'salarie', view: 'accueil', stage: null }) },
-      { sel: '.mob-quick', title: 'Les actions rapides', text: 'Les trois gestes les plus fréquents, à portée de pouce : poser une absence, ouvrir son dernier bulletin, écrire aux RH.' },
+      { sel: '.mob-quick', title: 'Les actions rapides', text: 'Les trois gestes les plus fréquents, à portée de pouce : poser une absence, ouvrir son dernier bulletin, écrire aux gestionnaires des RH.' },
       { sel: '.mob-todo', title: 'À faire', text: 'Ce qui attend une action de ta part : une auto-évaluation, un baromètre, une pièce à déposer…' },
       { sel: '.mob-nav', title: 'La navigation', text: 'Touche un onglet pour ouvrir Absences, Paie ou Échanges RH. L’accueil est toujours à gauche.' },
-      { sel: '.mob-nav [data-act="mob-more"]', title: 'Plus', text: 'Les autres rubriques (profil, santé, entretiens, formations) et le changement de profil de la démo : RH, manager ou salarié.' },
+      { sel: '.mob-nav [data-act="mob-more"]', title: 'Plus', text: 'Les autres rubriques (profil, santé, entretiens, formations) et le changement de profil de la démo : gestionnaire des RH, manager ou salarié.' },
       { sel: '.mob-avis', title: 'Ton avis compte', text: 'Après ton essai, dis-nous ce qui t’aide, ce qui manque ou ce qui bloque : deux minutes, sans ton nom.' },
       { title: 'Bientôt : Teamo, ton assistant IA', text: 'Dans la version complète, je répondrai à tes questions en langage courant (« combien de congés me reste-t-il ? », « comment déclarer un arrêt ? ») et je t’emmènerai vers le bon écran. Je ne suis pas encore disponible dans cette démo.' },
       { title: 'À toi de jouer', text: 'La gestion RH et manager se découvre sur ordinateur. Tu peux revoir cette visite depuis le menu « Plus ».' }];
-    // Démo préparée : la visite suit le profil du visiteur (RH ou manager) et se termine sur son écran d'arrivée.
+    // Démo préparée : la visite suit le profil du visiteur (gestionnaire des RH ou manager) et se termine sur son écran d'arrivée.
     const tourProfile = DEMO_SC && db.demo && db.demo.poste === 'manager' ? 'manager' : 'rh', landing = DEMO_SC && db.demo ? demoLanding(db.demo) : { view: 'accueil', stage: null };
     return [
-      { title: 'Bonjour, je suis Teamo', text: `Je te fais visiter Teamora en deux minutes. ${DEMO_SC && db.demo ? demoWho() : 'Tu es dans la peau d’Olivia, responsable RH de Nova Studio, une entreprise fictive.'}`, go: tourGo({ profile: tourProfile, view: 'accueil', stage: null }) },
+      { title: 'Bonjour, je suis Teamo', text: `Je te fais visiter Teamora en deux minutes. ${DEMO_SC && db.demo ? demoWho() : 'Tu es dans la peau d’Olivia, gestionnaire des RH de Nova Studio, une entreprise fictive.'}`, go: tourGo({ profile: tourProfile, view: 'accueil', stage: null }) },
       { sel: '.today', title: 'Aujourd’hui', text: 'En arrivant, tu vois les cinq actions les plus urgentes, avec leur date. Un clic ouvre l’écran où faire l’action.' },
       { sel: '.home-wheel', wheel: true, title: 'La roue du collaborateur', text: 'Survole la roue : elle se déploie. Chaque rubrique est un moment de la vie du collaborateur, du besoin de recrutement au départ. Clique sur une rubrique pour l’ouvrir ; une pastille rouge signale des actions en retard.' },
-      { sel: '.persona', title: 'Change de point de vue', text: 'Teamora s’adapte à chaque rôle. Passe de la RH au manager ou au salarié pour voir ce que chacun voit et fait.' },
-      { sel: '.space-sw', title: 'Gestion ou espace personnel', text: 'La RH et les managers ont aussi leur propre espace salarié : leurs absences, leurs bulletins, leurs entretiens.' },
+      { sel: '.persona', title: 'Change de point de vue', text: 'Teamora s’adapte à chaque rôle. Passe du gestionnaire des RH au manager ou au salarié pour voir ce que chacun voit et fait.' },
+      { sel: '.space-sw', title: 'Gestion ou espace personnel', text: 'La RH et le management ont aussi leur propre espace salarié : leurs absences, leurs bulletins, leurs entretiens.' },
       { sel: '.todo-btn', title: 'À traiter', text: 'Toutes les actions qui t’attendent, classées par urgence : en retard, cette semaine, plus tard. Une ligne et un bouton par action.' },
       { sel: '[data-act="notif"]', title: 'Les notifications', text: 'Les nouvelles du jour : une demande d’absence, un document déposé, une obligation qui approche.' },
       { sel: '.rail-in', rail: true, title: 'Passer d’une rubrique à l’autre', text: 'Dans une rubrique, ce menu donne accès à toutes les autres, regroupées en quatre familles : recruter, gérer, développer, départ. Replié, il n’affiche que les icônes ; au survol, il s’élargit et donne le nom de chaque rubrique. « Accueil » ramène à la roue. Ici, nous sommes dans les absences.', go: tourGo({ profile: 'rh', view: 'absences', stage: 6 }) },
@@ -1662,11 +1662,11 @@
   // ---------------------------------------------------------------- Démo · taille de l'entreprise et poste du visiteur
   // Le questionnaire du site transmet ses réponses dans l'adresse (demo/?effectif=20&poste=rh) ; sans elles, la démo pose
   // les deux questions à la première ouverture. Nova Studio est alors construite à cette taille (demo-scenario.js), et la
-  // démo s'ouvre sur la vue du poste : RH pour le dirigeant (sous les traits de la dirigeante), la RH et l'expert-comptable
+  // démo s'ouvre sur la vue du poste : RH pour le dirigeant (sous les traits de la dirigeante), le gestionnaire des RH et l'expert-comptable
   // (sur la paie), manager pour le manager.
   const DEMO_SC = DEMO && typeof window.TEAMORA_DEMO_SCENARIO === 'function';
   const DEMO_TAILLES = [['0', 'Moins de 11'], ['11', '11 à 19'], ['20', '20 à 49'], ['50', '50 à 249'], ['250', '250 et plus']];
-  const DEMO_POSTES = [['dirigeant', 'Dirigeant ou dirigeante'], ['rh', 'Responsable RH ou administratif'], ['manager', 'Manager d’une équipe'], ['comptable', 'Expert-comptable ou gestionnaire de paie']];
+  const DEMO_POSTES = [['dirigeant', 'Dirigeant ou dirigeante'], ['rh', 'Gestionnaire des RH ou administratif'], ['manager', 'Manager d’une équipe'], ['comptable', 'Expert-comptable ou gestionnaire de paie']];
   const demoSc = (t, p) => { const n = (window.TEAMORA_DEMO_SIZES || {})[t]; return n && DEMO_POSTES.some(([k]) => k === p) ? { effectif: n, poste: p } : null; };
   const demoTaille = (n) => (Object.entries(window.TEAMORA_DEMO_SIZES || {}).find(([, v]) => v === n) || [])[0];
   function demoFromUrl() { try { const q = new URLSearchParams(location.search); return demoSc(q.get('effectif'), q.get('poste')); } catch (e) { return null; } }
@@ -1693,7 +1693,7 @@
   // Présentation de la personne incarnée, pour la visite guidée.
   function demoWho() {
     const d = db.demo || {}, n = d.effectif ? `, une entreprise fictive de ${fmtN(d.effectif)} salariés` : ', une entreprise fictive';
-    if (d.poste === 'comptable') return `Tu découvres Teamora côté paie, avec les accès RH de Nova Studio${n}.`;
+    if (d.poste === 'comptable') return `Tu découvres Teamora côté paie, avec les accès du gestionnaire des RH de Nova Studio${n}.`;
     const m = profileEmp(d.poste === 'manager' ? 'manager' : 'rh');
     return `Tu es dans la peau de ${m.firstName}, ${m.title.charAt(0).toLowerCase()}${m.title.slice(1)} de Nova Studio${n}.`;
   }
@@ -1730,7 +1730,7 @@
   // ================================================================ V2 · Paramètres de l'entreprise et assistant de démarrage
   // Tout ce qui était propre à Nova Studio (identité, convention, sites, services, règles de temps et de paie…) vit dans db.settings.
   // V3 : toutes les conventions collectives (liste IDCC de conventions.js). Syntec garde ses règles intégrées ;
-  // pour les autres, les minima du Code du travail s'appliquent tant que la RH n'a pas saisi les règles de la convention.
+  // pour les autres, les minima du Code du travail s'appliquent tant que le gestionnaire des RH n'a pas saisi les règles de la convention.
   const CONV_SYNTEC = '1486', CODE_RULES = { essaiE: 2, essaiAM: 3, essaiC: 4, renouv: false, demNC: 1, demC: 1, licNC: 0, licC: 0, maintien: 12 };
   const CONV_LIST = () => window.TEAMORA_CONVENTIONS || [];
   const convRow = (n) => CONV_LIST().find((x) => x[0] === n);
@@ -1844,14 +1844,14 @@
     if (k === 'services') return `<div class="set-list">${s.services.map((x, i) => `<div class="set-row"><div class="form-grid">${fld(`st-vn${i}`, 'Service', inp(`st-vn${i}`, `nom_${i}`, x.nom, 'maxlength="40"'))}${fld(`st-vh${i}`, 'Responsable', `<select id="st-vh${i}" name="head_${i}" class="select">${empOpt(x.head, people, 'À désigner')}</select>`)}</div>
         <button type="button" class="icon-btn" data-act="set-del" data-k="services" data-i="${i}" aria-label="Supprimer le service ${esc(x.nom)}" title="Supprimer">${ic('x')}</button></div>`).join('') || '<p class="muted" style="margin:0">Aucun service pour l’instant.</p>'}</div>
       <button type="button" class="btn ghost sm" data-act="set-add" data-k="services">${ic('plus')}Ajouter un service</button>
-      <div class="form-grid" style="margin-top:16px">${fld('st-dir', 'Direction (valide les besoins hors budget et les demandes des RH)', `<select id="st-dir" name="directionId" class="select">${empOpt(s.directionId, people, 'À désigner')}</select>`, true)}</div>${wiz ? '' : orgCoherence()}`;
+      <div class="form-grid" style="margin-top:16px">${fld('st-dir', 'Direction (valide les besoins hors budget et les demandes des gestionnaires des RH)', `<select id="st-dir" name="directionId" class="select">${empOpt(s.directionId, people, 'À désigner')}</select>`, true)}</div>${wiz ? '' : orgCoherence()}`;
     if (k === 'import') return importSection(wiz);
     if (k === 'utilisateurs') { const admins = db.employees.filter((e) => e.admin && e.stage < 15);
       return `<h4 class="sub">Administrateurs RH</h4><div class="set-list">${admins.map((e) => `<div class="set-row simple">${avatar(e, 'sm')}<div class="t"><b>${esc(fullName(e))}</b><small>${esc(e.email)} · accès complet aux dossiers</small></div>${admins.length > 1 ? `<button type="button" class="btn ghost sm" data-act="set-admin" data-id="${e.id}" data-v="0">Retirer</button>` : '<span class="pill neutral">Administrateur principal</span>'}</div>`).join('')}</div>
         <div class="toolbar" style="margin-top:8px"><label class="sr" for="st-adm">Ajouter un administrateur</label><select id="st-adm" class="select">${empOpt('', people.filter((e) => !e.admin), 'Choisir un collaborateur…')}</select><button type="button" class="btn ghost sm" data-act="set-admin" data-v="1">${ic('plus')}Ajouter</button></div>
-        <p class="hint">Les managers sont reconnus automatiquement à partir de l’organigramme ; chaque collaborateur reçoit une invitation à son adresse e-mail pour accéder à son espace.</p>
+        <p class="hint">Le management est reconnu automatiquement à partir de l’organigramme ; chaque collaborateur reçoit une invitation à son adresse e-mail pour accéder à son espace.</p>
         <h4 class="sub" style="margin-top:18px">Droits</h4>
-        <label class="agree"><input type="checkbox" name="motifAbsence" ${s.droits.motifAbsence ? 'checked' : ''}> Les managers voient le motif des arrêts (maladie, accident du travail…) de leur équipe</label>
+        <label class="agree"><input type="checkbox" name="motifAbsence" ${s.droits.motifAbsence ? 'checked' : ''}> Le management voit le motif des arrêts (maladie, accident du travail…) de leur équipe</label>
         <p class="hint" style="margin:2px 0 10px 26px">Décoché (recommandé) : le manager voit seulement « Absence », sans le motif médical.</p>
         <label class="agree"><input type="checkbox" name="orgSalarie" ${s.droits.orgSalarie ? 'checked' : ''}> Les salariés voient l’organigramme complet de l’entreprise</label>`; }
     if (k === 'absences') { const off = s.conges.off;
@@ -1860,7 +1860,7 @@
           return `<label class="agree ${opt ? '' : 'locked'}"><input type="checkbox" name="type_${t}" ${opt ? (off.includes(t) ? '' : 'checked') : 'checked disabled'}> ${esc(t)}${opt ? '' : ' <small>· droit légal, toujours proposé</small>'}</label>`; }).join('')}</div>
         <label class="agree" style="margin-top:12px"><input type="checkbox" name="backup" ${s.conges.backup ? 'checked' : ''}> Quand un manager est absent, son propre manager peut valider à sa place</label>`; }
     if (k === 'paie') return `<div class="form-grid">${fld('st-pp', 'Prestataire ou logiciel de paie', inp('st-pp', 'prestataire', s.paie.prestataire, 'maxlength="80" placeholder="Ex. cabinet comptable, Silae, Sage…"'), true)}
-      ${fld('st-pc', 'Clôture des variables (jour du mois)', inp('st-pc', 'cloture', s.paie.cloture, 'type="number" min="1" max="28"'), false, 'Les managers valident leurs variables avant cette date')}
+      ${fld('st-pc', 'Clôture des variables (jour du mois)', inp('st-pc', 'cloture', s.paie.cloture, 'type="number" min="1" max="28"'), false, 'Le management valide ses variables avant cette date')}
       ${fld('st-trv', 'Titre-restaurant : valeur (€)', inp('st-trv', 'trValeur', s.paie.trValeur, 'type="number" min="0" max="25" step="0.5"'), false, '0 si l’entreprise n’en propose pas')}${fld('st-tre', 'Titre-restaurant : part employeur (€)', inp('st-tre', 'trEmployeur', s.paie.trEmployeur, 'type="number" min="0" step="0.1"'), false, 'Entre 50 % et 60 % de la valeur pour l’exonération')}
       ${fld('st-ms', 'Mutuelle : part salarié (€ / mois)', inp('st-ms', 'mutSal', s.paie.mutSal, 'type="number" min="0" step="0.5"'))}${fld('st-me', 'Mutuelle : part employeur (€ / mois)', inp('st-me', 'mutEmp', s.paie.mutEmp, 'type="number" min="0" step="0.5"'), false, 'Au moins 50 % de la cotisation (art. L911-7)')}
       ${fld('st-tj', 'Allocation télétravail (€ par jour)', inp('st-tj', 'ttJour', s.paie.ttJour, 'type="number" min="0" step="0.1"'), false, 'Exonérée jusqu’à 2,70 € par jour (barème Urssaf)')}${fld('st-vm', 'Versement mobilité (taux en %)', inp('st-vm', 'vmTaux', s.paie.vmTaux || '', 'type="number" min="0" max="5" step="0.01" placeholder="0"'), false, 'À partir de 11 salariés, selon la commune (ex. Paris : 3,20 %)')}</div>`;
@@ -1997,7 +1997,7 @@
     let inner = '';
     if (k === 'bienvenue') inner = `<p class="wiz-lead">Bienvenue dans Teamora ! En quelques minutes, on configure ton entreprise : identité, convention collective, sites, services, collaborateurs et paie. Chaque étape peut être complétée plus tard dans <b>Paramètres</b>.</p>
       <form data-form="wiz-admin" novalidate><h4 class="sub">Ton compte administrateur</h4><div class="form-grid">${fld('wz-fn', 'Prénom', inp('wz-fn', 'firstName', admin ? admin.firstName : '', 'maxlength="40" autocomplete="given-name"'))}${fld('wz-ln', 'Nom', inp('wz-ln', 'lastName', admin ? admin.lastName : '', 'maxlength="40" autocomplete="family-name"'))}
-        ${fld('wz-em', 'E-mail professionnel', inp('wz-em', 'email', admin ? admin.email : '', 'type="email" maxlength="80" autocomplete="email"'))}${fld('wz-ti', 'Fonction', inp('wz-ti', 'title', admin ? admin.title : 'Responsable RH', 'maxlength="60"'))}
+        ${fld('wz-em', 'E-mail professionnel', inp('wz-em', 'email', admin ? admin.email : '', 'type="email" maxlength="80" autocomplete="email"'))}${fld('wz-ti', 'Fonction', inp('wz-ti', 'title', admin ? admin.title : 'Gestionnaire des RH', 'maxlength="60"'))}
         ${fld('wz-co', 'Nom de l’entreprise', inp('wz-co', 'company', db.settings.company.nom, 'maxlength="60"'), true)}</div>
         <label class="agree" style="margin-top:12px"><input type="checkbox" name="dirigeant" ${db.settings.dirChosen && db.settings.directionId === 'e1' ? 'checked' : ''}> Je dirige l’entreprise (gérant, président, directeur général) : je suis en haut de l’organigramme</label><div id="set-msg" aria-live="polite"></div>
         <div class="wiz-nav"><span></span><button class="btn primary">Commencer${ic('arrow')}</button></div></form>`;
@@ -2071,7 +2071,7 @@
       if (errs.length) { box.innerHTML = `<div class="lint bad"><b>${ic('x')}À compléter</b>${errs.map((x) => `<p>${esc(x)}</p>`).join('')}</div>`; return; }
       let a = emp('e1'); const domain = v.email.trim().split('@')[1].toLowerCase();
       if (!a) { a = { id: 'e1', stage: 5, startDate: TODAY, contract: 'CDI', salary: 0, dept: 'RH', managerId: null, phone: '', location: 'Siège', birthDate: null, address: '', emergency: '', cp: 0, rtt: 0, status: null, exit: null, category: 'Cadre', nationality: '', zone: 'France', registeredAt: TODAY, family: 'Célibataire', iban: '—', titreEnd: null, endDate: null, admin: true }; db.employees.push(a); }
-      Object.assign(a, { firstName: v.firstName.trim(), lastName: v.lastName.trim(), email: v.email.trim().toLowerCase(), title: v.title.trim() || 'Responsable RH', admin: true });
+      Object.assign(a, { firstName: v.firstName.trim(), lastName: v.lastName.trim(), email: v.email.trim().toLowerCase(), title: v.title.trim() || 'Gestionnaire des RH', admin: true });
       Object.assign(db.settings.company, { nom: v.company.trim(), raison: db.settings.company.raison || v.company.trim(), domaine: db.settings.company.domaine || domain, signataire: 'e1' });
       if (!db.settings.services.length) db.settings.services = [{ nom: 'Direction', head: null }, { nom: 'RH', head: 'e1' }];
       // Le dirigeant est la Direction et le haut de l'organigramme ; sinon, la Direction sera déduite de l'import.
@@ -2315,7 +2315,7 @@
     add(1000, 'now', 'rixain', 'Femmes parmi les cadres dirigeants (loi Rixain)', 'Écarts publiés chaque année ; objectif de 40 % à terme.', c.accords.rixain ? { s: 'ok', l: `Publié le ${fmtDate(c.accords.rixain)}` } : { s: 'todo', l: 'Écarts à publier' }, { tab: 'conformite' });
     return o;
   }
-  // Ce qui attend les RH, pour « À traiter » et les alertes : obligations en vigueur à traiter, seuils qui approchent, échéances.
+  // Ce qui attend les gestionnaires des RH, pour « À traiter » et les alertes : obligations en vigueur à traiter, seuils qui approchent, échéances.
   function complianceTodo() {
     if (!db.compliance || ui.profile !== 'rh' || ui.selfOf) return [];
     const out = [], st = effState(), mand = db.compliance.cse.mandate, obl = obligations();
@@ -2326,7 +2326,7 @@
     db.compliance.alerts.filter((a) => !a.ackAt && dayDiff(a.date, TODAY) >= 5).forEach((a) => out.push({ k: `al${a.id}`, l: 'Signalement à accuser réception', sub: `Reçu le ${fmtDate(a.date)} · accusé de réception sous 7 jours`, go: { tab: 'alerte' }, due: addDays(a.date, 7) }));
     return out;
   }
-  // Une obligation qui entre en vigueur prévient les RH et la Direction (une seule fois).
+  // Une obligation qui entre en vigueur prévient les gestionnaires des RH et la Direction (une seule fois).
   function complianceSync() {
     if (!db.compliance || db.compliance.sim) return; const on = obligations().filter((x) => x.on && x.seuil > 0).map((x) => x.k);
     if (db.compliance.known === null) { db.compliance.known = on; return; }
@@ -2538,7 +2538,7 @@
     ['Vie dans l’entreprise', [['Changement de situation', 'Poste, service, manager, salaire et temps de travail se modifient en une fois, avec date d’effet, avenant et historique.', 'collaborateurs'],
       ['Temps partiel', 'Quotité de travail sur la fiche, prise en compte dans la paie.', 'collaborateurs'],
       ['Absences légales', 'Maternité, paternité et accueil de l’enfant, événements familiaux, enfant malade, accident du travail, congé parental ; le télétravail devient un mode de travail, plus une absence.', 'absences'],
-      ['Direction et remplaçant', 'Claire Durand (Direction) valide pour les managers et les RH ; quand un manager est absent, son propre manager peut valider à sa place.', 'absences'],
+      ['Direction et remplaçant', 'Claire Durand (Direction) valide pour le management et les gestionnaires des RH ; quand un manager est absent, son propre manager peut valider à sa place.', 'absences'],
       ['Liens entre modules', 'Depuis un entretien : proposer une formation ou noter un souhait de mobilité. Les arrêts longs déclenchent la visite de reprise.', 'entretiens'],
       ['Journal des actions', 'Chaque fiche garde la trace de qui a fait quoi et quand.', 'collaborateurs']]],
     ['Départ', [['Motifs complets', 'Licenciement économique, mise à la retraite, fin d’apprentissage ou de stage, prise d’acte, présomption de démission, décès…', 'departs'],
@@ -2547,7 +2547,7 @@
   // V3 : le logiciel s'adapte à la taille de l'entreprise.
   const V3_NEWS = [['Effectif et seuils', [['Calcul de l’effectif', 'Moyenne des 12 derniers mois en équivalent temps plein, hors alternants et stagiaires, à partir des dossiers ; historique des années passées pour la règle des 5 ans ; projection à 12 mois avec les arrivées et départs prévus.', 'apercu'],
       ['Obligations selon l’effectif', 'Pictogramme dans le bandeau (RH) : chaque obligation avec son seuil, sa règle de franchissement (immédiat, 12 mois consécutifs, 5 ans), son état et l’écran où la traiter.', 'apercu'],
-      ['Alertes', 'Seuil qui approche, obligation qui entre en vigueur (notification aux RH et à la Direction), échéances : elles arrivent dans « À traiter ».', 'apercu'],
+      ['Alertes', 'Seuil qui approche, obligation qui entre en vigueur (notification aux gestionnaires des RH et à la Direction), échéances : elles arrivent dans « À traiter ».', 'apercu'],
       ['Simulation', 'Pour la démo : simuler un effectif (60, 300, 1 200…) et voir le logiciel s’adapter.', 'apercu']]],
     ['Accueil et menu', [['Aujourd’hui', 'L’accueil affiche les 5 actions les plus urgentes avec leur date ; la roue est à côté et se déploie au survol.', ''],
       ['À traiter par urgence', 'Une ligne et un bouton par action, en trois groupes : en retard, cette semaine, plus tard. Une pastille ne signale plus que les retards.', ''],
@@ -2557,11 +2557,11 @@
       ['Vie en poste', 'Jours fériés et jours ouvrés exacts, bulletins figés une fois diffusés, heures supplémentaires et maintien de salaire, avenants à signer, procédure disciplinaire guidée.', ''],
       ['Départ', 'Solde de tout compte exact (indemnités, congés, préavis), sortie bloquée tant qu’il manque une pièce, procédures de licenciement et de rupture conventionnelle datées, dossiers archivés puis purgés.', '']]],
     ['Sur téléphone', [['Espace salarié mobile', 'Sur téléphone, le salarié retrouve l’essentiel : absences et heures, bulletins, profil, documents et annuaire, échanges RH et alerte, baromètre, visites médicales, accidents ; la nouvelle recrue dépose ses pièces en photo. Entretiens, formations et contrat s’y consultent ; le reste et la gestion RH ou manager restent sur ordinateur.', '']]],
-    ['Recrutement', [['Rédaction partagée de l’offre', 'Le manager qui a émis le besoin et les RH rédigent ensemble l’offre ; le manager l’envoie aux RH, qui seuls la valident et la publient.', 'besoins']]],
+    ['Recrutement', [['Rédaction partagée de l’offre', 'Le manager qui a émis le besoin et les gestionnaires des RH rédigent ensemble l’offre ; le manager l’envoie aux gestionnaires des RH, qui seuls la valident et la publient.', 'besoins']]],
     ['Paramètres', [['Toutes les conventions collectives', 'Recherche parmi 673 conventions par nom ou numéro IDCC (Paramètres > Convention). Hors Syntec, les minima du Code du travail s’appliquent jusqu’à la saisie des règles de la convention (essai, préavis, maintien de salaire).', 'param']]],
     ['Nouveaux écrans', [['Dialogue social', 'Élections du CSE pas à pas (délais légaux, carence), élus, réunions, heures de délégation ; à 50 : consultations, budgets, BDESE, délégué syndical et négociations ; à 300 : commissions.', 'social'],
       ['Index égalité', 'Calcul indicatif à 4 ou 5 indicateurs selon l’effectif, publication avant le 1er mars.', 'index'],
-      ['Travailleurs handicapés', 'Taux d’emploi, bénéficiaires (données réservées aux RH), contribution estimée.', 'handicap'],
+      ['Travailleurs handicapés', 'Taux d’emploi, bénéficiaires (données réservées aux gestionnaires des RH), contribution estimée.', 'handicap'],
       ['États des lieux à 8 ans', 'Entretiens de parcours et formations suivis, abondement du CPF à partir de 50 salariés.', 'bilans'],
       ['Lanceurs d’alerte', 'Canal confidentiel (anonyme possible) dans l’espace salarié, délais de 7 jours et 3 mois.', 'alerte'],
       ['Affichages, accords et référents', 'Affichages obligatoires, règlement intérieur, participation, partage de la valeur, pénibilité, référents, contributions liées à l’effectif.', 'conformite']]]];
@@ -2586,14 +2586,14 @@
     'todo-person'(d) { ui.modal = null; ACT['open-dossier'](d); },
     'v2-news'() { ui.modal = { type: 'v2-news' }; render(); },
     'v3-news'() { ui.modal = { type: 'v3-news' }; render(); },
-    'news-go'(d) { ui.modal = null; if (d.v === 'parametres') { if (ui.profile !== 'rh') { toast('Les paramètres sont réservés aux RH.', 'info'); render(); return; } ACT.go({ v: 'parametres' }); return; } const i = visibleStages().find((k) => stageView(k) === d.v); if (i === undefined) { toast('Rubrique non disponible pour ce profil.', 'info'); render(); return; } ACT.stage({ i }); },
+    'news-go'(d) { ui.modal = null; if (d.v === 'parametres') { if (ui.profile !== 'rh') { toast('Les paramètres sont réservés aux gestionnaires des RH.', 'info'); render(); return; } ACT.go({ v: 'parametres' }); return; } const i = visibleStages().find((k) => stageView(k) === d.v); if (i === undefined) { toast('Rubrique non disponible pour ce profil.', 'info'); render(); return; } ACT.stage({ i }); },
   });
   // ================================================================ V2 · Arrivées et Départs : un dossier unique par personne
   const PROC = {
     arrivees: { node: 2, title: 'Arrivées', icon: 'docCheck', label: 'ARRIVÉE DES COLLABORATEURS', phases: [[2, 'Pré-embauche'], [3, 'Embauche'], [4, 'Intégration']] },
     departs: { node: 13, title: 'Départs', icon: 'door', label: 'DÉPART DES COLLABORATEURS', phases: [[13, 'Préparation'], [14, 'Formalités de sortie'], [15, 'Après le départ']] },
   };
-  // Nom et pictogramme d'une rubrique de la roue : les deux dossiers regroupés prennent leur propre nom pour les RH et les managers.
+  // Nom et pictogramme d'une rubrique de la roue : les deux dossiers regroupés prennent leur propre nom pour les gestionnaires des RH et le management.
   function stageDef(i) {
     const k = ui.profile !== 'salarie' && (i === 2 ? 'arrivees' : i === 13 ? 'departs' : null);
     return k ? Object.assign({}, STAGES[i], { short: PROC[k].title, title: PROC[k].title, icon: PROC[k].icon }) : STAGES[i];
@@ -2929,7 +2929,7 @@
     'pay-step'(d) { ui.payStep = d.s; render(); },
     'pay-ack'(d) { const pr = payrollOf(ui.payMonth); pr.acks = Object.assign({}, pr.acks, { [d.id]: { by: me().id, date: TODAY } }); toast('Point marqué comme vérifié'); commit(); },
     'pay-remind'(d) { notify(d.id, `Les variables de paie de ton équipe sont à valider avant le ${fmtDate(payrollOf(ui.payMonth).cutoff || `${ui.payMonth}-${String(PAY_CUTOFF).padStart(2, '0')}`)}.`); toast(`${fullName(emp(d.id))} est relancé`); commit(); },
-    'pay-mgr-ok'() { const m = payCurrent(), pr = payrollOf(m); pr.mgrOk = Object.assign({}, pr.mgrOk, { [me().id]: TODAY }); notify('e1', `${fullName(me())} a validé les variables de paie de son équipe (${monthLabel(m).toLowerCase()}).`); toast('Variables validées · les RH sont prévenus'); commit(); },
+    'pay-mgr-ok'() { const m = payCurrent(), pr = payrollOf(m); pr.mgrOk = Object.assign({}, pr.mgrOk, { [me().id]: TODAY }); notify('e1', `${fullName(me())} a validé les variables de paie de son équipe (${monthLabel(m).toLowerCase()}).`); toast('Variables validées · les gestionnaires des RH sont prévenus'); commit(); },
     'pay-send'() { const m = ui.payMonth, pr = payrollOf(m); if (openChecks(m).length) { toast('Des points de contrôle restent à lever.', 'info'); return; } Object.assign(pr, { status: 'Envoyée', sentAt: TODAY, sentBy: me().id }); ui.payStep = 'envoi'; toast(`Variables envoyées à ${PROVIDER}`); commit(); },
     'pay-receive'() { const pr = payrollOf(ui.payMonth); Object.assign(pr, { status: 'Reçue', receivedAt: TODAY }); ui.payStep = 'bulletins'; toast('Bulletins reçus · DSN déposée par le prestataire'); commit(); },
     'pay-publish'() { const m = ui.payMonth, pr = payrollOf(m), people = payPeople(m);
@@ -3024,7 +3024,7 @@
       if (ui.revTab === 'equipe') {
         body = card(`Campagne ${CAMPAIGN}`, '', `<div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Entretien annuel</th><th>Date</th><th>Entretien professionnel</th><th></th></tr></thead><tbody>${team.map((e) => {
           const r = annualOf(e.id), [st, cls] = proState(e);
-          const btn = !r ? '<span class="muted">Non lancé par les RH</span>' : `<button type="button" class="btn ${['À planifier', 'Auto-évaluation faite'].includes(r.status) ? 'primary' : 'ghost'} sm" data-act="review" data-id="${r.id}">${r.status === 'À planifier' ? 'Planifier' : r.status === 'Auto-évaluation faite' ? 'Compléter mon évaluation' : 'Ouvrir'}</button>`;
+          const btn = !r ? '<span class="muted">Non lancé par les gestionnaires des RH</span>' : `<button type="button" class="btn ${['À planifier', 'Auto-évaluation faite'].includes(r.status) ? 'primary' : 'ghost'} sm" data-act="review" data-id="${r.id}">${r.status === 'À planifier' ? 'Planifier' : r.status === 'Auto-évaluation faite' ? 'Compléter mon évaluation' : 'Ouvrir'}</button>`;
           return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small></div></div></td><td>${r ? reviewPill(r) : '—'}</td><td>${r && r.date ? fmtDate(r.date) : '—'}</td><td><span class="pill ${cls}">${st}</span> <small class="muted">avant le ${fmtDate(proDue(e))}</small></td><td class="r">${btn}</td></tr>`; }).join('')}</tbody></table></div>`);
       } else if (ui.revTab === 'objectifs') {
         body = `<div class="toolbar"><button type="button" class="btn primary" data-act="objective-new">${ic('plus')}Fixer un objectif</button></div>${team.map((e) => card(`${avatar(e, 'sm')} ${esc(fullName(e))}`, `<span class="muted">${esc(e.title)}</span>`, `<div class="card-b">${objectivesList(db.objectives.filter((o) => o.empId === e.id), false)}</div>`)).join('')}`;
@@ -3066,7 +3066,7 @@
     return `<div class="card card-b"><h3 style="font-size:15px;margin-bottom:8px">Suites de l’entretien</h3><div class="toolbar">
       ${tr ? `<span class="pill ok">Formation proposée : ${esc(training(tr.trainingId).title)} · ${esc(tr.status)}</span>` : `<button type="button" class="btn ${prop === 'Formation' ? 'primary' : 'ghost'} sm" data-act="review-train" data-id="${r.id}">${ic('plus')}Proposer une formation</button>`}
       ${wi ? `<span class="pill ok">Souhait de mobilité noté : ${esc(wi.target)}</span>` : `<button type="button" class="btn ${prop === 'Mobilité' || prop === 'Promotion' ? 'primary' : 'ghost'} sm" data-act="review-wish" data-id="${r.id}">${ic('plus')}Noter un souhait d’évolution</button>`}</div>
-      <p class="hint" style="margin:8px 0 0">La formation part directement aux RH (déjà validée par le manager) ; le souhait apparaît dans Mobilité.</p></div>`;
+      <p class="hint" style="margin:8px 0 0">La formation part directement aux gestionnaires des RH (déjà validée par le manager) ; le souhait apparaît dans Mobilité.</p></div>`;
   }
   // Formation déjà suivie ou en cours pour ce salarié : signalée dans la liste.
   const trainedOn = (e, t) => db.enrollments.filter((x) => x.empId === e.id && x.trainingId === t.id && !['Refusée'].includes(x.status)).sort((a, b) => b.session.localeCompare(a.session))[0];
@@ -3091,7 +3091,7 @@
       const en = { id: uid('f'), empId: e.id, trainingId: t.id, session: t.sessions.find((s) => s >= TODAY), status: 'Validée manager', reason: (v.why || '').trim(), createdAt: TODAY, fromReview: r.id };
       db.enrollments.push(en); r.follow = Object.assign({}, r.follow, { train: en.id });
       notify('e1', `Formation « ${t.title} » proposée à ${fullName(e)} lors de son entretien : à valider.`); notify(e.id, `Ton manager te propose la formation « ${t.title} ».`);
-      ui.modal = { type: 'review', id: r.id }; toast('Formation proposée · les RH la valident'); commit(); },
+      ui.modal = { type: 'review', id: r.id }; toast('Formation proposée · les gestionnaires des RH la valident'); commit(); },
     'review-wish'(v) { const r = db.reviews.find((x) => x.id === ui.modal.id), e = emp(r.empId);
       if (!v.target.trim()) return formError('Indique le poste ou le service visé.');
       const w = { id: uid('w'), empId: e.id, kind: v.kind, target: v.target.trim(), horizon: v.horizon, comment: `Exprimé lors de l’${r.kind.toLowerCase()} ${r.year}`, status: 'Exprimé', mgrOpinion: 'Favorable', createdAt: TODAY, fromReview: r.id };
@@ -3160,7 +3160,7 @@
     campaign() {
       const missing = employed().filter((e) => e.stage >= 5 && e.stage < 13 && !annualOf(e.id));
       missing.forEach((e) => { db.reviews.push({ id: uid('r'), empId: e.id, kind: 'Entretien annuel', year: CAMPAIGN, date: null, status: 'À planifier', self: null, mgr: null }); notify(e.managerId, `Campagne ${CAMPAIGN} : planifiez l’entretien annuel de ${fullName(e)}.`); });
-      toast(`${missing.length} entretien(s) annuel(s) créé(s), les managers sont prévenus`); commit();
+      toast(`${missing.length} entretien(s) annuel(s) créé(s), le management est prévenu`); commit();
     },
     'pro-new'(d) {
       const e = emp(d.id); const r = { id: uid('r'), empId: e.id, kind: 'Entretien professionnel', year: Number(TODAY.slice(0, 4)), date: null, status: 'À planifier', self: null, mgr: null };
@@ -3282,7 +3282,7 @@
   }
   MODALS.enroll = (m, shell, formShell, opt, f) => {
     const t = training(m.id), next = t.sessions.filter((s) => s >= TODAY);
-    return formShell(esc(t.title), 'enroll', `<p class="muted" style="margin:0">${esc(t.provider)} · ${esc(t.mode)} · ${t.hours} h. Votre demande sera validée par ${esc(fullName(approverOf(me())))}, puis par les RH.</p><div class="form-grid">
+    return formShell(esc(t.title), 'enroll', `<p class="muted" style="margin:0">${esc(t.provider)} · ${esc(t.mode)} · ${t.hours} h. Votre demande sera validée par ${esc(fullName(approverOf(me())))}, puis par les gestionnaires des RH.</p><div class="form-grid">
       ${f('en-session', 'Session', `<select id="en-session" name="session" class="select">${next.map((s) => `<option value="${s}">${fmtDate(s, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</option>`).join('')}</select>`, true)}
       ${f('en-reason', 'Pourquoi cette formation ?', '<textarea id="en-reason" name="reason" class="input" maxlength="300" placeholder="Ex. besoin identifié lors de mon entretien annuel"></textarea>', true)}</div>`, 'Envoyer la demande');
   };
@@ -3308,7 +3308,7 @@
         x.status = 'Validée'; tickJourney(e.id, 9, 1);
         notify(e.id, `Vous êtes inscrit·e à « ${t.title} » le ${fmtDate(x.session)}.`); toast(`${fullName(e)} est inscrit·e`);
       } else {
-        x.status = 'Validée manager'; notify('e1', `${fullName(me())} a validé la demande de formation de ${fullName(e)} (« ${t.title} »).`); toast('Demande transmise aux RH');
+        x.status = 'Validée manager'; notify('e1', `${fullName(me())} a validé la demande de formation de ${fullName(e)} (« ${t.title} »).`); toast('Demande transmise aux gestionnaires des RH');
       }
       commit();
     },
@@ -3379,7 +3379,7 @@
           return `<tr><td class="num">${fmtDate(x.date)}</td><td><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div></td><td><span class="pill accent">${esc(x.label)}</span></td><td>${esc(x.detail)}</td></tr>`; }).join('')}</tbody></table></div>`)}`;
     } else if (p === 'salarie') {
       const mine = db.wishes.filter((w) => w.empId === m.id);
-      body = `<form class="card" data-form="wish" novalidate><div class="card-h"><h3>Exprimer un souhait d’évolution</h3><span class="muted" style="font-size:13px">Transmis à votre manager et aux RH</span></div><div class="card-b"><div class="form-grid">
+      body = `<form class="card" data-form="wish" novalidate><div class="card-h"><h3>Exprimer un souhait d’évolution</h3><span class="muted" style="font-size:13px">Transmis à votre manager et aux gestionnaires des RH</span></div><div class="card-b"><div class="form-grid">
         <div class="field"><label for="w-kind">Type</label><select id="w-kind" name="kind" class="select">${['Évolution de poste', 'Changement de service', 'Mobilité géographique', 'Reconversion'].map((x) => `<option>${x}</option>`).join('')}</select></div>
         <div class="field"><label for="w-hz">Horizon</label><select id="w-hz" name="horizon" class="select">${['Dans 6 mois', 'Dans 12 mois', 'Dans 2 ans'].map((x) => `<option>${x}</option>`).join('')}</select></div>
         <div class="field full"><label for="w-target">Poste ou service visé</label><input id="w-target" name="target" class="input" maxlength="100" placeholder="Ex. Lead UX Designer"></div>
@@ -3452,9 +3452,9 @@
       const j = db.jobs.find((x) => x.id === d.id), e = me();
       db.candidates.push({ id: uid('c'), jobId: j.id, name: fullName(e), email: e.email, phone: e.phone, source: 'Mobilité interne', experience: `${e.title} · ${e.dept} (en interne depuis ${seniority(e.startDate)})`, stage: 'Présélection', score: 0, notes: '', interviews: [], appliedAt: TODAY, empId: e.id, messages: [], offer: null, refusal: null, pool: false });
       notify('e1', `Candidature interne de ${fullName(e)} sur « ${j.title} ».`); if (DEPT_HEAD[j.dept] !== e.id) notify(DEPT_HEAD[j.dept], `Candidature interne de ${fullName(e)} sur « ${j.title} ».`);
-      tickJourney(e.id, 10, 1); toast('Candidature interne envoyée aux RH'); commit();
+      tickJourney(e.id, 10, 1); toast('Candidature interne envoyée aux gestionnaires des RH'); commit();
     },
-    'wish-opinion'(d) { const w = db.wishes.find((x) => x.id === d.id); w.mgrOpinion = d.v; if (w.status === 'Exprimé') w.status = 'En étude'; notify('e1', `${fullName(me())} donne un avis ${d.v.toLowerCase()} au souhait de ${fullName(emp(w.empId))}.`); toast('Avis transmis aux RH'); commit(); },
+    'wish-opinion'(d) { const w = db.wishes.find((x) => x.id === d.id); w.mgrOpinion = d.v; if (w.status === 'Exprimé') w.status = 'En étude'; notify('e1', `${fullName(me())} donne un avis ${d.v.toLowerCase()} au souhait de ${fullName(emp(w.empId))}.`); toast('Avis transmis aux gestionnaires des RH'); commit(); },
     'move-new'(d) { ui.modal = { type: 'move', empId: d.id || null, wishId: d.w || null }; render(); },
   });
   MOD_CHG['wish-status'] = (v, d) => { const w = db.wishes.find((x) => x.id === d.id); w.status = v; notify(w.empId, `Votre souhait d’évolution (« ${w.target} ») est maintenant : ${v}.`); toast('Statut mis à jour'); commit(); };
@@ -3463,7 +3463,7 @@
       if (!v.target.trim()) { form.querySelector('#w-err').textContent = 'Indiquez le poste ou le service visé.'; return; }
       const e = me(); db.wishes.push({ id: uid('w'), empId: e.id, kind: v.kind, target: v.target.trim(), horizon: v.horizon, comment: (v.comment || '').trim(), status: 'Exprimé', mgrOpinion: null, createdAt: TODAY });
       notify(e.managerId, `${fullName(e)} a exprimé un souhait d’évolution : ${v.target.trim()}.`); notify('e1', `Nouveau souhait d’évolution de ${fullName(e)}.`); tickJourney(e.id, 10, 0);
-      toast('Souhait transmis à votre manager et aux RH'); commit();
+      toast('Souhait transmis à votre manager et aux gestionnaires des RH'); commit();
     },
     move(v) {
       const e = emp(v.empId), salary = Number(v.salary);
@@ -3555,7 +3555,7 @@
     if (ui.healthTab === 'retours') body = returnsView();
     else if (ui.healthTab === 'qvt') {
       if (p === 'salarie') {
-        body = answered ? `<div class="card card-b"><b>Merci, ta réponse de ${monthLabel(monthKey(TODAY)).toLowerCase()} est enregistrée.</b><p class="muted" style="margin:4px 0 0">Ta réponse est enregistrée sans ton nom : les RH ne voient que des moyennes, publiées à la clôture du mois et jamais en dessous de ${QVT_MIN} répondants.</p></div>${qvtResults(null, 'toute l’entreprise')}`
+        body = answered ? `<div class="card card-b"><b>Merci, ta réponse de ${monthLabel(monthKey(TODAY)).toLowerCase()} est enregistrée.</b><p class="muted" style="margin:4px 0 0">Ta réponse est enregistrée sans ton nom : les gestionnaires des RH ne voient que des moyennes, publiées à la clôture du mois et jamais en dessous de ${QVT_MIN} répondants.</p></div>${qvtResults(null, 'toute l’entreprise')}`
           : `<form class="card" data-form="survey" novalidate><div class="card-h"><h3>Baromètre de ${monthLabel(monthKey(TODAY)).toLowerCase()}</h3><span class="muted" style="font-size:13px">Anonyme · 1 minute</span></div><div class="card-b">${QVT_Q.map((q, k) => `<fieldset class="likert"><legend>${q}</legend><div>${[1, 2, 3, 4, 5].map((v) => `<label><input type="radio" name="q${k}" value="${v}" ${v === 4 ? 'checked' : ''}><span>${v}</span></label>`).join('')}</div><small class="muted">1 = pas du tout d’accord · 5 = tout à fait d’accord</small></fieldset>`).join('')}
             <div class="toolbar" style="margin-top:8px"><button class="btn primary" style="margin-left:auto">Envoyer mes réponses</button></div></div></form>`;
       } else body = qvtResults(ids, p === 'manager' ? `équipe ${m.dept}` : 'toute l’entreprise');
@@ -3643,7 +3643,7 @@
         confirmAct({ title: `Avis d’inaptitude · ${esc(fullName(e))}`, act: 'visit-result', empId: e.id, trace: 'Avis d’inaptitude du médecin du travail', danger: true, confirm: 'Enregistrer l’inaptitude',
           text: '<p>L’employeur doit rechercher un reclassement adapté aux préconisations du médecin du travail, en consultant le CSE s’il existe. Sans reclassement ni licenciement dans le délai d’un mois, le salaire est à nouveau versé.</p>',
           fields: [{ name: 'date', label: 'Date de l’avis', type: 'date', required: true, value: x.date, guard: { notAfter: { date: TODAY, label: 'aujourd’hui' } } }, { name: 'origin', label: 'Origine', type: 'select', options: ['Non professionnelle', 'Professionnelle (accident du travail ou maladie professionnelle)'] }, { name: 'reco', label: 'Préconisations du médecin', type: 'textarea' }] },
-        (vals) => { Object.assign(x, { status: 'Réalisée', result: 'Inapte', inapt: { date: vals.date, origin: vals.origin, reco: vals.reco, deadline: addMonths(vals.date, 1) } }); tickJourney(x.empId, 11, 0); notify(x.empId, 'Résultat de ta visite médicale : avis d’inaptitude. Les RH te contactent pour rechercher un reclassement.'); toast('Inaptitude enregistrée · recherche de reclassement à mener'); commit(); });
+        (vals) => { Object.assign(x, { status: 'Réalisée', result: 'Inapte', inapt: { date: vals.date, origin: vals.origin, reco: vals.reco, deadline: addMonths(vals.date, 1) } }); tickJourney(x.empId, 11, 0); notify(x.empId, 'Résultat de ta visite médicale : avis d’inaptitude. Les gestionnaires des RH te contactent pour rechercher un reclassement.'); toast('Inaptitude enregistrée · recherche de reclassement à mener'); commit(); });
         return; }
       x.status = 'Réalisée'; x.result = v; tickJourney(x.empId, 11, 0); notify(x.empId, `Résultat de ta visite médicale : ${v}.`); toast('Résultat enregistré'); commit(); },
     'risk-status'(v, d) { db.risks.find((y) => y.id === d.id).status = v; save(); toast('Statut du risque mis à jour'); },
@@ -3671,7 +3671,7 @@
         if (r) { x.leaveId = r.l.id; msg = ' · arrêt enregistré dans les absences'; } else msg = ` · arrêt à enregistrer dans les absences (${err})`;
       }
       notify('e1', `${v.kind} déclaré pour ${fullName(emp(v.empId))} le ${fmtDate(v.date)}.`); tickJourney(v.empId, 11, 2);
-      ui.modal = null; toast(`Déclaration transmise aux RH${msg}`); commit();
+      ui.modal = null; toast(`Déclaration transmise aux gestionnaires des RH${msg}`); commit();
     },
     risk(v) {
       if (!v.unit.trim() || !v.risk.trim()) return formError('Indiquez l’unité de travail et le risque.');
@@ -3682,7 +3682,7 @@
       const empId = v.empId || me().id;
       db.adjustments.push({ id: uid('a'), empId, kind: v.kind, comment: (v.comment || '').trim(), status: ui.profile === 'rh' ? 'Accordé' : 'Demandé', createdAt: TODAY });
       if (ui.profile !== 'rh') notify('e1', `${fullName(me())} demande un aménagement de poste : ${v.kind}.`);
-      ui.modal = null; toast(ui.profile === 'rh' ? 'Aménagement enregistré' : 'Demande envoyée aux RH'); commit();
+      ui.modal = null; toast(ui.profile === 'rh' ? 'Aménagement enregistré' : 'Demande envoyée aux gestionnaires des RH'); commit();
     },
     survey(v) {
       const e = me(), m = monthKey(TODAY); db.surveyDone = db.surveyDone || [];
@@ -3703,25 +3703,25 @@
     const p = ui.profile, m = me();
     if (p === 'salarie') {
       const mine = db.cases.filter((c) => c.empId === m.id && c.openedBy === m.id);
-      return `${whistleCard()}<form class="card" data-form="case-ask" novalidate><div class="card-h"><h3>Demander un échange avec les RH</h3><span class="muted" style="font-size:13px">Confidentiel · seuls les RH voient votre demande</span></div><div class="card-b"><div class="form-grid">
+      return `${whistleCard()}<form class="card" data-form="case-ask" novalidate><div class="card-h"><h3>Demander un échange avec les gestionnaires des RH</h3><span class="muted" style="font-size:13px">Confidentiel · seuls les gestionnaires des RH voient votre demande</span></div><div class="card-b"><div class="form-grid">
         <div class="field full"><label for="ca-title">Sujet</label><input id="ca-title" name="title" class="input" maxlength="100" placeholder="Ex. organisation de mon temps de travail"></div>
         <div class="field full"><label for="ca-msg">Message</label><textarea id="ca-msg" name="message" class="input" maxlength="800"></textarea></div></div>
         <div class="toolbar" style="margin-top:12px"><span class="err" id="ca-err"></span><button class="btn primary" style="margin-left:auto">Envoyer</button></div></div></form>
         ${card('Mes demandes', '', `<div class="req-list">${mine.map((c) => `<div class="req" style="align-items:flex-start"><div class="what"><b>${esc(c.title)}</b><small>Envoyée le ${fmtDate(c.openedAt)}</small>
-          ${c.events.filter((ev) => ev.visible && ev.by !== m.id).map((ev) => `<div class="reply"><small>Réponse des RH · ${fmtDate(ev.date)}</small>${esc(ev.note)}</div>`).join('')}</div><span class="pill ${CASE_PILL[c.status]}">${c.status}</span></div>`).join('') || '<div class="empty">Aucune demande.</div>'}</div>`)}`;
+          ${c.events.filter((ev) => ev.visible && ev.by !== m.id).map((ev) => `<div class="reply"><small>Réponse des gestionnaires des RH · ${fmtDate(ev.date)}</small>${esc(ev.note)}</div>`).join('')}</div><span class="pill ${CASE_PILL[c.status]}">${c.status}</span></div>`).join('') || '<div class="empty">Aucune demande.</div>'}</div>`)}`;
     }
     if (p === 'manager') {
       const mine = db.cases.filter((c) => c.openedBy === m.id);
-      return `<form class="card" data-form="case-report" novalidate><div class="card-h"><h3>Signaler une situation aux RH</h3><span class="muted" style="font-size:13px">Conflit, difficulté, comportement à traiter</span></div><div class="card-b"><div class="form-grid">
+      return `<form class="card" data-form="case-report" novalidate><div class="card-h"><h3>Signaler une situation aux gestionnaires des RH</h3><span class="muted" style="font-size:13px">Conflit, difficulté, comportement à traiter</span></div><div class="card-b"><div class="form-grid">
         <div class="field"><label for="cr-emp">Collaborateur concerné</label><select id="cr-emp" name="empId" class="select">${empOptions(scopeEmployees().filter(isEmployed))}</select></div>
         <div class="field"><label for="cr-date">Date des faits</label><input id="cr-date" name="facts" type="date" class="input" value="${TODAY}"></div>
         <div class="field full"><label for="cr-title">Objet</label><input id="cr-title" name="title" class="input" maxlength="100"></div>
         <div class="field full"><label for="cr-desc">Description factuelle</label><textarea id="cr-desc" name="description" class="input" maxlength="800" placeholder="Faits datés et observables, sans jugement"></textarea></div></div>
-        <div class="toolbar" style="margin-top:12px"><span class="err" id="cr-err"></span><button class="btn primary" style="margin-left:auto">Transmettre aux RH</button></div></div></form>
+        <div class="toolbar" style="margin-top:12px"><span class="err" id="cr-err"></span><button class="btn primary" style="margin-left:auto">Transmettre aux gestionnaires des RH</button></div></div></form>
         ${card('Mes signalements', '', `<div class="req-list">${mine.map((c) => { const e = emp(c.empId); return `<div class="req"><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div><div class="what"><b>${esc(c.title)}</b><small>Transmis le ${fmtDate(c.openedAt)} · le suivi détaillé reste confidentiel</small></div><span class="pill ${CASE_PILL[c.status]}">${c.status}</span></div>`; }).join('') || '<div class="empty">Aucun signalement.</div>'}</div>`)}`;
     }
     const list = db.cases.filter((c) => !ui.caseStatus || c.status === ui.caseStatus).sort((a, b) => b.openedAt.localeCompare(a.openedAt));
-    return `<div class="card card-b toolbar"><span class="pill bad">Confidentiel</span><span class="muted">Ces dossiers ne sont visibles que par les RH. Le collaborateur ne voit que les réponses qui lui sont adressées.</span></div>
+    return `<div class="card card-b toolbar"><span class="pill bad">Confidentiel</span><span class="muted">Ces dossiers ne sont visibles que par les gestionnaires des RH. Le collaborateur ne voit que les réponses qui lui sont adressées.</span></div>
       <div class="toolbar"><label class="sr" for="cs-f">Statut</label><select id="cs-f" class="select" data-change="caseStatus"><option value="">Tous les dossiers</option>${Object.keys(CASE_PILL).map((s) => `<option ${ui.caseStatus === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
       <button type="button" class="btn primary" style="margin-left:auto" data-act="case-new">${ic('plus')}Ouvrir un dossier</button></div>
       ${card('Dossiers', `<span class="muted num">${list.length}</span>`, `<div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Nature</th><th>Objet</th><th>Ouvert le</th><th>Statut</th><th></th></tr></thead><tbody>${list.map((c) => { const e = emp(c.empId);
@@ -3779,7 +3779,7 @@
       const c = db.cases.find((x) => x.id === ui.drawer.id), visible = v.type === 'Réponse au collaborateur';
       c.events.push({ date: v.date || TODAY, type: v.type, note: v.note.trim(), by: me().id, visible });
       if (c.status === 'Ouvert') c.status = 'En cours';
-      if (visible) notify(c.empId, `Les RH ont répondu à votre demande « ${c.title} ».`);
+      if (visible) notify(c.empId, `Les gestionnaires des RH ont répondu à votre demande « ${c.title} ».`);
       if (v.type === 'Entretien') tickJourney(c.empId, 12, 1);
       toast(visible ? 'Réponse envoyée au collaborateur' : 'Entrée ajoutée au dossier'); commit();
     },
@@ -3793,13 +3793,13 @@
       if (!v.title.trim() || !v.message.trim()) { form.querySelector('#ca-err').textContent = 'Indiquez un sujet et un message.'; return; }
       const e = me(); db.cases.push({ id: uid('d'), empId: e.id, kind: 'Demande d’échange', title: v.title.trim(), openedAt: TODAY, status: 'Ouvert', facts: null, interview: null, measure: null, openedBy: e.id,
         events: [{ date: TODAY, type: 'Demande du collaborateur', note: v.message.trim(), by: e.id, visible: true }] });
-      notify('e1', `${fullName(e)} demande un échange : « ${v.title.trim()} ».`); toast('Demande envoyée aux RH'); commit();
+      notify('e1', `${fullName(e)} demande un échange : « ${v.title.trim()} ».`); toast('Demande envoyée aux gestionnaires des RH'); commit();
     },
     'case-report'(v, form) {
       if (!v.title.trim() || !v.description.trim()) { form.querySelector('#cr-err').textContent = 'Indiquez l’objet et décrivez les faits.'; return; }
       db.cases.push({ id: uid('d'), empId: v.empId, kind: 'Signalement manager', title: v.title.trim(), openedAt: TODAY, status: 'Ouvert', facts: v.facts || TODAY, interview: null, measure: null, openedBy: me().id,
         events: [{ date: TODAY, type: 'Signalement', note: v.description.trim(), by: me().id, visible: false }] });
-      notify('e1', `${fullName(me())} signale une situation concernant ${fullName(emp(v.empId))}.`); toast('Signalement transmis aux RH'); commit();
+      notify('e1', `${fullName(me())} signale une situation concernant ${fullName(emp(v.empId))}.`); toast('Signalement transmis aux gestionnaires des RH'); commit();
     },
   });
 
@@ -3810,9 +3810,9 @@
   const needsDirection = (j) => j.reason === 'Création de poste' || !j.budgeted;
   const needSteps = (j) => [['demande', 'Demande', j.requestedBy], ['rh', 'Validation RH', 'e1']]
     .concat(needsDirection(j) ? [['direction', 'Validation direction', DIR_ID()]] : []).concat([['redaction', 'Rédaction de l’offre', j.requestedBy], ['publication', 'Validation et publication', 'e1']]);
-  // Le manager modifie son besoin tant qu'il est en brouillon ou renvoyé « À modifier » ; une fois envoyé, seuls les RH le modifient (jusqu'à la publication).
+  // Le manager modifie son besoin tant qu'il est en brouillon ou renvoyé « À modifier » ; une fois envoyé, seuls les gestionnaires des RH le modifient (jusqu'à la publication).
   const draftLike = (j) => ['Brouillon', 'À modifier'].includes(j.status);
-  // Rédaction de l'offre partagée : le manager demandeur (ou le manager rattaché) et les RH écrivent le projet ; seuls les RH le valident et le publient.
+  // Rédaction de l'offre partagée : le manager demandeur (ou le manager rattaché) et les gestionnaires des RH écrivent le projet ; seuls les gestionnaires des RH le valident et le publient.
   const adReady = (j) => !!(j.ad && j.ad.ready);
   const canWriteAd = (j) => j.status === 'Validée' && (ui.profile === 'rh' || (ui.profile === 'manager' && (j.requestedBy === me().id || jobManager(j) === me().id)));
   const canEditNeed = (j) => (ui.profile === 'rh' ? ['Brouillon', 'À modifier', 'En validation', 'Validée'].includes(j.status) : ui.profile === 'manager' && draftLike(j) && (jobManager(j) === me().id || j.requestedBy === me().id));
@@ -3842,10 +3842,10 @@
   // Journal : qui a fait quoi et quand, sur un besoin ou un candidat.
   const logTo = (o, text) => { o.log = o.log || []; o.log.push({ date: TODAY, by: me().id, text }); };
   const ALT_LABELS = { mobilite: 'Mobilité interne', taches: 'Répartition des tâches dans l’équipe', interim: 'Intérim, freelance ou sous-traitance', auto: 'Automatisation ou nouvel outil' };
-  const DECISION_LABEL = { Soumise: 'Demande envoyée', Rédigée: 'Projet d’offre envoyé aux RH', Validée: 'Validée', 'À modifier': 'Modification demandée', Refusée: 'Refusée', Publiée: 'Offre publiée' };
+  const DECISION_LABEL = { Soumise: 'Demande envoyée', Rédigée: 'Projet d’offre envoyé aux gestionnaires des RH', Validée: 'Validée', 'À modifier': 'Modification demandée', Refusée: 'Refusée', Publiée: 'Offre publiée' };
   const flowText = (reason, budgeted) => {
     const dir = reason === 'Création de poste' || !budgeted;
-    return `<p class="hint" style="margin:0">Circuit de validation : <b>RH</b>${dir ? ` → <b>Direction</b> (${reason === 'Création de poste' ? 'création de poste' : 'poste hors budget'})` : ''} → publication de l’offre.</p>`;
+    return `<p class="hint" style="margin:0">Circuit de validation : <b>Gestionnaire des RH</b>${dir ? ` → <b>Direction</b> (${reason === 'Création de poste' ? 'création de poste' : 'poste hors budget'})` : ''} → publication de l’offre.</p>`;
   };
 
   // Annonce : mentions interdites par le Code du travail (art. L.1132-1 et L.5321-2).
@@ -3931,20 +3931,20 @@
   function submitNeed(j) {
     j.status = 'En validation'; j.pending = 'rh'; j.refusedAt = null; j.sentSnap = needData(j);
     j.approvals.push({ step: 'demande', by: me().id, decision: 'Soumise', date: TODAY, comment: '' });
-    if (ui.profile === 'rh') decideNeed(j, 'Validée', 'Besoin émis par les RH.', me().id);
+    if (ui.profile === 'rh') decideNeed(j, 'Validée', 'Besoin émis par les gestionnaires des RH.', me().id);
     else notify('e1', `${fullName(me())} a envoyé un besoin de recrutement à valider : ${j.title} (${j.dept}).`);
   }
   function decideNeed(j, decision, comment, by, reason) {
     const step = j.pending;
-    // Traçabilité : décision de la Direction saisie par les RH → auteur réel conservé (enteredBy) et Direction prévenue.
+    // Traçabilité : décision de la Direction saisie par les gestionnaires des RH → auteur réel conservé (enteredBy) et Direction prévenue.
     const entered = by !== me().id ? me().id : null;
     j.approvals.push(Object.assign({ step, by, decision, date: TODAY, comment: reason ? `${reason}${comment ? ` · ${comment}` : ''}` : comment }, entered ? { enteredBy: entered } : {}));
     if (entered) { logTo(j, `Décision de ${fullName(emp(by))} (${decision.toLowerCase()}) saisie par ${fullName(me())}`); notify(by, `${fullName(me())} a enregistré en votre nom la décision « ${decision} » sur le besoin « ${j.title} » (${jobRef(j)}) : merci de vérifier qu’elle est conforme.`); }
     comment = reason ? `${reason}${comment ? ` (${comment})` : ''}` : comment;
     const who = step === 'direction' ? 'La direction' : 'Les RH';
     if (decision === 'Validée') {
-      if (step === 'rh' && needsDirection(j)) { j.pending = 'direction'; notify(j.requestedBy, `Votre besoin « ${j.title} » est validé par les RH et transmis à la direction.`); }
-      else { j.pending = null; j.status = 'Validée'; notify(j.requestedBy, `Votre besoin « ${j.title} » est validé : rédigez l’offre avec les RH, qui la valideront et la publieront.`); }
+      if (step === 'rh' && needsDirection(j)) { j.pending = 'direction'; notify(j.requestedBy, `Votre besoin « ${j.title} » est validé par les gestionnaires des RH et transmis à la direction.`); }
+      else { j.pending = null; j.status = 'Validée'; notify(j.requestedBy, `Votre besoin « ${j.title} » est validé : rédigez l’offre avec les gestionnaires des RH, qui la valideront et la publieront.`); }
     } else if (decision === 'À modifier') { j.pending = null; j.status = 'À modifier'; notify(j.requestedBy, `${who} demandent une modification de votre besoin « ${j.title} » : ${comment}`); }
     else { j.pending = null; j.status = 'Refusée'; j.refusedAt = step; notify(j.requestedBy, `${who} ont refusé votre besoin « ${j.title} » : ${comment}`); }
   }
@@ -3980,7 +3980,7 @@
     if (j.status === 'Brouillon') { who = j.requestedBy; label = 'Envoi du brouillon'; }
     else if (j.status === 'À modifier') { who = j.requestedBy; label = 'Correction par le demandeur'; }
     else if (j.status === 'En validation') { who = j.pending === 'direction' ? DIR_ID() : 'e1'; label = j.pending === 'direction' ? 'Validation direction' : 'Validation RH'; }
-    else if (j.status === 'Validée' && !adReady(j)) { who = j.requestedBy; label = 'Rédaction de l’offre (avec les RH)'; }
+    else if (j.status === 'Validée' && !adReady(j)) { who = j.requestedBy; label = 'Rédaction de l’offre (avec les gestionnaires des RH)'; }
     else if (j.status === 'Validée') { who = 'e1'; label = 'Validation et publication de l’offre'; }
     const days = who ? workDays(addDays(since, 1), TODAY) : 0;
     return { who, label, since, days, late: !!who && j.status !== 'Brouillon' && days > NEED_SLA };
@@ -3991,7 +3991,7 @@
       const w = needWait(j); if (!w.late || (j.remindAt && j.remindAt >= w.since)) return;
       j.remindAt = TODAY; const to = w.who === DIR_ID() ? 'e1' : w.who;
       notify(to, `Relance : le besoin « ${j.title} » (${jobRef(j)}) attend « ${w.label} » depuis ${w.days} jours ouvrés.`);
-      if (to !== jobManager(j)) notify(jobManager(j), `Votre besoin « ${j.title} » attend « ${w.label} » depuis ${w.days} jours ouvrés : les RH sont relancés.`);
+      if (to !== jobManager(j)) notify(jobManager(j), `Votre besoin « ${j.title} » attend « ${w.label} » depuis ${w.days} jours ouvrés : les gestionnaires des RH sont relancés.`);
     });
   }
   const NEED_FILTERS = [['todo', 'À traiter par moi'], ['cours', 'En cours'], ['Brouillon', 'Brouillons'], ['En validation', 'En attente de validation'], ['À modifier', 'À modifier'], ['Validée', 'Validés, à publier'], ['publies', 'Publiés'], ['Refusée', 'Refusés']];
@@ -4017,7 +4017,7 @@
   // Frise courte du circuit (vue manager).
   function miniFlow(j) {
     const steps = needSteps(j);
-    return `<ol class="mflow">${steps.map(([k, label]) => { const st = needStepState(j, k, steps); const short = { demande: 'Demande', rh: 'RH', direction: 'Direction', redaction: 'Offre', publication: 'Publication' }[k] || label; return `<li class="s-${st}"><i>${st === 'done' ? ic('check') : st === 'refused' ? ic('x') : ''}</i><span>${short}</span></li>`; }).join('')}</ol>`;
+    return `<ol class="mflow">${steps.map(([k, label]) => { const st = needStepState(j, k, steps); const short = { demande: 'Demande', rh: 'Gestionnaire des RH', direction: 'Direction', redaction: 'Offre', publication: 'Publication' }[k] || label; return `<li class="s-${st}"><i>${st === 'done' ? ic('check') : st === 'refused' ? ic('x') : ''}</i><span>${short}</span></li>`; }).join('')}</ol>`;
   }
   function viewNeeds() {
     if (ui.profile === 'manager') {
@@ -4053,7 +4053,7 @@
     const banner = w.who ? `<div class="next-step ${mine ? 'mine' : ''} ${w.late ? 'late' : ''}"><div><small>PROCHAINE ÉTAPE</small><b>${esc(w.label)}</b><span>${mine ? 'À vous' : `En attente de ${esc(fullName(emp(w.who)))}`} · ${sinceTxt(w.days)}${w.late ? ' · relance envoyée' : ''}</span>
         ${j.pending === 'direction' && rh ? `<span class="hint">Vous saisissez la décision de ${esc(fullName(emp(DIR_ID())))} : elle sera tracée « saisie par ${esc(fullName(me()))} ». La Direction peut aussi valider elle-même (profil Manager vu en ${esc(fullName(emp(DIR_ID())))}).</span>` : ''}</div><div class="toolbar">${main}${more}${edit}</div></div>`
       : `<div class="next-step done"><div><small>${j.status === 'Refusée' ? 'BESOIN REFUSÉ' : 'OFFRE PUBLIÉE'}</small><b>${j.status === 'Refusée' ? esc(refusal && refusal.comment || 'Refusé') : `${jobRef(j)} · ${JOB_PILL[j.status][1]}`}</b><span>${j.status === 'Refusée' ? `par ${esc(fullName(emp(refusal ? refusal.by : 'e1')))} le ${fmtDate(refusal ? refusal.date : j.createdAt)}` : 'Le besoin reste consultable ici ; l’offre se suit dans Recrutement.'}</span></div><div class="toolbar">${main}</div></div>`;
-    const lock = !rh && !draftLike(j) && !NEED_OPEN.includes(j.status) && j.status !== 'Refusée' ? `<p class="hint lock">${ic('check')}${j.status === 'Validée' ? (canWriteAd(j) ? 'Besoin validé : rédigez l’offre avec les RH (onglet « Projet d’offre ») ; seuls les RH la valident et la publient.' : 'Besoin validé : l’offre est en cours de rédaction.') : 'Envoyé aux RH : seuls les RH peuvent désormais modifier ce besoin.'}</p>` : '';
+    const lock = !rh && !draftLike(j) && !NEED_OPEN.includes(j.status) && j.status !== 'Refusée' ? `<p class="hint lock">${ic('check')}${j.status === 'Validée' ? (canWriteAd(j) ? 'Besoin validé : rédigez l’offre avec les gestionnaires des RH (onglet « Projet d’offre ») ; seuls les gestionnaires des RH la valident et la publient.' : 'Besoin validé : l’offre est en cours de rédaction.') : 'Envoyé aux gestionnaires des RH : seuls les gestionnaires des RH peuvent désormais modifier ce besoin.'}</p>` : '';
     const unread = unreadOf(j), mgr = emp(jobManager(j)), repl = j.replaces && emp(j.replaces), talents = internalTalents(j.title, j.dept);
     const tabs = [['besoin', 'Le besoin'], ['cadrage', 'Fiche de cadrage'], ...(j.status === 'Validée' || j.ad ? [['offre', 'Projet d’offre']] : []), ['validation', 'Validation'], ['echanges', 'Échanges', unread]];
     let body;
@@ -4061,10 +4061,10 @@
       <h4 class="sub" style="margin-top:16px">Atouts appréciés</h4>${sc.nice.length ? `<div class="tags">${sc.nice.map((m) => `<span class="pill neutral">${esc(m)}</span>`).join('')}</div>` : '<p class="muted">—</p>'}
       <h4 class="sub" style="margin-top:16px">Entretiens prévus</h4><p>${sc.rounds ? plural(sc.rounds, 'entretien', 'entretiens') : '—'}</p><p class="hint">Ces compétences servent à évaluer chaque candidat après ses entretiens.</p>`;
     else if (tab === 'offre') { const a = j.ad;
-      body = a ? `<div class="toolbar" style="margin-bottom:10px">${adReady(j) ? '<span class="pill ok">Envoyé aux RH</span>' : '<span class="pill warn">En rédaction</span>'}<small class="muted">Dernière modification par ${esc(fullName(emp(a.by)))} le ${fmtDate(a.at)}</small></div>
+      body = a ? `<div class="toolbar" style="margin-bottom:10px">${adReady(j) ? '<span class="pill ok">Envoyé aux gestionnaires des RH</span>' : '<span class="pill warn">En rédaction</span>'}<small class="muted">Dernière modification par ${esc(fullName(emp(a.by)))} le ${fmtDate(a.at)}</small></div>
         <h4 class="sub">${esc(a.title)}</h4><p class="need-desc" style="white-space:pre-line">${esc(a.description)}</p>
-        <p class="hint">Contributions : ${[...new Set((a.edits || []).map((x) => x.by))].map((x) => esc(fullName(emp(x)))).join(', ') || '—'}. Le manager demandeur et les RH rédigent ; seuls les RH valident et publient.</p>`
-        : `<p class="muted">Le projet d’offre n’est pas encore commencé. Le manager demandeur et les RH peuvent le rédiger ; seuls les RH le valident et le publient.</p>`;
+        <p class="hint">Contributions : ${[...new Set((a.edits || []).map((x) => x.by))].map((x) => esc(fullName(emp(x)))).join(', ') || '—'}. Le manager demandeur et les gestionnaires des RH rédigent ; seuls les gestionnaires des RH valident et publient.</p>`
+        : `<p class="muted">Le projet d’offre n’est pas encore commencé. Le manager demandeur et les gestionnaires des RH peuvent le rédiger ; seuls les gestionnaires des RH le valident et le publient.</p>`;
       if (canWriteAd(j)) body += `<button type="button" class="btn ${a ? 'ghost' : 'primary'} sm" data-act="need-publish" data-id="${j.id}">${ic('edit')}${a ? 'Modifier le projet' : 'Commencer la rédaction'}</button>`; }
     else if (tab === 'validation') body = `${needFlowHTML(j)}${(j.log || []).length ? `<h4 class="sub" style="margin-top:18px">Journal</h4>${historyRows(j.log)}` : ''}`;
     else if (tab === 'echanges') body = `<p class="hint" style="margin:0 0 8px">Échanges internes entre RH et manager ; le candidat ne les voit jamais.</p>${(j.comments || []).map((c) => `<div class="cmt ${c.by === me().id ? 'mine' : ''}">${avatar(emp(c.by), 'sm')}<div><b>${esc(fullName(emp(c.by)))}</b><small>${fmtDate(c.date)}</small><p>${esc(c.text)}</p></div></div>`).join('') || '<p class="muted" style="margin:0 0 8px">Aucun échange pour le moment.</p>'}
@@ -4092,7 +4092,7 @@
     'need-submit'(d) {
       const j = db.jobs.find((x) => x.id === d.id), err = needError(j);
       if (err) { ui.modal = { type: 'need', id: j.id, err }; render(); return; }
-      submitNeed(j); toast(ui.profile === 'rh' ? 'Besoin validé' : 'Besoin envoyé aux RH pour validation'); commit();
+      submitNeed(j); toast(ui.profile === 'rh' ? 'Besoin validé' : 'Besoin envoyé aux gestionnaires des RH pour validation'); commit();
     },
     'need-decide'(d) { ui.modal = { type: 'need-decide', id: d.id, d: d.d }; render(); },
     'need-publish'(d) { ui.modal = { type: 'need-publish', id: d.id }; render(); },
@@ -4120,15 +4120,15 @@
       const j = db.jobs.find((x) => x.id === ui.modal.id), d = ui.modal.d, comment = v.comment.trim();
       if (d === 'À modifier' && !comment) return formError('Un commentaire est obligatoire pour expliquer la modification attendue.');
       if (d === 'Refusée' && (!v.reason || (v.reason === 'Autre motif' && !comment))) return formError('Choisissez le motif du refus (et précisez-le en commentaire s’il s’agit d’un autre motif).');
-      if (ui.profile !== 'rh' && !dirSelf(j)) return formError('Seuls les RH et la Direction peuvent décider de ce besoin.');
+      if (ui.profile !== 'rh' && !dirSelf(j)) return formError('Seuls les gestionnaires des RH et la Direction peuvent décider de ce besoin.');
       decideNeed(j, d, comment, j.pending === 'direction' ? DIR_ID() : me().id, d === 'Refusée' ? v.reason : '');
       ui.modal = null; toast(d === 'Validée' ? (j.status === 'Validée' ? 'Besoin validé : l’offre peut être rédigée avec le manager' : 'Besoin validé et transmis à la direction') : d === 'À modifier' ? 'Besoin renvoyé au demandeur' : 'Besoin refusé'); commit();
     },
     'need-publish'(v) {
       const j = db.jobs.find((x) => x.id === ui.modal.id), rh = ui.profile === 'rh', go = v.go || 'save'; // Entrée dans un champ : enregistre seulement
-      if (!canWriteAd(j)) return formError('Seuls le manager demandeur et les RH peuvent rédiger cette offre.');
+      if (!canWriteAd(j)) return formError('Seuls le manager demandeur et les gestionnaires des RH peuvent rédiger cette offre.');
       if (!v.title.trim()) return formError('Indiquez l’intitulé de l’offre.');
-      if (go === 'publish' && !rh) return formError('Seuls les RH peuvent valider et publier l’offre.');
+      if (go === 'publish' && !rh) return formError('Seuls les gestionnaires des RH peuvent valider et publier l’offre.');
       const first = !j.ad, a = j.ad = Object.assign({ edits: [] }, j.ad, { title: v.title.trim(), description: v.description.trim(), by: me().id, at: TODAY });
       a.edits.push({ by: me().id, at: TODAY });
       if (go === 'publish') {
@@ -4138,7 +4138,7 @@
           j.approvals.push({ step: 'publication', by: me().id, decision: 'Publiée', date: TODAY, comment: '' });
           if (flagged.length) logTo(j, `Publiée malgré ${plural(flagged.length, 'terme signalé', 'termes signalés')} : « ${flagged.join(' », « ')} »`);
           if (noPay) logTo(j, 'Publiée sans la rémunération dans l’annonce');
-          notify(j.requestedBy, `L’offre « ${j.title} » est validée et publiée par les RH : les candidatures peuvent arriver.`);
+          notify(j.requestedBy, `L’offre « ${j.title} » est validée et publiée par les gestionnaires des RH : les candidatures peuvent arriver.`);
           Object.assign(ui, { recJob: j.id }); toast(`Offre publiée sous la référence ${jobRef(j)} · à suivre dans Recrutement`); commit();
         };
         if (!flagged.length && !noPay) { ui.modal = null; publish(); return; }
@@ -4150,12 +4150,12 @@
         return;
       }
       if (go === 'send') {
-        a.ready = true; j.approvals.push({ step: 'redaction', by: me().id, decision: 'Rédigée', date: TODAY, comment: '' }); logTo(j, 'Projet d’offre envoyé aux RH pour validation');
+        a.ready = true; j.approvals.push({ step: 'redaction', by: me().id, decision: 'Rédigée', date: TODAY, comment: '' }); logTo(j, 'Projet d’offre envoyé aux gestionnaires des RH pour validation');
         notify('e1', `${fullName(me())} a terminé le projet d’offre « ${a.title} » : à relire, valider et publier.`);
-        ui.modal = null; toast('Projet d’offre envoyé aux RH pour validation'); commit(); return;
+        ui.modal = null; toast('Projet d’offre envoyé aux gestionnaires des RH pour validation'); commit(); return;
       }
       logTo(j, first ? 'Rédaction de l’offre commencée' : 'Projet d’offre modifié');
-      if (rh && j.requestedBy !== me().id) notify(j.requestedBy, `Les RH ont modifié le projet d’offre « ${a.title} ».`);
+      if (rh && j.requestedBy !== me().id) notify(j.requestedBy, `Les gestionnaires des RH ont modifié le projet d’offre « ${a.title} ».`);
       else if (!rh && adReady(j)) notify('e1', `${fullName(me())} a modifié le projet d’offre « ${a.title} », déjà envoyé pour validation.`);
       ui.modal = null; toast('Projet d’offre enregistré'); commit();
     },
@@ -4255,7 +4255,7 @@
     return '';
   }
   const firstBadStep = (d) => [0, 1, 2, 3].find((k) => needStepError(k, d)) ?? -1;
-  // Enregistrement automatique du brouillon à chaque étape (sauf pour un besoin déjà envoyé, modifié par les RH).
+  // Enregistrement automatique du brouillon à chaque étape (sauf pour un besoin déjà envoyé, modifié par les gestionnaires des RH).
   function persistNeedDraft(m) {
     const existing = m.id && db.jobs.find((x) => x.id === m.id);
     if ((existing && !draftLike(existing)) || !m.data.title) return false;
@@ -4278,10 +4278,10 @@
       const j = existing || { id: uid('j'), num: Math.max(0, ...db.jobs.map((x) => x.num || 0)) + 1, status: 'Brouillon', createdAt: TODAY, requestedBy: me().id, pending: null, refusedAt: null, approvals: [], comments: [], log: [], reviewers: [] };
       const diff = needDiff(j.sentSnap || (saveOnly ? needData(j) : null), m.data);
       Object.assign(j, m.data); if (!existing) db.jobs.push(j);
-      logTo(j, `${saveOnly ? 'Besoin modifié par les RH' : j.sentSnap ? 'Besoin corrigé et renvoyé' : 'Besoin complété'}${diff ? ` : ${diff}` : ''}`);
-      if (saveOnly) { if (jobManager(j) !== me().id) notify(jobManager(j), `Les RH ont modifié votre besoin « ${j.title} ».`); } else submitNeed(j);
+      logTo(j, `${saveOnly ? 'Besoin modifié par les gestionnaires des RH' : j.sentSnap ? 'Besoin corrigé et renvoyé' : 'Besoin complété'}${diff ? ` : ${diff}` : ''}`);
+      if (saveOnly) { if (jobManager(j) !== me().id) notify(jobManager(j), `Les gestionnaires des RH ont modifié votre besoin « ${j.title} ».`); } else submitNeed(j);
       Object.assign(ui, { modal: null, view: 'besoins', stage: ui.stage, drawer: { type: 'need', id: j.id, tab: 'besoin' } });
-      toast(saveOnly ? 'Modifications enregistrées' : rh ? 'Besoin validé par les RH' : 'Besoin envoyé aux RH pour validation'); commit();
+      toast(saveOnly ? 'Modifications enregistrées' : rh ? 'Besoin validé par les gestionnaires des RH' : 'Besoin envoyé aux gestionnaires des RH pour validation'); commit();
     },
   });
   MODALS.need = (m, shell, formShell, opt, f) => {
@@ -4344,12 +4344,12 @@
     // Projet préparé à partir du besoin : missions, compétences, puis contrat, statut et rémunération (directive (UE) 2023/970, art. 5).
     const desc = a ? a.description : `${j.description}${sc.must.length && !j.description.includes('Compétences recherchées') ? `\n\nCompétences recherchées : ${sc.must.join(', ')}.` : ''}${sc.nice.length && !j.description.includes('Atouts') ? `\nAtouts appréciés : ${sc.nice.join(', ')}.` : ''}`
       + `\n\nContrat : ${j.contract === 'CDD' ? `CDD de ${plural(Number(j.cddMonths) || 0, 'mois', 'mois')}${j.cddTerm === 'imprecis' ? ' au moins' : ''} (${(j.cddCase || 'cas de recours à préciser').toLowerCase()})` : j.contract} · ${statutText(j).replace(/ \(convention individuelle.*\)$/, '')} · ${j.location}.\nRémunération : ${j.salaryMin ? `${eur0(j.salaryMin)} – ${eur0(j.salaryMax)} bruts par an` : j.budget}.`, title = a ? a.title : j.title;
-    const who = a ? `Dernière modification par ${esc(fullName(emp(a.by)))} le ${fmtDate(a.at)}${adReady(j) ? ' · envoyé aux RH pour validation' : ''}.` : 'Projet préparé à partir du besoin et de la fiche de cadrage.';
+    const who = a ? `Dernière modification par ${esc(fullName(emp(a.by)))} le ${fmtDate(a.at)}${adReady(j) ? ' · envoyé aux gestionnaires des RH pour validation' : ''}.` : 'Projet préparé à partir du besoin et de la fiche de cadrage.';
     const btns = rh ? '<button class="btn ghost" name="go" value="save">Enregistrer le projet</button><button class="btn primary" name="go" value="publish">Valider et publier l’offre</button>'
-      : `<button class="btn ghost" name="go" value="save">Enregistrer le projet</button><button class="btn primary" name="go" value="send">${adReady(j) ? 'Renvoyer aux RH' : 'Envoyer aux RH pour validation'}</button>`;
+      : `<button class="btn ghost" name="go" value="save">Enregistrer le projet</button><button class="btn primary" name="go" value="send">${adReady(j) ? 'Renvoyer aux gestionnaires des RH' : 'Envoyer aux gestionnaires des RH pour validation'}</button>`;
     return shell(rh ? 'Rédiger, valider et publier l’offre' : 'Rédiger l’offre', `<form data-form="need-publish" novalidate><div class="modal-b">
       <p class="hint" style="margin:0 0 6px">Offre datée du ${fmtDateY(TODAY)}, à rédiger en français · ${esc(j.dept)} · ${esc(cddText(j))} · ${esc(j.location)} · ${esc(j.budget)}</p>
-      <p class="hint" style="margin:0 0 12px">${who} Rédaction partagée entre ${esc(fullName(emp(j.requestedBy)))} (demandeur) et les RH ; ${rh ? 'vous seuls pouvez la valider et la publier.' : 'seuls les RH peuvent la valider et la publier.'}</p>
+      <p class="hint" style="margin:0 0 12px">${who} Rédaction partagée entre ${esc(fullName(emp(j.requestedBy)))} (demandeur) et les gestionnaires des RH ; ${rh ? 'vous seuls pouvez la valider et la publier.' : 'seuls les gestionnaires des RH peuvent la valider et la publier.'}</p>
       ${f('ad-title', 'Intitulé de l’offre', `<input id="ad-title" name="title" class="input" value="${esc(title)}" data-live="ad">`, true)}
       <div style="margin-top:12px">${f('ad-desc', 'Texte de l’annonce', `<textarea id="ad-desc" name="description" class="input" style="min-height:150px" data-live="ad">${esc(desc)}</textarea>`, true)}</div>
       <div id="ad-lint" style="margin-top:10px">${adLintHTML(title, desc, true)}</div><p class="err" id="m-err" aria-live="polite"></p></div>
@@ -4401,10 +4401,10 @@
   // Information complète du candidat (art. 13 et 14 du RGPD) : responsable, finalité, base légale, destinataires, durée, droits, CNIL, source.
   function rgpdNote(c) {
     const src = c && c.source && !/^Site carrière/.test(c.source) ? ` Votre candidature nous est parvenue par : ${c.source.replace(/^Vivier · /, '').toLowerCase()}.` : '';
-    return `Vos données personnelles : ${COMPANY.entreprise}${COMPANY.entreprise_adresse ? ` (${COMPANY.entreprise_adresse})` : ''}, responsable du traitement, utilise les informations de votre candidature (CV, lettre, échanges, évaluations) uniquement pour gérer ses recrutements, sur la base des mesures précontractuelles prises à votre demande (art. 6.1.b du RGPD).${src} Seules les personnes chargées du recrutement (RH, manager et évaluateurs du poste) y ont accès. Elles sont conservées ${plural(RETENTION_YEARS, 'an', 'ans')} au plus après notre dernier échange, puis supprimées automatiquement. Vous pouvez y accéder, les faire rectifier ou effacer, vous opposer à leur conservation ou en limiter l’usage en écrivant à rh@${COMPANY.domaine} ; vous pouvez aussi adresser une réclamation à la CNIL (www.cnil.fr).`;
+    return `Vos données personnelles : ${COMPANY.entreprise}${COMPANY.entreprise_adresse ? ` (${COMPANY.entreprise_adresse})` : ''}, responsable du traitement, utilise les informations de votre candidature (CV, lettre, échanges, évaluations) uniquement pour gérer ses recrutements, sur la base des mesures précontractuelles prises à votre demande (art. 6.1.b du RGPD).${src} Seules les personnes chargées du recrutement (gestionnaire des RH, manager et évaluateurs du poste) y ont accès. Elles sont conservées ${plural(RETENTION_YEARS, 'an', 'ans')} au plus après notre dernier échange, puis supprimées automatiquement. Vous pouvez y accéder, les faire rectifier ou effacer, vous opposer à leur conservation ou en limiter l’usage en écrivant à rh@${COMPANY.domaine} ; vous pouvez aussi adresser une réclamation à la CNIL (www.cnil.fr).`;
   }
   let SIGN = '\n\nL’équipe RH de Nova Studio';
-  // Les textes viennent des modèles rédigés par les RH (écran « Modèles de documents »).
+  // Les textes viennent des modèles rédigés par les gestionnaires des RH (écran « Modèles de documents »).
   const MSG_TPL = {
     ack: ['Accusé de réception', (c, j) => tplMsg('msg-ack', candCtx(c, j))],
     point: ['Point d’étape', (c, j) => tplMsg('msg-point', candCtx(c, j))],
@@ -4543,7 +4543,7 @@
           : `<button type="button" class="col folded" data-stage="${st}" data-act="col-toggle" data-s="${st}" aria-label="Déplier ${st} (${list.length})"><span class="num">${list.length}</span><b>${st}</b></button>`; };
       const cols = ACTIVE.map((s) => col(s, false)).concat(CLOSED.map((s) => col(s, true)));
       const tpl = ACTIVE.map(() => 'minmax(170px, 1fr)').concat(CLOSED.map((s) => ((ui.colOpen || {})[s] ? 'minmax(170px, 1fr)' : '56px'))).join(' ');
-      body = `<div class="card"><div class="board" style="grid-template-columns:${tpl}">${cols.join('')}</div><p class="hint" style="padding:0 20px 16px;margin:0">Ouvrez une carte pour lire le CV et la lettre, évaluer le candidat et le faire avancer ; ou glissez-la d’une colonne à l’autre.${rh ? '' : ' Les RH font la proposition d’embauche et les refus.'}</p></div>`;
+      body = `<div class="card"><div class="board" style="grid-template-columns:${tpl}">${cols.join('')}</div><p class="hint" style="padding:0 20px 16px;margin:0">Ouvrez une carte pour lire le CV et la lettre, évaluer le candidat et le faire avancer ; ou glissez-la d’une colonne à l’autre.${rh ? '' : ' Les gestionnaires des RH font la proposition d’embauche et les refus.'}</p></div>`;
     }
     return `${head}${tabs}${body}`;
   }
@@ -4594,14 +4594,14 @@
   }
   function candDrawer(c) {
     const job = db.jobs.find((j) => j.id === c.jobId), rh = ui.profile === 'rh', os = offerStatus(c.offer), { sc, evals, avg, recos } = evalSummary(c, job), act = activeCand(c);
-    // Interviewers : RH, managers (responsables de service ou d'équipe) et évaluateurs invités ; ni stagiaires ni alternants.
+    // Interviewers : gestionnaires des RH, management (responsables de service ou d'équipe) et évaluateurs invités ; ni stagiaires ni alternants.
     const isMgr = (e) => Object.values(DEPT_HEAD).includes(e.id) || db.employees.some((x) => x.managerId === e.id && x.stage < 15);
     const interviewers = db.employees.filter((e) => isEmployed(e) && !['Stage', 'Alternance'].includes(e.contract) && (e.dept === 'RH' || ((e.dept === job.dept || e.id === jobManager(job)) && isMgr(e)) || (job.reviewers || []).includes(e.id))), now = nowStamp(), w = waitingDays(c);
     const offerActive = c.offer && ['Envoyée', 'Expirée'].includes(os);
     const files = c.files || [], cur = files.find((f, k) => `${f.kind}-${k}` === ui.drawer.doc) || files[0], curKey = cur ? `${cur.kind}-${files.indexOf(cur)}` : '';
     const list = colList(c), idx = list.indexOf(c), prev = list[idx - 1], next = list[idx + 1];
     const nav = `<div class="cand-nav"><button type="button" class="icon-btn" data-act="cand-go" data-id="${prev ? prev.id : ''}" ${prev ? '' : 'disabled'} aria-label="Candidat précédent" title="Candidat précédent (←)">${ic('left')}</button><span class="num">${idx + 1} / ${list.length}<small>${esc(c.stage)}</small></span><button type="button" class="icon-btn" data-act="cand-go" data-id="${next ? next.id : ''}" ${next ? '' : 'disabled'} aria-label="Candidat suivant" title="Candidat suivant (→)">${ic('right')}</button></div>`;
-    // Prochaine étape : une action principale selon la situation ; la proposition et le refus sont faits par les RH.
+    // Prochaine étape : une action principale selon la situation ; la proposition et le refus sont faits par les gestionnaires des RH.
     const myEval = ivOn(c).filter((iv) => !iv.eval && iv.date <= now && canEval(iv)).sort((a, b) => a.date.localeCompare(b.date))[0];
     const upcoming = ivOn(c).filter((iv) => iv.date > now).sort((a, b) => a.date.localeCompare(b.date))[0];
     const b = (actName, label, extra = '', cls = 'ghost sm') => `<button type="button" class="btn ${cls}" data-act="${actName}" data-id="${c.id}" ${extra}>${label}</button>`;
@@ -4614,7 +4614,7 @@
     else if (c.stage === 'Proposition' && rh && offerActive) { cls = 'mine'; step = 'Enregistrer la réponse du candidat'; why = `Proposition ${os.toLowerCase()} · réponse attendue avant le ${fmtDate(c.offer.deadline)}`;
       main = b('offer-accept', `${ic('check')}Acceptée : embaucher`, '', 'primary'); more = b('offer-decline', 'Déclinée') + (os === 'Expirée' ? b('offer-extend', 'Prolonger de 7 jours') : '') + b('offer-withdraw', 'Retirer') + write; }
     else if (c.stage === 'Proposition' && rh) { cls = 'mine'; step = 'Préparer la proposition d’embauche'; why = os ? `Proposition précédente ${os.toLowerCase()}` : 'Candidat choisi'; main = b('offer-new', `${ic('file')}Préparer la proposition`, '', 'primary'); more = refuse + write; }
-    else if (c.stage === 'Proposition') { step = 'Proposition d’embauche'; why = 'Candidat choisi : les RH préparent la proposition.'; }
+    else if (c.stage === 'Proposition') { step = 'Proposition d’embauche'; why = 'Candidat choisi : les gestionnaires des RH préparent la proposition.'; }
     else if (c.stage === 'Reçue') { cls = 'mine'; step = 'Trier la candidature'; why = `Reçue le ${fmtDate(c.appliedAt)} · lisez le CV et la lettre à gauche`; main = b('cand-next', `Présélectionner${ic('arrow')}`, '', 'primary'); more = refuse + write; }
     else if (upcoming) { step = `${upcoming.kind} le ${fmtDateY(upcoming.date.slice(0, 10), { weekday: 'long', month: 'long' })} à ${upcoming.date.slice(11, 16)}`; why = `Avec ${fullName(emp(upcoming.with))} · l’évaluation sera demandée après l’entretien`;
       main = b('cand-next', `${rh ? 'Préparer la proposition' : 'Choisir ce candidat'}${ic('arrow')}`); more = b('cand-plan', `${ic('calendar')}Autre entretien`) + refuse + write; }
@@ -4861,7 +4861,7 @@
   MODALS['iv-eval'] = (m, shell, formShell, opt, f) => {
     const c = findCand(m.id), job = candJob(c), iv = c.interviews.find((x) => x.id === m.iv);
     const levels = [['5', '5 · Excellent'], ['4', '4 · Très bon'], ['3', '3 · Conforme aux attentes'], ['2', '2 · En dessous'], ['1', '1 · Insuffisant']];
-    return formShell(`Évaluer ${esc(c.name)}`, 'iv-eval', `<p class="hint" style="margin:0 0 12px">${esc(iv.kind)} du ${fmtDate(iv.date.slice(0, 10))} avec ${esc(fullName(emp(iv.with)))}${iv.with !== me().id ? ' · saisie par les RH pour le compte de l’interviewer' : ''}. Chaque note s’appuie sur un fait observé pendant l’entretien.</p>
+    return formShell(`Évaluer ${esc(c.name)}`, 'iv-eval', `<p class="hint" style="margin:0 0 12px">${esc(iv.kind)} du ${fmtDate(iv.date.slice(0, 10))} avec ${esc(fullName(emp(iv.with)))}${iv.with !== me().id ? ' · saisie par les gestionnaires des RH pour le compte de l’interviewer' : ''}. Chaque note s’appuie sur un fait observé pendant l’entretien.</p>
       ${job.scorecard.must.map((mm, k) => `<div class="eval-row"><b>${esc(mm)}</b><div class="form-grid"><div class="field"><label for="ev-r${k}">Note</label><select id="ev-r${k}" name="r${k}" class="select"><option value="">Choisir…</option>${opt(levels, '')}</select></div>
         <div class="field"><label for="ev-e${k}">Ce qui justifie la note</label><input id="ev-e${k}" name="e${k}" class="input" maxlength="200" placeholder="Ex. a présenté une étude menée auprès de 20 utilisateurs"></div></div></div>`).join('')}
       <fieldset class="field radios" style="margin-top:14px"><legend>Recommandation</legend>${['Favorable', 'Réservé', 'Défavorable'].map((r) => `<label><input type="radio" name="reco" value="${r}"> ${r}</label>`).join('')}</fieldset>
@@ -4945,7 +4945,7 @@
   const PREP_TASKS = [['poste', 'Poste de travail installé', 'manager'], ['ordinateur', 'Ordinateur et logiciels prêts', 'rh'], ['comptes', 'Comptes et adresse e-mail créés', 'rh'], ['badge', 'Badge d’accès commandé', 'rh'], ['bienvenue', 'Message de bienvenue avec le programme du premier jour', 'manager']];
   const planList = () => (db.onboardingPlan || []).map((x) => [x.k, x.label, Number(x.day) || 0, x.owner]);
   const CHECKINS = [['j30', 'Point à 30 jours', 30], ['j60', 'Point à 60 jours', 60], ['j90', 'Point à 90 jours', 90]];
-  const OWNER = { manager: 'Manager', rh: 'RH', parrain: 'Parrain' };
+  const OWNER = { manager: 'Manager', rh: 'Gestionnaire des RH', parrain: 'Parrain' };
   const NOTICE_LABEL = { 1: '24 heures', 2: '48 heures', 14: '2 semaines', 30: '1 mois' };
   function dossier(e) {
     db.onboarding = db.onboarding || {};
@@ -4960,7 +4960,7 @@
   const nationalitySelect = (e, attrs) => { const v = e.nationality || '', known = NATIONALITIES.some(([, l]) => l.includes(v));
     return `<select class="select" ${attrs} data-search="1" data-placeholder="Rechercher une nationalité…"><option value="" ${v ? '' : 'selected'}>Choisir…</option>${!known && v ? `<option selected>${esc(v)}</option>` : ''}${NATIONALITIES.map(([g, l]) => `<optgroup label="${g}">${l.map((x) => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('')}</optgroup>`).join('')}</select>`; };
   const reqDocs = (e) => ARR_DOCS.filter(([k]) => (DOCS_BY_CONTRACT[e.contract] || BASE_DOCS).includes(k) || (k === 'titre' && needsTitre(e)));
-  // État d'une pièce : validée par les RH, déposée (à vérifier), refusée (à redéposer) ou manquante.
+  // État d'une pièce : validée par les gestionnaires des RH, déposée (à vérifier), refusée (à redéposer) ou manquante.
   const docState = (d, k) => (d.docs[k] ? 'ok' : d.files[k] && d.files[k].refused ? 'refused' : d.files[k] ? 'check' : 'missing');
   // Jours ouvrables : du lundi au samedi.
   // Jours ouvrables (lundi au samedi), désormais hors jours fériés : voir le socle en haut du fichier.
@@ -5198,7 +5198,7 @@
         + row('Parrain ou marraine', 'Un collègue qui transmet les codes de l’équipe, distinct du manager', noBuddy ? `<span class="pill neutral">Pas de parrain</span>${canB ? `<button type="button" class="btn ghost sm" data-act="arr-buddy-set" data-id="${e.id}" data-v="">Changer</button>` : ''}`
           : !canB ? (bd ? `<span class="pill ok">${esc(fullName(bd))}</span>` : pend('À désigner')) : `<div class="succ-pick"><select class="select" data-change="arr-buddy" data-id="${e.id}" aria-label="Parrain ou marraine"><option value="">Rechercher un salarié…</option>${buddies.map((x) => `<option value="${x.id}" ${x.id === d.buddy ? 'selected' : ''}>${esc(fullName(x))}</option>`).join('')}</select>
             <label class="agree"><input type="checkbox" data-change="arr-buddy-none" data-id="${e.id}"> Pas de parrain</label></div>`));
-      if (mgr) html += `<p class="hint" style="margin:10px 0 0">Les pièces du dossier et le contrat sont gérés par les RH.</p>`;
+      if (mgr) html += `<p class="hint" style="margin:10px 0 0">Les pièces du dossier et le contrat sont gérés par les gestionnaires des RH.</p>`;
     }
     if (i === 3) {
       const open = TODAY >= addDays(start, -8);
@@ -5261,11 +5261,11 @@
       const steps = arrivalSteps(e, 4), others = steps.slice(0, -1), left = others.filter((x) => !x).length, trialOk = !t || (d.trialDecision && d.trialDecision !== 'Renouvelée') || trialOver(e, t);
       html += sec('Fin de l’intégration', row(t ? 'Bilan d’intégration et passage en poste' : 'Bilan d’intégration (pas de période d’essai)',
         `${left ? `${plural(left, 'point du programme reste', 'points du programme restent')} ouvert${left > 1 ? 's' : ''} : la clôture vous les listera. ` : 'Programme terminé. '}${t && !trialOk ? 'La décision sur la période d’essai doit être prise avant.' : 'La personne passe en poste et sort des arrivées.'}`,
-        rh ? b('arr-close', `${ic('check')}Clôturer l’intégration`, trialOk ? '' : 'disabled', trialOk && !left ? 'primary' : 'ghost') : pend('Clôture par les RH', 'neutral')));
+        rh ? b('arr-close', `${ic('check')}Clôturer l’intégration`, trialOk ? '' : 'disabled', trialOk && !left ? 'primary' : 'ghost') : pend('Clôture par les gestionnaires des RH', 'neutral')));
     }
     return html;
   }
-  // Programme d'intégration : modèle unique pour toute l'entreprise, que les RH composent.
+  // Programme d'intégration : modèle unique pour toute l'entreprise, que les gestionnaires des RH composent.
   function planConfig() {
     const plan = db.onboardingPlan || [];
     return card('Programme d’intégration · modèle de l’entreprise', `<span class="muted num" style="font-size:13px">${plural(plan.length, 'étape', 'étapes')}</span>`, `<div class="card-b"><p class="hint" style="margin:0 0 12px">S’applique à toutes les nouvelles recrues, triées par jour après l’arrivée. Une étape supprimée disparaît des programmes en cours ; ce qui a déjà été fait reste enregistré.</p>
@@ -5282,7 +5282,7 @@
     const renew = rdoc && t && !trialOver(e, t) ? `<div class="card"><div class="card-h"><h3>Accord de renouvellement de ta période d’essai</h3><span class="pill warn">À signer avant le ${fmtShort(t.end)}</span></div><div class="card-b">${signBox(rdoc, 'Je donne mon accord au renouvellement (« bon pour accord »)', 'Signer l’accord')}</div></div>` : '';
     return `${renew}${card('Mon programme d’intégration', '', `<div class="card-b">${planList().map(([k, l, day, o]) => `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${OWNER[o]} · ${fmtDate(addDays(e.startDate, day), { weekday: 'long', day: 'numeric', month: 'long' })}</small></div>${d.plan[k] ? '<span class="pill ok">Fait</span>' : '<span class="pill neutral">Prévu</span>'}</div>`).join('')}</div>`)}
       ${card('Mon rapport d’étonnement', '', `<div class="card-b">${d.astonish ? `<q>${esc(d.astonish.text)}</q><p class="hint" style="margin:6px 0 0">Envoyé le ${fmtDate(d.astonish.date)}</p>`
-        : `<form data-form="arr-astonish" data-id="${e.id}"><label class="sr" for="as-${e.id}">Rapport d’étonnement</label><textarea id="as-${e.id}" name="text" class="input" placeholder="Ce qui m’a surpris, ce que je changerais, ce que j’apprécie déjà…"></textarea><div class="toolbar" style="margin-top:8px"><span class="hint">Conseillé vers J+30 · lu par les RH et ton manager.</span><button class="btn primary sm" style="margin-left:auto">Envoyer</button></div></form>`}</div>`)}`;
+        : `<form data-form="arr-astonish" data-id="${e.id}"><label class="sr" for="as-${e.id}">Rapport d’étonnement</label><textarea id="as-${e.id}" name="text" class="input" placeholder="Ce qui m’a surpris, ce que je changerais, ce que j’apprécie déjà…"></textarea><div class="toolbar" style="margin-top:8px"><span class="hint">Conseillé vers J+30 · lu par les gestionnaires des RH et ton manager.</span><button class="btn primary sm" style="margin-left:auto">Envoyer</button></div></form>`}</div>`)}`;
   }
   // Lecture puis signature d'un document (contrat, accord de renouvellement), sur ordinateur comme sur téléphone.
   // Le document se lit dans un cadre qu'il faut faire défiler jusqu'au bout avant de pouvoir signer.
@@ -5316,7 +5316,7 @@
     const e = me(), d = dossier(e), days = dayDiff(TODAY, e.startDate), mgr = e.managerId && emp(e.managerId), buddy = d.buddy && emp(d.buddy);
     const docs = reqDocs(e).map(([k, l]) => { const st = docState(d, k), f = d.files[k];
       const state = st === 'ok' ? '<span class="pill ok">Validé</span>' : st === 'check' ? '<span class="pill info">En cours de vérification</span>' : st === 'refused' ? '<span class="pill bad">À redéposer</span>' : '<span class="pill warn">À déposer</span>';
-      // Une pièce déposée par erreur peut être remplacée tant que les RH ne l'ont pas validée.
+      // Une pièce déposée par erreur peut être remplacée tant que les gestionnaires des RH ne l'ont pas validée.
       const lab = st === 'refused' ? 'Déposer à nouveau' : st === 'check' ? 'Remplacer' : mobSal() ? 'Photo ou fichier' : 'Déposer';
       const up = st !== 'ok' ? `<label class="btn ${st === 'refused' ? 'primary' : 'ghost'} sm upload">${ic(st === 'check' ? 'edit' : 'plus')}${lab}<input type="file" accept=".pdf,image/*" data-change="arr-upload" data-k="${k}" aria-label="${lab} : ${esc(l)}"></label>` : '';
       return `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${f ? `${esc(f.name)} · déposé le ${fmtShort(f.date)}${f.refused ? ` · refusé : ${esc(f.refused)}` : ''}` : d.docs[k] ? `Reçu le ${fmtShort(d.docs[k])}` : esc(DOC_HINT[k] || 'PDF ou photo lisible')}</small></div>${state}${up}</div>`; }).join('');
@@ -5327,7 +5327,7 @@
       <div class="card"><div class="card-h"><h3>Où en est mon arrivée</h3></div><div class="card-b">${stepsList(arrivalSteps(e, 2), STAGES[2].steps, false)}</div></div>
       ${c.status === 'Envoyé' ? `<div class="card card-b callout"><b>${ic('edit')}Ton ${word} est prêt à signer</b><button type="button" class="btn primary sm" data-act="go" data-v="contrat">Lire et signer${ic('arrow')}</button></div>` : ''}
       ${myInfoCard(e)}
-      ${card('Mes documents', `<span class="muted num" style="font-size:13px">${plural(reqDocs(e).filter(([k]) => d.docs[k]).length, 'pièce validée', 'pièces validées')} sur ${reqDocs(e).length}</span>`, `<div class="card-b"><p class="hint" style="margin:0 0 6px">Pièces demandées pour un contrat ${esc(e.contract)}. Les RH les vérifient et te préviennent si l’une doit être redéposée ; tant qu’elle n’est pas validée, tu peux la remplacer.</p>${docs}</div>`)}
+      ${card('Mes documents', `<span class="muted num" style="font-size:13px">${plural(reqDocs(e).filter(([k]) => d.docs[k]).length, 'pièce validée', 'pièces validées')} sur ${reqDocs(e).length}</span>`, `<div class="card-b"><p class="hint" style="margin:0 0 6px">Pièces demandées pour un contrat ${esc(e.contract)}. Les gestionnaires des RH les vérifient et te préviennent si l’une doit être redéposée ; tant qu’elle n’est pas validée, tu peux la remplacer.</p>${docs}</div>`)}
       ${card('Mon premier jour', '', `<div class="card-b"><div class="info-grid"><div><span>Date et lieu</span>${fmtDate(e.startDate, { weekday: 'long', day: 'numeric', month: 'long' })} · ${esc(e.location)}</div><div><span>${isIntern(e) ? 'Tuteur ou tutrice' : 'Manager'}</span>${mgr ? esc(fullName(mgr)) : '—'}</div><div><span>Parrain ou marraine</span>${buddy ? esc(fullName(buddy)) : d.buddy === 'none' ? 'Pas de parrain prévu : ton manager t’accompagne' : 'Bientôt désigné'}</div><div><span>Contact RH</span>${esc(fullName(emp(db.settings.company.signataire) || emp('e1')))} · rh@${esc(COMPANY.domaine)}</div></div>
         <h4 class="sub" style="margin-top:16px">Au programme</h4>${first.map(([, l, day]) => `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${day ? `J+${day}` : 'Premier jour'}</small></div></div>`).join('') || '<p class="muted" style="margin:0">Le programme sera bientôt disponible.</p>'}</div>`)}</div>`;
   }
@@ -5336,7 +5336,7 @@
     const pending = e.stage === 2 && c.status === 'Envoyé' && c.docId && db.documents.find((x) => x.id === c.docId);
     let main;
     if (pending) main = `<div class="card"><div class="card-h"><h3>${isIntern(e) ? 'Document d’accueil à signer' : 'Contrat à signer'}</h3><span class="pill warn">Envoyé le ${fmtShort(c.sentAt)}</span></div><div class="card-b">${signBox(pending, 'J’ai lu le document en entier et j’en accepte les termes (« lu et approuvé »)', 'Signer le contrat')}</div></div>`;
-    else if (e.stage === 2 && c.status !== 'Signé') main = `<div class="card card-b"><p style="margin:0">Ton contrat est en cours de préparation par les RH. Tu seras prévenu${e.sex === 'F' ? 'e' : e.sex === 'H' ? '' : '·e'} dès qu’il sera prêt à signer.</p></div>`;
+    else if (e.stage === 2 && c.status !== 'Signé') main = `<div class="card card-b"><p style="margin:0">Ton contrat est en cours de préparation par les gestionnaires des RH. Tu seras prévenu${e.sex === 'F' ? 'e' : e.sex === 'H' ? '' : '·e'} dès qu’il sera prêt à signer.</p></div>`;
     else main = '';
     return `<div class="panel stage-page"><div class="card card-b">${stageHead(3)}</div>${main}
       ${card('Mes documents contractuels', '', `<div class="card-b">${docs.filter((x) => x !== pending).map((x) => `<div class="todo"><span class="doc-ic">${ic('file')}</span><div class="t"><b>${esc(x.title)}</b><small>${fmtDate(x.date)}${x.signature ? ` · signé le ${fmtDate(x.signature.date)}` : ''}</small></div><button type="button" class="btn ghost sm" data-act="doc-view" data-id="${x.id}">Consulter</button><button type="button" class="btn ghost sm" data-act="doc-download" data-id="${x.id}">${ic('file')}PDF</button></div>`).join('') || '<p class="muted" style="margin:0">Aucun document signé pour le moment.</p>'}</div>`)}
@@ -5517,7 +5517,7 @@
     'arr-titre'(d) { const e = arrE(d); if (!dossier(e).docs.titre) { toast('Validez d’abord la copie du titre de séjour : la demande à la préfecture porte sur ce titre.', 'info'); return; } dossier(e).titreCheck = TODAY; toast('Demande de vérification envoyée à la préfecture (simulée)'); commit(); },
     'arr-contract'(d) {
       const e = arrE(d), c = dossier(e).contract;
-      // Le contrat naît en brouillon depuis le modèle du type de contrat : les RH le relisent et le complètent avant de l'envoyer.
+      // Le contrat naît en brouillon depuis le modèle du type de contrat : les gestionnaires des RH le relisent et le complètent avant de l'envoyer.
       if (d.s === 'Prêt') { db.documents = db.documents.filter((x) => x.id !== c.docId); c.docId = addDoc(e.id, 'contrat').id; c.status = 'Prêt'; ui.modal = { type: 'doc-edit', id: c.docId }; toast('Contrat créé : complétez-le puis envoyez-le pour signature'); commit(); return; }
       const doc = db.documents.find((x) => x.id === c.docId);
       if (d.s === 'Envoyé') { const err = doc ? issueDoc(doc) : 'Contrat introuvable.'; if (err) { ui.modal = { type: 'doc-edit', id: doc.id, err }; render(); return; } toast(`Contrat envoyé à ${fullName(e)} pour signature`); commit(); return; }
@@ -5611,7 +5611,7 @@
     'arr-upload'(v, d, t) {
       const file = t.files && t.files[0]; if (!file) return;
       const e = me(), x = dossier(e), label = ARR_DOCS.find(([k]) => k === d.k)[1], again = x.files[d.k] && !x.files[d.k].refused;
-      const done = (data) => { x.files[d.k] = { name: file.name, date: TODAY, type: file.type, data }; notify('e1', `${fullName(e)} a ${again ? 'remplacé' : 'déposé'} une pièce à vérifier : ${label}.`); toast(again ? 'Pièce remplacée · les RH vont la vérifier' : 'Pièce déposée · les RH vont la vérifier'); commit(); };
+      const done = (data) => { x.files[d.k] = { name: file.name, date: TODAY, type: file.type, data }; notify('e1', `${fullName(e)} a ${again ? 'remplacé' : 'déposé'} une pièce à vérifier : ${label}.`); toast(again ? 'Pièce remplacée · les gestionnaires des RH vont la vérifier' : 'Pièce déposée · les gestionnaires des RH vont la vérifier'); commit(); };
       if (file.size <= 700 * 1024 && /^(image\/|application\/pdf)/.test(file.type)) { const r = new FileReader(); r.onload = () => done(r.result); r.onerror = () => done(null); r.readAsDataURL(file); } else done(null);
     },
     'plan-edit'(v, d) {
@@ -5777,7 +5777,7 @@
   // ================================================================ Vie administrative (étape 6)
   const CHANGE_FIELDS = { address: ['Adresse postale', 'Justificatif de domicile de moins de 3 mois'], iban: ['Coordonnées bancaires (RIB)', 'RIB au nom du salarié'], family: ['Situation familiale', 'Acte ou attestation (mariage, PACS, naissance…)'], lastName: ['Nom d’usage', 'Pièce justificative'],
     location: ['Lieu de travail', null] };
-  // IBAN : conservé en entier pour la paie et les RH (chiffré en production ; en clair dans cette démo), masqué partout à l'affichage.
+  // IBAN : conservé en entier pour la paie et les gestionnaires des RH (chiffré en production ; en clair dans cette démo), masqué partout à l'affichage.
   const maskIban = (s) => { const c = String(s || '').replace(/\s/g, ''); return !c || c === '—' ? '—' : c.includes('•') ? s : `${c.slice(0, 4)} •••• •••• •••• ${c.slice(-4)}`; };
   const ibanOk = (s) => /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(String(s || '').replace(/\s/g, '').toUpperCase());
   const showReq = (r, v) => (r.field === 'iban' ? maskIban(v) : v);
@@ -5818,7 +5818,7 @@
   }
   function myChangesHTML(e) {
     const mine = (db.changeReqs || []).filter((r) => r.empId === e.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return `<form class="card" data-form="chg-req" novalidate><div class="card-h"><h3>Demander une modification</h3><span class="muted" style="font-size:13px">Validée par les RH avec un justificatif</span></div><div class="card-b"><div class="form-grid">
+    return `<form class="card" data-form="chg-req" novalidate><div class="card-h"><h3>Demander une modification</h3><span class="muted" style="font-size:13px">Validée par les gestionnaires des RH avec un justificatif</span></div><div class="card-b"><div class="form-grid">
         <div class="field"><label for="cr-field">Information</label><select id="cr-field" name="field" class="select">${Object.entries(CHANGE_FIELDS).map(([k, [l]]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
         <div class="field"><label for="cr-to">Nouvelle valeur</label><input id="cr-to" name="to" class="input" placeholder="Ex. nouvelle adresse, nouvel IBAN, Marié·e, Lyon…"></div>
         <div class="field full"><label for="cr-proof">Justificatif (facultatif pour le lieu de travail)</label><input id="cr-proof" name="proof" type="file" class="input" accept=".pdf,.jpg,.png"></div></div>
@@ -5843,7 +5843,7 @@
   MOD_FORMS['leave-rh'] = async (v) => {
     const e = emp(v.empId); if (!e) return formError('Choisissez un collaborateur.');
     const r = await recordLeave(e, v, formError, { rh: true }); if (!r) return;
-    journalAdd(e.id, 'Absence enregistrée par les RH', 'leave-rh', `${v.type} du ${fmtDateY(v.start)} au ${fmtDateY(v.end)}`);
+    journalAdd(e.id, 'Absence enregistrée par les gestionnaires des RH', 'leave-rh', `${v.type} du ${fmtDateY(v.start)} au ${fmtDateY(v.end)}`);
     ui.modal = null; toast(`${v.type} enregistré${['Maladie', 'Accident du travail', 'Congé parental'].includes(v.type) ? '' : 'e'} pour ${fullName(e)}${r.back ? ` · ${r.back} j de congés recrédités` : ''}`); commit();
   };
   // ================================================================ Temps de travail et absences (étape 7)
@@ -5934,7 +5934,7 @@
       const ij = at ? `accident du travail : pas de carence, IJSS dès le lendemain${l.accidentDate ? ` du ${fmtShort(l.accidentDate)}` : ''} ; journée de l’accident payée par l’employeur` : l.type !== 'Maladie' ? 'pas de carence' : cal > 3 ? `IJSS à partir du ${fmtShort(addDays(l.start, 3))} (3 jours de carence)` : 'Arrêt de 3 jours ou moins : pas d’IJSS (carence)';
       const span = tiers.tiers.map(([n, r]) => `${n} j à ${Math.round(r * 100)} %`).join(' puis ');
       const mt = !seniorYear ? `moins de ${plural(CONV().rules.maintien, 'mois', 'mois')} d’ancienneté : pas de maintien de salaire` : tiers.wait && cal <= tiers.wait ? `pas de maintien avant le ${tiers.wait + 1}e jour` : `maintien employeur ${tiers.wait ? `à partir du ${fmtShort(addDays(l.start, tiers.wait))}` : 'dès le 1er jour'} (${span}${CONV().kind === 'syntec' ? ', barème Syntec à vérifier' : ''})`;
-      return `<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(fullName(e))} · ${esc(l.type)} · ${fmtShort(l.start)} → ${fmtShort(l.end)} (${plural(cal, 'jour calendaire', 'jours calendaires')})</b><small>Avis d’arrêt reçu le ${fmtShort(l.receivedAt || l.start)}${late ? ' · <span class="warn-t">au-delà de 48 h</span>' : ''}${l.enteredBy ? ' · saisi par les RH' : ''} · ${ij} · ${mt}</small>
+      return `<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(fullName(e))} · ${esc(l.type)} · ${fmtShort(l.start)} → ${fmtShort(l.end)} (${plural(cal, 'jour calendaire', 'jours calendaires')})</b><small>Avis d’arrêt reçu le ${fmtShort(l.receivedAt || l.start)}${late ? ' · <span class="warn-t">au-delà de 48 h</span>' : ''}${l.enteredBy ? ' · saisi par les gestionnaires des RH' : ''} · ${ij} · ${mt}</small>
         <small>Congés pendant l’arrêt : ${at || l.type !== 'Maladie' ? 'acquis normalement (période assimilée)' : `${cpOuvrables() ? '2 jours ouvrables' : '1,67 jour ouvré'} par mois (loi du 22 avril 2024), déjà déduit du compteur`}${l.incidentId ? ' · déclaration d’accident liée (Santé)' : ''}${l.proof ? ` · justificatif : ${esc(l.proof.name)}` : ''}</small></div>
         ${l.dsnAt ? `<span class="pill ok">Attestation DSN · ${fmtShort(l.dsnAt)}</span>` : `<button type="button" class="btn ${TODAY > dsnDue ? 'bad' : 'primary'} sm" data-act="sick-dsn" data-id="${l.id}">Attestation de salaire (avant le ${fmtShort(dsnDue)})</button>`}
         <label class="sub-tog"><input type="checkbox" data-change="sick-sub" data-id="${l.id}" ${l.subrogation ? 'checked' : ''}> Subrogation</label></div>`; }).join('') : '<p class="muted" style="margin:0">Aucun arrêt enregistré.</p>'}
@@ -5977,7 +5977,7 @@
     const medByCat = {}; all.forEach((e) => { (medByCat[e.category] = medByCat[e.category] || []).push(e.salary); });
     const open = R.status === 'Ouverte', canEdit = (e) => open && (rh || e.managerId === me().id) && (!R.proposals[e.id] || R.proposals[e.id].status !== 'Validée');
     const after = db.employees.map((e) => { const p = R.proposals[e.id]; return p && p.status !== 'Refusée' ? Object.assign({}, e, { salary: e.salary * (1 + p.pct / 100) }) : e; });
-    return `<div class="card"><div class="card-h" style="flex-wrap:wrap"><div><h3>Révision salariale ${R.year}</h3><p class="hint" style="margin:2px 0 0">Effet au ${fmtDate(R.effective)} · propositions des managers avant le ${fmtDate(R.deadline)}</p></div><span class="pill ${open ? 'warn' : 'ok'}">${open ? 'Campagne ouverte' : 'Clôturée'}</span>
+    return `<div class="card"><div class="card-h" style="flex-wrap:wrap"><div><h3>Révision salariale ${R.year}</h3><p class="hint" style="margin:2px 0 0">Effet au ${fmtDate(R.effective)} · propositions du management avant le ${fmtDate(R.deadline)}</p></div><span class="pill ${open ? 'warn' : 'ok'}">${open ? 'Campagne ouverte' : 'Clôturée'}</span>
         ${rh && open ? `<button type="button" class="btn primary" data-act="raise-close">${ic('check')}Clôturer et notifier</button>` : ''}</div>
       <div class="card-b"><div class="rkpis"><div><span>Enveloppe</span><b class="num">${eur0(env)}</b><small>${String(R.budgetPct).replace('.', ',')} % de la masse salariale (${eur0(masse)})</small></div><div><span>Engagé</span><b class="num">${eur0(used)}</b><small>${env ? Math.round((used / env) * 100) : 0} % de l’enveloppe</small></div>
         <div><span>Reste</span><b class="num" style="${used > env ? 'color:var(--bad)' : ''}">${eur0(env - used)}</b><small>${used > env ? 'Enveloppe dépassée' : 'disponible'}</small></div><div><span>Propositions</span><b class="num">${Object.keys(R.proposals).length}</b><small>${Object.values(R.proposals).filter((p) => p.status === 'Validée').length} validées</small></div></div>
@@ -6024,7 +6024,7 @@
     return w.map(([e, x]) => [e, Math.min(3000, Math.round((total * x) / sum)), pres(e)]);
   }
   function viewRemu() {
-    if (ui.profile === 'manager') return `${mgrPayCard()}<p class="hint" style="margin:0">Proposez les augmentations de votre équipe dans l’enveloppe fixée par les RH. Les RH valident avant la date d’effet.</p>${raiseCampaign()}`;
+    if (ui.profile === 'manager') return `${mgrPayCard()}<p class="hint" style="margin:0">Proposez les augmentations de votre équipe dans l’enveloppe fixée par les gestionnaires des RH. Les gestionnaires des RH valident avant la date d’effet.</p>${raiseCampaign()}`;
     const R = db.raises, pend = Object.values(R.proposals).filter((p) => p.status === 'Proposée').length;
     const tabs = [['paie', 'Paie du mois'], ['revision', 'Révision salariale', pend], ['egalite', 'Égalité salariale'], ['avantages', 'Avantages et partage de la valeur']];
     if (!tabs.some((t) => t[0] === ui.payTab)) ui.payTab = 'paie';
@@ -6062,7 +6062,7 @@
     'ts-ko'(d) { const t = db.timesheets.find((x) => x.id === d.id); t.status = 'Refusée'; notify(t.empId, `Vos heures de la semaine du ${fmtShort(t.week)} sont à corriger.`); toast('Feuille de temps renvoyée au salarié'); commit(); },
     'sick-dsn'(d) { const l = db.leaves.find((x) => x.id === d.id); l.dsnAt = TODAY; tickJourney(l.empId, 6, 2); toast('Attestation de salaire transmise via la DSN'); commit(); },
     'raise-ok'(d) { db.raises.proposals[d.id].status = 'Validée'; toast('Augmentation validée'); commit(); },
-    'raise-ko'(d) { db.raises.proposals[d.id].status = 'Refusée'; notify(db.raises.proposals[d.id].by, `Augmentation proposée pour ${fullName(emp(d.id))} refusée par les RH.`); toast('Proposition refusée'); commit(); },
+    'raise-ko'(d) { db.raises.proposals[d.id].status = 'Refusée'; notify(db.raises.proposals[d.id].by, `Augmentation proposée pour ${fullName(emp(d.id))} refusée par les gestionnaires des RH.`); toast('Proposition refusée'); commit(); },
     'raise-close'() {
       const R = db.raises; let n = 0;
       Object.entries(R.proposals).forEach(([id, p]) => { const e = emp(id); if (!e) return;
@@ -6108,7 +6108,7 @@
       db.changeReqs = db.changeReqs || [];
       // L'IBAN est gardé en entier (il servira au virement du salaire) ; seul l'affichage le masque.
       db.changeReqs.push({ id: uid('cr'), empId: e.id, field: v.field, label, from: e[v.field] || '', to: v.field === 'iban' ? to.replace(/\s/g, '').toUpperCase() : to, proof: file ? file.name : '', proofFile, status: 'En attente', createdAt: TODAY });
-      notify('e1', `${fullName(e)} demande une modification : ${label.toLowerCase()}.`); toast('Demande envoyée aux RH'); form.reset(); commit();
+      notify('e1', `${fullName(e)} demande une modification : ${label.toLowerCase()}.`); toast('Demande envoyée aux gestionnaires des RH'); form.reset(); commit();
     },
     'chg-ko'(v) { const r = db.changeReqs.find((x) => x.id === ui.modal.id); if (!v.reason.trim()) return formError('Indiquez le motif du refus.'); Object.assign(r, { status: 'Refusée', reason: v.reason.trim(), decidedAt: TODAY }); notify(r.empId, `Votre demande (${r.label.toLowerCase()}) est refusée : ${v.reason.trim()}`); ui.modal = null; toast('Demande refusée'); commit(); },
   });
@@ -6158,13 +6158,13 @@
       return `<div class="box b${pot}${perf}"><b>${BOX[`${pot}-${perf}`]}</b>${list.map((e) => `<button type="button" class="box-p" data-act="open-emp" data-id="${e.id}" title="${esc(e.title)}">${avatar(e, 'sm')}<span>${esc(e.firstName)}</span></button>`).join('')}</div>`; };
     const sel = (e, k, list, v) => `<select class="select" data-change="talent" data-id="${e.id}" data-k="${k}" aria-label="${k}">${list.map(([x, l]) => `<option value="${x}" ${String(x) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
     return `<div class="ninebox-wrap"><div class="ninebox-axis">Potentiel →</div><div class="ninebox">${[3, 2, 1].map((pot) => [1, 2, 3].map((perf) => cell(pot, perf)).join('')).join('')}</div><div class="ninebox-x">Performance (entretien annuel) →</div></div>
-      ${card('Positionnement', '<span class="muted" style="font-size:13px">confidentiel · RH et managers</span>', `<div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Performance</th><th>Potentiel</th><th>Risque de départ</th></tr></thead><tbody>
+      ${card('Positionnement', '<span class="muted" style="font-size:13px">confidentiel · gestionnaires des RH et management</span>', `<div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Performance</th><th>Potentiel</th><th>Risque de départ</th></tr></thead><tbody>
         ${people.map((e) => { const t = talentOf(e); return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small></div></div></td><td>${sel(e, 'perf', [[1, 'En dessous des attentes'], [2, 'Conforme'], [3, 'Au-delà des attentes']], t.perf)}${t.fromReview ? '<small class="hint" style="display:block">d’après l’entretien annuel</small>' : ''}</td>
           <td>${sel(e, 'pot', [[1, 'Limité'], [2, 'Évolutif'], [3, 'Élevé']], t.pot)}</td><td>${sel(e, 'risk', RISKS.map((r) => [r, r]), t.risk)}</td></tr>`; }).join('')}</tbody></table></div>`)}`;
   }
   function successionView() {
     const keys = db.employees.filter((e) => isEmployed(e) && !e.exit && db.employees.some((x) => x.managerId === e.id && x.stage < 15));
-    return `<p class="hint" style="margin:0">Postes clés : la direction et les managers. Pour chacun, un successeur identifié et sa maturité, croisés avec le risque de départ du titulaire.</p>
+    return `<p class="hint" style="margin:0">Postes clés : la direction et le management. Pour chacun, un successeur identifié et sa maturité, croisés avec le risque de départ du titulaire.</p>
       ${card('Plan de succession', `<span class="muted num">${keys.filter((e) => !(db.succession[e.id] || {}).succ).length} sans successeur</span>`, `<div class="table-wrap"><table><thead><tr><th>Poste clé</th><th>Titulaire</th><th>Risque de départ</th><th>Successeur</th><th>Maturité</th></tr></thead><tbody>
         ${keys.map((e) => { const s = (db.succession = db.succession || {})[e.id] || {}, cands = employed().filter((x) => x.id !== e.id && !x.exit), risk = talentOf(e).risk;
           return `<tr><td><b>${esc(e.title)}</b><small class="hint" style="display:block">${esc(e.dept)}</small></td><td><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div></td><td><span class="pill ${risk === 'Élevé' ? 'bad' : risk === 'Moyen' ? 'warn' : 'ok'}">${risk}</span></td>
@@ -6474,7 +6474,7 @@
         if (ind.legal || ind.conv || ind.retraite) L.push(`Salaire de référence ${eur0(ind.ref.ref)} : le plus favorable entre la moyenne des 12 derniers mois (${eur0(ind.ref.r12)}) et des 3 derniers mois (${eur0(ind.ref.r3)}), primes comprises (art. R1234-4) · ancienneté de ${num1(ind.years)} ans à la fin du contrat`);
         if (isRC(r) || r === 'Mise à la retraite') L.push('Contribution patronale spécifique de 30 % sur la part exonérée de l’indemnité (à vérifier), reprise sur le bulletin');
         html += sec('Chiffrage de la fin de contrat', row('Indemnités', L.join('<br>'), d.calcOk ? ok(d.calcOk, 'Validé') : b('dep-set', 'Valider le chiffrage', 'data-k="calcOk"')));
-      } else html += sec('Chiffrage de la fin de contrat', row('Indemnités', 'Chiffrées par les RH ; les montants ne sont pas communiqués au manager.', d.calcOk ? ok(d.calcOk, 'Validé') : '<span class="pill neutral">En cours</span>'));
+      } else html += sec('Chiffrage de la fin de contrat', row('Indemnités', 'Chiffrées par les gestionnaires des RH ; les montants ne sont pas communiqués au manager.', d.calcOk ? ok(d.calcOk, 'Validé') : '<span class="pill neutral">En cours</span>'));
       const docs = exitDocs(e);
       // Un document par ligne : chacun a son propre état et son bouton.
       const DOC_SUB = { certificat: `Remis à la fin du contrat${x.lastDay ? `, le ${fmtDateY(x.lastDay)}` : ''}, avec les emplois occupés (art. L1234-19)`, solde: 'Remis à la fin du contrat, signé par le salarié (contestable pendant 6 mois)', 'france-travail': 'À établir par le signalement DSN de fin de contrat (net-entreprises.fr), puis copie remise au salarié' };
@@ -6491,7 +6491,7 @@
           <div class="field"><label for="xi-n">Recommanderiez-vous ${esc(COMPANY.nom)} ? (0 à 10)</label><input id="xi-n" name="enps" type="number" min="0" max="10" class="input num" value="7"></div>
           <div class="field"><label for="xi-g">Ce qui a bien fonctionné</label><input id="xi-g" name="good" class="input"></div><div class="field"><label for="xi-i">Ce qui serait à améliorer</label><input id="xi-i" name="improve" class="input"></div>
           <div class="field"><label for="xi-b">Prêt·e à revenir un jour ?</label><select id="xi-b" name="back" class="select"><option>Oui</option><option>Peut-être</option><option>Non</option></select></div></div>
-          <div class="toolbar" style="margin-top:10px"><span class="hint">Mené par les RH plutôt que par le manager, pour des réponses franches. Le salarié peut aussi remplir le questionnaire depuis son espace.</span><button class="btn primary sm" style="margin-left:auto">Enregistrer</button></div></form>` : row('Entretien de départ', 'Mené par les RH', '<span class="pill neutral">À venir</span>'));
+          <div class="toolbar" style="margin-top:10px"><span class="hint">Mené par les gestionnaires des RH plutôt que par le manager, pour des réponses franches. Le salarié peut aussi remplir le questionnaire depuis son espace.</span><button class="btn primary sm" style="margin-left:auto">Enregistrer</button></div></form>` : row('Entretien de départ', 'Mené par les gestionnaires des RH', '<span class="pill neutral">À venir</span>'));
       // Successeur : recherche parmi tout l'effectif présent (hors personnes elles-mêmes sur le départ), ou « aucun successeur ».
       const can = rh || ui.profile === 'manager', none = d.successor === 'none', succ = !none && d.successor ? emp(d.successor) : null;
       const cands = employed().filter((y) => y.id !== e.id && !y.exit && y.stage >= 4).sort((a, z) => (z.dept === e.dept) - (a.dept === e.dept) || a.lastName.localeCompare(z.lastName, 'fr'));
@@ -6514,12 +6514,12 @@
     }
     if (i === 15) {
       const purgeOn = addYears(out, 5), alumniEnd = addYears(out, 1);
-      html += sec('Archivage', row('Dossier du salarié', d.archivedAt ? `Accès restreint aux RH : le manager ne voit plus la fiche. L’ancien salarié garde ses bulletins et documents jusqu’au ${fmtDateY(alumniEnd)}.` : 'Après archivage, seuls les RH accèdent au dossier ; le manager ne le voit plus', d.archivedAt ? ok(d.archivedAt, 'Archivé') : b('dep-set', 'Archiver le dossier', 'data-k="archivedAt"', 'primary')));
+      html += sec('Archivage', row('Dossier du salarié', d.archivedAt ? `Accès restreint aux gestionnaires des RH : le manager ne voit plus la fiche. L’ancien salarié garde ses bulletins et documents jusqu’au ${fmtDateY(alumniEnd)}.` : 'Après archivage, seuls les gestionnaires des RH accèdent au dossier ; le manager ne le voit plus', d.archivedAt ? ok(d.archivedAt, 'Archivé') : b('dep-set', 'Archiver le dossier', 'data-k="archivedAt"', 'primary')));
       html += sec('Durées de conservation', [['Contrat, avenants, dossier du personnel', 5, 'prescription des actions liées au contrat'], ['Copie des bulletins de paie', 5, 'art. L3243-4'], ['Registre unique du personnel (mentions)', 5, 'art. R1221-26'], ['Déclarations d’accident du travail', 10, 'conservées après la purge']].map(([l, y, ref]) => row(l, `${y} ans après le départ · ${ref}`, `<span class="pill neutral">Jusqu’au ${fmtDateY(addYears(out, y))}</span>`)).join('')
         + row('Application des durées', d.purgedAt ? `Données personnelles et documents supprimés le ${fmtDateY(d.purgedAt)} ; les mentions du registre et les accidents du travail sont gardés.` : d.retentionOk ? `Suppression automatique le ${fmtDateY(purgeOn)} : coordonnées, contact d’urgence, IBAN, absences et documents ; accidents du travail gardés 10 ans.` : 'Programmez la suppression automatique à l’échéance de 5 ans. Le registre des traitements RGPD se tient hors de Teamora (non géré par la démo).',
           d.purgedAt ? ok(d.purgedAt, 'Supprimé') : d.retentionOk ? ok(d.retentionOk, 'Programmé') : b('dep-set', 'Programmer', 'data-k="retentionOk"')));
       html += sec('Demandes après le départ', d.requests.length ? d.requests.map((r) => row(esc(r.label), `Reçue le ${fmtDateY(r.date)}${r.note ? ` · ${esc(r.note)}` : ''}`, r.status === 'Traitée' ? ok(r.doneAt, 'Envoyée') : r.kind === 'autre' ? b('dep-request-done', 'Marquer traitée', `data-r="${r.id}"`) : b('dep-request', 'Générer et envoyer', `data-r="${r.id}"`, 'primary'))).join('') : `<p class="muted" style="margin:0">Aucune demande. L’ancien salarié peut en faire depuis son espace jusqu’au ${fmtDateY(alumniEnd)}.</p>`);
-      if (x.reason === 'Licenciement économique') html += sec('Priorité de réembauche', row(`Jusqu’au ${fmtDateY(addYears(out, 1))}`, 'Si l’ancien salarié l’a demandée, tout poste compatible avec sa qualification doit lui être proposé (art. L1233-45). Les RH sont prévenues à l’ouverture d’une offre.', d.prioriteAsked ? ok(d.prioriteAsked, 'Demandée') : b('dep-set', 'Demandée par le salarié', 'data-k="prioriteAsked"')));
+      if (x.reason === 'Licenciement économique') html += sec('Priorité de réembauche', row(`Jusqu’au ${fmtDateY(addYears(out, 1))}`, 'Si l’ancien salarié l’a demandée, tout poste compatible avec sa qualification doit lui être proposé (art. L1233-45). Les gestionnaires des RH sont prévenus à l’ouverture d’une offre.', d.prioriteAsked ? ok(d.prioriteAsked, 'Demandée') : b('dep-set', 'Demandée par le salarié', 'data-k="prioriteAsked"')));
       const xi = d.exitInterview;
       html += sec('Lien avec l’ancien collaborateur', row('Réembauche possible', `${xi ? `Prêt·e à revenir : ${esc(xi.back)} · ` : ''}Les « salariés boomerang » connaissent déjà la culture de l’entreprise.`, rh ? `<select class="select" data-change="dep-rehire" data-id="${e.id}" aria-label="Réembauche"><option value="">À décider</option>${['Oui', 'Non'].map((y) => `<option ${d.rehire === y ? 'selected' : ''}>${y}</option>`).join('')}</select>` : '')
         + (d.rehire === 'Oui' && rh ? row('Proposer une offre ouverte', 'Avec son accord seulement : il est ajouté aux candidats (source « Ancien salarié ») avec l’e-mail personnel qu’il vous a donné', `<select class="select" data-change="boomerang" data-id="${e.id}" aria-label="Offre"><option value="">Choisir une offre…</option>${db.jobs.filter((j) => j.status === 'Ouverte').map((j) => `<option value="${j.id}">${esc(j.title)}</option>`).join('')}</select>`) : ''));
@@ -6540,7 +6540,7 @@
       const docs = db.documents.filter((y) => y.empId === e.id && docVisible(y)).sort((a, b) => b.date.localeCompare(a.date));
       return card('Ton espace d’ancien salarié', `<span class="muted" style="font-size:13px">${open ? `ouvert jusqu’au ${fmtDateY(until)}` : 'accès terminé'}</span>`, `<div class="card-b"><p style="margin:0">Ton contrat a pris fin le ${fmtDateY(x.lastDay)}. ${open ? 'Tu gardes l’accès à tes bulletins de paie et à tes documents ; le reste de ton espace est fermé.' : `Ton accès est terminé : pour un document, écris à ${esc(fullName(rh))} (${esc(rh.email)}).`}</p>
         ${open ? `<div class="req-list" style="margin-top:12px">${docs.map((y) => `<div class="req"><span class="doc-ic">${ic('file')}</span><div class="what"><b>${esc(y.title)}</b><small>${fmtDateY(y.date)}</small></div><button type="button" class="btn ghost sm" data-act="doc-view" data-id="${y.id}">Consulter</button></div>`).join('') || '<div class="empty">Aucun document.</div>'}</div>` : ''}</div>`)
-        + (open ? `<form class="card" data-form="alumni-req" novalidate><div class="card-h"><h3>Demander un document aux RH</h3></div><div class="card-b"><div class="form-grid">
+        + (open ? `<form class="card" data-form="alumni-req" novalidate><div class="card-h"><h3>Demander un document aux gestionnaires des RH</h3></div><div class="card-b"><div class="form-grid">
           <div class="field"><label for="al-k">Document</label><select id="al-k" name="kind" class="select"><option value="attestation">Attestation employeur</option><option value="certificat">Duplicata du certificat de travail</option><option value="autre">Autre demande</option></select></div>
           <div class="field"><label for="al-n">Précisions (facultatif)</label><input id="al-n" name="note" class="input" maxlength="200"></div></div>
           <div class="toolbar" style="margin-top:12px"><span class="err" id="al-err"></span><button class="btn primary" style="margin-left:auto">Envoyer la demande</button></div>
@@ -6554,12 +6554,12 @@
       li(`Documents de fin de contrat remis le dernier jour : certificat de travail, reçu pour solde de tout compte, attestation France Travail${given ? ' (disponibles dans tes documents)' : ''}`, given),
       li(`Mutuelle et prévoyance : maintien gratuit pendant ${portabilityMonths(e)} mois si tu es indemnisé·e par France Travail (portabilité)`, !!d.portability)].join('');
     const xi = d.exitInterview;
-    const quiz = xi ? `<p class="muted" style="margin:0">Merci : ton questionnaire de départ est enregistré${xi.by === 'salarie' ? '' : ' (entretien mené avec les RH)'}.</p>` : `<form data-form="exit-quiz" novalidate><div class="form-grid">
+    const quiz = xi ? `<p class="muted" style="margin:0">Merci : ton questionnaire de départ est enregistré${xi.by === 'salarie' ? '' : ' (entretien mené avec les gestionnaires des RH)'}.</p>` : `<form data-form="exit-quiz" novalidate><div class="form-grid">
         <div class="field"><label for="xq-r">Principale raison de ton départ</label><select id="xq-r" name="reason" class="select">${EXIT_REASONS.map((r) => `<option>${r}</option>`).join('')}</select></div>
         <div class="field"><label for="xq-n">Recommanderais-tu ${esc(COMPANY.nom)} ? (0 à 10)</label><input id="xq-n" name="enps" type="number" min="0" max="10" class="input num" value="7"></div>
         <div class="field"><label for="xq-g">Ce qui a bien fonctionné</label><input id="xq-g" name="good" class="input" maxlength="300"></div><div class="field"><label for="xq-i">Ce qui serait à améliorer</label><input id="xq-i" name="improve" class="input" maxlength="300"></div>
         <div class="field"><label for="xq-b">Prêt·e à revenir un jour ?</label><select id="xq-b" name="back" class="select"><option>Oui</option><option>Peut-être</option><option>Non</option></select></div></div>
-        <div class="toolbar" style="margin-top:10px"><span class="hint">Facultatif. Seuls les RH lisent tes réponses, pas ton manager.</span><button class="btn primary sm" style="margin-left:auto">Envoyer</button></div></form>`;
+        <div class="toolbar" style="margin-top:10px"><span class="hint">Facultatif. Seuls les gestionnaires des RH lisent tes réponses, pas ton manager.</span><button class="btn primary sm" style="margin-left:auto">Envoyer</button></div></form>`;
     return card('Ton départ', '', `<div class="card-b">${facts}<h4 class="sub" style="margin-top:16px">Ce qui t’attend</h4><div class="steps">${steps}</div>
       <p class="hint" style="margin:12px 0 0">Une question ? Ton contact RH : ${esc(fullName(rh))} · ${esc(rh.email)}${docs.length ? '' : ''}.</p></div>`) + card('Questionnaire de départ', '', `<div class="card-b">${quiz}</div>`);
   }
@@ -6662,15 +6662,15 @@
     'dep-transfer'(d) { offb(emp(d.id)).transfer[d.k] = TODAY; toast('Passation enregistrée'); commit(); },
     'dep-return'(d) { offb(emp(d.id)).returned[d.k] = TODAY; toast('Matériel restitué'); commit(); },
     'dep-request'(d) { const e = emp(d.id), r = offb(e).requests.find((x) => x.id === d.r), doc = addDoc(e.id, r.kind, { reqId: r.id }); ui.modal = { type: 'doc-edit', id: doc.id }; toast('Brouillon créé : relisez-le puis remettez-le'); commit(); },
-    'dep-request-done'(d) { const r = offb(emp(d.id)).requests.find((x) => x.id === d.r); Object.assign(r, { status: 'Traitée', doneAt: TODAY }); notify(d.id, `Ta demande « ${r.label} » a été traitée par les RH.`); toast('Demande traitée'); commit(); },
-    // Manager : signaler aux RH une démission reçue ; les RH lancent ensuite le départ.
+    'dep-request-done'(d) { const r = offb(emp(d.id)).requests.find((x) => x.id === d.r); Object.assign(r, { status: 'Traitée', doneAt: TODAY }); notify(d.id, `Ta demande « ${r.label} » a été traitée par les gestionnaires des RH.`); toast('Demande traitée'); commit(); },
+    // Manager : signaler aux gestionnaires des RH une démission reçue ; les gestionnaires des RH lancent ensuite le départ.
     'dep-signal'(d) { const e = emp(d.id);
-      confirmAct({ title: `Signaler la démission de ${esc(fullName(e))} ?`, act: 'dep-signal', trace: 'Démission signalée par le manager', empId: e.id, confirm: 'Prévenir les RH',
-        text: '<p>Les RH reçoivent la date de réception et lancent le départ (préavis, documents, restitution). Transmettez-leur la lettre ou l’e-mail de démission.</p>',
+      confirmAct({ title: `Signaler la démission de ${esc(fullName(e))} ?`, act: 'dep-signal', trace: 'Démission signalée par le manager', empId: e.id, confirm: 'Prévenir les gestionnaires des RH',
+        text: '<p>Les gestionnaires des RH reçoivent la date de réception et lancent le départ (préavis, documents, restitution). Transmettez-leur la lettre ou l’e-mail de démission.</p>',
         fields: [{ name: 'date', label: 'Démission reçue le', type: 'date', required: true, value: TODAY, guard: { notAfter: { date: TODAY, label: 'aujourd’hui' } } }] },
-      (v) => { notify('e1', `${fullName(me())} signale la démission de ${fullName(e)}, reçue le ${fmtDateY(v.date)} : départ à lancer.`); toast('Les RH sont prévenues'); commit(); }); },
+      (v) => { notify('e1', `${fullName(me())} signale la démission de ${fullName(e)}, reçue le ${fmtDateY(v.date)} : départ à lancer.`); toast('Les gestionnaires des RH sont prévenus'); commit(); }); },
     liaison(d) { const x = (d.k === 'leave' ? db.leaves : db.incidents).find((y) => y.id === d.id); x.liaison = TODAY; notify(x.empId, 'Un rendez-vous de liaison vous est proposé pour préparer votre retour, avec le service de santé au travail.'); toast('Rendez-vous de liaison proposé'); commit(); },
-    // Visite de reprise : la RH choisit la date ; la limite des 8 jours après la reprise est rappelée et un retard signalé.
+    // Visite de reprise : le gestionnaire des RH choisit la date ; la limite des 8 jours après la reprise est rappelée et un retard signalé.
     reprise(d) { const due = addDays(d.d, 8), sug = d.d > TODAY ? addDays(d.d, 3) : addDays(TODAY, 2); ui.modal = { type: 'visit', id: d.id, kind: 'Visite de reprise', ret: d.d, due, date: sug }; render(); },
     'inapt-done'(d) { const v = db.visits.find((x) => x.id === d.id); confirmAct({ title: 'Inaptitude traitée', act: 'inapt-done', empId: v.empId, trace: 'Suite de l’avis d’inaptitude', confirm: 'Enregistrer',
       fields: [{ name: 'how', label: 'Issue', type: 'select', options: ['Reclassement accepté', 'Aménagement du poste', 'Licenciement pour inaptitude (voir Départs)', 'Reprise du paiement du salaire'] }] }, (x) => { v.inapt.done = { date: TODAY, how: x.how }; toast('Suite de l’inaptitude enregistrée'); commit(); }); },
@@ -6732,11 +6732,11 @@
   });
   Object.assign(MOD_FORMS, {
     'exit-int'(v, form) { const e = emp(form.dataset.id); offb(e).exitInterview = { date: TODAY, reason: v.reason, enps: Math.max(0, Math.min(10, Number(v.enps) || 0)), good: v.good.trim(), improve: v.improve.trim(), back: v.back, by: 'rh' }; toast('Entretien de départ enregistré'); commit(); },
-    // Questionnaire de départ rempli par le salarié lui-même (lu par les RH seulement).
-    'exit-quiz'(v) { const e = me(); offb(e).exitInterview = { date: TODAY, reason: v.reason, enps: Math.max(0, Math.min(10, Number(v.enps) || 0)), good: (v.good || '').trim(), improve: (v.improve || '').trim(), back: v.back, by: 'salarie' }; notify('e1', `${fullName(e)} a rempli son questionnaire de départ.`); toast('Merci, ton questionnaire est envoyé aux RH'); commit(); },
+    // Questionnaire de départ rempli par le salarié lui-même (lu par les gestionnaires des RH seulement).
+    'exit-quiz'(v) { const e = me(); offb(e).exitInterview = { date: TODAY, reason: v.reason, enps: Math.max(0, Math.min(10, Number(v.enps) || 0)), good: (v.good || '').trim(), improve: (v.improve || '').trim(), back: v.back, by: 'salarie' }; notify('e1', `${fullName(e)} a rempli son questionnaire de départ.`); toast('Merci, ton questionnaire est envoyé aux gestionnaires des RH'); commit(); },
     // Demande d'un ancien salarié depuis son espace.
     'alumni-req'(v) { const e = me(), label = { attestation: 'Attestation employeur', certificat: 'Duplicata du certificat de travail', autre: 'Autre demande' }[v.kind] || 'Demande';
-      offb(e).requests.push({ id: uid('pr'), kind: v.kind, label, date: TODAY, status: 'En attente', note: (v.note || '').trim() }); notify('e1', `${fullName(e)} (ancien salarié) demande : ${label.toLowerCase()}.`); toast('Demande envoyée aux RH'); commit(); },
+      offb(e).requests.push({ id: uid('pr'), kind: v.kind, label, date: TODAY, status: 'En attente', note: (v.note || '').trim() }); notify('e1', `${fullName(e)} (ancien salarié) demande : ${label.toLowerCase()}.`); toast('Demande envoyée aux gestionnaires des RH'); commit(); },
     exit(v) {
       const e = emp(ui.modal.id), x = { reason: v.reason, lastDay: v.lastDay, notifiedAt: v.notifiedAt || TODAY, dispense: v.dispense || '', workedUntil: v.dispense === 'employeur' && v.workedUntil && v.workedUntil < v.lastDay ? v.workedUntil : '', cddExclusion: v.cddExclusion || '' };
       if (!v.lastDay) return formError('Indiquez la date de fin du contrat.');
@@ -6851,8 +6851,8 @@
   }
 
   // ---------------------------------------------------------------- Documents RH et modèles
-  // Chaque document naît d'un modèle rédigé par les RH : texte libre, champs automatiques {{clé}} remplis depuis le dossier,
-  // champs à saisir {{saisie:id}} complétés à la création. Un document reste modifiable par les RH tant qu'il n'est ni remis ni signé.
+  // Chaque document naît d'un modèle rédigé par les gestionnaires des RH : texte libre, champs automatiques {{clé}} remplis depuis le dossier,
+  // champs à saisir {{saisie:id}} complétés à la création. Un document reste modifiable par les gestionnaires des RH tant qu'il n'est ni remis ni signé.
   const DOC_LABEL = { contrat: 'Contrat de travail', info7: 'Informations essentielles sur la relation de travail', info1m: 'Informations complémentaires sur la relation de travail', essai: 'Confirmation de fin de période d’essai', attestation: 'Attestation employeur', avenant: 'Avenant au contrat', certificat: 'Certificat de travail', solde: 'Reçu pour solde de tout compte', 'france-travail': 'Attestation employeur France Travail',
     // Arrivée : courriers de la période d'essai et copie de la DPAE.
     'rupture-essai': 'Lettre de rupture de la période d’essai', 'renouv-essai': 'Accord de renouvellement de la période d’essai', dpae: 'Copie de la déclaration préalable à l’embauche',
@@ -6919,7 +6919,7 @@
       required: [['salarie', 'Identité des parties'], ['lieu', 'Lieu de travail'], ['poste', 'Emploi'], ['date_entree', 'Date d’embauche'], ['essai', 'Période d’essai'], ['salaire', 'Rémunération']] },
     info1m: { label: 'Informations complémentaires (1 mois)', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.info1m,
       body: paras('Informations complémentaires relatives à votre relation de travail (art. R1221-35 du Code du travail).',
-        '<ul><li>Congés payés : 2,5 jours ouvrables par mois de travail effectif, période de référence du 1er juin au 31 mai</li><li>Rupture du contrat : procédure et préavis prévus par le Code du travail et la convention collective</li><li>Formation : droit à la formation, compte personnel de formation et entretien de parcours professionnel</li><li>Protection sociale : Urssaf, retraite complémentaire Agirc-Arrco, mutuelle et prévoyance collectives</li><li>Convention collective : {{convention}}, consultable auprès des RH</li></ul>') + SIG,
+        '<ul><li>Congés payés : 2,5 jours ouvrables par mois de travail effectif, période de référence du 1er juin au 31 mai</li><li>Rupture du contrat : procédure et préavis prévus par le Code du travail et la convention collective</li><li>Formation : droit à la formation, compte personnel de formation et entretien de parcours professionnel</li><li>Protection sociale : Urssaf, retraite complémentaire Agirc-Arrco, mutuelle et prévoyance collectives</li><li>Convention collective : {{convention}}, consultable auprès des gestionnaires des RH</li></ul>') + SIG,
       required: [['convention', 'Convention collective']] },
     essai: { label: 'Confirmation de fin de période d’essai', group: 'Documents salariés', kind: 'doc', title: DOC_LABEL.essai,
       body: paras('{{salarie}},', 'Nous avons le plaisir de vous confirmer que votre période d’essai au poste de {{poste}} a pris fin avec succès. Votre contrat de travail se poursuit donc de manière définitive.', 'Nous vous remercions pour votre engagement depuis votre arrivée le {{date_entree}}.') + SIG, required: [['salarie', 'Destinataire']] },
@@ -7031,7 +7031,7 @@
       body: paras('Bonjour {{candidat_prenom}},', 'Votre profil nous a marqués lors d’un précédent recrutement. Le poste de {{offre}} pourrait vous intéresser : seriez-vous disponible pour en parler ?', 'L’équipe RH de {{entreprise}}') },
   };
   const TPL_GROUPS = ['Documents salariés', 'Courriers de sortie', 'Courriers aux candidats'];
-  // Modèle en vigueur : version enregistrée par les RH, sinon le modèle d'origine.
+  // Modèle en vigueur : version enregistrée par les gestionnaires des RH, sinon le modèle d'origine.
   function tplOf(key) {
     const base = DEFAULT_TPL[key], own = (db.templates || {})[key];
     return Object.assign({ fields: [], required: [], v: 1, versions: [] }, base, own ? { body: own.body, subject: own.subject ?? base.subject, fields: own.fields, v: own.v, versions: own.versions, title: own.title || base.title } : {});
@@ -7155,9 +7155,9 @@
   }
   const docBtn = (d, label = 'Voir') => (d ? (ui.profile === 'rh' && !docLocked(d) ? `<button type="button" class="btn ${d.status === 'Brouillon' ? 'primary' : 'ghost'} sm" data-act="doc-edit" data-id="${d.id}">${ic('edit')}${d.status === 'Brouillon' ? 'Relire et remettre' : 'Modifier'}</button>` : `<button type="button" class="btn ghost sm" data-act="doc-view" data-id="${d.id}">${label}</button>`) : '');
   MODALS.doc = (m, shell) => { const d = db.documents.find((x) => x.id === m.id);
-    return shell(esc(d.title), `<div class="modal-b"><article class="letter locked">${docBody(d)}</article>${d.issuedAt || d.signedAt ? `<p class="hint" style="margin:10px 0 0">${d.status === 'Signé' ? `${d.signature ? `Signé à la main par ${esc(d.signature.name)}` : 'Signé'} le ${fmtDate(d.signedAt || d.issuedAt)}` : `${d.status === 'Envoyé' ? 'Envoyé pour signature' : d.status === 'Annulé' ? 'Version annulée, envoyée' : 'Remis'} le ${fmtDate(d.issuedAt)}`}${d.tplV ? ` · modèle version ${d.tplV}` : ''} · ${docLocked(d) ? 'document figé' : 'encore modifiable par les RH'}</p>` : ''}</div>`,
+    return shell(esc(d.title), `<div class="modal-b"><article class="letter locked">${docBody(d)}</article>${d.issuedAt || d.signedAt ? `<p class="hint" style="margin:10px 0 0">${d.status === 'Signé' ? `${d.signature ? `Signé à la main par ${esc(d.signature.name)}` : 'Signé'} le ${fmtDate(d.signedAt || d.issuedAt)}` : `${d.status === 'Envoyé' ? 'Envoyé pour signature' : d.status === 'Annulé' ? 'Version annulée, envoyée' : 'Remis'} le ${fmtDate(d.issuedAt)}`}${d.tplV ? ` · modèle version ${d.tplV}` : ''} · ${docLocked(d) ? 'document figé' : 'encore modifiable par les gestionnaires des RH'}</p>` : ''}</div>`,
       `<div class="modal-f">${ui.profile === 'rh' && !docLocked(d) ? `<button type="button" class="btn ghost" data-act="doc-edit" data-id="${d.id}">${ic('edit')}Modifier</button>` : ''}${d.status !== 'Brouillon' ? `<button type="button" class="btn ghost" data-act="doc-download" data-id="${d.id}">${ic('file')}Télécharger le PDF</button>` : ''}<button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>`, true); };
-  // Édition d'un document par les RH : champs à compléter en haut, texte librement modifiable en dessous.
+  // Édition d'un document par les gestionnaires des RH : champs à compléter en haut, texte librement modifiable en dessous.
   MODALS['doc-edit'] = (m, shell, ...rest) => {
     if (docLocked(db.documents.find((x) => x.id === m.id))) return MODALS.doc(m, shell, ...rest);
     const d = db.documents.find((x) => x.id === m.id), e = emp(d.empId), div = document.createElement('div'); ensureDocHtml(d); div.innerHTML = d.html;
@@ -7165,7 +7165,7 @@
     const fields = marks.map((x) => { const val = x.textContent.trim() === `[${x.dataset.l}]` ? '' : x.textContent.trim();
       return `<div class="field"><label for="df-${esc(x.dataset.f)}">${esc(x.dataset.l)}</label><input id="df-${esc(x.dataset.f)}" class="input" value="${esc(val)}" data-docf="${esc(x.dataset.f)}" placeholder="À compléter"></div>`; }).join('');
     const issue = d.kind === 'contrat' ? (d.status === 'Envoyé' ? '' : 'Signer pour l’employeur et envoyer') : d.kind === 'avenant' && d.change ? (d.status === 'Envoyé' ? '' : 'Envoyer au salarié pour signature') : 'Valider et remettre au salarié';
-    return shell(`${esc(d.title)} · ${esc(fullName(e))}`, `<div class="modal-b"><p class="hint" style="margin:0 0 12px">${d.status === 'Envoyé' ? 'Envoyé pour signature : vous pouvez encore le modifier tant que le salarié ne l’a pas signé ; il sera prévenu de la mise à jour.' : 'Brouillon visible des RH seulement. Complétez les zones jaunes et retouchez le texte si besoin ; une fois remis ou signé, le document ne pourra plus être modifié.'}</p>
+    return shell(`${esc(d.title)} · ${esc(fullName(e))}`, `<div class="modal-b"><p class="hint" style="margin:0 0 12px">${d.status === 'Envoyé' ? 'Envoyé pour signature : vous pouvez encore le modifier tant que le salarié ne l’a pas signé ; il sera prévenu de la mise à jour.' : 'Brouillon visible des gestionnaires des RH seulement. Complétez les zones jaunes et retouchez le texte si besoin ; une fois remis ou signé, le document ne pourra plus être modifié.'}</p>
       ${fields ? `<div class="form-grid doc-fields">${fields}</div>` : ''}<article class="letter doc-ed"><header><b>${COMPANY.entreprise}</b><span>${COMPANY.entreprise_adresse}</span></header><h2>${esc(d.docTitle || d.title)}</h2><div id="doc-ed" contenteditable="true" spellcheck="true">${d.html || ''}</div></article><p class="err" id="m-err" aria-live="polite">${m.err ? esc(m.err) : ''}</p></div>`,
       `<div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="button" class="btn ghost" data-act="doc-save" data-id="${d.id}">Enregistrer</button>${issue ? `<button type="button" class="btn primary" data-act="doc-issue" data-id="${d.id}">${issue}</button>` : ''}</div>`, true);
   };
@@ -7210,7 +7210,7 @@
       () => { signAvenant(doc, 'papier'); toast('Signature enregistrée'); commit(); }); },
 
     'doc-edit'(d) { const doc = db.documents.find((x) => x.id === d.id); if (doc && docLocked(doc)) { ui.modal = { type: 'doc', id: doc.id }; toast(doc.status === 'Signé' ? 'Document signé : il ne peut plus être modifié' : 'Document remis : il ne peut plus être modifié', 'info'); render(); return; } ui.modal = { type: 'doc-edit', id: d.id }; render(); },
-    'doc-save'(d) { const doc = db.documents.find((x) => x.id === d.id); if (docLocked(doc)) { ui.modal = { type: 'doc', id: doc.id }; render(); return; } saveDocEditor(doc); if (doc.status === 'Envoyé') notify(doc.empId, `Votre ${doc.title.toLowerCase()} a été mis à jour par les RH : relisez-le avant de signer.`); ui.modal = null; toast('Document enregistré'); commit(); },
+    'doc-save'(d) { const doc = db.documents.find((x) => x.id === d.id); if (docLocked(doc)) { ui.modal = { type: 'doc', id: doc.id }; render(); return; } saveDocEditor(doc); if (doc.status === 'Envoyé') notify(doc.empId, `Votre ${doc.title.toLowerCase()} a été mis à jour par les gestionnaires des RH : relisez-le avant de signer.`); ui.modal = null; toast('Document enregistré'); commit(); },
     'doc-issue'(d) {
       const doc = db.documents.find((x) => x.id === d.id); if (docLocked(doc)) { ui.modal = { type: 'doc', id: doc.id }; render(); return; } ensureDocHtml(doc); saveDocEditor(doc);
       const err = issueDoc(doc); if (err) { ui.modal = { type: 'doc-edit', id: doc.id, err }; save(); render(); return; }
@@ -7250,7 +7250,7 @@
             <span class="ed-sep"></span><label class="sr" for="ed-field">Nouveau champ à saisir</label><span class="ed-combo"><input id="ed-field" class="input sm" placeholder="Champ à saisir, ex. Horaires" maxlength="60" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ed-sugg"><ul id="ed-sugg" class="ed-sugg" role="listbox" hidden></ul></span><button type="button" class="btn ghost sm" data-act="ed-field">${ic('plus')}Ajouter</button></div>
           <div id="tpl-ed" class="tpl-ed ${t.kind === 'msg' ? 'msg' : 'letter'}" contenteditable="true" spellcheck="true" data-key="${key}">${toChips(body)}</div>
           <div id="tpl-lint">${tplLintHTML(miss)}</div>
-          <p class="hint" style="margin:10px 0 0"><span class="tk sm">Champ automatique</span> rempli depuis le dossier · <span class="tk saisie sm">Champ à saisir</span> complété par les RH à la création du document. Un document déjà remis ou signé garde la version qui a servi.</p></div></div>
+          <p class="hint" style="margin:10px 0 0"><span class="tk sm">Champ automatique</span> rempli depuis le dossier · <span class="tk saisie sm">Champ à saisir</span> complété par les gestionnaires des RH à la création du document. Un document déjà remis ou signé garde la version qui a servi.</p></div></div>
       ${card('Versions', `<span class="muted num" style="font-size:13px">${plural(t.v, 'version', 'versions')}</span>`, `<div class="card-b">${versions.map((x) => `<div class="todo"><div class="t"><b>Version ${x.v}${x.v === t.v ? ' · en vigueur' : ''}</b><small>${fmtDate(x.date)} · ${esc(fullName(emp(x.by)))}${x.note ? ` · ${esc(x.note)}` : ''}</small></div>${x.v === t.v ? '' : `<button type="button" class="btn ghost sm" data-act="tpl-restore" data-v="${x.v}">Rétablir</button>`}</div>`).join('')}
         <div class="todo"><div class="t"><b>Version 1 · modèle d’origine</b><small>Fourni avec Teamora</small></div>${t.v === 1 ? '' : '<button type="button" class="btn ghost sm" data-act="tpl-restore" data-v="0">Rétablir</button>'}</div></div>`)}</div></div>`;
   }
@@ -7552,12 +7552,12 @@
     if (c.stage === 'Embauché') { toast('Ce candidat est déjà embauché.', 'info'); return; }
     if (stage === 'Embauché') { toast('L’embauche se fait quand le candidat accepte la proposition : ouvrez sa fiche.', 'info'); return; }
     if (c.offer && ['Envoyée', 'Expirée'].includes(offerStatus(c.offer))) { toast('Une proposition est en cours : enregistrez la réponse du candidat ou retirez-la.', 'info'); return; }
-    if (stage === 'Refusé' && ui.profile !== 'rh') { toast('Le refus d’un candidat est fait par les RH.', 'info'); return; }
+    if (stage === 'Refusé' && ui.profile !== 'rh') { toast('Le refus d’un candidat est fait par les gestionnaires des RH.', 'info'); return; }
     if (stage === 'Refusé') { ui.modal = { type: 'cand-refuse', id }; render(); return; }
     if (stage === 'Proposition' && ui.profile === 'rh') { ui.modal = { type: 'offer', id }; render(); return; }
     if (stage === 'Proposition') notify('e1', `${fullName(me())} a choisi ${c.name} pour « ${candJob(c).title} » : proposition à préparer.`);
     if (c.stage === 'Refusé') c.refusal = null;
-    logCand(c, `${c.stage} → ${stage}`); c.stage = stage; toast(stage === 'Proposition' ? `${c.name} est choisi·e · les RH préparent la proposition` : stage === 'Présélection' ? `${c.name} est présélectionné·e · étape suivante : planifier un entretien` : `${c.name} : ${stage}`); commit();
+    logCand(c, `${c.stage} → ${stage}`); c.stage = stage; toast(stage === 'Proposition' ? `${c.name} est choisi·e · les gestionnaires des RH préparent la proposition` : stage === 'Présélection' ? `${c.name} est présélectionné·e · étape suivante : planifier un entretien` : `${c.name} : ${stage}`); commit();
   }
 
   function advance(id) {
@@ -7659,7 +7659,7 @@
       toast(`Demande de ${fullName(e)} validée`); commit();
     },
     'leave-ko'(d) { ui.modal = { type: 'refuse', id: d.id }; render(); },
-    'leave-remind'(d) { const l = db.leaves.find((x) => x.id === d.id), e = emp(l.empId), ap = approverOf(e); notify(ap.id, `Relance des RH : la demande de ${fullName(e)} (${l.type}, à partir du ${fmtShort(l.start)}) attend toujours votre décision.`); l.remindedAt = TODAY; toast(`${fullName(ap)} est relancé·e`); commit(); },
+    'leave-remind'(d) { const l = db.leaves.find((x) => x.id === d.id), e = emp(l.empId), ap = approverOf(e); notify(ap.id, `Relance des gestionnaires des RH : la demande de ${fullName(e)} (${l.type}, à partir du ${fmtShort(l.start)}) attend toujours votre décision.`); l.remindedAt = TODAY; toast(`${fullName(ap)} est relancé·e`); commit(); },
     'leave-rh'() { ui.modal = { type: 'leave-rh' }; render(); },
     'leave-cancel'(d) { db.leaves = db.leaves.filter((l) => l.id !== d.id); toast('Demande annulée'); commit(); },
     'pay-month'(d) { if (d.m) { ui.payMonth = d.m; ui.payStep = null; render(); } },
@@ -7692,7 +7692,7 @@
       const e = me(), err = (msg) => { document.getElementById('lv-preview').innerHTML = `<span class="err">${esc(msg)}</span>`; };
       const r = await recordLeave(e, v, err); if (!r) return;
       const sick = IJ_TYPES.includes(v.type);
-      toast(r.to ? `Demande envoyée à ${r.to}` : sick ? `Arrêt enregistré · les RH et ton manager sont prévenus${r.back ? ` · ${r.back} j de congés recrédités` : ''}` : 'Absence enregistrée · les RH et ton manager sont prévenus');
+      toast(r.to ? `Demande envoyée à ${r.to}` : sick ? `Arrêt enregistré · les gestionnaires des RH et ton manager sont prévenus${r.back ? ` · ${r.back} j de congés recrédités` : ''}` : 'Absence enregistrée · les gestionnaires des RH et ton manager sont prévenus');
       form.reset(); commit();
     },
     refuse(v) {
@@ -7774,12 +7774,12 @@
     profile(v) {
       const e = me();
       if (!v.phone.trim()) { document.getElementById('p-err').textContent = 'Le numéro de téléphone est obligatoire.'; return; }
-      // Le lieu de travail ne se change plus ici : il passe par une demande de modification validée par les RH.
+      // Le lieu de travail ne se change plus ici : il passe par une demande de modification validée par les gestionnaires des RH.
       Object.assign(e, { phone: v.phone.trim(), emergency: v.emergency.trim() });
       db.journey[e.id] = db.journey[e.id] || {};
       if (e.stage === 5) { const arr = journeyOf(e.id, 5); arr[1] = true; db.journey[e.id][5] = arr; }
       notify('e1', `${fullName(e)} a mis à jour ses informations personnelles.`);
-      toast('Informations enregistrées · les RH sont prévenus'); commit();
+      toast('Informations enregistrées · les gestionnaires des RH sont prévenus'); commit();
     },
   };
 
@@ -7812,7 +7812,7 @@
   }
   function journalTab(e) {
     const list = (db.journal || []).filter((x) => x.empId === e.id);
-    return `<div class="card"><div class="req-list">${list.length ? list.map((x) => `<div class="req"><span class="doc-ic">${ic('clock')}</span><div class="what"><b>${esc(x.label)}</b><small>${esc(x.at)} · par ${esc(fullName(emp(x.by)))} (${{ rh: 'RH', manager: 'manager', salarie: 'salarié' }[x.as] || x.as})</small>${x.detail ? `<small>${esc(x.detail)}</small>` : ''}</div></div>`).join('')
+    return `<div class="card"><div class="req-list">${list.length ? list.map((x) => `<div class="req"><span class="doc-ic">${ic('clock')}</span><div class="what"><b>${esc(x.label)}</b><small>${esc(x.at)} · par ${esc(fullName(emp(x.by)))} (${{ rh: 'gestionnaire des RH', manager: 'manager', salarie: 'salarié' }[x.as] || x.as})</small>${x.detail ? `<small>${esc(x.detail)}</small>` : ''}</div></div>`).join('')
       : '<div class="empty">Aucune action enregistrée depuis la mise en service du journal.</div>'}</div></div><p class="hint">Journal en lecture seule, conservé avec le dossier du personnel. L’historique de carrière reste dans l’onglet Informations.</p>`;
   }
   // ---------------------------------------------------------------- Events
@@ -7882,32 +7882,32 @@
   // En production, ce serait un serveur intermédiaire appelant l'API Claude (la clé ne doit jamais être dans le navigateur).
   const HELP_GUIDE = `GUIDE D'UTILISATION DE TEAMORA (logiciel RH, version 2)
 
-PROFILS. En haut à droite : RH (Olivia Bennett), Manager (Thomas Petit par défaut ; un sélecteur permet de prendre les traits d'un autre manager, dont Claire Durand, Direction), Salarié (Léa Martin, ou une nouvelle recrue via le sélecteur). RH et managers ont un interrupteur « Salariés / Mon équipe » ↔ « Mon espace » pour voir leur propre espace salarié (leurs congés, bulletins, entretiens). Personne ne valide ses propres demandes : elles partent au responsable (la Direction pour Olivia).
+PROFILS. En haut à droite : RH (Olivia Bennett), Manager (Thomas Petit par défaut ; un sélecteur permet de prendre les traits d'un autre manager, dont Claire Durand, Direction), Salarié (Léa Martin, ou une nouvelle recrue via le sélecteur). Les gestionnaires des RH et le management ont un interrupteur « Salariés / Mon équipe » ↔ « Mon espace » pour voir leur propre espace salarié (leurs congés, bulletins, entretiens). Personne ne valide ses propres demandes : elles partent au responsable (la Direction pour Olivia).
 
-NAVIGATION. L'accueil montre à gauche le bloc « Aujourd'hui » (les 5 actions les plus urgentes, avec leur date) et à droite la roue : survoler la roue ou toucher son cercle central affiche les rubriques ; cliquer une rubrique l'ouvre. Ailleurs, une colonne à gauche liste les rubriques avec leur nom, en quatre familles (Recruter, Gérer, Développer, Départ) et « Piloter » pour la RH (Obligations, Reporting RH, Modèles de documents, Paramètres) ; « Accueil » ou le logo ramène à la roue. Les pastilles rouges ne comptent que les actions en retard. Le bouton « À traiter » (en haut) liste une action par ligne, en trois groupes : en retard, cette semaine, plus tard. « Nouveautés de la V2 » est en bas de page.
+NAVIGATION. L'accueil montre à gauche le bloc « Aujourd'hui » (les 5 actions les plus urgentes, avec leur date) et à droite la roue : survoler la roue ou toucher son cercle central affiche les rubriques ; cliquer une rubrique l'ouvre. Ailleurs, une colonne à gauche liste les rubriques avec leur nom, en quatre familles (Recruter, Gérer, Développer, Départ) et « Piloter » pour le gestionnaire des RH (Obligations, Reporting RH, Modèles de documents, Paramètres) ; « Accueil » ou le logo ramène à la roue. Les pastilles rouges ne comptent que les actions en retard. Le bouton « À traiter » (en haut) liste une action par ligne, en trois groupes : en retard, cette semaine, plus tard. « Nouveautés de la V2 » est en bas de page.
 
 RUBRIQUES ET ACTIONS
-- Besoin RH : un manager crée une demande de recrutement en 4 étapes (le besoin, la fiche de cadrage, la validation, l'envoi) ; brouillon enregistré automatiquement. Les RH valident, demandent une modification ou refusent. L'offre est ensuite rédigée à deux : le manager demandeur et les RH peuvent écrire et enregistrer le projet (onglet « Projet d'offre » du besoin), le manager l'envoie aux RH, et seuls les RH la valident et la publient. Référence BES-… puis OFF-… une fois publiée.
+- Besoin RH : un manager crée une demande de recrutement en 4 étapes (le besoin, la fiche de cadrage, la validation, l'envoi) ; brouillon enregistré automatiquement. Les gestionnaires des RH valident, demandent une modification ou refusent. L'offre est ensuite rédigée à deux : le manager demandeur et les gestionnaires des RH peuvent écrire et enregistrer le projet (onglet « Projet d'offre » du besoin), le manager l'envoie aux gestionnaires des RH, et seuls les gestionnaires des RH la valident et la publient. Référence BES-… puis OFF-… une fois publiée.
 - Recrutement : onglets À traiter, Offres, Vivier. Une offre contient ses candidats en colonnes (Reçue, Présélection, Entretien, Proposition, Embauché, Refusé) ; glisser une carte pour changer d'étape. Fiche candidat : bandeau « Prochaine étape », onglets Évaluation, Entretiens, Échanges (messages types), Profil, Historique ; flèches ← → pour passer au candidat suivant. Rédaction d'annonce : les termes potentiellement discriminants sont signalés en orange mais ne bloquent pas la publication. Un candidat embauché devient automatiquement une recrue dans Arrivées.
-- Arrivées (RH, managers) : un dossier unique par recrue, liste à gauche, onglets Pré-embauche, Embauche, Intégration. Bouton « Nouvelle arrivée » (RH) pour une entrée hors offre : cooptation, candidature spontanée, réembauche, ancien stagiaire, transfert ; contrôles de date de fin (CDD 18 mois, stage 6 mois) et de gratification. Pré-embauche : pièces déposées par la recrue (Valider / Refuser avec motif / Reçu sur papier), contrat (Générer le contrat → relire → Envoyer pour signature ; la recrue signe à la main dans son espace ; un contrat signé est figé, « Voir le contrat signé »), préparation (poste, ordinateur, comptes, badge, parrain). Embauche : DPAE, registre du personnel, informations obligatoires (décret 2023), affectation, mutuelle, visite d'information et de prévention. Stagiaire : convention de stage tripartite à la place de la DPAE et du contrat, pas de période d'essai. Intégration : programme (modèle commun configurable dans l'onglet « Programme d'intégration »), points à 30 jours, rapport d'étonnement, décision sur la période d'essai (Confirmer / Renouveler / Rompre), puis « Clôturer l'intégration » qui fait passer la personne en poste. Pré-embauche et embauche avancent en parallèle ; la recrue passe en intégration quand les deux sont terminées et le contrat signé.
-- Vie administrative : Annuaire (recherche, filtres service et statut ; clic sur une ligne = fiche), Échéances (titres de séjour, fins de CDD, périodes d'essai, visites), Demandes de modification (validées par les RH avec justificatif), Organigramme. Fiche d'un collaborateur : onglets Informations, Absences, Rémunération, Documents, Journal (qui a fait quoi). Boutons « Modifier », « Changement de situation » (poste, service, manager, salaire, temps de travail en une fois, avec date d'effet ; avenant généré seulement si le contrat change) et « Démarrer un départ ». Organigramme : arbre, recherche, filtres, zoom, plein écran ; les RH changent un rattachement en glissant une carte sur un manager (aperçu en vert, confirmation au lâcher).
+- Arrivées (gestionnaires des RH, management) : un dossier unique par recrue, liste à gauche, onglets Pré-embauche, Embauche, Intégration. Bouton « Nouvelle arrivée » (RH) pour une entrée hors offre : cooptation, candidature spontanée, réembauche, ancien stagiaire, transfert ; contrôles de date de fin (CDD 18 mois, stage 6 mois) et de gratification. Pré-embauche : pièces déposées par la recrue (Valider / Refuser avec motif / Reçu sur papier), contrat (Générer le contrat → relire → Envoyer pour signature ; la recrue signe à la main dans son espace ; un contrat signé est figé, « Voir le contrat signé »), préparation (poste, ordinateur, comptes, badge, parrain). Embauche : DPAE, registre du personnel, informations obligatoires (décret 2023), affectation, mutuelle, visite d'information et de prévention. Stagiaire : convention de stage tripartite à la place de la DPAE et du contrat, pas de période d'essai. Intégration : programme (modèle commun configurable dans l'onglet « Programme d'intégration »), points à 30 jours, rapport d'étonnement, décision sur la période d'essai (Confirmer / Renouveler / Rompre), puis « Clôturer l'intégration » qui fait passer la personne en poste. Pré-embauche et embauche avancent en parallèle ; la recrue passe en intégration quand les deux sont terminées et le contrat signé.
+- Vie administrative : Annuaire (recherche, filtres service et statut ; clic sur une ligne = fiche), Échéances (titres de séjour, fins de CDD, périodes d'essai, visites), Demandes de modification (validées par les gestionnaires des RH avec justificatif), Organigramme. Fiche d'un collaborateur : onglets Informations, Absences, Rémunération, Documents, Journal (qui a fait quoi). Boutons « Modifier », « Changement de situation » (poste, service, manager, salaire, temps de travail en une fois, avec date d'effet ; avenant généré seulement si le contrat change) et « Démarrer un départ ». Organigramme : arbre, recherche, filtres, zoom, plein écran ; les gestionnaires des RH changent un rattachement en glissant une carte sur un manager (aperçu en vert, confirmation au lâcher).
 - Temps & absences : le salarié fait une demande (congés payés, RTT, sans solde, congé parental → validation par le manager) ou déclare un droit (maladie, accident du travail, maternité, paternité, événement familial avec plafond de jours, enfant malade → enregistré directement). Le télétravail est un mode de travail, pas une absence. Le manager valide dans « À valider » ; si un manager est absent, son propre manager peut valider à sa place. RH : onglets Temps de travail, Arrêts de travail (attestation de salaire), Compteurs, Planning, Historique.
 - Rémunération / Paie (RH) : paie du mois en 4 étapes : Variables (absences et heures remontées, primes, notes de frais, acomptes ; chaque manager valide celles de son équipe), Contrôles (SMIC, écarts, RIB, DPAE, sorties… chaque point corrigé ou marqué « Vérifié »), Envoi au prestataire (export CSV), Bulletins (journal de paie, puis Diffuser). Aussi : Révision salariale, Égalité salariale, Avantages. Le salarié voit ses bulletins dans « Mes bulletins » et peut demander le papier.
 - Performance : entretiens annuels et professionnels (auto-évaluation du salarié, évaluation du manager, signature) ; depuis un entretien, « Proposer une formation » ou « Noter un souhait d'évolution » ; refus d'un entretien professionnel traçable. Objectifs, feedback.
-- Formation : catalogue, demandes (validées par le manager puis les RH), plan de formation, efficacité.
+- Formation : catalogue, demandes (validées par le manager puis les gestionnaires des RH), plan de formation, efficacité.
 - Mobilité : offres internes, souhaits d'évolution, revue des talents, plan de succession.
 - Santé & QVT : visites médicales, accidents et incidents, document unique (DUERP), baromètre QVT anonyme, aménagements de poste, retours d'absence longue (visite de reprise).
 - Relations individuelles : dossiers (procédure disciplinaire avec délais, entretien, mesure retenue).
-- Départs (RH, managers) : lancés depuis la fiche (« Démarrer un départ » : motif parmi 13, dernier jour ; aperçu du préavis et des indemnités). Dossier unique, onglets Préparation (préavis, indemnités, documents), Formalités de sortie (entretien de départ, passation, matériel, accès, portabilité, documents remis), Après le départ (archivage, conservation). Les indemnités de sortie remontent dans la paie du mois.
+- Départs (gestionnaires des RH, management) : lancés depuis la fiche (« Démarrer un départ » : motif parmi 13, dernier jour ; aperçu du préavis et des indemnités). Dossier unique, onglets Préparation (préavis, indemnités, documents), Formalités de sortie (entretien de départ, passation, matériel, accès, portabilité, documents remis), Après le départ (archivage, conservation). Les indemnités de sortie remontent dans la paie du mois.
 - Modèles de documents (RH) : chaque modèle (contrats, attestations, certificats, courriers aux candidats) se modifie : champs automatiques, champs à saisir, mentions obligatoires vérifiées, images (bouton « Image » : glisser pour placer, poignée pour redimensionner), versions et retour à une version précédente. Un document remis ou signé ne se modifie plus.
 - Obligations selon l'effectif (RH, pictogramme document coché dans le bandeau) : effectif moyen sur 12 mois en équivalent temps plein (hors alternants et stagiaires), historique des années (Paramètres > Entreprise), projection à 12 mois ; obligations par seuil (dès 1, 11, 20, 50, 250, 300, 1 000) avec la règle de franchissement (immédiat, 12 mois consécutifs pour le CSE, 5 années civiles pour la plupart des seuils) et leur état ; alertes dans « À traiter » ; simulation d'effectif pour la démo. Onglets : Dialogue social (élections du CSE, élus, réunions, heures de délégation, consultations, budgets, BDESE, négociations), Index égalité (calcul indicatif, publication avant le 1er mars), Emploi des travailleurs handicapés (6 %), États des lieux (8 ans), Lanceurs d'alerte (canal ouvert aux salariés dans Échanges RH), Affichages, accords et référents (règlement intérieur, participation, partage de la valeur, pénibilité, référents, contributions).
 - Reporting RH : indicateurs (effectifs, absences, recrutement, masse salariale…).
-- Paramètres (RH, pictogramme engrenage dans le bandeau) : sections Entreprise (nom, raison sociale, adresse, SIRET, NAF, Urssaf, domaine e-mail, signataire, logo affiché en tête des documents), Convention et temps de travail (Syntec ou aucune convention = Code du travail ; durée hebdomadaire 1 à 48 h, forfait jours 218 au plus, télétravail maximum), Sites (adresse, abonnement transport remboursé à 50 %), Services et Direction (responsable de chaque service), Collaborateurs (import d'un fichier CSV : prenom, nom, email, poste, service, contrat, entree, salaire, manager par e-mail, site ; aperçu ligne par ligne avant import), Utilisateurs et droits (administrateurs RH, motif des arrêts visible ou non par les managers, organigramme visible par les salariés), Absences (décompte ouvrés/ouvrables, RTT / sans solde / télétravail activables, remplaçant d'un manager absent), Paie (prestataire, jour de clôture, titres-restaurant, mutuelle avec part employeur d'au moins 50 %, allocation télétravail), Recrutement (conservation 2 ans au plus selon la CNIL, relance), Historique des modifications. La jauge « Espace prêt à … % » et la liste « Reste à régler » indiquent ce qui manque. Une erreur bloquante empêche d'enregistrer une valeur illégale ; un avertissement signale un risque (exonération perdue…).
+- Paramètres (RH, pictogramme engrenage dans le bandeau) : sections Entreprise (nom, raison sociale, adresse, SIRET, NAF, Urssaf, domaine e-mail, signataire, logo affiché en tête des documents), Convention et temps de travail (Syntec ou aucune convention = Code du travail ; durée hebdomadaire 1 à 48 h, forfait jours 218 au plus, télétravail maximum), Sites (adresse, abonnement transport remboursé à 50 %), Services et Direction (responsable de chaque service), Collaborateurs (import d'un fichier CSV : prenom, nom, email, poste, service, contrat, entree, salaire, manager par e-mail, site ; aperçu ligne par ligne avant import), Utilisateurs et droits (administrateurs RH, motif des arrêts visible ou non par le management, organigramme visible par les salariés), Absences (décompte ouvrés/ouvrables, RTT / sans solde / télétravail activables, remplaçant d'un manager absent), Paie (prestataire, jour de clôture, titres-restaurant, mutuelle avec part employeur d'au moins 50 %, allocation télétravail), Recrutement (conservation 2 ans au plus selon la CNIL, relance), Historique des modifications. La jauge « Espace prêt à … % » et la liste « Reste à régler » indiquent ce qui manque. Une erreur bloquante empêche d'enregistrer une valeur illégale ; un avertissement signale un risque (exonération perdue…).
 - Nouvelle entreprise : en bas de page, « Tester l'installation (nouvelle entreprise) » ouvre une entreprise vierge avec l'assistant de démarrage (Bienvenue et compte administrateur, Entreprise, Convention, Sites, Services, Collaborateurs, Paie, Récapitulatif) ; chaque étape peut être passée et complétée plus tard dans Paramètres. « Revenir à la démo Nova Studio » en bas de page.
 - Espace salarié : Mon profil (informations, demander une modification avec justificatif, documents, organigramme), Mes absences, Mes bulletins, Mes entretiens, Formations, Mobilité, Santé. Une recrue qui n'est pas encore arrivée ne voit que « Mon arrivée » (pièces à déposer) et « Contrat de travail » (signature).
 
 DONNÉES. Démonstration : les données sont fictives et restent dans le navigateur ; « Réinitialiser la démo » en bas de page remet l'état initial.`;
-  const HELP_RULES = `Tu t'appelles Teamo : tu es l'assistant d'aide à la prise en main intégré au logiciel RH Teamora. Ton ton est chaleureux et simple, sans familiarité excessive ni émoji. Réponds en français, en tutoyant, de façon brève et concrète (3 à 6 phrases ou une courte liste d'étapes numérotées), en t'appuyant UNIQUEMENT sur le guide ci-dessous, sur le contexte de l'écran et, pour les RH, sur la section « Obligations selon l'effectif » (effectif réel de l'entreprise, obligations, échéances, alertes : sers-t'en pour répondre précisément, rappelle que les calculs sont indicatifs, et propose le lien obligations). N'invente aucune fonction : si le guide ne couvre pas la question, dis-le simplement et propose de contacter le support. Ne réponds pas aux questions sans rapport avec Teamora ; pour une question de droit du travail, donne au plus l'orientation générale que le logiciel applique et rappelle que seul un professionnel peut valider. Adapte la réponse au profil actuel (un salarié ne voit ni la paie ni les arrivées des autres). Quand c'est utile, ajoute UN lien d'accès vers une rubrique, sous la forme exacte [[aller:CLE|Texte du bouton]], où CLE est une des clés autorisées listées dans le contexte. Mise en forme permise : **gras** et listes avec « - » ou « 1. ». Pas de titres.
+  const HELP_RULES = `Tu t'appelles Teamo : tu es l'assistant d'aide à la prise en main intégré au logiciel RH Teamora. Ton ton est chaleureux et simple, sans familiarité excessive ni émoji. Réponds en français, en tutoyant, de façon brève et concrète (3 à 6 phrases ou une courte liste d'étapes numérotées), en t'appuyant UNIQUEMENT sur le guide ci-dessous, sur le contexte de l'écran et, pour les gestionnaires des RH, sur la section « Obligations selon l'effectif » (effectif réel de l'entreprise, obligations, échéances, alertes : sers-t'en pour répondre précisément, rappelle que les calculs sont indicatifs, et propose le lien obligations). N'invente aucune fonction : si le guide ne couvre pas la question, dis-le simplement et propose de contacter le support. Ne réponds pas aux questions sans rapport avec Teamora ; pour une question de droit du travail, donne au plus l'orientation générale que le logiciel applique et rappelle que seul un professionnel peut valider. Adapte la réponse au profil actuel (un salarié ne voit ni la paie ni les arrivées des autres). Quand c'est utile, ajoute UN lien d'accès vers une rubrique, sous la forme exacte [[aller:CLE|Texte du bouton]], où CLE est une des clés autorisées listées dans le contexte. Mise en forme permise : **gras** et listes avec « - » ou « 1. ». Pas de titres.
 
 ${HELP_GUIDE}`;
   const helpState = { open: false, turns: [], busy: false, ctl: null, sample: undefined };

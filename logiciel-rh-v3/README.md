@@ -6,6 +6,16 @@
 > dans le navigateur (`teamora-demo-v3`, `teamora-ui-v3`, `teamora-v3-tenant`…). La fenêtre « Nouveautés de la V3 »
 > s'ouvre au premier lancement, puis depuis le bas de page.
 
+## Vocabulaire (à respecter dans tous les textes)
+
+- On parle du **gestionnaire des ressources humaines** ou **gestionnaire des RH** (au pluriel : les gestionnaires des RH),
+  jamais de « la RH » ni de « les RH ». La fonction elle-même, c'est « la gestion des RH ».
+- On parle du **management**, jamais de « les managers ». Un manager précis reste « le manager » (« ton manager »,
+  « manager : James Carter »), et le profil de la démo s'appelle « Manager ».
+- Les mots où RH est un adjectif restent (« Besoin RH », « dossier RH », « Échanges RH », « logiciel RH »), comme le
+  service « RH » de l'organigramme. Les fonctions affichées suivent la règle : Olivia est « Gestionnaire des RH ».
+- Les anciennes versions archivées (`logiciel-rh/`, `logiciel-rh-v2/`) n'ont pas été reprises.
+
 ## Deux versions publiées
 
 - **Version travail** (`index.html`, https://claude.ai/artifact/3eKTwRWJUSKJE93Pw8U8ss) : toutes les options (réinitialiser,

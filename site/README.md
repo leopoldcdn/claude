@@ -5,6 +5,12 @@ scripts PHP : `contact.php` (formulaire de contact) et `avis.php` (bouton « Don
 partent par e-mail ; rien n'est enregistré sur le serveur. Aucun cookie, aucune mesure d'audience, aucun service tiers :
 polices et bibliothèque d'animation sont hébergées avec le site.
 
+## Vocabulaire
+
+Comme dans le logiciel : « gestionnaire des RH » (ou des ressources humaines), jamais « la RH » ni « les RH » ; « le
+management », jamais « les managers ». La fonction s'appelle « la gestion des RH » (« quand la gestion des RH repose sur le
+dirigeant »). Le profil du questionnaire est « Gestionnaire des RH ou administratif ».
+
 ## Ce qu'il faut chez l'hébergeur
 
 Un hébergement mutualisé avec PHP 7.4 ou plus récent et la fonction `mail()` active (c'est le cas par défaut chez la plupart

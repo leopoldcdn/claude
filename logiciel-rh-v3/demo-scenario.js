@@ -5,7 +5,7 @@
 // générés de façon fixe (mêmes noms à chaque ouverture). Pour un effectif N, la démo garde les N premiers : d'abord les
 // personnes concernées par une action « À traiter », puis les autres. Toutes les données sont fictives.
 //
-// « À traiter » est volontairement court : dix actions pour les RH, choisies parmi les plus fréquentes dans la vie d'un
+// « À traiter » est volontairement court : dix actions pour les gestionnaires des RH, choisies parmi les plus fréquentes dans la vie d'un
 // gestionnaire RH (congés, paie, arrêt de travail, arrivée, période d'essai, entretien professionnel, visite médicale,
 // changement de RIB, candidature), plus une alerte liée à l'effectif. Tout le reste est à jour.
 (function () {
@@ -15,7 +15,8 @@
   window.TEAMORA_DEMO_POSTES = ['dirigeant', 'rh', 'manager', 'comptable'];
   // Version des données de la démo : une démo enregistrée d'une version antérieure est refaite (mêmes réponses).
   // 2 : logo de Nova Studio dans Paramètres > Entreprise. 3 : lieu de naissance des recrues (DPAE envoyée à l'Urssaf).
-  window.TEAMORA_DEMO_VERSION = 3;
+  // 4 : vocabulaire (Olivia, « gestionnaire des RH »).
+  window.TEAMORA_DEMO_VERSION = 4;
 
   const pad = (n) => String(n).padStart(2, '0');
   const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -199,7 +200,7 @@
     const pool = db.employees.filter((e) => /^e1\d\d$/.test(e.id) && counts(e) && e.stage < 15);
     C.rqth = pool.slice(0, Math.floor(N * 0.06) + 1).map((e, i) => ({ id: `rq${i + 1}`, empId: e.id, from: '2024-01-01', to: null }));
     // Sous 20 salariés, Olivia s'occupe aussi de l'administratif.
-    if (N < 20) find('e1').title = 'Responsable administrative et RH';
+    if (N < 20) find('e1').title = 'Gestionnaire administrative et des RH';
 
     // 4. Le dirigeant voit Teamora sous les traits de la dirigeante : Claire prend la place du compte RH (e1), Olivia celle de e5.
     if (sc.poste === 'dirigeant') {
@@ -209,7 +210,7 @@
       Object.keys(db).forEach((key) => { if (db[key] && typeof db[key] === 'object') db[key] = walk(db[key]); });
     }
 
-    // 5. Paie d'octobre : les contrôles de routine sont vérifiés et les managers ont validé leurs variables, sauf Thomas.
+    // 5. Paie d'octobre : les contrôles de routine sont vérifiés et le management a validé ses variables, sauf Thomas.
     const pr = db.payroll['2026-10'] = Object.assign({ closed: false, bonus: {} }, db.payroll['2026-10'] || {});
     pr.acks = Object.assign({}, pr.acks); pr.mgrOk = Object.assign({}, pr.mgrOk);
     db.employees.forEach((e) => { ['tsmiss', 'conv', 'ecart'].forEach((t) => { pr.acks[`${t}-${e.id}`] = true; }); if (e.managerId && e.managerId !== 'e2') pr.mgrOk[e.managerId] = '2026-10-05'; });

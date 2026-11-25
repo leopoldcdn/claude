@@ -75,7 +75,8 @@
   const freshUI = () => ({ tplSel: null, tplDraft: null, wheelOpen: false, selPerson: null, q: '', fDept: '', fStatus: '', sort: 'name', sortDir: 1,
     absTab: 'valider', histStatus: '', planMonth: null, payMonth: null, recJob: null, drawer: null, modal: null, notif: false,
     nSort: 'since', nDir: -1, recTab: 'todo', offerTab: 'cands', colOpen: {}, oSort: 'status', oDir: 1, nq: '', nDept: '', nStatus: 'auto', nFrom: '', rq: '', rDept: '', rStatus: '', rFrom: '', adminTab: 'annuaire', payTab: 'paie', payStep: null, procTab: 'cours', procSel: null, procPhase: null, orgQ: '', orgDept: '', orgSite: '', profTab: 'profil', tsWeek: null, revTab: '', trTab: '', mobTab: '', healthTab: '', qvtMonth: null, caseStatus: '' });
-  // Deux versions : « travail » (index.html, toutes les options) et « démo » (demo.html, lien partagé aux PME testeuses).
+  // Une seule version publiée : la démo (demo.html, TEAMORA_MODE « demo »). Le mode « travail » (ancien index.html, supprimé le
+  // 25 novembre 2026 : réinitialiser, nouvelle entreprise, nouveautés, assistant IA) n'est plus servi ; son code reste inactif.
   const DEMO = window.TEAMORA_MODE === 'demo';
   // Démo préparée (demo-scenario.js) : elle vit à la date du jour, ses données sont recalées sur cette date.
   const DEMO_LIVE = DEMO && typeof window.TEAMORA_DEMO_SCENARIO === 'function';

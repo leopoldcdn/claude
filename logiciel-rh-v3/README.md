@@ -17,12 +17,14 @@
   service « RH » de l'organigramme. Les fonctions affichées suivent la règle : Olivia est « Gestionnaire des RH ».
 - Les anciennes versions archivées (`logiciel-rh/`, `logiciel-rh-v2/`) n'ont pas été reprises.
 
-## Deux versions publiées
+## Une seule version : la démo
 
-- **Version travail** (`index.html`, https://claude.ai/artifact/3eKTwRWJUSKJE93Pw8U8ss) : toutes les options (réinitialiser,
-  tester l'installation d'une nouvelle entreprise, nouveautés, Teamo assistant IA). À ne pas partager.
-- **Version démo** (`demo.html`, https://claude.ai/artifact/4pHLrU8bBB6Uz6SMuLx7eq) : le lien à partager aux PME testeuses.
-  Même code avec `window.TEAMORA_MODE = "demo"` : bas de page réduit à la mention « données fictives », pas d'assistant IA ;
+- **La démo** (`demo.html`, https://claude.ai/artifact/4pHLrU8bBB6Uz6SMuLx7eq) est la seule version, de travail comme à
+  partager aux PME testeuses ; c'est elle qu'on modifie, qu'on teste et qu'on publie (le site l'embarque dans `demo/`).
+  La version « travail » (`index.html`, artefact « Teamora RH V3 ») a été supprimée le 25 novembre 2026 pour simplifier.
+  Ses options propres (réinitialiser, installer une « nouvelle entreprise », fenêtre des nouveautés, Teamo assistant IA)
+  ne sont plus accessibles ; leur code reste dans `app.js`, inactif hors de ce mode.
+- `demo.html` règle `window.TEAMORA_MODE = "demo"` : bas de page réduit à la mention « données fictives », pas d'assistant IA ;
   Teamo y sert de guide : une **visite guidée** se lance à la première ouverture (13 étapes sur ordinateur : bloc « Aujourd'hui », roue, points de
   vue, gestion ou espace personnel, à traiter, notifications, barre des rubriques, onglets, obligations selon l'effectif,
   avis, puis « Bientôt : Teamo, ton assistant IA », qui présente ce que fera l'assistant et précise qu'il n'est pas
@@ -115,8 +117,9 @@
 
 Les tests sont dans `tests/` et se lancent avec Node et Playwright : `node tests/parcours.js` (chaque profil ouvre l'accueil,
 « À traiter » et toutes ses rubriques, sans erreur) et `node tests/accueil_a_traiter.js` (accueil, urgence, pastilles, menu).
-Ils vérifient aussi que la version de travail reste au 6 octobre 2026 quand la date réelle avance, et que la démo suit
-la date réelle avec ses 10 actions. Les scripts de test des versions précédentes
+Ils ouvrent la démo (`demo.html?effectif=20&poste=rh` : Nova Studio à 46 salariés, vue du gestionnaire des RH) avec
+l'horloge figée au 6 octobre 2026 ; le profil manager ou salarié et l'écran de départ se choisissent ensuite par le
+sélecteur de profil et le menu (`tests/outils.js`). Ils vérifient aussi que la démo suit la date réelle avec ses 10 actions. Les scripts de test des versions précédentes
 étaient gardés dans un dossier temporaire, hors du dépôt, et n'existent plus.
 
 ## Téléchargements dans les artefacts
@@ -334,7 +337,7 @@ collectives, import des soldes de congés.
 ---
 
 
-Prototype fonctionnel pour ordinateur (largeur minimale 1 024 px, pas de version mobile), sans serveur ni base de données : ouvrez `index.html` dans un navigateur.
+Prototype fonctionnel pour ordinateur (largeur minimale 1 024 px, pas de version mobile), sans serveur ni base de données : ouvrez `demo.html` dans un navigateur.
 Les données de départ (`data.js`, schéma version 8, stockées sous `teamora-demo-v2`) sont fictives ; vos modifications sont conservées dans le navigateur
 (localStorage) et le bouton « Réinitialiser la démo » restaure l'état initial.
 
@@ -488,5 +491,5 @@ Les données de départ (`data.js`, schéma version 8, stockées sous `teamora-d
 
 Une recrue n'accède qu'à « Mon arrivée » et « Contrat de travail » jusqu'à son premier jour.
 
-Le fichier `index.html` n'a pas de `<!doctype>` : il est conçu pour être publié comme Artifact claude.ai,
-qui ajoute lui-même l'en-tête HTML. Il s'ouvre aussi tel quel dans un navigateur.
+Le fichier `demo.html` n'a pas de `<!doctype>` : pour le publier comme artefact claude.ai, on l'envoie sous le nom
+`index.html` avec un `<!DOCTYPE html>` en tête. Il s'ouvre aussi tel quel dans un navigateur.

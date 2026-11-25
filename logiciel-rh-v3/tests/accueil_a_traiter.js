@@ -1,4 +1,5 @@
-// Accueil « Aujourd'hui », liste « À traiter » classée par urgence, menu avec libellés.
+// Accueil « Aujourd'hui », liste « À traiter » classée par urgence, menu des rubriques. Sur la démo (46 salariés, vue du
+// gestionnaire des RH, 6 octobre 2026) : dix actions, 1 en retard, 5 cette semaine, 4 plus tard.
 const { chromium, ouvrir, compteur } = require('./outils');
 (async () => {
   const b = await chromium.launch(), t = compteur('accueil_a_traiter');
@@ -10,8 +11,8 @@ const { chromium, ouvrir, compteur } = require('./outils');
     noeuds: [...document.querySelectorAll('.node')].map((n) => getComputedStyle(n).opacity), labels: [...document.querySelectorAll('.lab-in')].map((l) => getComputedStyle(l).opacity), centreBouton: document.querySelector('.hub').tagName }));
   t.ok(home.lignes.length === 5, `5 actions sur l’accueil (${home.lignes.length})`);
   t.ok(/mardi 6 octobre/i.test(home.jour), `date du jour affichée : ${home.jour}`);
-  t.ok(home.lignes.every((x) => /u-late/.test(x.classe)) && /retard de 219 jours/.test(home.lignes[0].date), `les plus en retard en premier : ${home.lignes[0].texte} · ${home.lignes[0].date}`);
-  t.ok(/22 actions en retard · 19 cette semaine · 21 plus tard/.test(home.resume), `résumé : ${home.resume}`);
+  t.ok(/u-late/.test(home.lignes[0].classe) && /retard de 1 jour/.test(home.lignes[0].date) && home.lignes.slice(1).every((x) => /u-week/.test(x.classe)), `les plus urgentes en premier : ${home.lignes[0].texte} · ${home.lignes[0].date}`);
+  t.ok(/1 action en retard · 5 cette semaine · 4 plus tard/.test(home.resume), `résumé : ${home.resume}`);
   const roue = () => p.evaluate(() => ({ noeuds: [...document.querySelectorAll('.node')].map((n) => getComputedStyle(n).opacity), labels: [...document.querySelectorAll('.lab-in')].map((l) => getComputedStyle(l).opacity),
     focus: [...document.querySelectorAll('.node')].map((n) => n.tabIndex), centre: document.querySelector('.hub').getAttribute('aria-expanded'), aide: document.getElementById('wheel-hint').textContent }));
   t.ok(home.noeuds.length === 12 && home.noeuds.every((o) => o === '0') && home.labels.every((o) => o === '0') && home.centreBouton === 'BUTTON', 'au repos, la roue est repliée sur son centre');
@@ -30,7 +31,7 @@ const { chromium, ouvrir, compteur } = require('./outils');
   // 2. Pastilles : seulement les retards, et leur total égale le nombre d'actions en retard.
   const past = await p.evaluate(() => ({ roue: [...document.querySelectorAll('.node .badge')].map((x) => Number(x.textContent)), bouton: document.querySelector('.todo-btn').getAttribute('aria-label'), pastille: document.querySelector('.todo-btn .todo-n').textContent }));
   const retards = Number(/(\d+) en retard/.exec(past.bouton)[1]);
-  t.ok(retards === 22 && past.pastille === '22', `bouton « À traiter » : ${past.bouton}`);
+  t.ok(retards === 1 && past.pastille === '1', `bouton « À traiter » : ${past.bouton}`);
   await p.mouse.move(5, 880); await p.waitForTimeout(100);
   await p.hover('.wheel-box', { position: { x: 30, y: 30 } }); await p.waitForTimeout(150);
   await p.click('.node[data-i="6"]'); await p.waitForTimeout(200);
@@ -51,26 +52,24 @@ const { chromium, ouvrir, compteur } = require('./outils');
   await p.click('.todo-btn'); await p.waitForTimeout(200);
   let g = await p.evaluate(() => [...document.querySelectorAll('.task-g')].map((s) => ({ titre: s.querySelector('h3').firstChild.textContent, n: Number(s.querySelector('.count').textContent), lignes: s.querySelectorAll('.task').length, boutons: s.querySelectorAll('.task [data-act="todo-do"]').length, classes: [...new Set([...s.querySelectorAll('.task .due')].map((d) => d.className))], plus: !!s.querySelector('[data-act="todo-all"]') })));
   t.ok(g.map((x) => x.titre).join(',') === 'En retard,Cette semaine,Plus tard', `groupes : ${g.map((x) => `${x.titre} ${x.n}`).join(' · ')}`);
-  t.ok(g[0].n === 22 && g[1].n === 19 && g[2].n === 21, 'répartition 22 / 19 / 21 au 6 octobre 2026');
-  t.ok(g.every((x) => x.lignes === x.boutons) && g[0].lignes === 22 && g[1].lignes === 19, 'une ligne et un bouton par action');
+  t.ok(g[0].n === 1 && g[1].n === 5 && g[2].n === 4, 'répartition 1 / 5 / 4 (les dix actions de la démo)');
+  t.ok(g.every((x) => x.lignes === x.boutons) && g[0].lignes === 1 && g[1].lignes === 5, 'une ligne et un bouton par action');
   t.ok(g[0].classes.join() === 'due u-late' && g[1].classes.join() === 'due u-week', 'chaque groupe ne contient que ses échéances');
-  t.ok(g[2].lignes === 6 && g[2].plus, '« Plus tard » replié à 6 lignes');
+  t.ok(g[2].lignes === 4 && !g[2].plus, '« Plus tard » : ses 4 actions affichées, rien à déplier');
   t.ok(await p.locator('.task:has-text("Paie d’octobre 2026")').count() === 1, 'la paie du mois compte pour une seule action');
-  await p.click('[data-act="todo-all"]'); await p.waitForTimeout(150);
-  t.ok(await p.locator('.task-g.u-later .task').count() === 21, '« Afficher les autres » déplie le groupe');
-  const aisha = await p.evaluate(() => [...document.querySelectorAll('.task')].filter((x) => /Aisha Patel/.test(x.querySelector('.t small').textContent)).map((x) => x.querySelector('.t b').textContent));
-  t.ok(aisha.length >= 4 && aisha.every((x) => !/,/.test(x)), `la recrue Aisha Patel a ${aisha.length} lignes séparées (plus de liste à virgules)`);
+  const nathan = await p.evaluate(() => [...document.querySelectorAll('.task')].filter((x) => /Nathan Lefebvre/.test(x.querySelector('.t small').textContent)).map((x) => x.querySelector('.t b').textContent));
+  t.ok(nathan.length === 1 && /DPAE/.test(nathan[0]) && !/,/.test(nathan[0]), `la recrue Nathan Lefebvre : ${nathan.join(' | ')} (une ligne par action)`);
 
   // 5. Le bouton d'une action ouvre le bon écran.
-  await p.click('.task:has-text("Aisha Patel") [data-act="todo-do"] >> nth=0'); await p.waitForTimeout(300);
-  t.ok(await p.locator('.top h1').textContent() === 'Arrivées' && /Aisha Patel/.test(await p.locator('#view').innerText()) && await p.locator('.modal-box').count() === 0, 'action d’arrivée : le dossier de la personne s’ouvre');
+  await p.click('.task:has-text("Nathan Lefebvre") [data-act="todo-do"] >> nth=0'); await p.waitForTimeout(300);
+  t.ok(await p.locator('.top h1').textContent() === 'Arrivées' && /Nathan Lefebvre/.test(await p.locator('#view').innerText()) && await p.locator('[data-act="arr-dpae"]').count() === 1 && await p.locator('.modal-box').count() === 0, 'action d’arrivée : le dossier s’ouvre sur l’onglet de la DPAE');
   await p.click('.todo-btn'); await p.waitForTimeout(150);
-  await p.click('.task:has-text("Document unique") [data-act="todo-do"]'); await p.waitForTimeout(300);
+  await p.click('.task:has-text("Seuil de 50 salariés") [data-act="todo-do"]'); await p.waitForTimeout(300);
   t.ok(await p.locator('.top h1').textContent() !== 'Arrivées', `obligation : ouvre l’écran « ${await p.locator('.top h1').textContent()} »`);
   await p.click('.todo-btn'); await p.waitForTimeout(150);
   await p.click('.task:has-text("Candidature à trier") [data-act="todo-do"] >> nth=0'); await p.waitForTimeout(400);
   t.ok(await p.locator('.top h1').textContent() === 'Recrutement' && await p.locator('.drawer').count() === 1, 'candidature : la fiche du candidat s’ouvre');
-  t.ok(!p.erreurs.length, `RH : aucune erreur de script ${p.erreurs.join(' | ')}`);
+  t.ok(!p.erreurs.length, `GRH : aucune erreur de script ${p.erreurs.join(' | ')}`);
   await p.close();
 
   // 6. Écran plus étroit : le menu passe en bandeau, l'accueil empile les deux blocs.
@@ -93,7 +92,7 @@ const { chromium, ouvrir, compteur } = require('./outils');
   t.ok(sal.includes('Au quotidien') && !sal.includes('Piloter'), `salarié : familles ${sal.join(', ')}`);
   t.ok(!p.erreurs.length, 'salarié : aucune erreur'); await p.close();
 
-  // 8. Visite guidée de la démo : elle présente « Aujourd'hui ».
+  // 8. Visite guidée : elle présente « Aujourd'hui ».
   p = await ouvrir(b, { page: 'demo.html?effectif=20&poste=rh', visite: true }); await p.waitForTimeout(900);
   let vu = false; for (let k = 0; k < 14 && !vu; k++) { vu = /Aujourd’hui/.test(await p.locator('#tour').innerText()); if (!vu) { await p.click('#tour [data-tour="next"], #tour .btn.primary'); await p.waitForTimeout(250); } }
   t.ok(vu && !p.erreurs.length, 'démo : la visite guidée présente « Aujourd’hui »');
@@ -104,22 +103,10 @@ const { chromium, ouvrir, compteur } = require('./outils');
   t.ok(await p.evaluate(() => [...document.querySelectorAll('.node')].every((n) => getComputedStyle(n).opacity === '0')) && !p.erreurs.length, 'visite : à l’étape suivante, la roue se replie');
   await p.close();
 
-  // 9. La version de travail reste au 6 octobre 2026 quand la date réelle avance ; la démo préparée (46 salariés, vue RH)
-  // et une « nouvelle entreprise » suivent la date réelle. La démo garde ses 10 actions, recalées sur ce jour.
-  for (const page of ['index.html', 'demo.html?effectif=20&poste=rh']) {
-    p = await ouvrir(b, { page, jour: '2026-11-16' });
-    const d = await p.evaluate(() => ({ jour: document.querySelector('.today-h small').textContent, resume: document.querySelector('.today-sum').textContent, etiquette: !!document.querySelector('.today-h .demo-day') }));
-    const ok = page === 'index.html' ? /mardi 6 octobre 2026/i.test(d.jour) && d.etiquette && /22 actions en retard · 19 cette semaine · 21 plus tard/.test(d.resume)
-      : /16 novembre/i.test(d.jour) && !d.etiquette && /1 action en retard · 5 cette semaine · 4 plus tard/.test(d.resume);
-    t.ok(ok, `${page} ouverte le 16 novembre : ${d.jour} · ${d.resume}`);
-    if (page !== 'index.html') { t.ok(!p.erreurs.length, 'démo : aucune erreur'); await p.close(); }
-  }
+  // 9. La démo vit à la date du jour : ouverte le 16 novembre, elle garde ses dix actions, recalées sur ce jour.
   p = await ouvrir(b, { jour: '2026-11-16' });
-  await p.click('[data-act="tenant-new"]'); await p.click('[data-act="tenant-new-ok"]'); await p.waitForTimeout(300);
-  const neuve = await p.evaluate(() => window.__teamoraTest.today());
-  t.ok(neuve === '2026-11-16', `nouvelle entreprise : date réelle (${neuve})`);
-  await p.click('[data-act="tenant-nova"] >> nth=0'); await p.waitForTimeout(300);
-  const retour = await p.evaluate(() => ({ jour: window.__teamoraTest.today(), ecran: (document.querySelector('.today-h small') || {}).textContent || '' }));
-  t.ok(retour.jour === '2026-10-06' && /mardi 6 octobre 2026/i.test(retour.ecran) && !p.erreurs.length, `retour à la démo : ${retour.jour} · ${retour.ecran}`);
+  const d = await p.evaluate(() => ({ jour: document.querySelector('.today-h small').textContent, resume: document.querySelector('.today-sum').textContent, etiquette: !!document.querySelector('.today-h .demo-day') }));
+  t.ok(/16 novembre/i.test(d.jour) && !d.etiquette && /1 action en retard · 5 cette semaine · 4 plus tard/.test(d.resume), `ouverte le 16 novembre : ${d.jour} · ${d.resume}`);
+  t.ok(!p.erreurs.length, 'le 16 novembre : aucune erreur'); await p.close();
   await b.close(); t.fin();
 })();

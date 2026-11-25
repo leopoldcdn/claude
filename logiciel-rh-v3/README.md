@@ -11,7 +11,8 @@
 - On parle du **gestionnaire des ressources humaines** ou **gestionnaire des RH** (au pluriel : les gestionnaires des RH),
   jamais de « la RH » ni de « les RH ». La fonction elle-même, c'est « la gestion des RH ».
 - On parle du **management**, jamais de « les managers ». Un manager précis reste « le manager » (« ton manager »,
-  « manager : James Carter »), et le profil de la démo s'appelle « Manager ».
+  « manager : James Carter »), et le profil de la démo s'appelle « Manager ». Dans le sélecteur de profil, le gestionnaire
+  des RH s'affiche « GRH » (nom complet dans l'infobulle et les messages).
 - Les mots où RH est un adjectif restent (« Besoin RH », « dossier RH », « Échanges RH », « logiciel RH »), comme le
   service « RH » de l'organigramme. Les fonctions affichées suivent la règle : Olivia est « Gestionnaire des RH ».
 - Les anciennes versions archivées (`logiciel-rh/`, `logiciel-rh-v2/`) n'ont pas été reprises.

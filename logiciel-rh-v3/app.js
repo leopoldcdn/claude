@@ -68,7 +68,7 @@
 
   let db = load();
   const PROFILES = {
-    rh: { emp: 'e1', label: 'Gestionnaire des RH' },
+    rh: { emp: 'e1', label: 'Gestionnaire des RH', short: 'GRH' }, // « GRH » dans le sélecteur de profil, le nom complet ailleurs
     manager: { emp: 'e2', label: 'Manager' },
     salarie: { emp: 'e3', label: 'Salarié' },
   };
@@ -690,7 +690,7 @@
     return `<header class="top"><button type="button" class="brand" data-act="go" data-v="accueil" aria-label="Teamora · retour à l’accueil" title="Teamora · retour à l’accueil"><span class="brand-mark">${LOGO}</span></button>
       <div class="top-title"><div class="crumb">${crumb}</div><h1>${title}</h1></div>
       <div class="top-right">${TENANT === 'new' ? '' : `<div class="persona" role="group" aria-label="Voir l’application en tant que">${Object.entries(PROFILES).filter(([k]) => profileOk(k)).map(([k, p]) => { const e = profileEmp(k);
-        return `<button type="button" data-act="persona" data-p="${k}" aria-pressed="${persona() === k}" title="${esc(fullName(e))} · ${p.label}">${avatar(e)}<span class="p-l"><span class="who-name">${esc(e.firstName)} ·</span> ${p.label}</span></button>`; }).join('')}</div>`}
+        return `<button type="button" data-act="persona" data-p="${k}" aria-pressed="${persona() === k}" title="${esc(fullName(e))} · ${p.label}">${avatar(e)}<span class="p-l"><span class="who-name">${esc(e.firstName)} ·</span> ${p.short || p.label}</span></button>`; }).join('')}</div>`}
       ${ui.profile === 'salarie' && !ui.selfOf ? asEmpSelect() : ''}${persona() === 'manager' ? asMgrSelect() : ''}${spaceSwitch()}
       ${todoBtn()}
       <button type="button" class="icon-btn" data-act="notif" aria-label="Notifications (${unread} non lues)" aria-expanded="${ui.notif}">${ic('bell')}${unread ? `<span class="dot num">${unread}</span>` : ''}</button></div>
@@ -784,7 +784,7 @@
       ${DEMO ? `<button type="button" class="mob-row" data-act="tour-start"><span class="mob-ic">${ic('star')}</span><span class="t"><b>Revoir la visite guidée</b><small>Teamo te montre l’essentiel</small></span>${ic('right')}</button>` : ''}
       <button type="button" class="mob-row" data-act="avis-open"><span class="mob-ic">${ic('chat')}</span><span class="t"><b>Donner mon avis</b><small>Ce qui t’aide, ce qui manque, ce qui bloque</small></span>${ic('right')}</button>
       <h4 class="sub">Démo : voir l’application en tant que</h4>
-      ${TENANT === 'new' ? '' : `<div class="mob-persona">${Object.entries(PROFILES).filter(([k]) => profileOk(k)).map(([k, pr]) => { const e = profileEmp(k); return `<button type="button" class="btn ${persona() === k ? 'primary' : 'ghost'} sm" data-act="persona" data-p="${k}">${avatar(e)}${esc(e.firstName)} · ${pr.label}</button>`; }).join('')}</div>`}
+      ${TENANT === 'new' ? '' : `<div class="mob-persona">${Object.entries(PROFILES).filter(([k]) => profileOk(k)).map(([k, pr]) => { const e = profileEmp(k); return `<button type="button" class="btn ${persona() === k ? 'primary' : 'ghost'} sm" data-act="persona" data-p="${k}">${avatar(e)}${esc(e.firstName)} · ${pr.short || pr.label}</button>`; }).join('')}</div>`}
       ${!ui.selfOf ? `<div class="field" style="margin-top:10px">${asEmpSelect().replace('class="sr"', 'class="lbl"')}</div>` : `<button type="button" class="btn ghost sm" data-act="space" data-s="gestion" style="margin-top:10px">${ic('left')}Revenir à la gestion (ordinateur)</button>`}
       <p class="hint" style="margin:12px 0 0">Sur téléphone, Teamora affiche l’espace salarié. La gestion RH et manager s’utilise sur ordinateur.</p></div>`;
   }

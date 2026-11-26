@@ -312,11 +312,6 @@ h4.sub .info-b { margin-top: -8px; margin-bottom: -6px; }
 .lab em { display: block; font-style: normal; font-size: 11.5px; color: var(--faint); font-weight: 600; margin-top: 1px; }
 
 .panel { position: sticky; top: 90px; display: flex; flex-direction: column; gap: 14px; }
-.stage-head { display: flex; gap: 14px; align-items: center; }
-.stage-ic { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; color: #fff; flex: none; }
-.stage-ic svg { width: 24px; height: 24px; }
-.stage-head small { font-size: 12px; font-weight: 800; letter-spacing: .08em; }
-.stage-head h2 { font-size: 20px; }
 .steps { display: flex; flex-direction: column; }
 .step { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
 .step:last-child { border-bottom: 0; }

@@ -845,11 +845,7 @@
       ? `<button type="button" class="ckbox" role="checkbox" aria-checked="${arr[k]}" data-act="jcheck" data-id="${empId}" data-s="${stage}" data-k="${k}" aria-label="${esc(t)}">${ic('check')}</button>`
       : `<span class="ckbox" aria-checked="${arr[k]}">${ic('check')}</span>`}<span>${esc(t)}</span></div>`).join('')}</div>`;
   }
-  function stageHead(i, closable = false) {
-    const s = STAGES[i], c = STAGE_COLORS[i];
-    return `<div class="stage-head"><span class="stage-ic" style="background:${c}">${ic(s.icon)}</span><div style="flex:1;min-width:0"><small style="color:${c}">${i <= 4 ? 'ARRIVÉE DES COLLABORATEURS' : i >= 13 ? 'DÉPART DES COLLABORATEURS' : 'RUBRIQUE'}</small><h2>${esc(s.title)}</h2></div>
-      ${closable ? `<button type="button" class="icon-btn" data-act="stage" data-i="${i}" aria-label="Fermer">${ic('x')}</button>` : ''}</div>`;
-  }
+  // Plus de bandeau d'en-tête (« ARRIVÉE DES COLLABORATEURS · Embauche ») en tête des rubriques : le titre est déjà en haut de page.
   const MODULE_LINK = { recrutement: ['recrutement', 'Ouvrir le recrutement'], absences: ['absences', 'Ouvrir les absences'], paie: ['paie', 'Ouvrir la paie'], collaborateurs: ['collaborateurs', 'Ouvrir les collaborateurs'],
     entretiens: ['entretiens', 'Ouvrir les entretiens'], formation: ['formation', 'Ouvrir la formation'], mobilite: ['mobilite', 'Ouvrir la mobilité'], sante: ['sante', 'Ouvrir Santé & QVT'], relations: ['relations', 'Ouvrir les relations individuelles'] };
   function moduleBtn(i) {
@@ -864,8 +860,8 @@
     if (ui.profile === 'salarie') {
       const e = me();
       const arr = journeyOf(e.id, i);
-      if (i >= 13) return `<div class="card card-b">${stageHead(i)}</div>${myDeparture(e, i)}`;
-      return `<div class="card card-b">${stageHead(i)}</div><div class="card"><div class="card-h"><h3>Points à suivre</h3><span class="muted" style="font-size:13px">${arr.filter(Boolean).length} sur ${arr.length}</span></div><div class="card-b">${stepsList(arr, steps, false)}</div></div>${i === 4 ? myIntegration(e) : ''}${moduleBtn(i) ? `<div>${moduleBtn(i)}</div>` : ''}`;
+      if (i >= 13) return myDeparture(e, i);
+      return `<div class="card"><div class="card-h"><h3>Points à suivre</h3><span class="muted" style="font-size:13px">${arr.filter(Boolean).length} sur ${arr.length}</span></div><div class="card-b">${stepsList(arr, steps, false)}</div></div>${i === 4 ? myIntegration(e) : ''}${moduleBtn(i) ? `<div>${moduleBtn(i)}</div>` : ''}`;
     }
     const rh = ui.profile === 'rh', arrival = i >= 2 && i <= 4;
     const people = scopeEmployees().filter((e) => atStage(e, i));
@@ -880,7 +876,7 @@
             : i === 4 ? '<p class="hint" style="margin:10px 0 0">L’intégration se termine quand la période d’essai est confirmée.</p>' : ''}</div>` : ''}`; }).join('')
       : '<p class="muted" style="margin:0">Personne n’est concerné pour le moment.</p>'}</div></div></div>
       ${i === 14 ? exitStats() : ''}${i === 4 && rh ? planConfig() : ''}${people.length ? '' : `<div class="card"><div class="card-h"><h3>Points à suivre</h3></div><div class="card-b">${stepsList(steps.map(() => false), steps, false)}</div></div>`}${moduleBtn(i)}`;
-    return `<div class="card card-b">${stageHead(i)}</div>${body}`;
+    return body;
   }
   // Accueil « Aujourd'hui » : les 5 actions les plus urgentes avec leur date ; la roue sert de menu à côté et se déploie au survol.
   function todayPanel() {
@@ -5330,7 +5326,7 @@
       return `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${f ? `${esc(f.name)} · déposé le ${fmtShort(f.date)}${f.refused ? ` · refusé : ${esc(f.refused)}` : ''}` : d.docs[k] ? `Reçu le ${fmtShort(d.docs[k])}` : esc(DOC_HINT[k] || 'PDF ou photo lisible')}</small></div>${state}${up}</div>`; }).join('');
     const first = planList().filter(([, , day]) => day <= 2);
     const c = d.contract, word = isIntern(e) ? 'document d’accueil' : 'contrat';
-    return `<div class="panel stage-page"><div class="card card-b">${stageHead(2)}<p style="margin:14px 0 0">Bienvenue ${esc(e.firstName)} ! ${days > 0 ? `Tu nous rejoins dans <b class="num">${plural(days, 'jour', 'jours')}</b>, le ${fmtDate(e.startDate, { weekday: 'long', day: 'numeric', month: 'long' })}` : `Tu nous as rejoints le ${fmtDate(e.startDate)}`}, au poste de ${esc(e.title)} (${esc(e.contract)}).</p>
+    return `<div class="panel stage-page"><div class="card card-b"><p style="margin:0">Bienvenue ${esc(e.firstName)} ! ${days > 0 ? `Tu nous rejoins dans <b class="num">${plural(days, 'jour', 'jours')}</b>, le ${fmtDate(e.startDate, { weekday: 'long', day: 'numeric', month: 'long' })}` : `Tu nous as rejoints le ${fmtDate(e.startDate)}`}, au poste de ${esc(e.title)} (${esc(e.contract)}).</p>
       ${locked(e) ? '<p class="hint" style="margin:6px 0 0">Les autres rubriques de ton espace s’ouvriront le jour de ton arrivée.</p>' : ''}</div>
       <div class="card"><div class="card-h"><h3>Où en est mon arrivée</h3></div><div class="card-b">${stepsList(arrivalSteps(e, 2), STAGES[2].steps, false)}</div></div>
       ${c.status === 'Envoyé' ? `<div class="card card-b callout"><b>${ic('edit')}Ton ${word} est prêt à signer</b><button type="button" class="btn primary sm" data-act="go" data-v="contrat">Lire et signer${ic('arrow')}</button></div>` : ''}
@@ -5346,7 +5342,7 @@
     if (pending) main = `<div class="card"><div class="card-h"><h3>${isIntern(e) ? 'Document d’accueil à signer' : 'Contrat à signer'}</h3><span class="pill warn">Envoyé le ${fmtShort(c.sentAt)}</span></div><div class="card-b">${signBox(pending, 'J’ai lu le document en entier et j’en accepte les termes (« lu et approuvé »)', 'Signer le contrat')}</div></div>`;
     else if (e.stage === 2 && c.status !== 'Signé') main = `<div class="card card-b"><p style="margin:0">Ton contrat est en cours de préparation par les gestionnaires des RH. Tu seras prévenu${e.sex === 'F' ? 'e' : e.sex === 'H' ? '' : '·e'} dès qu’il sera prêt à signer.</p></div>`;
     else main = '';
-    return `<div class="panel stage-page"><div class="card card-b">${stageHead(3)}</div>${main}
+    return `<div class="panel stage-page">${main}
       ${card('Mes documents contractuels', '', `<div class="card-b">${docs.filter((x) => x !== pending).map((x) => `<div class="todo"><span class="doc-ic">${ic('file')}</span><div class="t"><b>${esc(x.title)}</b><small>${fmtDate(x.date)}${x.signature ? ` · signé le ${fmtDate(x.signature.date)}` : ''}</small></div><button type="button" class="btn ghost sm" data-act="doc-view" data-id="${x.id}">Consulter</button><button type="button" class="btn ghost sm" data-act="doc-download" data-id="${x.id}">${ic('file')}PDF</button></div>`).join('') || '<p class="muted" style="margin:0">Aucun document signé pour le moment.</p>'}</div>`)}
       ${e.stage === 2 ? card('Où en est mon embauche', '', `<div class="card-b">${stepsList(arrivalSteps(e, 3), STAGES[3].steps, false)}</div>`) : ''}</div>`;
   }

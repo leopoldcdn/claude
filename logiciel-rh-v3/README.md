@@ -131,6 +131,9 @@ reste quand l'écran se redessine, jusqu'au rechargement de la page.
   montrent leur état, leur description et leur « Règle » sont repliées.
 - **Règle d'écriture** : un nouveau texte gris explicatif n'a rien de particulier à faire (il sera replié) ; une information
   qu'on doit voir sans cliquer (date, montant, compteur, consigne indispensable, mention de démonstration) prend `keep`.
+- Plus de bandeau d'en-tête en tête des rubriques (pastille colorée, « ARRIVÉE DES COLLABORATEURS », nom de l'étape) :
+  le nom est déjà en haut de page. Retiré d'Arrivées et de Départs, puis de l'espace salarié (Mon arrivée, Contrat de
+  travail, Intégration, départ) et des pages d'étape ; `stageHead()` n'existe plus.
 - Quelques redites ont été retirées : le pied de dossier « La pré-embauche et l'embauche avancent en parallèle » (les
   onglets montrent l'avancement), la date de suppression de chaque dossier du vivier (affichée seulement à moins de 90 jours).
 - Sur Obligations, le texte gris visible passe d'environ 5 700 à 550 caractères ; sur l'ensemble des écrans du

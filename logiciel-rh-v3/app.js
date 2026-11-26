@@ -45,6 +45,7 @@
     hourglass: '<path d="M6 3h12M6 21h12"/><path d="M7 3v3l5 6-5 6v3M17 3v3l-5 6 5 6v3"/>',
     door: '<path d="M14 3H6v18h8"/><path d="M14 3l6 2v16l-6-2z"/><path d="M10 12h.01"/>',
     archive: '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 16.5v-5.5M12 7.6h.01"/>',
   };
   const ic = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
   const STAR = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg>';
@@ -787,7 +788,7 @@
       <h4 class="sub">Démo : voir l’application en tant que</h4>
       ${TENANT === 'new' ? '' : `<div class="mob-persona">${Object.entries(PROFILES).filter(([k]) => profileOk(k)).map(([k, pr]) => { const e = profileEmp(k); return `<button type="button" class="btn ${persona() === k ? 'primary' : 'ghost'} sm" data-act="persona" data-p="${k}">${avatar(e)}${esc(e.firstName)} · ${pr.short || pr.label}</button>`; }).join('')}</div>`}
       ${!ui.selfOf ? `<div class="field" style="margin-top:10px">${asEmpSelect().replace('class="sr"', 'class="lbl"')}</div>` : `<button type="button" class="btn ghost sm" data-act="space" data-s="gestion" style="margin-top:10px">${ic('left')}Revenir à la gestion (ordinateur)</button>`}
-      <p class="hint" style="margin:12px 0 0">Sur téléphone, Teamora affiche l’espace salarié. La gestion RH et manager s’utilise sur ordinateur.</p></div>`;
+      <p class="hint keep" style="margin:12px 0 0">Sur téléphone, Teamora affiche l’espace salarié. La gestion RH et manager s’utilise sur ordinateur.</p></div>`;
   }
   // Gestionnaires des RH et management sur téléphone : la gestion demande un écran d'ordinateur ; leur espace personnel reste accessible.
   function mobGate() {
@@ -1212,7 +1213,7 @@
         <div class="card"><div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Type</th><th>Période</th><th class="r">Jours</th><th>Demandée le</th><th>Statut</th></tr></thead><tbody>${all.map((l) => { const e = emp(l.empId);
           return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div></td><td>${esc(typeLabel(l))}</td><td>${fmtShort(l.start)} → ${fmtDate(l.end)}</td><td class="r num">${l.days}</td><td>${fmtDate(l.createdAt)}</td><td>${leavePill(l)}</td></tr>`; }).join('')}</tbody></table></div></div>`;
     }
-    const rhBar = ui.profile === 'rh' ? `<div class="toolbar"><button type="button" class="btn primary" data-act="leave-rh">${ic('plus')}Enregistrer une absence pour un collaborateur</button><span class="hint">Avis d’arrêt reçu par courrier ou par e-mail, congé familial, congé validé hors de Teamora.</span></div>` : '';
+    const rhBar = ui.profile === 'rh' ? `<div class="toolbar"><button type="button" class="btn primary" data-act="leave-rh">${ic('plus')}Enregistrer une absence pour un collaborateur</button><span class="hint help">Avis d’arrêt reçu par courrier ou par e-mail, congé familial, congé validé hors de Teamora.</span></div>` : '';
     return `${rhBar}<div class="tabs" role="tablist">${tabs.map(([k, l, n]) => `<button type="button" role="tab" aria-selected="${ui.absTab === k}" data-act="abs-tab" data-t="${k}">${l}${n !== undefined ? `<span class="count num">${n}</span>` : ''}</button>`).join('')}</div>${body}`;
   }
 
@@ -1280,7 +1281,7 @@
           <td class="r">${inp('ndf', x.ndf, 'Notes de frais')}</td><td class="r">${inp('acompte', x.acompte, 'Acompte')}</td><td>${ok ? '<span class="pill ok">Validé</span>' : '<span class="pill warn">À valider</span>'}</td></tr>`; }).join('');
       const mgrs = payManagers(m).map((g) => { const okd = (pr.mgrOk || {})[g.id];
         return `<span class="who-chip">${avatar(g, 'sm')}${esc(fullName(g))} · ${okd ? `validé le ${fmtShort(okd)}` : 'en attente'}${!okd && edit ? `<button type="button" class="linkish" data-act="pay-remind" data-id="${g.id}">Relancer</button>` : ''}</span>`; }).join('');
-      body = `<div class="card"><div class="card-h"><h3>Éléments variables</h3><span class="muted" style="font-size:13px">Absences, heures et entrées-sorties remontent automatiquement de Teamora</span></div>
+      body = `<div class="card"><div class="card-h"><h3>Éléments variables</h3><span class="muted help" style="font-size:13px">Absences, heures et entrées-sorties remontent automatiquement de Teamora</span></div>
         <div class="card-b" style="border-bottom:1px solid var(--line)"><div class="team"><span class="team-l">Validation du management</span>${mgrs}</div></div>
         <div class="table-wrap"><table class="pay-vars"><thead><tr><th>Collaborateur</th><th>Absences</th><th class="r">Heures sup.</th><th class="r">Prime</th><th class="r">Transport (50 %)</th><th class="r">Titres-resto</th><th class="r">Notes de frais</th><th class="r">Acompte</th><th>Manager</th></tr></thead><tbody>${rows}</tbody></table></div></div>
         <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn primary" data-act="pay-step" data-s="controles">Passer aux contrôles${ic('arrow')}</button></div>`;
@@ -1331,7 +1332,7 @@
     if (!team.length || payStatus(m) !== 'Préparation') return '';
     return card(`Variables de paie de l’équipe · ${monthLabel(m).toLowerCase()}`, okd ? `<span class="pill ok">Validées le ${fmtShort(okd)}</span>` : `<span class="pill warn">À valider avant le ${fmtShort(pr.cutoff || `${m}-${String(PAY_CUTOFF).padStart(2, '0')}`)}</span>`, `<div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Absences</th><th class="r">Heures sup.</th><th class="r">Prime</th></tr></thead><tbody>
       ${team.map((e) => { const p = calcPay(e, m), a = p.abs; return `<tr><td><div class="who-cell">${avatar(e, 'sm')}<div><b>${esc(fullName(e))}</b><small>${esc(e.title)}</small></div></div></td><td><small>${absText(Object.assign({}, a, { unpaid: 0 }), false)}</small></td><td class="r num">${p.ot.amount ? fmtH(p.ot.h25 + p.ot.h50) : '—'}</td><td class="r num">${p.bonus ? eur(p.bonus) : '—'}</td></tr>`; }).join('')}</tbody></table></div>
-      <div class="card-b"><div class="toolbar"><span class="hint">Vérifie les absences, heures et primes de ton équipe : une erreur signalée après la clôture se corrige le mois suivant.</span>${okd ? '' : `<button type="button" class="btn primary" data-act="pay-mgr-ok" style="margin-left:auto">${ic('check')}Valider les variables</button>`}</div></div>`);
+      <div class="card-b"><div class="toolbar"><span class="hint help">Vérifie les absences, heures et primes de ton équipe : une erreur signalée après la clôture se corrige le mois suivant.</span>${okd ? '' : `<button type="button" class="btn primary" data-act="pay-mgr-ok" style="margin-left:auto">${ic('check')}Valider les variables</button>`}</div></div>`);
   }
   // Bulletin de paie clarifié (arrêté du 25 février 2016, montant net social depuis juillet 2023), présenté comme un bulletin papier.
   function payslipHTML(e, m) {
@@ -1401,7 +1402,7 @@
     return `<div class="card"><div class="card-h"><h3>Mes bulletins de paie</h3><span class="muted">${plural(months.length, 'bulletin', 'bulletins')}</span></div><div class="req-list">${months.length ? months.map((m) => { const p = calcPay(e, m);
       return `<div class="req"><div class="what"><b>${monthLabel(m)}</b><small class="num">Brut ${eur(p.gross)} · net social ${eur(p.netSocial)} · net payé ${eur(p.net)}</small></div><button type="button" class="btn ghost sm" data-act="payslip" data-id="${e.id}" data-m="${m}">${ic('file')}Voir le bulletin</button></div>`; }).join('') : '<div class="empty">Aucun bulletin pour le moment.</div>'}</div>
       ${mob ? '' : `<div class="card-b" style="border-top:1px solid var(--line)"><label class="agree"><input type="checkbox" data-change="paper-slip" ${e.paperSlip ? 'checked' : ''}> Je préfère recevoir mes bulletins en version papier</label><p class="hint" style="margin:6px 0 0">Les bulletins sont remis sous forme électronique ; tu peux t’y opposer à tout moment (article L3243-2 du Code du travail). Ils restent consultables ici.</p></div>`}</div>
-      <p class="hint">Le bulletin du mois apparaît ici dès que les gestionnaires des RH le diffusent${mob ? '' : ' (essaie depuis le profil gestionnaire des RH, menu Paie)'}.</p>`;
+      <p class="hint keep">Le bulletin du mois apparaît ici dès que les gestionnaires des RH le diffusent${mob ? '' : ' (essaie depuis le profil gestionnaire des RH, menu Paie)'}.</p>`;
   }
   function payCsv(m) {
     const head = ['Matricule', 'Nom', 'Prénom', 'Contrat', 'Salaire mensuel', 'Jours CP', 'Jours RTT', 'Jours maladie', 'Jours sans solde', 'Jours télétravail', 'Heures sup 25 %', 'Heures sup 50 %', 'Prime', 'Prime partage valeur', 'Transport', 'Titres-restaurant', 'Notes de frais', 'Acompte', 'Entrée', 'Sortie', 'Motif de sortie', 'Indemnité CP', 'Indemnité de rupture', 'Indemnité de fin de contrat'];
@@ -1437,7 +1438,7 @@
         <div><span>Adresse postale</span>${esc(e.address) || '—'}</div><div><span>Coordonnées bancaires</span><span class="num">${esc(maskIban(e.iban))}</span></div><div><span>Situation familiale</span>${esc(e.family || '—')}</div><div><span>Lieu de travail</span>${esc(e.location || '—')}</div></div></div></div>
       <form class="card" data-form="profile" novalidate><div class="card-h"><h3>Mes informations personnelles</h3><span class="muted" style="font-size:13px">Les gestionnaires des RH sont prévenus de chaque modification</span></div><div class="card-b"><div class="form-grid">
         <div class="field"><label for="p-phone">Téléphone</label><input id="p-phone" name="phone" type="tel" inputmode="tel" class="input" value="${esc(e.phone)}" autocomplete="tel"></div>
-        <div class="field"><span class="lbl">Lieu de travail</span><p class="hint" style="margin:6px 0 0">${esc(e.location || '—')} · il touche au contrat, aux frais de transport et au suivi médical : demande à faire ci-dessous, validée par les gestionnaires des RH.</p></div>
+        <div class="field"><span class="lbl">Lieu de travail</span><p class="hint keep" style="margin:6px 0 0">${esc(e.location || '—')}<span class="help"> · il touche au contrat, aux frais de transport et au suivi médical : demande à faire ci-dessous, validée par les gestionnaires des RH.</span></p></div>
         <div class="field full"><label for="p-emerg">Contact d’urgence</label><input id="p-emerg" name="emergency" class="input" value="${esc(e.emergency)}" placeholder="Nom · téléphone"></div></div>
         <div class="toolbar" style="margin-top:16px"><span class="err" id="p-err"></span><button class="btn primary" style="margin-left:auto">Enregistrer</button></div></div></form>
       ${myChangesHTML(e)}
@@ -1531,19 +1532,19 @@
     if (m.fallback) return shell('Envoyer ton avis', `<div class="modal-b"><p style="margin:0 0 10px">${m.why || 'Ton avis n’a pas pu être enregistré automatiquement depuis ce navigateur.'} ${AVIS.comments ? 'Tu peux le publier en commentaire sur la page, ou le copier pour l’envoyer à la personne qui t’a transmis le lien.' : 'Copie-le pour l’envoyer par e-mail ou message à la personne qui t’a transmis le lien.'}</p>
       <label class="lbl" for="avis-copy">Ton avis</label><textarea id="avis-copy" class="input" readonly style="min-height:160px">${esc(m.fallback)}</textarea>
       <div class="toolbar" style="margin-top:12px"><button type="button" class="btn primary" data-act="avis-copy">${ic('file')}Copier mon avis</button>${AVIS.comments ? `<button type="button" class="btn ghost" data-act="avis-comment">${ic('chat')}Publier en commentaire</button>` : ''}</div></div>`, close);
-    if (m.list) return shell('Avis reçus', `<div class="modal-b">${!m.rows ? '<p class="muted">Chargement des avis…</p>' : m.err ? `<p class="err">${esc(m.err)}</p>` : m.rows.length ? `<p class="hint" style="margin:0 0 10px">${plural(m.rows.length, 'avis', 'avis')} · visibles par toi seul.</p>${m.rows.map((r) => `<div class="avis-row"><div class="toolbar"><span class="pill ${r.type === 'bug' ? 'bad' : r.type === 'aide' ? 'ok' : 'warn'}">${esc((AVIS_TYPES.find(([k]) => k === r.type) || ['', r.type])[1])}</span>${r.note ? `<span class="pill neutral num">${esc(r.note)}/5</span>` : ''}<small class="muted">${esc(fmtDate(String(r.date).slice(0, 10)))} · ${esc(r.appareil || '')}</small></div>
+    if (m.list) return shell('Avis reçus', `<div class="modal-b">${!m.rows ? '<p class="muted">Chargement des avis…</p>' : m.err ? `<p class="err">${esc(m.err)}</p>` : m.rows.length ? `<p class="hint keep" style="margin:0 0 10px">${plural(m.rows.length, 'avis', 'avis')} · visibles par toi seul.</p>${m.rows.map((r) => `<div class="avis-row"><div class="toolbar"><span class="pill ${r.type === 'bug' ? 'bad' : r.type === 'aide' ? 'ok' : 'warn'}">${esc((AVIS_TYPES.find(([k]) => k === r.type) || ['', r.type])[1])}</span>${r.note ? `<span class="pill neutral num">${esc(r.note)}/5</span>` : ''}<small class="muted">${esc(fmtDate(String(r.date).slice(0, 10)))} · ${esc(r.appareil || '')}</small></div>
         <b>${esc(r.ecran || '')}</b><p>${esc(r.message || '')}</p>${r.entreprise || r.taille ? `<small class="muted">${esc([r.entreprise, r.taille].filter(Boolean).join(' · '))}</small>` : ''}</div>`).join('')}` : '<p class="muted">Aucun avis pour le moment.</p>'}</div>`, close, true);
     const types = AVIS_TYPES.map(([k, l]) => `<label class="avis-chip"><input type="radio" name="type" value="${k}" ${k === 'aide' ? 'checked' : ''}><span>${l}</span></label>`).join('');
     const notes = [1, 2, 3, 4, 5].map((n) => `<label class="avis-note"><input type="radio" name="note" value="${n}"><span class="num">${n}</span></label>`).join('');
     return shell('Donner mon avis', `<form data-form="avis" novalidate><div class="modal-b">
-      <p class="hint" style="margin:0 0 12px">Ton avis aide à décider ce que Teamora doit faire avant d’aller plus loin. Il ne contient pas ton nom.${AVIS.owner ? ' <button type="button" class="linkish" data-act="avis-list">Voir les avis reçus</button>' : ''}</p>
+      <p class="hint keep" style="margin:0 0 12px">Ton avis aide à décider ce que Teamora doit faire avant d’aller plus loin. Il ne contient pas ton nom.${AVIS.owner ? ' <button type="button" class="linkish" data-act="avis-list">Voir les avis reçus</button>' : ''}</p>
       <div class="field full"><label for="avis-ecran">Écran concerné</label><input id="avis-ecran" name="ecran" class="input" maxlength="120" value="${esc(m.ecran || avisScreen())}"></div>
       <fieldset class="avis-set"><legend class="lbl">Ton avis en un mot</legend><div class="avis-chips">${types}</div></fieldset>
       <fieldset class="avis-set"><legend class="lbl">Utilité pour ton entreprise <small class="muted">(1 = inutile, 5 = indispensable)</small></legend><div class="avis-notes">${notes}</div></fieldset>
       <div class="field full"><label for="avis-msg">Ce que tu en penses *</label><textarea id="avis-msg" name="message" class="input" maxlength="2000" placeholder="Ce qui t’a plu, ce qui t’a bloqué, ce que tu attendais…"></textarea></div>
       <div class="form-grid"><div class="field"><label for="avis-ent">Entreprise <small class="muted">(facultatif)</small></label><input id="avis-ent" name="entreprise" class="input" maxlength="80" autocomplete="organization"></div>
         <div class="field"><label for="avis-taille">Taille <small class="muted">(facultatif)</small></label><select id="avis-taille" name="taille" class="select"><option value="">—</option>${AVIS_SIZES.map((x) => `<option>${x}</option>`).join('')}</select></div></div>
-      <p class="hint" style="margin:12px 0 0">N’indique aucune donnée personnelle réelle (nom de salarié, salaire…) : c’est une démo.</p><p class="err" id="m-err" aria-live="polite"></p></div>
+      <p class="hint keep" style="margin:12px 0 0">N’indique aucune donnée personnelle réelle (nom de salarié, salaire…) : c’est une démo.</p><p class="err" id="m-err" aria-live="polite"></p></div>
       <div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button class="btn primary" id="avis-send">Envoyer mon avis</button></div></form>`, '', true);
   };
   Object.assign(MOD_ACT, {
@@ -1827,7 +1828,7 @@
   }
   function setSection(k, wiz) {
     const s = db.settings, c = s.company, people = db.employees.filter((e) => e.stage < 15).sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr'));
-    if (k === 'entreprise') return `<div class="form-grid">${fld('st-nom', 'Nom d’usage', inp('st-nom', 'nom', c.nom, 'maxlength="60" required'), false, 'Affiché dans Teamora et les courriers')}${fld('st-raison', 'Raison sociale', inp('st-raison', 'raison', c.raison, 'maxlength="80"'), false, 'Ex. Nova Studio SAS')}
+    if (k === 'entreprise') return `<div class="form-grid">${fld('st-nom', 'Nom d’usage', inp('st-nom', 'nom', c.nom, 'maxlength="60" required'), false, 'Affiché dans Teamora et les courriers')}${fld('st-raison', 'Raison sociale', inp('st-raison', 'raison', c.raison, 'maxlength="80" placeholder="Ex. Nova Studio SAS"'), false)}
       ${fld('st-adr', 'Adresse du siège', inp('st-adr', 'adresse', c.adresse, 'maxlength="120"'), true)}${fld('st-cp', 'Code postal', inp('st-cp', 'cp', c.cp, 'maxlength="5" inputmode="numeric"'))}${fld('st-ville', 'Ville', inp('st-ville', 'ville', c.ville, 'maxlength="60"'))}
       ${fld('st-siret', 'SIRET', inp('st-siret', 'siret', c.siret, 'maxlength="20" inputmode="numeric" placeholder="14 chiffres"'), false, 'Sur l’avis de situation Insee ou un extrait Kbis')}${fld('st-naf', 'Code NAF / APE', inp('st-naf', 'naf', c.naf, 'maxlength="80" placeholder="Ex. 7410Z"'))}
       ${fld('st-urssaf', 'Organisme de recouvrement', inp('st-urssaf', 'urssaf', c.urssaf, 'maxlength="60" placeholder="Ex. Urssaf Île-de-France"'))}${fld('st-dom', 'Domaine des adresses e-mail', inp('st-dom', 'domaine', c.domaine, 'maxlength="60" placeholder="entreprise.fr"'), false, 'Utilisé pour créer l’adresse des nouveaux arrivants')}
@@ -1987,7 +1988,7 @@
     const todoBy = (sec) => checks.filter((x) => x[0] === sec && !x[2]).length;
     const body = k === 'historique' ? `<div class="req-list">${db.settingsLog.length ? db.settingsLog.map((x) => `<div class="req"><span class="doc-ic">${ic('refresh')}</span><div class="what"><b>${esc(x.section)}</b><small>${esc(x.at)} · ${esc(fullName(emp(x.by)))}</small><small>${x.changes.map(esc).join(' · ')}</small></div></div>`).join('') : '<div class="empty">Aucune modification pour l’instant.</div>'}</div>`
       : k === 'import' || k === 'utilisateurs' && false ? setSection(k) : `<form data-form="settings" data-sec="${k}" novalidate>${setSection(k)}<div id="set-msg" aria-live="polite"></div><div class="toolbar" style="margin-top:16px;justify-content:flex-end"><button class="btn primary">${ic('check')}Enregistrer</button></div></form>`;
-    return `<div class="set-head card card-b"><div><b>Paramètres de ${esc(COMPANY.nom)}</b><small>Ces réglages s’appliquent à toute l’entreprise. Chaque modification est tracée dans l’historique.</small></div>
+    return `<div class="set-head card card-b"><div><b>Paramètres de ${esc(COMPANY.nom)}</b><small class="help">Ces réglages s’appliquent à toute l’entreprise. Chaque modification est tracée dans l’historique.</small></div>
         <div class="set-meter" title="${done} sur ${checks.length}"><span>Espace prêt à <b class="num">${pct} %</b></span><i><b style="width:${pct}%"></b></i></div></div>
       <div class="set-grid"><nav class="card set-nav" aria-label="Sections des paramètres">${SET_SECTIONS.map(([x, l, icn]) => `<button type="button" data-act="set-sec" data-k="${x}" aria-current="${x === k}">${ic(icn)}<span>${l}</span>${todoBy(x) ? `<span class="badge-dot">${todoBy(x)}</span>` : ''}</button>`).join('')}</nav>
         <section class="card set-main"><div class="card-h"><h3>${(SET_SECTIONS.find(([x]) => x === k) || [])[1]}</h3>${k === 'import' ? '' : ''}</div><div class="card-b">${body}</div></section></div>
@@ -2359,7 +2360,7 @@
       <div class="two">${card('Évolution de l’effectif', '<span class="muted" style="font-size:13px">12 mois passés · 12 mois prévus</span>', `<div class="card-b"><div class="eff-chart">${st.months.map((x) => bar(x)).join('')}<span class="eff-sep" title="Aujourd’hui"></span>${st.proj.map((x) => bar(x, true)).join('')}</div>
           <p class="hint" style="margin:8px 0 0">Les mois à venir tiennent compte des arrivées et des départs déjà enregistrés.${next ? ` Seuil suivant : ${next} salariés.` : ''}</p>
           <div class="eff-years">${Object.entries(st.years).map(([y, v]) => `<span><b class="num">${v === null ? '—' : fmtN(v)}</b><small>${y}${Number(y) === YEAR ? ' (en cours)' : ''}</small></span>`).join('')}</div>
-          <p class="hint" style="margin:6px 0 0">Effectifs des années passées : <button type="button" class="linkish" data-act="obl-view" data-v="parametres" data-s="entreprise">à renseigner dans Paramètres</button> (règle des 5 ans).</p></div>`)}
+          <p class="hint${Object.values(st.years).some((v) => v === null) ? ' keep' : ''}" style="margin:6px 0 0">Effectifs des années passées : <button type="button" class="linkish" data-act="obl-view" data-v="parametres" data-s="entreprise">à renseigner dans Paramètres</button> (règle des 5 ans).</p></div>`)}
         ${card('Alertes', '', `<div class="card-b">${todo.length ? todo.map((x) => `<div class="todo"><span class="chk-dot warn"></span><div class="t"><b>${esc(x.l)}</b><small>${esc(x.sub)}</small></div><button type="button" class="btn ghost sm" ${oblGo(x.go)}>Ouvrir</button></div>`).join('') : '<p class="ok-line">Rien à signaler.</p>'}
           <h4 class="sub" style="margin-top:14px">Démo : simuler un effectif</h4><div class="toolbar"><label class="sr" for="obl-sim-n">Effectif simulé</label><input id="obl-sim-n" type="number" min="1" max="5000" class="input num" style="width:96px" value="${db.compliance.sim ? db.compliance.sim.n : ''}" placeholder="ex. 60">
             <label class="sr" for="obl-sim-s">Depuis</label><select id="obl-sim-s" class="select" style="width:auto">${[['recent', 'depuis quelques mois'], ['1an', 'depuis plus d’un an'], ['5ans', 'depuis 5 ans et plus']].map(([k, l]) => `<option value="${k}" ${db.compliance.sim && db.compliance.sim.since === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
@@ -2367,7 +2368,7 @@
       ${groups.map(([n, l]) => { const rs = n ? ruleState('now', n, st) : { on: true }, any = l.some((x) => x.on);
         return `<div class="card obl-g"><div class="card-h"><h3>${n && !any && !rs.on ? `Ce qui arrive à ${n} salariés` : SEUIL_LABEL(n)}</h3><span class="pill ${any ? 'accent' : rs.on ? 'warn' : 'info'}">${n ? (any ? 'Seuil atteint' : rs.on ? 'Seuil atteint · obligations à venir' : 'Seuil prévu dans les 12 mois') : 'Toutes les entreprises'}</span></div><div class="card-b">
           ${l.map((x) => { const [pc, pl] = x.on ? PILL_S[x.state.s] : x.soon ? ['info', `À venir · ${monthLabel(x.soon.m).toLowerCase()}`] : ['neutral', 'Non applicable'];
-            return `<div class="todo obl ${x.on ? '' : 'off'}"><div class="t"><b>${esc(x.title)}</b><small>${esc(x.desc)}</small><small class="obl-rule">${n ? `Règle : ${RULE_LABEL[x.rule]} · ${esc(x.txt)}${!x.on && x.soon ? ` · applicable en ${monthLabel(x.soon.m).toLowerCase()} (${esc(x.soon.why)})` : ''}` : ''}${x.on ? ` · ${esc(x.state.l)}` : ''}</small></div><span class="pill ${pc}">${pl}</span><button type="button" class="btn ghost sm" ${oblGo(x.go)}>Ouvrir</button></div>`; }).join('')}</div></div>`; }).join('')}
+            return `<div class="todo obl ${x.on ? '' : 'off'}"><div class="t"><b>${esc(x.title)}</b>${x.on && x.state.l ? `<small>${esc(x.state.l)}</small>` : ''}<small class="help">${esc(x.desc)}</small>${n ? `<small class="obl-rule help">Règle : ${RULE_LABEL[x.rule]} · ${esc(x.txt)}${!x.on && x.soon ? ` · applicable en ${monthLabel(x.soon.m).toLowerCase()} (${esc(x.soon.why)})` : ''}</small>` : ''}</div><span class="pill ${pc}">${pl}</span><button type="button" class="btn ghost sm" ${oblGo(x.go)}>Ouvrir</button></div>`; }).join('')}</div></div>`; }).join('')}
       ${later.length ? `<p class="hint" style="margin:0">Seuils suivants (${later.map(([n]) => n).join(', ')} salariés) : pas encore concernés. Leurs obligations restent consultables dans les onglets pour prendre de l’avance.</p>` : ''}`;
   }
   const oblNotYet = (seuil, rule, what) => { const r = ruleState(rule, seuil); return r.on ? '' : `<div class="lint warn" style="margin-bottom:12px"><b>${esc(what)} n’est pas encore obligatoire</b><p>${esc(r.txt)}${r.soon ? ` · applicable en ${monthLabel(r.soon.m).toLowerCase()}` : ''}. Tu peux déjà l’utiliser.</p></div>`; };
@@ -2448,7 +2449,7 @@
   function oblConformite(st) {
     const c = db.compliance, ref = c.referents, people = db.employees.filter(isEmployed).sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr')), mem = c.cse.members.filter((x) => emp(x.empId)).map((x) => emp(x.empId));
     const pick = (k, list, cur) => `<select class="select" style="width:240px" data-change="obl-ref" data-k="${k}" aria-label="Référent"><option value="">Rechercher un salarié…</option>${list.map((e) => `<option value="${e.id}" ${e.id === cur ? 'selected' : ''}>${esc(fullName(e))}</option>`).join('')}</select>`;
-    const row = (on, l, h, ctl) => `<div class="todo ${on ? '' : 'off'}"><div class="t"><b>${l}</b><small>${h}</small></div>${ctl}</div>`;
+    const row = (on, l, h, ctl) => `<div class="todo ${on ? '' : 'off'}"><div class="t"><b>${l}</b>${h ? `<small${h.length > 48 ? ' class="help"' : ''}>${h}</small>` : ''}</div>${ctl}</div>`;
     const fin = db.settings.finances;
     return `<div class="two">${card('Affichages obligatoires', `<span class="muted num" style="font-size:13px">${DISPLAYS.filter(([k]) => c.displays[k]).length} / ${DISPLAYS.length}</span>`, `<div class="card-b">${DISPLAYS.map(([k, l]) => `<label class="agree"><input type="checkbox" data-change="obl-disp" data-k="${k}" ${c.displays[k] ? 'checked' : ''}> ${l}${c.displays[k] ? ` <small class="muted">· depuis le ${fmtDate(c.displays[k])}</small>` : ''}</label>`).join('')}<p class="hint" style="margin:8px 0 0">Sur un panneau accessible ou par tout moyen (intranet, e-mail).</p></div>`)}
       ${card('Règlement intérieur', isOn(50, 'y5') ? '<span class="pill accent">Obligatoire</span>' : '<span class="pill neutral">À partir de 50 salariés</span>', `<div class="card-b">${[['redaction', 'Rédaction', 'Hygiène et sécurité, discipline et échelle des sanctions, harcèlement, lanceurs d’alerte'], ['cse', 'Avis du CSE', 'Consultation obligatoire'], ['greffe', 'Dépôt au greffe du conseil de prud’hommes', ''], ['inspection', 'Envoi à l’inspection du travail', 'En deux exemplaires, avec l’avis du CSE'], ['affichage', 'Affichage et entrée en vigueur', 'Au moins un mois après le dépôt']].map(([k, l, h]) => row(true, l, h, dateIn('obl-ri', c.ri[k], `data-k="${k}"`, l))).join('')}
@@ -2626,11 +2627,10 @@
       return `<button type="button" role="tab" aria-selected="${ph === i}" data-act="proc-phase" data-i="${i}" ${open ? '' : 'disabled title="Pas encore commencé"'}>${done ? ic('check') : ''}${l}<span class="count num">${n}/${s.length}</span></button>`; }).join('');
     const steps = phaseSteps(e, ph), arrival = k === 'arrivees';
     const next = rh && !arrival && (ph === 13 || ph === 14) && e.stage === ph ? `<button type="button" class="btn ${steps.every(Boolean) ? 'primary' : 'ghost'} sm" data-act="advance" data-id="${e.id}">Passer aux « ${esc(phases.find(([i]) => i === ph + 1)[1].toLowerCase())} »${ic('arrow')}</button>` : '';
-    const hint = arrival && ph !== 4 ? `<p class="hint" style="margin:10px 0 0">La pré-embauche et l’embauche avancent en parallèle. ${esc(e.firstName)} passe en intégration quand les deux sont terminées et le contrat signé.</p>` : '';
     return `<div class="card proc-dossier"><div class="proc-head">${avatar(e, 'lg')}<div style="flex:1;min-width:0"><h2>${esc(fullName(e))}</h2><p>${esc(e.title)} · ${esc(e.dept)} · ${statusPill(e)}</p></div>
         <button type="button" class="btn ghost sm" data-act="open-emp" data-id="${e.id}">Ouvrir la fiche</button></div>
       <div class="tabs proc-tabs" role="tablist" aria-label="Temps du dossier">${tabs}</div>
-      <div class="card-b">${stepsList(steps, stageSteps(ph), false)}${arrival ? arrivalDossier(e, ph) : departDossier(e, ph)}${next ? `<div class="toolbar" style="margin-top:16px">${next}</div>` : ''}${hint}</div></div>`;
+      <div class="card-b">${stepsList(steps, stageSteps(ph), false)}${arrival ? arrivalDossier(e, ph) : departDossier(e, ph)}${next ? `<div class="toolbar" style="margin-top:16px">${next}</div>` : ''}</div></div>`;
   }
   function viewProc(k) {
     const P = PROC[k], rh = ui.profile === 'rh', all = procPeople(k);
@@ -2788,7 +2788,7 @@
           <button type="button" class="btn ghost sm" data-act="org-unfold">Tout déplier</button>${ui.orgFull ? `<button type="button" class="btn ghost sm" data-act="org-full" aria-pressed="true" title="Quitter le plein écran (Échap)">${ic('shrink')}Quitter le plein écran</button>` : `<button type="button" class="icon-btn org-fs" data-act="org-full" aria-pressed="false" aria-label="Afficher en plein écran" data-tip="Plein écran">${ic('expand')}</button>`}${rh ? `<button type="button" class="btn primary sm" data-act="org-move">${ic('arrow')}Changer un rattachement</button>` : ''}</div></div>
       ${rh && orgIssues().length ? `<div class="org-warn">${ic('target')}<span>${plural(orgIssues().length, 'incohérence', 'incohérences')} entre les responsables de service (Paramètres) et l’organigramme.</span><button type="button" class="btn ghost sm" data-act="coh-open">Vérifier</button></div>` : ''}
       <div class="org-vp" id="org-vp"><div class="org-canvas" id="org-canvas" style="zoom:${ui.orgZoom || 1}"><ul class="ot">${roots.map((r) => orgNode(r)).join('')}</ul></div></div>
-      <p class="hint org-hint">${rh ? 'Pour changer quelqu’un d’équipe, fais glisser sa carte sur un manager : l’aperçu montre sa nouvelle place en vert, lâche pour confirmer (Échap ou lâcher ailleurs pour annuler). ' : ''}Clique sur une personne pour voir sa fiche · fais glisser le fond pour te déplacer.</p></div>`;
+      <p class="hint keep org-hint">${rh ? 'Pour changer quelqu’un d’équipe, fais glisser sa carte sur un manager : l’aperçu montre sa nouvelle place en vert, lâche pour confirmer (Échap ou lâcher ailleurs pour annuler). ' : ''}Clique sur une personne pour voir sa fiche · fais glisser le fond pour te déplacer.</p></div>`;
   }
   function refreshOrg() {
     const c = document.getElementById('org-canvas'); if (!c) return;
@@ -3241,7 +3241,7 @@
   function catalogue() {
     // Le prix est visible de tous : il aide le salarié à choisir et à mobiliser, s'il le souhaite, son CPF.
     const showCost = true;
-    return `${ui.profile === 'rh' ? `<div class="toolbar"><button type="button" class="btn primary" data-act="training-new">${ic('plus')}Ajouter une formation au catalogue</button></div>` : `<div class="toolbar"><button type="button" class="btn ghost" data-act="training-free">${ic('plus')}Demander une formation hors catalogue</button><span class="hint">Organisme, coût et dates à indiquer : elle suit le même circuit de validation.</span></div>`}
+    return `${ui.profile === 'rh' ? `<div class="toolbar"><button type="button" class="btn primary" data-act="training-new">${ic('plus')}Ajouter une formation au catalogue</button></div>` : `<div class="toolbar"><button type="button" class="btn ghost" data-act="training-free">${ic('plus')}Demander une formation hors catalogue</button><span class="hint help">Organisme, coût et dates à indiquer : elle suit le même circuit de validation.</span></div>`}
       <div class="cat-grid">${db.trainings.filter((t) => !t.free).map((t) => { const next = t.sessions.filter((s) => s >= TODAY);
         return `<div class="card cat"><span class="pill neutral">${esc(t.category)}</span><h3>${esc(t.title)}</h3><p class="muted">${esc(t.provider)} · ${esc(t.mode)} · ${t.hours} h${showCost ? ` · ${eur0(t.cost)}` : ''}</p>
         <p class="muted" style="font-size:13px">${next.length ? `Prochaines sessions : ${next.map((s) => fmtShort(s)).join(', ')}` : 'Pas de session programmée'}</p>
@@ -3268,7 +3268,7 @@
     else if (ui.trTab === 'valider') {
       const ids = scopeSet();
       const list = p === 'rh' ? db.enrollments.filter((x) => ['Demandée', 'Validée manager'].includes(x.status)) : db.enrollments.filter((x) => x.status === 'Demandée' && ids.has(x.empId));
-      body = `${p === 'rh' ? `<p class="hint" style="margin:0">Budget restant : <b class="num">${eur0(budgetState().left)}</b>. La validation RH inscrit le collaborateur à la session.</p>` : ''}
+      body = `${p === 'rh' ? `<p class="hint keep" style="margin:0">Budget restant : <b class="num">${eur0(budgetState().left)}</b><span class="help">. La validation RH inscrit le collaborateur à la session.</span></p>` : ''}
         ${card('Demandes à valider', '', `<div class="req-list">${list.length ? list.map((x) => enrRow(x, `<div class="acts"><button type="button" class="btn ok sm" data-act="train-ok" data-id="${x.id}">${ic('check')}Valider</button><button type="button" class="btn bad sm" data-act="train-ko" data-id="${x.id}">Refuser</button></div>`)).join('') : '<div class="empty">Aucune demande en attente.</div>'}</div>`)}`;
     } else if (ui.trTab === 'equipe') {
       const ids = scopeSet(); const list = db.enrollments.filter((x) => ids.has(x.empId)).sort((a, b) => b.session.localeCompare(a.session));
@@ -3377,7 +3377,7 @@
     else if (ui.mobTab === 'offres') body = internalOffers();
     else if (ui.mobTab === 'changements') {
       const h = db.history.slice().sort((a, b) => b.date.localeCompare(a.date));
-      body = `<div class="toolbar"><button type="button" class="btn primary" data-act="move-new">${ic('plus')}Enregistrer un changement de poste</button><span class="hint">Un avenant est généré automatiquement dans les documents du collaborateur.</span></div>
+      body = `<div class="toolbar"><button type="button" class="btn primary" data-act="move-new">${ic('plus')}Enregistrer un changement de poste</button><span class="hint help">Un avenant est généré automatiquement dans les documents du collaborateur.</span></div>
         ${card('Historique des évolutions', '', `<div class="table-wrap"><table><thead><tr><th>Date d’effet</th><th>Collaborateur</th><th>Type</th><th>Détail</th></tr></thead><tbody>${h.map((x) => { const e = emp(x.empId);
           return `<tr><td class="num">${fmtDate(x.date)}</td><td><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div></td><td><span class="pill accent">${esc(x.label)}</span></td><td>${esc(x.detail)}</td></tr>`; }).join('')}</tbody></table></div>`)}`;
     } else if (p === 'salarie') {
@@ -3573,7 +3573,7 @@
         ${card('Historique', '', `<div class="req-list">${done.slice(0, 8).map((v) => { const e = emp(v.empId); return `<div class="req"><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div><div class="what"><b>${esc(v.kind)}</b><small>${fmtDate(v.date)}</small></div><span class="pill ${v.result === 'Apte' || v.result === 'Attestation de suivi' ? 'ok' : v.result === 'Inapte' ? 'bad' : 'info'}">${esc(v.result)}</span></div>`; }).join('') || '<div class="empty">Aucune visite réalisée.</div>'}</div>`)}`;
     } else if (ui.healthTab === 'accidents') {
       const list = db.incidents.filter((x) => inScope(x.empId)).sort((a, b) => b.date.localeCompare(a.date));
-      body = `<div class="toolbar"><button type="button" class="btn primary" data-act="incident-new">${ic('plus')}Déclarer un accident ou un incident</button>${p === 'rh' ? '<span class="hint">Un accident du travail ou de trajet se déclare à la CPAM sous 48 h (dimanches et jours fériés non compris).</span>' : ''}</div>
+      body = `<div class="toolbar"><button type="button" class="btn primary" data-act="incident-new">${ic('plus')}Déclarer un accident ou un incident</button>${p === 'rh' ? '<span class="hint help">Un accident du travail ou de trajet se déclare à la CPAM sous 48 h (dimanches et jours fériés non compris).</span>' : ''}</div>
         ${card('Déclarations', '', `<div class="req-list">${list.map((x) => { const e = emp(x.empId), needCpam = ['Accident du travail', 'Accident de trajet'].includes(x.kind);
           const acts = p !== 'rh' ? '' : x.status === 'Déclaré' ? `<div class="acts">${needCpam ? `<button type="button" class="btn primary sm" data-act="incident-step" data-id="${x.id}" data-s="Transmis CPAM">Déclaration CPAM envoyée</button>${x.reserves ? '' : `<button type="button" class="btn ghost sm" data-act="incident-reserve" data-id="${x.id}">Émettre des réserves</button>`}` : ''}<button type="button" class="btn ghost sm" data-act="incident-step" data-id="${x.id}" data-s="Clos">Clore</button></div>` : x.status === 'Transmis CPAM' ? `<button type="button" class="btn ghost sm" data-act="incident-step" data-id="${x.id}" data-s="Clos">Clore</button>` : '';
           const lk = x.leaveId && db.leaves.find((l) => l.id === x.leaveId);
@@ -3583,7 +3583,7 @@
     } else if (ui.healthTab === 'risques') {
       const score = (r) => r.g * r.p, lvl = (s) => (s >= 9 ? ['bad', 'Prioritaire'] : s >= 5 ? ['warn', 'À surveiller'] : ['ok', 'Maîtrisé']);
       const list = db.risks.slice().sort((a, b) => score(b) - score(a));
-      body = `<div class="toolbar"><button type="button" class="btn primary" data-act="risk-new">${ic('plus')}Ajouter un risque</button><span class="hint">Score = gravité × probabilité (1 à 4 chacune). Le document unique est mis à jour au moins une fois par an.</span></div>
+      body = `<div class="toolbar"><button type="button" class="btn primary" data-act="risk-new">${ic('plus')}Ajouter un risque</button><span class="hint help">Score = gravité × probabilité (1 à 4 chacune). Le document unique est mis à jour au moins une fois par an.</span></div>
         ${card('Document unique d’évaluation des risques', `<span class="muted num">${list.length} risques</span>`, `<div class="table-wrap"><table><thead><tr><th>Unité de travail</th><th>Risque</th><th class="r">G</th><th class="r">P</th><th>Score</th><th>Mesures de prévention</th><th>Statut</th></tr></thead><tbody>${list.map((r) => { const [c, l] = lvl(score(r));
           return `<tr><td>${esc(r.unit)}</td><td><b>${esc(r.risk)}</b></td><td class="r num">${r.g}</td><td class="r num">${r.p}</td><td><span class="pill ${c} num">${score(r)} · ${l}</span></td><td>${esc(r.measure)}</td>
           <td><label class="sr" for="rk-${r.id}">Statut</label><select id="rk-${r.id}" class="select" data-change="risk-status" data-id="${r.id}">${['À lancer', 'En cours', 'En place'].map((s) => `<option ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}</select></td></tr>`; }).join('')}</tbody></table></div>`)}`;
@@ -3724,7 +3724,7 @@
         ${card('Mes signalements', '', `<div class="req-list">${mine.map((c) => { const e = emp(c.empId); return `<div class="req"><div class="who-cell">${avatar(e, 'sm')}<b>${esc(fullName(e))}</b></div><div class="what"><b>${esc(c.title)}</b><small>Transmis le ${fmtDate(c.openedAt)} · le suivi détaillé reste confidentiel</small></div><span class="pill ${CASE_PILL[c.status]}">${c.status}</span></div>`; }).join('') || '<div class="empty">Aucun signalement.</div>'}</div>`)}`;
     }
     const list = db.cases.filter((c) => !ui.caseStatus || c.status === ui.caseStatus).sort((a, b) => b.openedAt.localeCompare(a.openedAt));
-    return `<div class="card card-b toolbar"><span class="pill bad">Confidentiel</span><span class="muted">Ces dossiers ne sont visibles que par les gestionnaires des RH. Le collaborateur ne voit que les réponses qui lui sont adressées.</span></div>
+    return `<div class="card card-b toolbar"><span class="pill bad">Confidentiel</span><span class="muted help">Ces dossiers ne sont visibles que par les gestionnaires des RH. Le collaborateur ne voit que les réponses qui lui sont adressées.</span></div>
       <div class="toolbar"><label class="sr" for="cs-f">Statut</label><select id="cs-f" class="select" data-change="caseStatus"><option value="">Tous les dossiers</option>${Object.keys(CASE_PILL).map((s) => `<option ${ui.caseStatus === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
       <button type="button" class="btn primary" style="margin-left:auto" data-act="case-new">${ic('plus')}Ouvrir un dossier</button></div>
       ${card('Dossiers', `<span class="muted num">${list.length}</span>`, `<div class="table-wrap"><table><thead><tr><th>Collaborateur</th><th>Nature</th><th>Objet</th><th>Ouvert le</th><th>Statut</th><th></th></tr></thead><tbody>${list.map((c) => { const e = emp(c.empId);
@@ -3750,7 +3750,7 @@
         <form data-form="case-event" style="margin-top:14px" novalidate><div class="form-grid"><div class="field"><label for="ce-type">Type</label><select id="ce-type" name="type" class="select">${['Note interne', 'Entretien', 'Convocation envoyée', 'Mise à pied conservatoire', 'Échange', 'Réponse au collaborateur'].map((x) => `<option>${x}</option>`).join('')}</select></div>
         <div class="field"><label for="ce-date">Date</label><input id="ce-date" name="date" type="date" class="input" value="${TODAY}"></div>
         <div class="field full"><label for="ce-note">Contenu</label><textarea id="ce-note" name="note" class="input" maxlength="800"></textarea></div></div>
-        <div class="toolbar" style="margin-top:10px"><span class="hint">« Réponse au collaborateur » est visible par ${esc(e.firstName)} ; les autres entrées restent internes.</span><span class="err" id="ce-err"></span><button class="btn primary" style="margin-left:auto">Ajouter</button></div></form></div></div></div>`;
+        <div class="toolbar" style="margin-top:10px"><span class="hint help">« Réponse au collaborateur » est visible par ${esc(e.firstName)} ; les autres entrées restent internes.</span><span class="err" id="ce-err"></span><button class="btn primary" style="margin-left:auto">Ajouter</button></div></form></div></div></div>`;
   };
   MODALS['case-new'] = (m, shell, formShell, opt, f) => formShell('Ouvrir un dossier', 'case-new', `<div class="form-grid">${f('cn-emp', 'Collaborateur', `<select id="cn-emp" name="empId" class="select">${empOptions(employed())}</select>`)}
     ${f('cn-kind', 'Nature', `<select id="cn-kind" name="kind" class="select">${opt(CASE_KINDS.slice(0, 3))}</select>`)}${f('cn-title', 'Objet', '<input id="cn-title" name="title" class="input" maxlength="100">', true)}
@@ -3908,7 +3908,7 @@
   function talentsHTML(title, dept) {
     const list = internalTalents(title, dept);
     return list.length ? `<div class="talents"><b>${plural(list.length, 'talent interne à considérer', 'talents internes à considérer')}</b>${list.map(({ w, e }) => `<div class="todo">${avatar(e, 'sm')}<div class="t"><b>${esc(fullName(e))}</b><small>${esc(e.title)} · ${esc(e.dept)} · souhaite : ${esc(w.target)} (${esc(w.horizon.toLowerCase())})</small></div></div>`).join('')}</div>`
-      : '<p class="hint" style="margin:0">Aucun souhait de mobilité interne ne correspond à ce poste pour le moment.</p>';
+      : '<p class="hint keep" style="margin:0">Aucun souhait de mobilité interne ne correspond à ce poste pour le moment.</p>';
   }
 
   function needError(j) {
@@ -4054,7 +4054,7 @@
     else if (NEED_OPEN.includes(j.status)) main = `<button type="button" class="btn primary" data-act="open-job" data-id="${j.id}">Voir l’offre et les candidats${ic('arrow')}</button>`;
     const refusal = j.status === 'Refusée' ? j.approvals.filter((a) => a.decision === 'Refusée').slice(-1)[0] : null;
     const banner = w.who ? `<div class="next-step ${mine ? 'mine' : ''} ${w.late ? 'late' : ''}"><div><small>PROCHAINE ÉTAPE</small><b>${esc(w.label)}</b><span>${mine ? 'À vous' : `En attente de ${esc(fullName(emp(w.who)))}`} · ${sinceTxt(w.days)}${w.late ? ' · relance envoyée' : ''}</span>
-        ${j.pending === 'direction' && rh ? `<span class="hint">Vous saisissez la décision de ${esc(fullName(emp(DIR_ID())))} : elle sera tracée « saisie par ${esc(fullName(me()))} ». La Direction peut aussi valider elle-même (profil Manager vu en ${esc(fullName(emp(DIR_ID())))}).</span>` : ''}</div><div class="toolbar">${main}${more}${edit}</div></div>`
+        ${j.pending === 'direction' && rh ? `<span class="hint help">Vous saisissez la décision de ${esc(fullName(emp(DIR_ID())))} : elle sera tracée « saisie par ${esc(fullName(me()))} ». La Direction peut aussi valider elle-même (profil Manager vu en ${esc(fullName(emp(DIR_ID())))}).</span>` : ''}</div><div class="toolbar">${main}${more}${edit}</div></div>`
       : `<div class="next-step done"><div><small>${j.status === 'Refusée' ? 'BESOIN REFUSÉ' : 'OFFRE PUBLIÉE'}</small><b>${j.status === 'Refusée' ? esc(refusal && refusal.comment || 'Refusé') : `${jobRef(j)} · ${JOB_PILL[j.status][1]}`}</b><span>${j.status === 'Refusée' ? `par ${esc(fullName(emp(refusal ? refusal.by : 'e1')))} le ${fmtDate(refusal ? refusal.date : j.createdAt)}` : 'Le besoin reste consultable ici ; l’offre se suit dans Recrutement.'}</span></div><div class="toolbar">${main}</div></div>`;
     const lock = !rh && !draftLike(j) && !NEED_OPEN.includes(j.status) && j.status !== 'Refusée' ? `<p class="hint lock">${ic('check')}${j.status === 'Validée' ? (canWriteAd(j) ? 'Besoin validé : rédigez l’offre avec les gestionnaires des RH (onglet « Projet d’offre ») ; seuls les gestionnaires des RH la valident et la publient.' : 'Besoin validé : l’offre est en cours de rédaction.') : 'Envoyé aux gestionnaires des RH : seuls les gestionnaires des RH peuvent désormais modifier ce besoin.'}</p>` : '';
     const unread = unreadOf(j), mgr = emp(jobManager(j)), repl = j.replaces && emp(j.replaces), talents = internalTalents(j.title, j.dept);
@@ -4070,7 +4070,7 @@
         : `<p class="muted">Le projet d’offre n’est pas encore commencé. Le manager demandeur et les gestionnaires des RH peuvent le rédiger ; seuls les gestionnaires des RH le valident et le publient.</p>`;
       if (canWriteAd(j)) body += `<button type="button" class="btn ${a ? 'ghost' : 'primary'} sm" data-act="need-publish" data-id="${j.id}">${ic('edit')}${a ? 'Modifier le projet' : 'Commencer la rédaction'}</button>`; }
     else if (tab === 'validation') body = `${needFlowHTML(j)}${(j.log || []).length ? `<h4 class="sub" style="margin-top:18px">Journal</h4>${historyRows(j.log)}` : ''}`;
-    else if (tab === 'echanges') body = `<p class="hint" style="margin:0 0 8px">Échanges internes entre RH et manager ; le candidat ne les voit jamais.</p>${(j.comments || []).map((c) => `<div class="cmt ${c.by === me().id ? 'mine' : ''}">${avatar(emp(c.by), 'sm')}<div><b>${esc(fullName(emp(c.by)))}</b><small>${fmtDate(c.date)}</small><p>${esc(c.text)}</p></div></div>`).join('') || '<p class="muted" style="margin:0 0 8px">Aucun échange pour le moment.</p>'}
+    else if (tab === 'echanges') body = `<p class="hint" style="margin:0 0 8px">Échanges internes entre les gestionnaires des RH et le manager ; le candidat ne les voit jamais.</p>${(j.comments || []).map((c) => `<div class="cmt ${c.by === me().id ? 'mine' : ''}">${avatar(emp(c.by), 'sm')}<div><b>${esc(fullName(emp(c.by)))}</b><small>${fmtDate(c.date)}</small><p>${esc(c.text)}</p></div></div>`).join('') || '<p class="muted" style="margin:0 0 8px">Aucun échange pour le moment.</p>'}
       <form data-form="need-comment" data-id="${j.id}" class="cmt-form"><label class="sr" for="nc-${j.id}">Votre commentaire</label><textarea id="nc-${j.id}" name="text" class="input" maxlength="400" placeholder="Une question, une précision…"></textarea><button class="btn primary sm">Envoyer</button></form>`;
     else body = `<p class="need-desc">${esc(j.description) || '<span class="muted">Description à rédiger.</span>'}</p>
       <div class="info-grid"><div><span>Motif</span>${esc(j.reason)}${repl ? ` de ${esc(fullName(repl))}` : ''}</div><div><span>Salaire annuel brut</span><span class="num">${esc(j.budget)}</span></div><div><span>Prévu au budget des effectifs</span>${j.budgeted ? 'Oui' : '<b style="color:var(--warn)">Non</b>'}</div>
@@ -4325,7 +4325,7 @@
       const sec = (k, t, inner) => `<div class="recap"><div class="recap-h"><h4 class="sub">${t}</h4><button class="btn ghost sm" name="nav" value="goto-${k}">${ic('edit')}Modifier</button></div>${inner}</div>`;
       body = `${sec(0, 'Le poste', `<div class="info-grid">${row('Intitulé', esc(j.title))}${row('Service', esc(j.dept))}${row('Contrat et lieu', `${esc(j.contract)} · ${esc(j.location)}`)}${row('Arrivée souhaitée', fmtDate(j.startWanted))}${row('Priorité', esc(j.priority))}${row('Manager', esc(fullName(emp(j.managerId))))}${row('Statut et durée du travail', esc(statutText(j)))}${j.contract === 'CDD' ? row('CDD', esc(cddText(j))) : ''}</div>`)}
         ${sec(1, 'Justification et budget', `<div class="info-grid">${row('Motif', `${esc(j.reason)}${j.replaces ? ` de ${esc(fullName(emp(j.replaces)))}` : ''}`)}${row('Salaire annuel brut', esc(j.budget))}${row('Prévu au budget', j.budgeted ? 'Oui' : 'Non')}${row('Alternatives étudiées', Object.keys(ALT_LABELS).filter((k) => j.alternatives[k]).map((k) => ALT_LABELS[k]).join(', '))}</div><div style="margin-top:10px">${needSalHTML(j)}</div><div style="margin-top:10px">${flowText(j.reason, j.budgeted)}</div>`)}
-        ${sec(2, 'Fiche de cadrage', `<p style="margin:0">${sc.must.map(esc).join(' · ') || '<span class="muted">—</span>'}</p><p class="hint" style="margin:6px 0 0">${plural(sc.rounds, 'entretien prévu', 'entretiens prévus')}${sc.nice.length ? ` · atouts : ${sc.nice.map(esc).join(', ')}` : ''}</p>`)}
+        ${sec(2, 'Fiche de cadrage', `<p style="margin:0">${sc.must.map(esc).join(' · ') || '<span class="muted">—</span>'}</p><p class="hint keep" style="margin:6px 0 0">${plural(sc.rounds, 'entretien prévu', 'entretiens prévus')}${sc.nice.length ? ` · atouts : ${sc.nice.map(esc).join(', ')}` : ''}</p>`)}
         ${sec(3, 'Missions et annonce', `<p style="margin:0">${esc(j.description) || '<span class="muted">—</span>'}</p><div style="margin-top:10px">${adLintHTML(j.title, j.description, false)}</div>`)}`;
     }
     const last = step === 4, sendLabel = saveOnly ? 'Enregistrer les modifications' : rh ? 'Valider le besoin' : 'Envoyer en validation';
@@ -4351,7 +4351,7 @@
     const btns = rh ? '<button class="btn ghost" name="go" value="save">Enregistrer le projet</button><button class="btn primary" name="go" value="publish">Valider et publier l’offre</button>'
       : `<button class="btn ghost" name="go" value="save">Enregistrer le projet</button><button class="btn primary" name="go" value="send">${adReady(j) ? 'Renvoyer aux gestionnaires des RH' : 'Envoyer aux gestionnaires des RH pour validation'}</button>`;
     return shell(rh ? 'Rédiger, valider et publier l’offre' : 'Rédiger l’offre', `<form data-form="need-publish" novalidate><div class="modal-b">
-      <p class="hint" style="margin:0 0 6px">Offre datée du ${fmtDateY(TODAY)}, à rédiger en français · ${esc(j.dept)} · ${esc(cddText(j))} · ${esc(j.location)} · ${esc(j.budget)}</p>
+      <p class="hint keep" style="margin:0 0 6px">Offre datée du ${fmtDateY(TODAY)}, à rédiger en français · ${esc(j.dept)} · ${esc(cddText(j))} · ${esc(j.location)} · ${esc(j.budget)}</p>
       <p class="hint" style="margin:0 0 12px">${who} Rédaction partagée entre ${esc(fullName(emp(j.requestedBy)))} (demandeur) et les gestionnaires des RH ; ${rh ? 'vous seuls pouvez la valider et la publier.' : 'seuls les gestionnaires des RH peuvent la valider et la publier.'}</p>
       ${f('ad-title', 'Intitulé de l’offre', `<input id="ad-title" name="title" class="input" value="${esc(title)}" data-live="ad">`, true)}
       <div style="margin-top:12px">${f('ad-desc', 'Texte de l’annonce', `<textarea id="ad-desc" name="description" class="input" style="min-height:150px" data-live="ad">${esc(desc)}</textarea>`, true)}</div>
@@ -4495,7 +4495,7 @@
       ${log ? `<p class="hint" style="margin:0 0 10px">${ic('check').replace('<svg', '<svg style="width:13px;height:13px;vertical-align:-2px"')} Suppression automatique du ${fmtDate(log.date)} : ${plural(log.count, 'dossier effacé', 'dossiers effacés')}.</p>` : ''}
       ${list.length ? list.map((c) => { const j = db.jobs.find((x) => x.id === c.jobId), pd = purgeDate(c), soon = dayDiff(TODAY, pd) <= 90;
         return `<div class="todo">${avatarName(c.id, c.name, 'sm')}<div class="t"><b>${esc(c.name)}</b><small>${esc(c.experience)} · candidature « ${esc(j ? j.title : '—')} » · dernier contact le ${fmtDate(lastContact(c))}</small>
-          <small class="${soon ? 'warn-t' : ''}">Suppression automatique le ${fmtDate(pd)}</small></div>${c.score ? stars(c.score) : ''}
+          ${soon ? `<small class="warn-t">Suppression automatique le ${fmtDate(pd)}</small>` : ''}</div>${c.score ? stars(c.score) : ''}
           <label class="sr" for="pp-${c.id}">Proposer pour une offre</label><select id="pp-${c.id}" class="select" data-change="pool-propose" data-id="${c.id}"><option value="">Proposer pour…</option>${open.map((o) => `<option value="${o.id}">${esc(o.title)}</option>`).join('')}</select></div>`; }).join('')
         : '<p class="muted" style="margin:0">Le vivier est vide.</p>'}</div>`);
   }
@@ -4537,7 +4537,7 @@
         <div><span>Motif</span>${esc(job.reason)}</div><div><span>Publiée le</span>${fmtDate(pubDate(job) || job.createdAt)}</div><div><span>Statut et durée du travail</span>${esc(statutText(job))}</div>${job.contract === 'CDD' ? `<div style="grid-column:1/-1"><span>Contrat à durée déterminée</span>${esc(cddText(job))}</div>` : ''}</div>
         <div class="toolbar" style="margin-top:14px"><button type="button" class="btn ghost sm" data-act="open-need" data-id="${job.id}">Voir le besoin d’origine${ic('arrow')}</button>${rh && job.status === 'Ouverte' ? `<button type="button" class="btn ghost sm" data-act="ad-copy" data-id="${job.id}">${ic('file')}Copier le texte de l’annonce</button><button type="button" class="btn ghost sm" data-act="ad-txt" data-id="${job.id}">Télécharger (.txt)</button>` : ''}</div>
         ${rh && job.status === 'Ouverte' ? '<p class="hint" style="margin:10px 0 0">Diffusion : la page carrière, France Travail et les jobboards ne sont pas reliés à ce prototype. Copiez le texte (avec la référence) pour le publier, puis ajoutez les candidatures reçues avec « Ajouter un candidat ».</p>' : ''}</div>`)}
-      <div>${card('Fiche de cadrage', '', `<div class="card-b"><h4 class="sub">Compétences indispensables</h4>${sc.must.length ? `<ol class="crit-list">${sc.must.map((m) => `<li>${esc(m)}</li>`).join('')}</ol>` : '<p class="muted">—</p>'}<h4 class="sub" style="margin-top:14px">Atouts appréciés</h4>${sc.nice.length ? `<div class="tags">${sc.nice.map((m) => `<span class="pill neutral">${esc(m)}</span>`).join('')}</div>` : '<p class="muted">—</p>'}<p class="hint" style="margin:12px 0 0">${plural(sc.rounds || 0, 'entretien prévu', 'entretiens prévus')}</p></div>`)}
+      <div>${card('Fiche de cadrage', '', `<div class="card-b"><h4 class="sub">Compétences indispensables</h4>${sc.must.length ? `<ol class="crit-list">${sc.must.map((m) => `<li>${esc(m)}</li>`).join('')}</ol>` : '<p class="muted">—</p>'}<h4 class="sub" style="margin-top:14px">Atouts appréciés</h4>${sc.nice.length ? `<div class="tags">${sc.nice.map((m) => `<span class="pill neutral">${esc(m)}</span>`).join('')}</div>` : '<p class="muted">—</p>'}<p class="hint keep" style="margin:12px 0 0">${plural(sc.rounds || 0, 'entretien prévu', 'entretiens prévus')}</p></div>`)}
         <div style="margin-top:14px">${card('Équipe de recrutement', '', `<div class="card-b">${team}${invite ? `<div style="margin-top:12px">${invite.replace('id="rev-add"', 'id="rev-add2"').replace('for="rev-add"', 'for="rev-add2"')}</div>` : ''}</div>`)}</div></div></div>`;
     else {
       const ACTIVE = ['Reçue', 'Présélection', 'Entretien', 'Proposition'], CLOSED = ['Embauché', 'Refusé'];
@@ -4644,11 +4644,11 @@
           ${iv.status && iv.cancel ? `<small class="muted">${esc(iv.cancel.reason)} · le ${fmtDateY(iv.cancel.date)}</small>` : ''}${ctl ? `<div class="toolbar" style="margin-top:6px">${ctl}</div>` : ''}
           ${e ? `<details><summary>Voir l’évaluation du ${fmtShort(e.date)}</summary>${sc.must.map((m, k) => `<p><b>${esc(m)} · ${e.ratings[k]}/5</b><br>« ${esc(e.evidence[k])} »</p>`).join('')}${e.comment ? `<p class="muted">${esc(e.comment)}</p>` : ''}</details>` : ''}</div>${state}</div>`; }).join('');
       body = `${ivs || '<p class="muted" style="margin:0 0 6px">Aucun entretien planifié.</p>'}
-        ${act ? (ui.drawer.plan ? `<form data-form="interview" data-id="${c.id}" ${editIv ? `data-iv="${editIv.id}"` : ''} class="plan-form" novalidate>${editIv ? `<p class="hint" style="margin:0 0 8px">Report de ${esc(ivThe(editIv.kind))} prévu le ${fmtDateY(editIv.date.slice(0, 10))} à ${editIv.date.slice(11, 16)}.</p>` : ''}<div class="form-grid"><div class="field"><label for="iv-date">Date et heure *</label><input id="iv-date" name="date" type="datetime-local" class="input" min="${now}" value="${editIv ? editIv.date : `${nextMonday(TODAY)}T10:00`}"></div>
+        ${act ? (ui.drawer.plan ? `<form data-form="interview" data-id="${c.id}" ${editIv ? `data-iv="${editIv.id}"` : ''} class="plan-form" novalidate>${editIv ? `<p class="hint keep" style="margin:0 0 8px">Report de ${esc(ivThe(editIv.kind))} prévu le ${fmtDateY(editIv.date.slice(0, 10))} à ${editIv.date.slice(11, 16)}.</p>` : ''}<div class="form-grid"><div class="field"><label for="iv-date">Date et heure *</label><input id="iv-date" name="date" type="datetime-local" class="input" min="${now}" value="${editIv ? editIv.date : `${nextMonday(TODAY)}T10:00`}"></div>
           <div class="field"><label for="iv-with">Avec</label><select id="iv-with" name="with" class="select">${interviewers.map((e) => `<option value="${e.id}" ${e.id === (editIv ? editIv.with : me().id) ? 'selected' : ''}>${esc(fullName(e))}</option>`).join('')}</select></div>
           <div class="field"><label for="iv-kind">Type</label><select id="iv-kind" name="kind" class="select">${['Entretien RH', 'Entretien manager', 'Test technique', 'Entretien final'].map((k) => `<option ${editIv && editIv.kind === k ? 'selected' : ''}>${k}</option>`).join('')}</select></div>
           <div class="field"><label for="iv-place">Lieu ou lien de visio *</label><input id="iv-place" name="place" class="input" maxlength="160" value="${esc(editIv ? editIv.place || '' : `${COMPANY.entreprise_adresse || COMPANY.ville || ''}`)}" placeholder="Adresse, salle, ou lien de visioconférence"></div>
-          <div class="field full"><label for="iv-method">Déroulé et méthodes d’évaluation (obligatoire pour un test)</label><input id="iv-method" name="method" class="input" maxlength="200" value="${esc(editIv ? editIv.method || '' : '')}" placeholder="Ex. exercice pratique de 45 minutes sur un brief, présenté au manager"><small class="hint" style="display:block;margin-top:4px">Le candidat est informé à l’avance des méthodes et techniques d’aide au recrutement utilisées (art. L1221-8).</small></div>
+          <div class="field full"><label for="iv-method">Déroulé et méthodes d’évaluation (obligatoire pour un test)</label><input id="iv-method" name="method" class="input" maxlength="200" value="${esc(editIv ? editIv.method || '' : '')}" placeholder="Ex. exercice pratique de 45 minutes sur un brief, présenté au manager"><small class="hint help" style="display:block;margin-top:4px">Le candidat est informé à l’avance des méthodes et techniques d’aide au recrutement utilisées (art. L1221-8).</small></div>
           <label class="full" style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="convoc" checked> ${editIv ? 'Prévenir le candidat du report' : 'Envoyer la convocation au candidat'}</label></div>
           <div class="toolbar" style="margin-top:10px;justify-content:flex-end"><button type="button" class="btn ghost sm" data-act="cand-plan-x">Annuler</button><button class="btn primary sm">${ic('calendar')}${editIv ? 'Reporter' : 'Planifier'}</button></div></form>`
           : `<div class="toolbar" style="margin-top:12px">${b('cand-plan', `${ic('calendar')}Planifier un entretien`)}</div>`) : ''}`;
@@ -4864,7 +4864,7 @@
   MODALS['iv-eval'] = (m, shell, formShell, opt, f) => {
     const c = findCand(m.id), job = candJob(c), iv = c.interviews.find((x) => x.id === m.iv);
     const levels = [['5', '5 · Excellent'], ['4', '4 · Très bon'], ['3', '3 · Conforme aux attentes'], ['2', '2 · En dessous'], ['1', '1 · Insuffisant']];
-    return formShell(`Évaluer ${esc(c.name)}`, 'iv-eval', `<p class="hint" style="margin:0 0 12px">${esc(iv.kind)} du ${fmtDate(iv.date.slice(0, 10))} avec ${esc(fullName(emp(iv.with)))}${iv.with !== me().id ? ' · saisie par les gestionnaires des RH pour le compte de l’interviewer' : ''}. Chaque note s’appuie sur un fait observé pendant l’entretien.</p>
+    return formShell(`Évaluer ${esc(c.name)}`, 'iv-eval', `<p class="hint keep" style="margin:0 0 12px">${esc(iv.kind)} du ${fmtDate(iv.date.slice(0, 10))} avec ${esc(fullName(emp(iv.with)))}${iv.with !== me().id ? ' · saisie par les gestionnaires des RH pour le compte de l’interviewer' : ''}<span class="help">. Chaque note s’appuie sur un fait observé pendant l’entretien.</span></p>
       ${job.scorecard.must.map((mm, k) => `<div class="eval-row"><b>${esc(mm)}</b><div class="form-grid"><div class="field"><label for="ev-r${k}">Note</label><select id="ev-r${k}" name="r${k}" class="select"><option value="">Choisir…</option>${opt(levels, '')}</select></div>
         <div class="field"><label for="ev-e${k}">Ce qui justifie la note</label><input id="ev-e${k}" name="e${k}" class="input" maxlength="200" placeholder="Ex. a présenté une étude menée auprès de 20 utilisateurs"></div></div></div>`).join('')}
       <fieldset class="field radios" style="margin-top:14px"><legend>Recommandation</legend>${['Favorable', 'Réservé', 'Défavorable'].map((r) => `<label><input type="radio" name="reco" value="${r}"> ${r}</label>`).join('')}</fieldset>
@@ -4875,7 +4875,7 @@
     const c = findCand(m.id), t = ['', ...MSG_TPL.point[1](c, candJob(c))];
     return formShell(`Écrire à ${esc(c.name)}`, 'cand-msg', `<div class="form-grid">${f('ms-tpl', 'Modèle', `<select id="ms-tpl" name="tpl" class="select" data-live="msg">${opt(Object.entries(MSG_TPL).map(([k, x]) => [k, x[0]]), 'point')}</select>`)}
       ${f('ms-subj', 'Objet', `<input id="ms-subj" name="subject" class="input" value="${esc(t[1])}">`)}${f('ms-body', 'Message', `<textarea id="ms-body" name="body" class="input" style="min-height:180px">${esc(t[2])}</textarea>`, true)}</div>
-      <p class="hint" style="margin:8px 0 0">Envoyé à ${esc(c.email)} · le message est conservé dans la fiche du candidat.</p>`, 'Envoyer', true);
+      <p class="hint keep" style="margin:8px 0 0">Envoyé à ${esc(c.email)}<span class="help"> · le message est conservé dans la fiche du candidat</span></p>`, 'Envoyer', true);
   };
   MODALS['cand-refuse'] = (m, shell, formShell, opt, f) => {
     const c = findCand(m.id), j = candJob(c);
@@ -4910,11 +4910,11 @@
   };
   // Contrôle en direct de la proposition : SMIC, minimum conventionnel, fourchette validée.
   function offerSalHTML(j, s) {
-    if (!(s > 0)) return `<p class="hint" style="margin:0">Fourchette validée : ${esc(j.budget)}.</p>`;
+    if (!(s > 0)) return `<p class="hint keep" style="margin:0">Fourchette validée : ${esc(j.budget)}.</p>`;
     const sc = salaryCheck({ annual: s, contract: j.contract, category: jobCat(j), hoursWeek: j.forfait ? 35 : j.hoursWeek || 35, forfait: !!j.forfait, kind: 'proposition', range: { min: j.salaryMin, max: j.salaryMax } });
     if (sc.level === 'error') return `<p class="lint bad" style="margin:0">${esc(sc.msg)}</p>`;
     if (j.salaryMax && s > j.salaryMax) return `<p class="lint bad" style="margin:0">Au-dessus de la fourchette validée dans le besoin (${esc(j.budget)}) : l’accord de la Direction est exigé avant l’envoi.${sc.msg.replace(/^.*?accord de la Direction à obtenir\.\s*/, ' ') ? ` ${esc(sc.msg.replace(/^.*?accord de la Direction à obtenir\.\s*/, ''))}` : ''}</p>`;
-    return sc.msg ? `<p class="lint warn" style="margin:0">${esc(sc.msg)}</p>` : `<p class="hint" style="margin:0">Dans la fourchette validée (${esc(j.budget)}).</p>`;
+    return sc.msg ? `<p class="lint warn" style="margin:0">${esc(sc.msg)}</p>` : `<p class="hint keep" style="margin:0">Dans la fourchette validée (${esc(j.budget)}).</p>`;
   }
   // Période d'essai proposée par défaut (durées maximales de la convention ; CDD : 1 jour par semaine, art. L1242-10). Modifiable.
   function offerTrial(j, start, end) {
@@ -5151,12 +5151,14 @@
     if (left.length) warn.push(`${plural(left.length, 'pièce du dossier n’est pas encore validée', 'pièces du dossier ne sont pas encore validées')} (${left.join(', ')}).`);
     return { err, warn };
   }
+  // Ligne de dossier : le titre, ce qu'il faut voir tout de suite (date, état) et, derrière le bouton « i », la règle ou l'explication.
+  const dRow = (label, sub, state, help) => `<div class="todo"><div class="t"><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}${help ? `<small class="help">${help}</small>` : ''}</div>${state}</div>`;
   // Consignes de dépôt propres à chaque pièce.
   const DOC_HINT = { identite: 'Carte d’identité ou passeport en cours de validité, recto et verso', secu: 'Attestation de droits ou carte Vitale lisible', rib: 'RIB à ton nom', domicile: 'Facture ou quittance de moins de 3 mois', diplome: 'Diplôme le plus élevé ou certification demandée pour le poste',
     cerfa: 'Cerfa visé par l’école', convention: 'Convention signée par l’école et par toi', rcivile: 'Attestation de l’année en cours', titre: 'Titre en cours de validité, recto et verso, autorisant à travailler' };
   function arrivalDossier(e, i) {
     const d = dossier(e), rh = ui.profile === 'rh', mgr = ui.profile === 'manager', can = (o) => rh || (mgr && o !== 'rh');
-    const row = (label, sub, state) => `<div class="todo"><div class="t"><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div>${state}</div>`;
+    const row = dRow;
     const ok = (date, txt = 'Fait') => `<span class="pill ok">${txt} · ${fmtShort(date)}</span>`;
     const b = (act, label, extra = '', cls = 'ghost') => `<button type="button" class="btn ${cls} sm" data-act="${act}" data-id="${e.id}" ${extra}>${label}</button>`;
     const pend = (txt = 'À faire', cls = 'warn') => `<span class="pill ${cls}">${txt}</span>`;
@@ -5165,7 +5167,7 @@
     const sec = (title, body) => `<h4 class="sub" style="margin-top:18px">${title}</h4>${body}`;
     // Le manager ne voit en embauche que l'avancement (les puces), sans le détail administratif.
     if (i === 3 && !rh) return '';
-    let html = `<p class="hint" style="margin:12px 0 0">${when} · ${esc(e.contract)} · ${esc(e.title)} · ${isIntern(e) ? 'tuteur' : 'manager'} : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}${d.buddy && emp(d.buddy) ? ` · parrain : ${esc(fullName(emp(d.buddy)))}` : d.buddy === 'none' ? ' · sans parrain' : ''}</p>`;
+    let html = `<p class="hint keep" style="margin:12px 0 0">${when} · ${esc(e.contract)} · ${esc(e.title)} · ${isIntern(e) ? 'tuteur' : 'manager'} : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'}${d.buddy && emp(d.buddy) ? ` · parrain : ${esc(fullName(emp(d.buddy)))}` : d.buddy === 'none' ? ' · sans parrain' : ''}</p>`;
     if (i === 2) {
       if (rh) {
         const sel = (f, list, v) => `<select class="select" data-change="arr-civ" data-id="${e.id}" data-f="${f}" aria-label="${f}">${list.map((x) => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
@@ -5179,64 +5181,65 @@
           ${needsTitre(e) ? `${inp('titreType', 'Type du titre de travail', e.titreType, 'maxlength="60" placeholder="Ex. carte de séjour « salarié »"')}${inp('titreNum', 'Numéro du titre', e.titreNum, 'maxlength="30"')}<div class="field"><label>Fin de validité du titre</label><input type="date" class="input" value="${esc(e.titreEnd || '')}" data-change="arr-civ" data-id="${e.id}" data-f="titreEnd" aria-label="Fin de validité du titre"></div>` : ''}</div>`);
         html += sec(`Pièces du dossier · contrat ${esc(e.contract)}`, `<p class="hint" style="margin:0 0 6px">${esc(e.firstName)} dépose ses pièces depuis son espace ; vous les vérifiez ici.</p>` + reqDocs(e).map(([k, l]) => { const st = docState(d, k), f = d.files[k];
           const file = f ? `<button type="button" class="btn ghost sm" data-act="file-view" data-id="${e.id}" data-k="${k}">${ic('file')}Voir</button>` : '';
-          const sub = k === 'titre' ? 'Salarié hors Union européenne : le titre doit autoriser à travailler' : f ? `${esc(f.name)} · déposé le ${fmtShort(f.date)}${f.refused ? ` · refusé : ${esc(f.refused)}` : ''}` : '';
+          const sub = k === 'titre' && !f ? '' : f ? `${esc(f.name)} · déposé le ${fmtShort(f.date)}${f.refused ? ` · refusé : ${esc(f.refused)}` : ''}` : '';
           return row(l, sub, st === 'ok' ? `${ok(d.docs[k], 'Validé')}${file}` : st === 'check' ? `<span class="pill info">À vérifier</span>${file}${b('arr-doc', `${ic('check')}Valider`, `data-k="${k}"`, 'ok')}${b('doc-refuse', 'Refuser', `data-k="${k}"`)}`
-            : `${pend(st === 'refused' ? 'À redéposer' : 'En attente du dépôt', st === 'refused' ? 'bad' : 'neutral')}${b('arr-doc', 'Reçu sur papier', `data-k="${k}"`)}`); }).join('')
-          + (needsTitre(e) ? row('Vérification du titre auprès de la préfecture', `Au plus tard le ${fmtDate(subWorkDays(start, 2))}, 2 jours ouvrables avant l’embauche (art. R5221-41). Simulée dans la démonstration : la demande réelle se fait sur le site de l’administration.`, d.titreCheck ? ok(d.titreCheck, 'Demande envoyée') : b('arr-titre', 'Demande envoyée')) : ''));
+            : `${pend(st === 'refused' ? 'À redéposer' : 'En attente du dépôt', st === 'refused' ? 'bad' : 'neutral')}${b('arr-doc', 'Reçu sur papier', `data-k="${k}"`)}`, k === 'titre' ? 'Salarié hors Union européenne : le titre doit autoriser à travailler' : ''); }).join('')
+          + (needsTitre(e) ? row('Vérification du titre auprès de la préfecture', `Au plus tard le ${fmtDate(subWorkDays(start, 2))}`, d.titreCheck ? ok(d.titreCheck, 'Demande envoyée') : b('arr-titre', 'Demande envoyée'), '2 jours ouvrables avant l’embauche (art. R5221-41). Simulée dans la démonstration : la demande réelle se fait sur le site de l’administration.') : ''));
         const c = d.contract, st = { 'À préparer': 'neutral', Prêt: 'info', Envoyé: 'warn', Signé: 'ok' }[c.status], cdoc = c.docId && db.documents.find((x) => x.id === c.docId);
         const sc = isIntern(e) ? { level: 'ok' } : salaryCheck({ annual: e.salary, contract: e.contract, category: e.category, kind: 'salaire', forfait: arrForfait(e) });
         const salWarn = sc.level !== 'ok' && sc.msg ? `<span style="display:block;color:var(--${sc.level === 'error' ? 'bad' : 'warn'})">${esc(sc.msg)}</span>` : '';
-        const vers = (c.versions || []).length ? ` Version ${(c.versions || []).length + 1} ; ${plural(c.versions.length, 'version précédente annulée', 'versions précédentes annulées')}.` : '';
+        const vers = (c.versions || []).length ? `version ${(c.versions || []).length + 1}` : '';
         const ttl = isIntern(e) ? 'Conditions d’accueil en stage' : 'Contrat de travail';
-        const sub = isIntern(e) ? 'Récapitulatif des conditions d’accueil remis au stagiaire. La convention tripartite, signée par l’école, est suivie dans l’onglet Embauche.'
-          : `${e.contract === 'CDD' ? 'À transmettre au plus tard 2 jours ouvrables après l’embauche (art. L1242-13). ' : ''}${c.status === 'Envoyé' ? `Signé pour l’employeur et envoyé le ${fmtShort(c.sentAt)} : ${esc(e.firstName)} le signe depuis l’onglet « Contrat de travail » de son espace. Pour le corriger, créez une nouvelle version : elle devra être signée à nouveau.` : `Poste, rémunération, ${arrForfait(e) ? 'forfait annuel en jours' : 'durée du travail'}, période d’essai, ${CONV().mention}.`}${vers}`;
+        const sub = isIntern(e) ? '' : [c.status === 'Envoyé' ? `Envoyé le ${fmtShort(c.sentAt)}, à signer par ${esc(e.firstName)} depuis son espace` : e.contract === 'CDD' && c.status !== 'Signé' ? `À transmettre au plus tard le ${fmtDate(addWorkDays(start, 2))}` : '', vers].filter(Boolean).join(' · ');
+        const cHelp = isIntern(e) ? 'Récapitulatif des conditions d’accueil remis au stagiaire. La convention tripartite, signée par l’école, est suivie dans l’onglet Embauche.'
+          : `${e.contract === 'CDD' ? 'Un CDD est transmis au plus tard 2 jours ouvrables après l’embauche (art. L1242-13). ' : ''}${c.status === 'Envoyé' ? 'Pour le corriger, créez une nouvelle version : elle devra être signée à nouveau.' : `Poste, rémunération, ${arrForfait(e) ? 'forfait annuel en jours' : 'durée du travail'}, période d’essai, ${CONV().mention}.`}`;
         html += sec(ttl, row(`${isIntern(e) ? 'Stage' : `Contrat ${esc(e.contract)}`} · ${esc(e.title)}`, sub + salWarn,
           `<span class="pill ${st}">${c.status === 'Envoyé' ? 'En attente de signature' : c.status === 'Signé' ? `${ic('lock')}Signé${c.paper ? ' sur papier' : ''}` : c.status}${c.signedAt ? ` le ${fmtShort(c.signedAt)}` : ''}</span>${cdoc ? docBtn(cdoc, c.status === 'Signé' ? 'Voir le contrat signé' : 'Voir') : ''}
-          ${c.status === 'À préparer' ? b('arr-contract', isIntern(e) ? 'Générer le document' : 'Générer le contrat', 'data-s="Prêt"', 'primary') : c.status === 'Prêt' ? b('arr-contract', 'Envoyer pour signature', 'data-s="Envoyé"') : c.status === 'Envoyé' ? `${b('arr-contract', 'Signé sur papier', 'data-s="Signé"')}${b('arr-contract-revise', 'Nouvelle version')}` : ''}`));
+          ${c.status === 'À préparer' ? b('arr-contract', isIntern(e) ? 'Générer le document' : 'Générer le contrat', 'data-s="Prêt"', 'primary') : c.status === 'Prêt' ? b('arr-contract', 'Envoyer pour signature', 'data-s="Envoyé"') : c.status === 'Envoyé' ? `${b('arr-contract', 'Signé sur papier', 'data-s="Signé"')}${b('arr-contract-revise', 'Nouvelle version')}` : ''}`, cHelp));
       }
       // Tout l'effectif présent peut parrainer (sauf la recrue et son manager), en commençant par son service ; « Pas de parrain » est un choix assumé.
       const buddies = db.employees.filter((x) => isEmployed(x) && x.stage >= 4 && x.id !== e.id && x.id !== e.managerId).sort((a, z) => (z.dept === e.dept) - (a.dept === e.dept) || a.lastName.localeCompare(z.lastName, 'fr'));
       const noBuddy = d.buddy === 'none', bd = d.buddy && emp(d.buddy), canB = can('manager');
       html += sec('Préparation de l’arrivée', PREP_TASKS.map(([k, l, o]) => row(l, OWNER[o], d.prep[k] ? ok(d.prep[k]) : can(o) ? b('arr-prep', 'Fait', `data-k="${k}"`) : pend('À faire', 'neutral'))).join('')
-        + row('Parrain ou marraine', 'Un collègue qui transmet les codes de l’équipe, distinct du manager', noBuddy ? `<span class="pill neutral">Pas de parrain</span>${canB ? `<button type="button" class="btn ghost sm" data-act="arr-buddy-set" data-id="${e.id}" data-v="">Changer</button>` : ''}`
+        + row('Parrain ou marraine', '', noBuddy ? `<span class="pill neutral">Pas de parrain</span>${canB ? `<button type="button" class="btn ghost sm" data-act="arr-buddy-set" data-id="${e.id}" data-v="">Changer</button>` : ''}`
           : !canB ? (bd ? `<span class="pill ok">${esc(fullName(bd))}</span>` : pend('À désigner')) : `<div class="succ-pick"><select class="select" data-change="arr-buddy" data-id="${e.id}" aria-label="Parrain ou marraine"><option value="">Rechercher un salarié…</option>${buddies.map((x) => `<option value="${x.id}" ${x.id === d.buddy ? 'selected' : ''}>${esc(fullName(x))}</option>`).join('')}</select>
-            <label class="agree"><input type="checkbox" data-change="arr-buddy-none" data-id="${e.id}"> Pas de parrain</label></div>`));
+            <label class="agree"><input type="checkbox" data-change="arr-buddy-none" data-id="${e.id}"> Pas de parrain</label></div>`, 'Un collègue qui transmet les codes de l’équipe, distinct du manager'));
       if (mgr) html += `<p class="hint" style="margin:10px 0 0">Les pièces du dossier et le contrat sont gérés par les gestionnaires des RH.</p>`;
     }
     if (i === 3) {
       const open = TODAY >= addDays(start, -8);
       // Inscription au registre le jour de l'embauche, pas avant (art. L1221-13).
       const reg = (label) => (e.registeredAt ? ok(e.registeredAt, 'Inscrit') : TODAY >= start ? b('arr-register', label) : `<span class="pill neutral">Le jour de l’embauche, ${fmtShort(start)}</span>`) + '<button type="button" class="btn ghost sm" data-act="register-view">Voir le registre</button>';
-      if (isIntern(e)) html += sec('Formalités du stage', row('Convention de stage tripartite', `Signée par l’école, l’entreprise et le stagiaire avant le premier jour. Un stagiaire n’est pas salarié : pas de DPAE ni de contrat de travail.${d.files.convention ? ` Exemplaire déposé par ${esc(e.firstName)} : ${esc(d.files.convention.name)}.` : ''}`,
-          d.convention ? ok(d.convention, 'Signée') : d.docs.convention ? b('arr-conv', 'Confirmer la convention validée', '', 'primary') : b('arr-conv', 'Convention reçue signée', '', TODAY >= addDays(start, -5) ? 'primary' : 'ghost'))
-        + row('Registre unique du personnel', 'Les stagiaires sont inscrits dans une partie spécifique du registre, dans l’ordre d’arrivée', reg('Inscrire'))
-        + row('Tuteur ou tutrice dans l’entreprise', 'Obligatoire ; un tuteur suit au plus 3 stagiaires en même temps', e.managerId ? ok(TODAY, esc(fullName(emp(e.managerId)))) : pend('À désigner', 'warn')));
+      if (isIntern(e)) html += sec('Formalités du stage', row('Convention de stage tripartite', d.files.convention ? `Exemplaire déposé par ${esc(e.firstName)} : ${esc(d.files.convention.name)}` : '',
+          d.convention ? ok(d.convention, 'Signée') : d.docs.convention ? b('arr-conv', 'Confirmer la convention validée', '', 'primary') : b('arr-conv', 'Convention reçue signée', '', TODAY >= addDays(start, -5) ? 'primary' : 'ghost'), 'Signée par l’école, l’entreprise et le stagiaire avant le premier jour. Un stagiaire n’est pas salarié : pas de DPAE ni de contrat de travail.')
+        + row('Registre unique du personnel', '', reg('Inscrire'), 'Les stagiaires sont inscrits dans une partie spécifique du registre, dans l’ordre d’arrivée')
+        + row('Tuteur ou tutrice dans l’entreprise', '', e.managerId ? ok(TODAY, esc(fullName(emp(e.managerId)))) : pend('À désigner', 'warn'), 'Obligatoire ; un tuteur suit au plus 3 stagiaires en même temps'));
       else {
         const chk = dpaeChecks(e);
         // À VÉRIFIER (juriste) : la DPAE vaut demande d'examen médical d'embauche ; l'adhésion au service de prévention et de santé au travail est une démarche distincte.
-        html += sec('Formalités', row('Déclaration préalable à l’embauche (DPAE)', `Auprès de l’Urssaf, au plus tôt 8 jours avant l’embauche et au plus tard avant la prise de poste. Elle vaut demande de la visite d’information et de prévention ; l’adhésion au service de prévention et de santé au travail se fait à part. ${DEMO_LIVE ? 'Teamora l’envoie à l’Urssaf et range ses réponses dans le dossier (envoi simulé dans la démonstration).' : 'Simulée dans la démonstration : la déclaration réelle se fait sur net-entreprises.fr ou urssaf.fr.'}${!d.dpae && chk.err.length ? `<span style="display:block;color:var(--bad)">${esc(chk.err[0])}</span>` : ''}`,
-          d.dpae ? `${ok(d.dpae.date, `N° ${esc(d.dpae.ref)}`)}${d.dpae.via === 'urssaf' ? b('dpae-track', 'Réponses de l’Urssaf') : ''}${d.dpaeDoc ? docBtn(db.documents.find((x) => x.id === d.dpaeDoc), 'Copie remise') : ''}` : open ? b('arr-dpae', DEMO_LIVE ? (TODAY > start ? 'Envoyer la DPAE (en retard)' : 'Envoyer la DPAE') : TODAY > start ? 'Faire la DPAE (en retard)' : 'Effectuer la DPAE', '', TODAY > start ? 'bad' : 'primary') : `<span class="pill neutral">Possible dès le ${fmtShort(addDays(start, -8))}</span>`)
-          + row('Registre unique du personnel', 'Inscription le jour de l’embauche, dans l’ordre des embauches', reg('Inscrire')));
+        html += sec('Formalités', row('Déclaration préalable à l’embauche (DPAE)', !d.dpae && chk.err.length ? `<span style="color:var(--bad)">${esc(chk.err[0])}</span>` : d.dpae ? '' : `Avant la prise de poste, le ${fmtDate(start)}`,
+          d.dpae ? `${ok(d.dpae.date, `N° ${esc(d.dpae.ref)}`)}${d.dpae.via === 'urssaf' ? b('dpae-track', 'Réponses de l’Urssaf') : ''}${d.dpaeDoc ? docBtn(db.documents.find((x) => x.id === d.dpaeDoc), 'Copie remise') : ''}` : open ? b('arr-dpae', DEMO_LIVE ? (TODAY > start ? 'Envoyer la DPAE (en retard)' : 'Envoyer la DPAE') : TODAY > start ? 'Faire la DPAE (en retard)' : 'Effectuer la DPAE', '', TODAY > start ? 'bad' : 'primary') : `<span class="pill neutral">Possible dès le ${fmtShort(addDays(start, -8))}</span>`, `Auprès de l’Urssaf, au plus tôt 8 jours avant l’embauche et au plus tard avant la prise de poste. Elle vaut demande de la visite d’information et de prévention ; l’adhésion au service de prévention et de santé au travail se fait à part. ${DEMO_LIVE ? 'Teamora l’envoie à l’Urssaf et range ses réponses dans le dossier (envoi simulé dans la démonstration).' : 'Simulée dans la démonstration : la déclaration réelle se fait sur net-entreprises.fr ou urssaf.fr.'}`)
+          + row('Registre unique du personnel', '', reg('Inscrire'), 'Inscription le jour de l’embauche, dans l’ordre des embauches'));
       }
       const signed = d.contract.status === 'Signé';
       const info = (k, l, sub, due) => { const doc = d[k + 'Doc'] && db.documents.find((x) => x.id === d[k + 'Doc']);
-        return row(l, `${sub} · à remettre avant le ${fmtDate(due)}`, d[k] ? `${ok(d[k], d.infoInContract ? 'Dans le contrat' : 'Remis')}${docBtn(doc)}` : doc ? `<span class="pill warn">Brouillon</span>${docBtn(doc)}` : b('arr-info', 'Rédiger', `data-k="${k}"`, TODAY > due ? 'bad' : 'ghost')); };
+        return row(l, d[k] ? '' : `À remettre avant le ${fmtDate(due)}`, d[k] ? `${ok(d[k], d.infoInContract ? 'Dans le contrat' : 'Remis')}${docBtn(doc)}` : doc ? `<span class="pill warn">Brouillon</span>${docBtn(doc)}` : b('arr-info', 'Rédiger', `data-k="${k}"`, TODAY > due ? 'bad' : 'ghost'), sub); };
       // Décret du 30 octobre 2023 : les informations peuvent figurer dans le contrat signé, qui les reprend toutes ; pas de second document à rédiger.
       if (!isIntern(e)) html += sec('Informations obligatoires (décret du 30 octobre 2023)', info('info7', 'Informations essentielles', 'Identité des parties, lieu de travail, emploi, date d’embauche, période d’essai, rémunération, durée du travail', addDays(start, 7))
         + info('info1m', 'Informations complémentaires', 'Congés payés, procédure de rupture et préavis, droit à la formation, protection sociale, convention collective', addMonths(start, 1))
-        + (!d.info7 || !d.info1m ? `<div class="toolbar" style="margin-top:8px">${signed ? b('arr-info-contract', `${ic('check')}Informations contenues dans le contrat signé`) : '<span class="hint">Une fois le contrat signé, vous pourrez indiquer qu’il contient ces informations, sans rédiger d’autre document.</span>'}</div>` : ''));
+        + (!d.info7 || !d.info1m ? `<div class="toolbar" style="margin-top:8px">${signed ? b('arr-info-contract', `${ic('check')}Informations contenues dans le contrat signé`) : '<span class="hint help">Une fois le contrat signé, vous pourrez indiquer qu’il contient ces informations, sans rédiger d’autre document.</span>'}</div>` : ''));
       const t = trialInfo(e);
       html += sec('Affectation', row(`${esc(e.title)} · ${esc(e.dept)}`, `${isIntern(e) ? 'Tuteur' : 'Manager'} : ${e.managerId ? esc(fullName(emp(e.managerId))) : '—'} · catégorie ${esc(e.category || '—')} · période d’essai : ${t ? `${t.label}, jusqu’au ${fmtDate(t.end)}` : 'aucune'}${isIntern(e) ? '' : ` · ${arrForfait(e) ? `forfait de ${FORFAIT_DAYS} jours` : 'horaire collectif'}`}`,
         `<select class="select" data-change="arr-civ" data-id="${e.id}" data-f="category" aria-label="Catégorie">${['Cadre', 'Agent de maîtrise', 'Employé'].map((x) => `<option ${x === e.category ? 'selected' : ''}>${x}</option>`).join('')}</select>${d.assignedAt ? ok(d.assignedAt, 'Confirmée') : b('arr-assign', 'Confirmer')}`));
       const vip = arrVip(e), vipDue = addMonths(start, 3);
       // À VÉRIFIER (juriste) : taux 2026 de la gratification ; l'exonération ne porte que sur la fraction égale au minimum.
-      if (isIntern(e)) html += sec('Dispositifs', row('Gratification', `Obligatoire au-delà de 2 mois de stage, appréciés en jours de présence : au moins ${eur(STAGE_FREE)} par mois (montant indicatif à vérifier). Seule la part égale au minimum est exonérée de cotisations.`, ok(e.startDate, `${eur0(e.salary / 12)} par mois`)));
+      if (isIntern(e)) html += sec('Dispositifs', row('Gratification', '', ok(e.startDate, `${eur0(e.salary / 12)} par mois`), `Obligatoire au-delà de 2 mois de stage, appréciés en jours de présence : au moins ${eur(STAGE_FREE)} par mois (montant indicatif à vérifier). Seule la part égale au minimum est exonérée de cotisations.`));
       else {
         const dis = d.mutuelleDispense;
-        html += sec('Dispositifs', row('Mutuelle d’entreprise', d.mutuelle === 'Dispense' && dis ? `Dispense demandée par écrit le ${fmtDate(dis.askedAt)} : ${esc(dis.reason)}${dis.until ? `, jusqu’au ${fmtDate(dis.until)}` : ''} · justificatif : ${esc(dis.proof || 'reçu')}` : 'Affiliation obligatoire au contrat collectif, sauf dispense demandée par écrit par le salarié, avec justificatif',
-          `<select class="select" data-change="arr-mutuelle" data-id="${e.id}" aria-label="Mutuelle"><option value="">À choisir</option>${['Affiliation', 'Dispense'].map((x) => `<option ${x === d.mutuelle ? 'selected' : ''}>${x}</option>`).join('')}</select>`)
-          + (e.category === 'Cadre' ? row('Prévoyance des cadres', 'Obligatoire : 1,50 % de la tranche A à la charge de l’employeur ; nécessaire pour terminer l’embauche', d.prevoyance ? ok(d.prevoyanceAt || d.assignedAt || TODAY, 'Affilié') : b('arr-prev', 'Affilier', '', TODAY >= addDays(start, -8) ? 'primary' : 'ghost')) : '')
-          + row('Visite d’information et de prévention', `Dans les 3 mois suivant la prise effective du poste, avant le ${fmtDate(vipDue)}${vip && vip.prior ? ' · visite préalable à l’affectation demandée' : ''}`, vip ? `<span class="pill ${vip.status === 'Réalisée' ? 'ok' : vip.date > vipDue ? 'bad' : 'info'}">${vip.status} · ${fmtShort(vip.date)}${vip.status !== 'Réalisée' && vip.date > vipDue ? ' · après la limite' : ''}</span>` : b('arr-vip', TODAY > vipDue ? 'Planifier la visite (en retard)' : 'Planifier la visite', '', TODAY > vipDue ? 'bad' : 'ghost')));
+        html += sec('Dispositifs', row('Mutuelle d’entreprise', d.mutuelle === 'Dispense' && dis ? `Dispense demandée par écrit le ${fmtDate(dis.askedAt)} : ${esc(dis.reason)}${dis.until ? `, jusqu’au ${fmtDate(dis.until)}` : ''} · justificatif : ${esc(dis.proof || 'reçu')}` : '',
+          `<select class="select" data-change="arr-mutuelle" data-id="${e.id}" aria-label="Mutuelle"><option value="">À choisir</option>${['Affiliation', 'Dispense'].map((x) => `<option ${x === d.mutuelle ? 'selected' : ''}>${x}</option>`).join('')}</select>`, 'Affiliation obligatoire au contrat collectif, sauf dispense demandée par écrit par le salarié, avec justificatif')
+          + (e.category === 'Cadre' ? row('Prévoyance des cadres', '', d.prevoyance ? ok(d.prevoyanceAt || d.assignedAt || TODAY, 'Affilié') : b('arr-prev', 'Affilier', '', TODAY >= addDays(start, -8) ? 'primary' : 'ghost'), 'Obligatoire : 1,50 % de la tranche A à la charge de l’employeur ; nécessaire pour terminer l’embauche') : '')
+          + row('Visite d’information et de prévention', `Avant le ${fmtDate(vipDue)}${vip && vip.prior ? ' · visite préalable à l’affectation demandée' : ''}`, vip ? `<span class="pill ${vip.status === 'Réalisée' ? 'ok' : vip.date > vipDue ? 'bad' : 'info'}">${vip.status} · ${fmtShort(vip.date)}${vip.status !== 'Réalisée' && vip.date > vipDue ? ' · après la limite' : ''}</span>` : b('arr-vip', TODAY > vipDue ? 'Planifier la visite (en retard)' : 'Planifier la visite', '', TODAY > vipDue ? 'bad' : 'ghost'), 'Dans les 3 mois suivant la prise effective du poste'));
       }
     }
     if (i === 4) {
@@ -5246,25 +5249,27 @@
         return checkinDone(c) ? row(l, `${fmtDate(c.date)} · « ${esc(c.note)} »`, ok(c.date)) : TODAY >= addDays(due, -7) && (rh || mgr)
           ? `<form class="todo checkin" data-form="arr-checkin" data-id="${e.id}" data-k="${k}"><div class="t"><b>${l}</b><small>Prévu le ${fmtDate(due)} · manager et nouvel arrivant${c ? ' · compte rendu à saisir' : ''}</small><label class="sr" for="ck-${k}">Compte rendu</label><input id="ck-${k}" name="note" class="input" placeholder="Ce qui va bien, les points à ajuster, les objectifs suivants"></div><button class="btn ghost sm">Enregistrer</button></form>`
           : row(l, `Prévu le ${fmtDate(due)}`, '<span class="pill neutral">À venir</span>'); }).join(''));
-      html += sec('Rapport d’étonnement', d.astonish ? `<q>${esc(d.astonish.text)}</q><p class="hint" style="margin:6px 0 0">Rédigé le ${fmtDate(d.astonish.date)}</p>`
-        : '<p class="hint" style="margin:0">Rédigé par le nouvel arrivant depuis son espace, conseillé vers J+30.</p>');
+      html += sec('Rapport d’étonnement', d.astonish ? `<q>${esc(d.astonish.text)}</q><p class="hint keep" style="margin:6px 0 0">Rédigé le ${fmtDate(d.astonish.date)}</p>`
+        : '<p class="muted" style="margin:0">Pas encore rédigé</p><p class="hint" style="margin:4px 0 0">Rédigé par le nouvel arrivant depuis son espace, conseillé vers J+30.</p>');
       const t = trialInfo(e);
       if (t) {
         const over = trialOver(e, t), near = !d.trialDecision && !over && dayDiff(TODAY, t.decideBy) <= 14, rdoc = d.renewPending && db.documents.find((x) => x.id === d.renewPending);
         const actions = rh && !over && (!d.trialDecision || d.trialDecision === 'Renouvelée') ? `<div class="toolbar" style="margin-top:10px">${b('arr-trial', `${ic('check')}Confirmer l’embauche`, 'data-v="Confirmée"', 'ok')}${t.renewable && !rdoc ? b('trial-renew', 'Renouveler') : ''}${b('trial-break', 'Mettre fin à la période d’essai', '', 'bad')}</div>`
-          : rh && over && !d.trialDecision ? `<div class="toolbar" style="margin-top:10px">${b('arr-trial', `${ic('check')}Envoyer la confirmation`, 'data-v="Confirmée"', 'ok')}<span class="hint">Ni renouvellement ni rupture d’essai après le ${fmtDate(t.end)} : une rupture relèverait désormais de la procédure de licenciement.</span></div>` : '';
-        const pending = rdoc ? `<p class="hint" style="margin:8px 0 0">Accord de renouvellement envoyé le ${fmtDate(rdoc.issuedAt || rdoc.date)} : en attente de la signature de ${esc(e.firstName)}, au plus tard le ${fmtDate(t.end)}.${rh ? '' : ''}</p>${rh ? `<div class="toolbar" style="margin-top:6px">${docBtn(rdoc, 'Voir l’accord')}${b('trial-renew-paper', 'Accord reçu signé sur papier')}${b('trial-renew-cancel', 'Annuler la demande')}</div>` : ''}` : '';
+          : rh && over && !d.trialDecision ? `<div class="toolbar" style="margin-top:10px">${b('arr-trial', `${ic('check')}Envoyer la confirmation`, 'data-v="Confirmée"', 'ok')}<span class="hint help">Ni renouvellement ni rupture d’essai après le ${fmtDate(t.end)} : une rupture relèverait désormais de la procédure de licenciement.</span></div>` : '';
+        const pending = rdoc ? `<p class="hint keep" style="margin:8px 0 0">Accord de renouvellement envoyé le ${fmtDate(rdoc.issuedAt || rdoc.date)} : en attente de la signature de ${esc(e.firstName)}, au plus tard le ${fmtDate(t.end)}.${rh ? '' : ''}</p>${rh ? `<div class="toolbar" style="margin-top:6px">${docBtn(rdoc, 'Voir l’accord')}${b('trial-renew-paper', 'Accord reçu signé sur papier')}${b('trial-renew-cancel', 'Annuler la demande')}</div>` : ''}` : '';
+        const tHelp = over ? '' : t.alt ? 'Pour un apprenti, la rupture est libre pendant les 45 premiers jours de formation pratique en entreprise.'
+          : `Pour y mettre fin en respectant le délai de prévenance, prévenez le salarié au plus tard le ${fmtDate(t.decideBy)} (${NOTICE_LABEL[t.notice]}). La rupture prend effet au plus tard le ${fmtDate(t.end)} ; un délai non respecté donne droit à une indemnité.${t.renewable ? ' Renouvellement possible une fois, avec l’accord écrit du salarié signé avant la fin de la période initiale.' : ''}`;
         html += sec('Période d’essai', row(`${t.label} · fin le ${fmtDate(t.end)}`, over && !d.trialDecision ? `<b style="color:var(--warn)">Essai terminé le ${fmtDate(t.end)} : le contrat est définitif.</b> Une lettre de confirmation peut être envoyée.`
-          : t.alt ? 'Pour un apprenti, la rupture est libre pendant les 45 premiers jours de formation pratique en entreprise.'
-          : `Pour y mettre fin en respectant le délai de prévenance, prévenez le salarié au plus tard le ${fmtDate(t.decideBy)} (${NOTICE_LABEL[t.notice]}). La rupture prend effet au plus tard le ${fmtDate(t.end)} ; un délai non respecté donne droit à une indemnité.${t.renewable ? ' Renouvellement possible une fois, avec l’accord écrit du salarié signé avant la fin de la période initiale.' : ''}`,
+          : !d.trialDecision && !near && !t.alt ? `Décision à prendre avant le ${fmtDate(t.decideBy)}` : '',
           d.trialDecision ? `<span class="pill ${d.trialDecision === 'Rompue' ? 'bad' : 'ok'}">${d.trialDecision} · ${fmtShort(d.trialDecisionAt)}</span>${d.trialDoc ? docBtn(db.documents.find((x) => x.id === d.trialDoc)) : ''}${d.renewDoc && d.trialDecision === 'Renouvelée' ? docBtn(db.documents.find((x) => x.id === d.renewDoc), 'Accord signé') : ''}`
-            : over ? pend('Contrat définitif', 'ok') : near ? pend(`Décision avant le ${fmtShort(t.decideBy)}`) : '<span class="pill neutral">En cours</span>') + pending + actions);
+            : over ? pend('Contrat définitif', 'ok') : near ? pend(`Décision avant le ${fmtShort(t.decideBy)}`) : '<span class="pill neutral">En cours</span>', d.trialDecision ? '' : tHelp) + pending + actions);
       }
       // V2 : fin d'intégration distincte de la période d'essai (un stagiaire n'en a pas).
       const steps = arrivalSteps(e, 4), others = steps.slice(0, -1), left = others.filter((x) => !x).length, trialOk = !t || (d.trialDecision && d.trialDecision !== 'Renouvelée') || trialOver(e, t);
       html += sec('Fin de l’intégration', row(t ? 'Bilan d’intégration et passage en poste' : 'Bilan d’intégration (pas de période d’essai)',
-        `${left ? `${plural(left, 'point du programme reste', 'points du programme restent')} ouvert${left > 1 ? 's' : ''} : la clôture vous les listera. ` : 'Programme terminé. '}${t && !trialOk ? 'La décision sur la période d’essai doit être prise avant.' : 'La personne passe en poste et sort des arrivées.'}`,
-        rh ? b('arr-close', `${ic('check')}Clôturer l’intégration`, trialOk ? '' : 'disabled', trialOk && !left ? 'primary' : 'ghost') : pend('Clôture par les gestionnaires des RH', 'neutral')));
+        `${left ? `${plural(left, 'point du programme reste', 'points du programme restent')} ouvert${left > 1 ? 's' : ''}` : 'Programme terminé'}${t && !trialOk ? ' · décision sur la période d’essai à prendre avant' : ''}`,
+        rh ? b('arr-close', `${ic('check')}Clôturer l’intégration`, trialOk ? '' : 'disabled', trialOk && !left ? 'primary' : 'ghost') : pend('Clôture par les gestionnaires des RH', 'neutral'),
+        `${left ? 'La clôture vous listera les points restants. ' : ''}La personne passe ensuite en poste et sort des arrivées.`));
     }
     return html;
   }
@@ -5284,8 +5289,8 @@
     const d = dossier(e), t = trialInfo(e), rdoc = d.renewPending && db.documents.find((x) => x.id === d.renewPending);
     const renew = rdoc && t && !trialOver(e, t) ? `<div class="card"><div class="card-h"><h3>Accord de renouvellement de ta période d’essai</h3><span class="pill warn">À signer avant le ${fmtShort(t.end)}</span></div><div class="card-b">${signBox(rdoc, 'Je donne mon accord au renouvellement (« bon pour accord »)', 'Signer l’accord')}</div></div>` : '';
     return `${renew}${card('Mon programme d’intégration', '', `<div class="card-b">${planList().map(([k, l, day, o]) => `<div class="todo"><div class="t"><b>${esc(l)}</b><small>${OWNER[o]} · ${fmtDate(addDays(e.startDate, day), { weekday: 'long', day: 'numeric', month: 'long' })}</small></div>${d.plan[k] ? '<span class="pill ok">Fait</span>' : '<span class="pill neutral">Prévu</span>'}</div>`).join('')}</div>`)}
-      ${card('Mon rapport d’étonnement', '', `<div class="card-b">${d.astonish ? `<q>${esc(d.astonish.text)}</q><p class="hint" style="margin:6px 0 0">Envoyé le ${fmtDate(d.astonish.date)}</p>`
-        : `<form data-form="arr-astonish" data-id="${e.id}"><label class="sr" for="as-${e.id}">Rapport d’étonnement</label><textarea id="as-${e.id}" name="text" class="input" placeholder="Ce qui m’a surpris, ce que je changerais, ce que j’apprécie déjà…"></textarea><div class="toolbar" style="margin-top:8px"><span class="hint">Conseillé vers J+30 · lu par les gestionnaires des RH et ton manager.</span><button class="btn primary sm" style="margin-left:auto">Envoyer</button></div></form>`}</div>`)}`;
+      ${card('Mon rapport d’étonnement', '', `<div class="card-b">${d.astonish ? `<q>${esc(d.astonish.text)}</q><p class="hint keep" style="margin:6px 0 0">Envoyé le ${fmtDate(d.astonish.date)}</p>`
+        : `<form data-form="arr-astonish" data-id="${e.id}"><label class="sr" for="as-${e.id}">Rapport d’étonnement</label><textarea id="as-${e.id}" name="text" class="input" placeholder="Ce qui m’a surpris, ce que je changerais, ce que j’apprécie déjà…"></textarea><div class="toolbar" style="margin-top:8px"><span class="hint">Lu par les gestionnaires des RH et ton manager</span><button class="btn primary sm" style="margin-left:auto">Envoyer</button></div></form>`}</div>`)}`;
   }
   // Lecture puis signature d'un document (contrat, accord de renouvellement), sur ordinateur comme sur téléphone.
   // Le document se lit dans un cadre qu'il faut faire défiler jusqu'au bout avant de pouvoir signer.
@@ -5924,7 +5929,7 @@
       html += `<form class="card" data-form="ts" novalidate><div class="card-h"><h3>Mes heures</h3><div class="toolbar"><label class="sr" for="ts-week">Semaine</label><select id="ts-week" class="select" data-change="ts-week">${weeks.map((x) => `<option value="${x}" ${x === wk ? 'selected' : ''}>Semaine du ${fmtShort(x)}</option>`).join('')}</select><span class="pill ${{ Validée: 'ok', Soumise: 'warn', Refusée: 'bad', Brouillon: 'neutral' }[t.status]}">${t.status}</span></div></div>
         <div class="card-b"><div class="ts-grid seven">${DAYS_FR.map((d, k) => { const day = addDays(wk, k), fut = day > TODAY; return `<div class="field"><label for="ts-${k}">${d.slice(0, 3)}. ${parse(day).getDate()}</label><input id="ts-${k}" name="h${k}" type="number" inputmode="decimal" min="0" max="24" step="0.25" class="input num" value="${t.hours[k] || ''}" placeholder="${fut ? '—' : '0'}" ${locked || fut ? 'disabled' : ''} ${fut ? 'title="Jour pas encore travaillé"' : ''} data-live="ts"></div>`; }).join('')}</div>
         <div id="ts-sum" style="margin-top:12px">${tsSummary(w)}</div>
-        ${locked ? '' : `<div class="toolbar" style="margin-top:12px"><span class="hint">Durée légale 35 h · max. 10 h par jour et 48 h par semaine · repos quotidien de 11 h et repos hebdomadaire de 35 h (à respecter : la grille ne saisit pas les horaires).</span><button class="btn primary" style="margin-left:auto">Soumettre à ${esc(fullName(approverOf(e)))}</button></div>`}</div></form>`;
+        ${locked ? '' : `<div class="toolbar" style="margin-top:12px"><span class="hint help">Durée légale 35 h · max. 10 h par jour et 48 h par semaine · repos quotidien de 11 h et repos hebdomadaire de 35 h (à respecter : la grille ne saisit pas les horaires).</span><button class="btn primary" style="margin-left:auto">Soumettre à ${esc(fullName(approverOf(e)))}</button></div>`}</div></form>`;
     }
     return html;
   }
@@ -5980,7 +5985,7 @@
     const medByCat = {}; all.forEach((e) => { (medByCat[e.category] = medByCat[e.category] || []).push(e.salary); });
     const open = R.status === 'Ouverte', canEdit = (e) => open && (rh || e.managerId === me().id) && (!R.proposals[e.id] || R.proposals[e.id].status !== 'Validée');
     const after = db.employees.map((e) => { const p = R.proposals[e.id]; return p && p.status !== 'Refusée' ? Object.assign({}, e, { salary: e.salary * (1 + p.pct / 100) }) : e; });
-    return `<div class="card"><div class="card-h" style="flex-wrap:wrap"><div><h3>Révision salariale ${R.year}</h3><p class="hint" style="margin:2px 0 0">Effet au ${fmtDate(R.effective)} · propositions du management avant le ${fmtDate(R.deadline)}</p></div><span class="pill ${open ? 'warn' : 'ok'}">${open ? 'Campagne ouverte' : 'Clôturée'}</span>
+    return `<div class="card"><div class="card-h" style="flex-wrap:wrap"><div><h3>Révision salariale ${R.year}</h3><p class="hint keep" style="margin:2px 0 0">Effet au ${fmtDate(R.effective)} · propositions du management avant le ${fmtDate(R.deadline)}</p></div><span class="pill ${open ? 'warn' : 'ok'}">${open ? 'Campagne ouverte' : 'Clôturée'}</span>
         ${rh && open ? `<button type="button" class="btn primary" data-act="raise-close">${ic('check')}Clôturer et notifier</button>` : ''}</div>
       <div class="card-b"><div class="rkpis"><div><span>Enveloppe</span><b class="num">${eur0(env)}</b><small>${String(R.budgetPct).replace('.', ',')} % de la masse salariale (${eur0(masse)})</small></div><div><span>Engagé</span><b class="num">${eur0(used)}</b><small>${env ? Math.round((used / env) * 100) : 0} % de l’enveloppe</small></div>
         <div><span>Reste</span><b class="num" style="${used > env ? 'color:var(--bad)' : ''}">${eur0(env - used)}</b><small>${used > env ? 'Enveloppe dépassée' : 'disponible'}</small></div><div><span>Propositions</span><b class="num">${Object.keys(R.proposals).length}</b><small>${Object.values(R.proposals).filter((p) => p.status === 'Validée').length} validées</small></div></div>
@@ -6002,8 +6007,8 @@
     return `${card('Écarts de rémunération femmes-hommes', '', `<div class="card-b">${gapTable(rows)}
         <p class="hint" style="margin:12px 0 0">Un écart de plus de 5 % entre femmes et hommes d’une même catégorie, non justifié par des critères objectifs, devra être corrigé selon la directive européenne 2023/970 sur la transparence salariale. Sa transposition en France est en cours.</p></div>`)}
       <div class="two">${card('Obligations selon l’effectif', '', `<div class="card-b"><div class="todo"><div class="t"><b>Index de l’égalité professionnelle</b><small>${isOn(50, 'now') ? `Obligatoire : ${esc(COMPANY.nom)} compte ${fmtN(effState().avg12)} salariés en moyenne.` : `Obligatoire à partir de 50 salariés : ${esc(COMPANY.nom)} (${fmtN(effState().avg12)} en moyenne sur 12 mois) n’est pas encore concernée.`}</small></div>${ui.profile === 'rh' ? '<button type="button" class="btn ghost sm" data-act="obl-go" data-t="index">Voir l’index</button>' : `<span class="pill ${isOn(50, 'now') ? 'warn' : 'neutral'}">${isOn(50, 'now') ? 'Applicable' : 'Non applicable'}</span>`}</div>
-          <div class="todo"><div class="t"><b>Fourchette de salaire dans les offres</b><small>Déjà validée dans le besoin de recrutement ; l’historique de salaire des candidats n’est pas demandé.</small></div><span class="pill ok">En place</span></div>
-          <div class="todo"><div class="t"><b>Droit à l’information des salariés</b><small>Chaque salarié peut demander la rémunération moyenne, par sexe, des salariés de sa catégorie.</small></div><span class="pill ok">En place</span></div></div>`)}
+          <div class="todo"><div class="t"><b>Fourchette de salaire dans les offres</b><small class="help">Déjà validée dans le besoin de recrutement ; l’historique de salaire des candidats n’est pas demandé.</small></div><span class="pill ok">En place</span></div>
+          <div class="todo"><div class="t"><b>Droit à l’information des salariés</b><small class="help">Chaque salarié peut demander la rémunération moyenne, par sexe, des salariés de sa catégorie.</small></div><span class="pill ok">En place</span></div></div>`)}
         ${card('Demandes d’information', `<span class="muted num">${reqs.length}</span>`, `<div class="card-b">${reqs.length ? reqs.map((r) => `<div class="todo">${avatar(emp(r.empId), 'sm')}<div class="t"><b>${esc(fullName(emp(r.empId)))} · catégorie ${esc(r.cat)}</b><small>Demandée et transmise le ${fmtShort(r.date)}</small></div><span class="pill ok">Répondue</span></div>`).join('') : '<p class="muted" style="margin:0">Aucune demande pour le moment.</p>'}</div>`)}</div>`;
   }
   const BENEFITS = [['Mutuelle santé', 'Part employeur 60 % (minimum légal 50 %)', 576, true], ['Prévoyance', 'Obligatoire pour les cadres (1,50 % de la tranche A)', 0, true], ['Remboursement des transports en commun', '50 % de l’abonnement, obligatoire', 488, true],
@@ -6019,7 +6024,7 @@
         <div class="field"><label for="pv-rule">Répartition</label><select id="pv-rule" class="select" data-change="ppv-rule" ${V.paidMonth ? 'disabled' : ''}>${[['uniforme', 'Montant identique'], ['salaire', 'Proportionnelle au salaire'], ['presence', 'Selon la durée de présence']].map(([k, l]) => `<option value="${k}" ${V.rule === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
         <div class="field"><label for="pv-month">Versement avec la paie de</label><select id="pv-month" class="select" ${V.paidMonth ? 'disabled' : ''}>${months.map((m) => `<option value="${m}">${monthLabel(m)}</option>`).join('')}</select></div></div>
         <div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Collaborateur</th><th class="r">Salaire</th><th class="r">Présence 12 mois</th><th class="r">Prime</th></tr></thead><tbody>${dist.map(([e, v, pres]) => `<tr><td>${esc(fullName(e))}</td><td class="r num">${eur0(e.salary)}</td><td class="r num">${pres} mois</td><td class="r num"><b>${eur0(v)}</b></td></tr>`).join('')}</tbody></table></div>
-        <div class="toolbar" style="margin-top:12px"><span class="hint">Exonérée de cotisations sociales dans les entreprises de moins de 50 salariés (CSG-CRDS dues), dans la limite de 3 000 € par salarié.</span>${V.paidMonth ? '' : `<button type="button" class="btn primary" style="margin-left:auto" data-act="ppv-pay">Intégrer à la paie</button>`}</div></div>`)}`;
+        <div class="toolbar" style="margin-top:12px"><span class="hint help">Exonérée de cotisations sociales dans les entreprises de moins de 50 salariés (CSG-CRDS dues), dans la limite de 3 000 € par salarié.</span>${V.paidMonth ? '' : `<button type="button" class="btn primary" style="margin-left:auto" data-act="ppv-pay">Intégrer à la paie</button>`}</div></div>`)}`;
   }
   function ppvSplit(total, rule, people) {
     const pres = (e) => Math.min(12, Math.max(0, Math.round(dayDiff(e.startDate > addMonths(TODAY, -12) ? e.startDate : addMonths(TODAY, -12), TODAY) / 30.4)));
@@ -6048,7 +6053,7 @@
         ${ben.filter(([, v]) => v).map(([l, v]) => `<div class="crit-row"><span>${l} <small class="muted">(part employeur)</small></span><span class="num">${eur0(v)}</span></div>`).join('')}
         <div class="crit-row total"><span>Total</span><b class="num">${eur0(total)}</b></div></div><p class="hint" style="margin:10px 0 0">Avantages estimés sur la période, à titre indicatif.</p></div>`)}
       ${card('Transparence salariale', '', `<div class="card-b"><p style="margin:0 0 10px">Vous pouvez demander la rémunération moyenne des femmes et des hommes de votre catégorie (${esc(e.category)}).</p>
-        ${row ? `<div class="crit"><div class="crit-row"><span>Femmes (${row.nF})</span><b class="num">${row.f ? eur0(row.f) : '—'}</b></div><div class="crit-row"><span>Hommes (${row.nH})</span><b class="num">${row.h ? eur0(row.h) : '—'}</b></div></div><p class="hint" style="margin:8px 0 0">Réponse du ${fmtDate(req.date)}.</p>`
+        ${row ? `<div class="crit"><div class="crit-row"><span>Femmes (${row.nF})</span><b class="num">${row.f ? eur0(row.f) : '—'}</b></div><div class="crit-row"><span>Hommes (${row.nH})</span><b class="num">${row.h ? eur0(row.h) : '—'}</b></div></div><p class="hint keep" style="margin:8px 0 0">Réponse du ${fmtDate(req.date)}.</p>`
           : '<button type="button" class="btn primary" data-act="pay-info">Faire la demande</button>'}</div>`)}</div>`;
   }
 
@@ -6121,7 +6126,7 @@
     const r = db.changeReqs.find((x) => x.id === m.id), e = emp(r.empId), x = r.proofFile || { name: r.proof, date: r.createdAt };
     const view = x.data && /^data:image\//.test(x.data) ? `<img class="file-img" src="${x.data}" alt="${esc(x.name)}">` : x.data ? `<embed class="file-pdf" src="${x.data}" type="application/pdf">`
       : `<div class="file-ph">${ic('file')}<b>${esc(x.name || 'Justificatif')}</b><span>Déposé le ${fmtDate(x.date || r.createdAt)} par ${esc(fullName(e))}. ${r.proofFile ? 'Fichier trop lourd pour l’aperçu de la démonstration.' : 'Pièce de démonstration sans contenu.'}</span></div>`;
-    return shell(`${esc(r.label)} · ${esc(fullName(e))}`, `<div class="modal-b"><p class="hint" style="margin:0 0 10px">Demandé : ${esc(showReq(r, r.from) || '—')} → <b>${esc(showReq(r, r.to))}</b></p>${view}</div>`,
+    return shell(`${esc(r.label)} · ${esc(fullName(e))}`, `<div class="modal-b"><p class="hint keep" style="margin:0 0 10px">Demandé : ${esc(showReq(r, r.from) || '—')} → <b>${esc(showReq(r, r.to))}</b></p>${view}</div>`,
       `<div class="modal-f">${r.status === 'En attente' ? `<button type="button" class="btn ok" data-act="chg-ok" data-id="${r.id}">${ic('check')}Valider</button>` : ''}<button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>`, true);
   };
 
@@ -6418,33 +6423,34 @@
   // Procédure de licenciement (RH) : convocation, entretien préalable, lettre ; repères de délai et dispositifs du licenciement économique.
   function licProcedure(e, d) {
     const p = d.proc, x = e.exit || {}, r = x.reason, eco = r === 'Licenciement économique';
-    const row = (label, sub, state) => `<div class="todo"><div class="t"><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div>${state}</div>`;
+    const row = dRow;
     const date = (k, v, min, lbl) => `<input type="date" class="input" data-change="dep-proc" data-id="${e.id}" data-k="${k}" value="${v || ''}" ${min ? `min="${min}"` : ''} aria-label="${lbl}">`;
     const iMin = p.convocAt && licInterviewMin(p.convocAt), lMin = p.interviewAt && licLetterMin(p.interviewAt, e, r);
     const warn = (t) => ` <b class="warn-t">· ${t}</b>`;
-    let h = row('Convocation à l’entretien préalable', `Lettre recommandée ou remise en main propre contre décharge (art. L1232-2)${p.convocAt ? ` · présentée le ${fmtDateY(p.convocAt)}` : ' · date de présentation à saisir'}`, date('convocAt', p.convocAt, '', 'Convocation présentée le'))
-      + row('Entretien préalable', `${iMin ? `Au plus tôt le ${fmtDateY(iMin, { weekday: 'long' })} : 5 jours ouvrables pleins après la présentation (fériés exclus, à vérifier)` : 'Après la convocation'}${p.interviewAt ? ` · prévu le ${fmtDateY(p.interviewAt)}` : ''}${p.interviewAt && iMin && p.interviewAt < iMin ? warn('délai trop court') : ''}`, date('interviewAt', p.interviewAt, iMin, 'Date de l’entretien préalable'))
-      + row('Lettre de licenciement motivée', `${lMin ? `Expédiée au plus tôt le ${fmtDateY(lMin, { weekday: 'long' })}${eco ? ` (${e.category === 'Cadre' ? 15 : 7} jours ouvrables après l’entretien, art. L1233-15)` : ' (2 jours ouvrables pleins après l’entretien, art. L1232-6)'}${/faute grave/.test(r) ? ` et au plus tard le ${fmtDateY(addMonths(p.interviewAt, 1))} (art. L1332-2)` : ''}` : 'Après l’entretien préalable'}. Le préavis court à partir de sa présentation (art. L1234-3).${p.letterAt ? ` Présentée le ${fmtDateY(p.letterAt)}.` : ''}${p.letterAt && lMin && p.letterAt < lMin ? warn('délai trop court') : ''}`, date('letterAt', p.letterAt, lMin, 'Lettre présentée le'));
+    let h = row('Convocation à l’entretien préalable', p.convocAt ? `Présentée le ${fmtDateY(p.convocAt)}` : 'Date de présentation à saisir', date('convocAt', p.convocAt, '', 'Convocation présentée le'), 'Lettre recommandée ou remise en main propre contre décharge (art. L1232-2)')
+      + row('Entretien préalable', `${iMin ? `Au plus tôt le ${fmtDateY(iMin, { weekday: 'long' })}` : 'Après la convocation'}${p.interviewAt ? ` · prévu le ${fmtDateY(p.interviewAt)}` : ''}${p.interviewAt && iMin && p.interviewAt < iMin ? warn('délai trop court') : ''}`, date('interviewAt', p.interviewAt, iMin, 'Date de l’entretien préalable'), '5 jours ouvrables pleins après la présentation de la convocation (fériés exclus, à vérifier)')
+      + row('Lettre de licenciement motivée', `${lMin ? `Expédiée au plus tôt le ${fmtDateY(lMin, { weekday: 'long' })}${/faute grave/.test(r) ? ` et au plus tard le ${fmtDateY(addMonths(p.interviewAt, 1))}` : ''}` : 'Après l’entretien préalable'}${p.letterAt ? ` · présentée le ${fmtDateY(p.letterAt)}` : ''}${p.letterAt && lMin && p.letterAt < lMin ? warn('délai trop court') : ''}`, date('letterAt', p.letterAt, lMin, 'Lettre présentée le'),
+        `${eco ? `${e.category === 'Cadre' ? 15 : 7} jours ouvrables après l’entretien (art. L1233-15)` : '2 jours ouvrables pleins après l’entretien (art. L1232-6)'}${/faute grave/.test(r) ? ', et au plus tard 1 mois après (art. L1332-2)' : ''}. Le préavis court à partir de sa présentation (art. L1234-3).`);
     if (eco) {
       const btn = (k, l) => (d[k] ? `<span class="pill ok">${l} · ${fmtShort(d[k])}</span>` : `<button type="button" class="btn ghost sm" data-act="dep-set" data-id="${e.id}" data-k="${k}">${l}</button>`);
       // À VÉRIFIER (juriste) : délai de réflexion du CSP (21 jours) et seuils d'effectif ; critères d'ordre fixés par accord ou après consultation du CSE.
-      h += row('Contrat de sécurisation professionnelle (CSP)', 'À proposer lors de l’entretien préalable dans les entreprises de moins de 1 000 salariés (art. L1233-66) · délai de réflexion de 21 jours (à vérifier)', btn('csp', 'Proposé'))
-        + row('Critères d’ordre des licenciements', 'Charges de famille, ancienneté, situation des salariés en difficulté de réinsertion, qualités professionnelles (art. L1233-5)', btn('ordre', 'Appliqués'))
-        + row('Priorité de réembauche', 'Pendant 1 an à compter de la fin du contrat, si le salarié la demande ; à mentionner dans la lettre (art. L1233-45 et L1233-16)', btn('priorite', 'Mentionnée'));
+      h += row('Contrat de sécurisation professionnelle (CSP)', 'À proposer lors de l’entretien préalable', btn('csp', 'Proposé'), 'Dans les entreprises de moins de 1 000 salariés (art. L1233-66) · délai de réflexion de 21 jours (à vérifier)')
+        + row('Critères d’ordre des licenciements', '', btn('ordre', 'Appliqués'), 'Charges de famille, ancienneté, situation des salariés en difficulté de réinsertion, qualités professionnelles (art. L1233-5)')
+        + row('Priorité de réembauche', 'À mentionner dans la lettre', btn('priorite', 'Mentionnée'), 'Pendant 1 an à compter de la fin du contrat, si le salarié la demande (art. L1233-45 et L1233-16)');
     }
     return h;
   }
   // Rupture conventionnelle : entretien, signature, exemplaire remis, demande d'homologation, réponse.
   function rcRows(e, d, rh) {
-    const rc = rcCalendar(d), x = e.exit || {}, row = (label, sub, state) => `<div class="todo"><div class="t"><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div>${state}</div>`;
+    const rc = rcCalendar(d), x = e.exit || {}, row = dRow;
     const date = (k, v, lbl, min) => (rh ? `<input type="date" class="input" data-change="dep-rc" data-id="${e.id}" data-k="${k}" value="${v || ''}" ${min ? `min="${min}"` : ''} aria-label="${lbl}">` : v ? `<span class="pill ok">${fmtShort(v)}</span>` : '<span class="pill warn">À faire</span>');
     const prov = rc || rcCalendar(d, TODAY), late = x.lastDay && x.lastDay < prov.earliest ? ' <b class="warn-t">· la date de fin prévue est trop tôt</b>' : '';
-    let h = row('Entretien(s) préalable(s)', 'Au moins un entretien avant la signature ; le salarié peut se faire assister (art. L1237-12)', date('interview', d.rc.interview, 'Date de l’entretien'))
+    let h = row('Entretien(s) préalable(s)', '', date('interview', d.rc.interview, 'Date de l’entretien'), 'Au moins un entretien avant la signature ; le salarié peut se faire assister (art. L1237-12)')
       + row('Signature de la convention', rc ? `Signée le ${fmtDateY(rc.signed)}` : `Si elle est signée aujourd’hui, le contrat ne pourra pas finir avant le ${fmtDateY(prov.earliest)}${late}`, date('signed', d.rc.signed, 'Date de signature'));
     if (rc) {
-      h += row('Calendrier', `Rétractation jusqu’au ${fmtDateY(rc.retract, { weekday: 'short' })} (15 jours calendaires, reportés au premier jour ouvré) · demande d’homologation à partir du ${fmtDateY(addDays(rc.retract, 1))} · réponse de la DREETS au plus tard le ${fmtDateY(rc.homol, { weekday: 'short' })} (15 jours ouvrables) · fin du contrat au plus tôt le ${fmtDateY(rc.earliest)}${late}`, '')
-        + row('Exemplaire remis au salarié', 'Un exemplaire signé lui est remis, sinon la convention est nulle', d.rc.copyGiven ? `<span class="pill ok">Remis · ${fmtShort(d.rc.copyGiven)}</span>` : rh ? `<button type="button" class="btn ghost sm" data-act="dep-rc-copy" data-id="${e.id}">Remis</button>` : '<span class="pill warn">À faire</span>')
-        + row('Demande d’homologation (TéléRC)', 'Envoi sur telerc.travail.gouv.fr, hors de Teamora (simulé) : saisissez la date d’envoi', date('requestAt', d.rc.requestAt, 'Demande envoyée le', addDays(rc.retract, 1)))
+      h += row('Calendrier', `Rétractation jusqu’au ${fmtDateY(rc.retract, { weekday: 'short' })} · homologation à demander à partir du ${fmtDateY(addDays(rc.retract, 1))} · réponse au plus tard le ${fmtDateY(rc.homol, { weekday: 'short' })} · fin du contrat au plus tôt le ${fmtDateY(rc.earliest)}${late}`, '', 'Rétractation : 15 jours calendaires, reportés au premier jour ouvré. Réponse de la DREETS : 15 jours ouvrables.')
+        + row('Exemplaire remis au salarié', '', d.rc.copyGiven ? `<span class="pill ok">Remis · ${fmtShort(d.rc.copyGiven)}</span>` : rh ? `<button type="button" class="btn ghost sm" data-act="dep-rc-copy" data-id="${e.id}">Remis</button>` : '<span class="pill warn">À faire</span>', 'Un exemplaire signé lui est remis, sinon la convention est nulle')
+        + row('Demande d’homologation (TéléRC)', 'Date d’envoi à saisir', date('requestAt', d.rc.requestAt, 'Demande envoyée le', addDays(rc.retract, 1)), 'Envoi sur telerc.travail.gouv.fr, hors de Teamora (simulé dans la démonstration)')
         + row('Homologation', d.rc.refusedAt ? `Refusée le ${fmtDateY(d.rc.refusedAt)}` : d.rc.homologAt ? `Homologuée le ${fmtDateY(d.rc.homologAt)}` : rc.tacit ? `Homologation tacite acquise le ${fmtDateY(addDays(rc.homol, 1))} (pas de réponse dans le délai)` : `En attente : sans réponse au ${fmtDateY(rc.homol)}, elle est acquise le lendemain`,
           rc.homologated ? `<span class="pill ok">${rc.tacit ? 'Tacite' : 'Homologuée'}</span>` : date('homologAt', d.rc.homologAt, 'Homologuée le'));
     }
@@ -6452,39 +6458,42 @@
   }
   function departDossier(e, i) {
     const d = offb(e), rh = ui.profile === 'rh', x = e.exit || {};
-    const row = (label, sub, state) => `<div class="todo"><div class="t"><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div>${state}</div>`;
+    const row = dRow;
     const ok = (date, txt = 'Fait') => `<span class="pill ok">${txt}${date ? ` · ${fmtShort(date)}` : ''}</span>`;
     const b = (act, label, extra = '', cls = 'ghost') => (rh ? `<button type="button" class="btn ${cls} sm" data-act="${act}" data-id="${e.id}" ${extra}>${label}</button>` : '<span class="pill warn">À faire</span>');
     const sec = (title, body) => `<h4 class="sub" style="margin-top:18px">${title}</h4>${body}`;
     const n = noticeInfo(e), notif = exitNotif(e), nEnd = noticeEndOf(notif, n.months), out = x.lastDay || TODAY;
-    let html = `<p class="hint" style="margin:12px 0 0">${esc(x.reason || '—')} · fin du contrat ${x.lastDay ? `le ${fmtDateY(x.lastDay)}` : 'à fixer'}${x.workedUntil ? ` · dernier jour travaillé le ${fmtDateY(x.workedUntil)}` : ''} · ${esc(e.contract)} · ${esc(e.category || '')} · entré·e le ${fmtDate(e.startDate)} (${seniority(e.startDate, out)} à la fin du contrat)</p>`;
+    let html = `<p class="hint keep" style="margin:12px 0 0">${esc(x.reason || '—')} · fin du contrat ${x.lastDay ? `le ${fmtDateY(x.lastDay)}` : 'à fixer'}${x.workedUntil ? ` · dernier jour travaillé le ${fmtDateY(x.workedUntil)}` : ''} · ${esc(e.contract)} · ${esc(e.category || '')} · entré·e le ${fmtDate(e.startDate)} (${seniority(e.startDate, out)} à la fin du contrat)</p>`;
     if (i === 13) {
       const short = n.months && x.lastDay && x.lastDay < nEnd && x.dispense !== 'salarie';
-      let notice = row('Préavis', `${n.label}${n.months ? ` · notifié le ${fmtDateY(notif)}, fin le ${fmtDateY(nEnd)}` : ''}${x.dispense ? ` · dispense ${x.dispense === 'employeur' ? 'à l’initiative de l’employeur (préavis payé)' : 'demandée par le salarié (accord écrit)'}` : ''}.${noticeLeaveNote(n, x.reason)}${short ? ' <b class="warn-t">· la fin du contrat précède la fin du préavis</b>' : ''}`,
-        d.noticeOk ? ok(d.noticeOk, 'Validé') : `${rh && !isLic(x.reason) ? `<input type="date" class="input" data-change="dep-notif" data-id="${e.id}" value="${notif}" aria-label="Date de notification">` : ''}${b('dep-set', 'Valider', 'data-k="noticeOk"')}`);
+      let notice = row('Préavis', `${n.label}${n.months ? ` · notifié le ${fmtDateY(notif)}, fin le ${fmtDateY(nEnd)}` : ''}${x.dispense ? ` · dispense ${x.dispense === 'employeur' ? 'à l’initiative de l’employeur (préavis payé)' : 'demandée par le salarié (accord écrit)'}` : ''}${short ? ' <b class="warn-t">· la fin du contrat précède la fin du préavis</b>' : ''}`,
+        d.noticeOk ? ok(d.noticeOk, 'Validé') : `${rh && !isLic(x.reason) ? `<input type="date" class="input" data-change="dep-notif" data-id="${e.id}" value="${notif}" aria-label="Date de notification">` : ''}${b('dep-set', 'Valider', 'data-k="noticeOk"')}`, noticeLeaveNote(n, x.reason).trim());
       if (n.rc) notice += rcRows(e, d, rh);
       html += sec('Motif et préavis', notice);
       if (isLic(x.reason) && rh) html += sec('Procédure de licenciement', licProcedure(e, d));
       if (rh) {
-        const ind = exitIndemnities(e), cp = ind.cp, r = x.reason, L = [];
-        if (ind.legal || ind.conv) L.push(`Indemnité ${isRC(r) ? 'spécifique de rupture conventionnelle (au moins l’indemnité légale)' : r === 'Mise à la retraite' ? 'de mise à la retraite (au moins l’indemnité légale de licenciement, art. L1237-7)' : 'de licenciement'} : <b class="num">${eur0(ind.rupture)}</b> · légale ${eur0(ind.legal)} (1/4 de mois par année jusqu’à 10 ans, 1/3 au-delà)${CONV().kind === 'syntec' && r !== 'Mise à la retraite' ? ` · conventionnelle Syntec indicative ${ind.conv ? eur0(ind.conv) : 'non due avant 2 ans'} (barème à vérifier)` : CONV().kind === 'code' ? '' : ` · vérifier l’indemnité conventionnelle ${CONV().short}`} · la plus favorable est due`);
+        const ind = exitIndemnities(e), cp = ind.cp, r = x.reason, L = [], H = [];
+        if (ind.legal || ind.conv) L.push(`Indemnité ${isRC(r) ? 'spécifique de rupture conventionnelle (au moins l’indemnité légale)' : r === 'Mise à la retraite' ? 'de mise à la retraite (au moins l’indemnité légale de licenciement, art. L1237-7)' : 'de licenciement'} : <b class="num">${eur0(ind.rupture)}</b> · légale ${eur0(ind.legal)}${CONV().kind === 'syntec' && r !== 'Mise à la retraite' ? ` · conventionnelle Syntec ${ind.conv ? eur0(ind.conv) : 'non due avant 2 ans'}` : CONV().kind === 'code' ? '' : ` · vérifier l’indemnité conventionnelle ${CONV().short}`}`);
+        if (ind.legal || ind.conv) H.push(`Indemnité légale : 1/4 de mois par année jusqu’à 10 ans, 1/3 au-delà${CONV().kind === 'syntec' && r !== 'Mise à la retraite' ? ' ; conventionnelle Syntec indicative (barème à vérifier)' : ''} ; la plus favorable est due.`);
         if (ind.retraite) L.push(`Indemnité de départ à la retraite : <b class="num">${eur0(ind.retraite)}</b> (${String(retireMonths(ind.years)).replace('.', ',')} mois de salaire, art. D1237-1, à vérifier)`);
         else if (r === 'Départ volontaire à la retraite') L.push('Indemnité de départ à la retraite : non due avant 10 ans d’ancienneté (art. D1237-1, à vérifier)');
         if (ind.precarite) L.push(`Indemnité de fin de CDD (10 % de la rémunération brute totale) : <b class="num">${eur0(ind.precarite)}</b>`);
         else if (e.contract === 'CDD' && /CDD/.test(r)) L.push(`Indemnité de fin de CDD : ${esc(optLbl(CDD_EXCL, x.cddExclusion))}`);
-        L.push(`Indemnité compensatrice de congés payés (${num1(cp.days)} j : ${num1(cp.n1)} j de la période précédente et ${num1(cp.daysN)} j acquis depuis le 1er juin) : <b class="num">${eur0(cp.amount)}</b> · ${cp.method} retenu (maintien ${eur0(cp.maintien)}, dixième ${eur0(cp.dixieme)})`);
+        L.push(`Indemnité compensatrice de congés payés (${num1(cp.days)} j) : <b class="num">${eur0(cp.amount)}</b>`);
+        H.push(`Congés : ${num1(cp.n1)} j de la période précédente et ${num1(cp.daysN)} j acquis depuis le 1er juin · ${cp.method} retenu (maintien ${eur0(cp.maintien)}, dixième ${eur0(cp.dixieme)}).`);
         if (ind.noticePay) L.push(`Préavis non exécuté du ${fmtDateY(addDays(x.workedUntil, 1))} au ${fmtDateY(x.lastDay)} : indemnité compensatrice de préavis d’environ ${eur0(ind.noticePay)}, versée avec les salaires jusqu’à la fin du contrat`);
-        if (ind.legal || ind.conv || ind.retraite) L.push(`Salaire de référence ${eur0(ind.ref.ref)} : le plus favorable entre la moyenne des 12 derniers mois (${eur0(ind.ref.r12)}) et des 3 derniers mois (${eur0(ind.ref.r3)}), primes comprises (art. R1234-4) · ancienneté de ${num1(ind.years)} ans à la fin du contrat`);
-        if (isRC(r) || r === 'Mise à la retraite') L.push('Contribution patronale spécifique de 30 % sur la part exonérée de l’indemnité (à vérifier), reprise sur le bulletin');
-        html += sec('Chiffrage de la fin de contrat', row('Indemnités', L.join('<br>'), d.calcOk ? ok(d.calcOk, 'Validé') : b('dep-set', 'Valider le chiffrage', 'data-k="calcOk"')));
-      } else html += sec('Chiffrage de la fin de contrat', row('Indemnités', 'Chiffrées par les gestionnaires des RH ; les montants ne sont pas communiqués au manager.', d.calcOk ? ok(d.calcOk, 'Validé') : '<span class="pill neutral">En cours</span>'));
+        if (ind.legal || ind.conv || ind.retraite) { L.push(`Salaire de référence ${eur0(ind.ref.ref)} · ancienneté de ${num1(ind.years)} ans à la fin du contrat`); H.push(`Salaire de référence : le plus favorable entre la moyenne des 12 derniers mois (${eur0(ind.ref.r12)}) et des 3 derniers mois (${eur0(ind.ref.r3)}), primes comprises (art. R1234-4).`); }
+        if (isRC(r) || r === 'Mise à la retraite') H.push('Contribution patronale spécifique de 30 % sur la part exonérée de l’indemnité (à vérifier), reprise sur le bulletin.');
+        html += sec('Chiffrage de la fin de contrat', row('Indemnités', L.join('<br>'), d.calcOk ? ok(d.calcOk, 'Validé') : b('dep-set', 'Valider le chiffrage', 'data-k="calcOk"'), H.join('<br>')));
+      } else html += sec('Chiffrage de la fin de contrat', row('Indemnités', 'Chiffrées par les gestionnaires des RH', d.calcOk ? ok(d.calcOk, 'Validé') : '<span class="pill neutral">En cours</span>'));
       const docs = exitDocs(e);
       // Un document par ligne : chacun a son propre état et son bouton.
-      const DOC_SUB = { certificat: `Remis à la fin du contrat${x.lastDay ? `, le ${fmtDateY(x.lastDay)}` : ''}, avec les emplois occupés (art. L1234-19)`, solde: 'Remis à la fin du contrat, signé par le salarié (contestable pendant 6 mois)', 'france-travail': 'À établir par le signalement DSN de fin de contrat (net-entreprises.fr), puis copie remise au salarié' };
+      const DOC_SUB = { certificat: 'Avec les emplois occupés (art. L1234-19)', solde: 'Signé par le salarié, contestable pendant 6 mois', 'france-travail': 'Établie par le signalement DSN de fin de contrat (net-entreprises.fr), puis copie remise au salarié' };
+      const handOver = x.lastDay ? `À remettre le ${fmtDateY(x.lastDay)}` : 'À remettre à la fin du contrat';
       const docState = (doc) => (doc.status === 'Brouillon' ? '<span class="pill warn">À relire</span>' : ok(doc.issuedAt || doc.signedAt, doc.status || 'Remis'));
-      html += sec('Documents de sortie', docs.every(Boolean) ? docs.map((doc) => row(esc(DOC_LABEL[doc.kind]), DOC_SUB[doc.kind], `${docState(doc)}${rh ? docBtn(doc, 'Voir') : ''}`)).join('')
-        : row('Certificat de travail, reçu pour solde de tout compte, attestation France Travail', 'Préparés en brouillon, datés de la fin du contrat, puis relus et remis le dernier jour.', b('dep-docs', 'Préparer les documents', '', 'primary')));
-      html += sec('Restitution et accès', row('Matériel et accès', `${RETURN_ITEMS.map(([, l]) => l).join(', ')} à récupérer le ${x.workedUntil || x.lastDay ? fmtDateY(x.workedUntil || x.lastDay) : '—'} ; comptes désactivés le soir même.`, d.returnPlan ? ok(d.returnPlan, 'Planifié') : b('dep-set', 'Planifier', 'data-k="returnPlan"')));
+      html += sec('Documents de sortie', docs.every(Boolean) ? docs.map((doc) => row(esc(DOC_LABEL[doc.kind]), doc.kind === 'france-travail' ? '' : handOver, `${docState(doc)}${rh ? docBtn(doc, 'Voir') : ''}`, DOC_SUB[doc.kind])).join('')
+        : row('Certificat de travail, reçu pour solde de tout compte, attestation France Travail', '', b('dep-docs', 'Préparer les documents', '', 'primary'), 'Préparés en brouillon, datés de la fin du contrat, puis relus et remis le dernier jour.'));
+      html += sec('Restitution et accès', row('Matériel et accès', `À récupérer le ${x.workedUntil || x.lastDay ? fmtDateY(x.workedUntil || x.lastDay) : '—'}`, d.returnPlan ? ok(d.returnPlan, 'Planifié') : b('dep-set', 'Planifier', 'data-k="returnPlan"'), `${RETURN_ITEMS.map(([, l]) => l).join(', ')} ; comptes désactivés le soir même.`));
       if (rh) html += sec('Courriers de sortie', exitLetterRows(e));
     }
     if (i === 14) {
@@ -6494,7 +6503,7 @@
           <div class="field"><label for="xi-n">Recommanderiez-vous ${esc(COMPANY.nom)} ? (0 à 10)</label><input id="xi-n" name="enps" type="number" min="0" max="10" class="input num" value="7"></div>
           <div class="field"><label for="xi-g">Ce qui a bien fonctionné</label><input id="xi-g" name="good" class="input"></div><div class="field"><label for="xi-i">Ce qui serait à améliorer</label><input id="xi-i" name="improve" class="input"></div>
           <div class="field"><label for="xi-b">Prêt·e à revenir un jour ?</label><select id="xi-b" name="back" class="select"><option>Oui</option><option>Peut-être</option><option>Non</option></select></div></div>
-          <div class="toolbar" style="margin-top:10px"><span class="hint">Mené par les gestionnaires des RH plutôt que par le manager, pour des réponses franches. Le salarié peut aussi remplir le questionnaire depuis son espace.</span><button class="btn primary sm" style="margin-left:auto">Enregistrer</button></div></form>` : row('Entretien de départ', 'Mené par les gestionnaires des RH', '<span class="pill neutral">À venir</span>'));
+          <div class="toolbar" style="margin-top:10px"><span class="hint help">Mené par les gestionnaires des RH plutôt que par le manager, pour des réponses franches. Le salarié peut aussi remplir le questionnaire depuis son espace.</span><button class="btn primary sm" style="margin-left:auto">Enregistrer</button></div></form>` : row('Entretien de départ', 'Mené par les gestionnaires des RH', '<span class="pill neutral">À venir</span>'));
       // Successeur : recherche parmi tout l'effectif présent (hors personnes elles-mêmes sur le départ), ou « aucun successeur ».
       const can = rh || ui.profile === 'manager', none = d.successor === 'none', succ = !none && d.successor ? emp(d.successor) : null;
       const cands = employed().filter((y) => y.id !== e.id && !y.exit && y.stage >= 4).sort((a, z) => (z.dept === e.dept) - (a.dept === e.dept) || a.lastName.localeCompare(z.lastName, 'fr'));
@@ -6502,37 +6511,38 @@
       const pick = succ ? `<span class="pill ok">${esc(fullName(succ))} · ${esc(succ.title)}</span>${change}` : none ? `<span class="pill neutral">Aucun successeur</span>${change}`
         : can ? `<div class="succ-pick"><select class="select" data-change="dep-succ" data-id="${e.id}" aria-label="Successeur"><option value="">Rechercher un salarié…</option>${cands.map((y) => `<option value="${y.id}">${esc(fullName(y))}</option>`).join('')}</select>
             <label class="agree"><input type="checkbox" data-change="dep-succ-none" data-id="${e.id}"> Aucun successeur</label></div>` : '<span class="pill warn">À désigner</span>';
-      html += sec('Transmission', row('Successeur ou relais', none ? 'Le poste n’est pas repris : les dossiers sont archivés ou répartis' : 'Personne qui reprend les dossiers (tout l’effectif, en commençant par le service)', pick)
+      html += sec('Transmission', row('Successeur ou relais', none ? 'Le poste n’est pas repris : les dossiers sont archivés ou répartis' : '', pick, none ? '' : 'Personne qui reprend les dossiers (tout l’effectif, en commençant par le service)')
         + TRANSFER.map(([k, l]) => row(none && k === 'dossiers' ? 'Dossiers en cours archivés ou répartis' : l, '', d.transfer[k] ? ok(d.transfer[k]) : rh || ui.profile === 'manager' ? `<button type="button" class="btn ghost sm" data-act="dep-transfer" data-id="${e.id}" data-k="${k}">Fait</button>` : '')).join(''));
       html += sec('Restitution du matériel', RETURN_ITEMS.map(([k, l]) => row(l, '', d.returned[k] ? ok(d.returned[k], 'Rendu') : b('dep-return', 'Rendu', `data-k="${k}"`))).join(''));
       const pm = portabilityMonths(e);
-      html += sec('Fin des accès et des dispositifs', row('Comptes, messagerie et accès aux locaux', 'À désactiver le dernier jour travaillé, après la passation', d.accessOff ? ok(d.accessOff, 'Désactivés') : b('dep-set', 'Désactiver', 'data-k="accessOff"', x.lastDay && x.lastDay <= TODAY ? 'bad' : 'ghost'))
-        + row('Portabilité de la mutuelle et de la prévoyance', `Maintien gratuit pendant ${pm} mois (durée du dernier contrat, 12 mois au plus), si le salarié est indemnisé par France Travail, sauf faute lourde (art. L911-8 du Code de la sécurité sociale) : notice à remettre`, d.portability ? ok(d.portability, 'Notice remise') : b('dep-set', 'Notice remise', 'data-k="portability"'))
-        + row('Organisme assureur informé', 'Signaler la fin du contrat à la mutuelle et à l’organisme de prévoyance pour ouvrir la portabilité', d.insurer ? ok(d.insurer, 'Informé') : b('dep-set', 'Informé', 'data-k="insurer"')));
+      html += sec('Fin des accès et des dispositifs', row('Comptes, messagerie et accès aux locaux', x.workedUntil || x.lastDay ? `À désactiver le ${fmtDateY(x.workedUntil || x.lastDay)}, après la passation` : 'À désactiver le dernier jour travaillé, après la passation', d.accessOff ? ok(d.accessOff, 'Désactivés') : b('dep-set', 'Désactiver', 'data-k="accessOff"', x.lastDay && x.lastDay <= TODAY ? 'bad' : 'ghost'))
+        + row('Portabilité de la mutuelle et de la prévoyance', `Maintien pendant ${pm} mois · notice à remettre`, d.portability ? ok(d.portability, 'Notice remise') : b('dep-set', 'Notice remise', 'data-k="portability"'), 'Maintien gratuit pendant la durée du dernier contrat (12 mois au plus), si le salarié est indemnisé par France Travail, sauf faute lourde (art. L911-8 du Code de la sécurité sociale).')
+        + row('Organisme assureur informé', '', d.insurer ? ok(d.insurer, 'Informé') : b('dep-set', 'Informé', 'data-k="insurer"'), 'Signaler la fin du contrat à la mutuelle et à l’organisme de prévoyance pour ouvrir la portabilité'));
       const docs = exitDocs(e), early = x.lastDay && x.lastDay > TODAY;
-      html += sec('Documents de fin de contrat', `${docs.filter(Boolean).map((doc) => row(esc(doc.title), doc.kind === 'solde' ? 'Peut être dénoncé par le salarié dans les 6 mois suivant sa signature' : doc.kind === 'france-travail' ? 'Établie à partir du signalement DSN de fin de contrat ; copie remise au salarié' : 'Remis à la fin du contrat', rh ? docBtn(doc) : '')).join('') || row('Documents non préparés', 'À générer à l’étape « Préparation du départ »', b('dep-docs', 'Préparer'))}
-        ${x.reason === 'Fin de stage' ? '' : row('Signalement DSN de fin de contrat', 'À faire sur net-entreprises.fr après la fin du contrat (délai à vérifier) : il produit l’attestation employeur France Travail. Teamora n’envoie pas la DSN (simulé) : saisissez la date d’envoi.', d.dsnFin ? ok(d.dsnFin, 'Signalé') : rh ? `<input type="date" class="input" data-change="dep-dsn" data-id="${e.id}" ${x.lastDay ? `min="${x.lastDay}"` : ''} aria-label="Signalement DSN envoyé le">` : '<span class="pill warn">À faire</span>')}
-        ${row('Remise au salarié', early ? `À remettre à la fin du contrat, le ${fmtDateY(x.lastDay)} : pas avant (art. L1234-19)` : '', d.docsGiven ? ok(d.docsGiven, 'Remis') : early ? '<span class="pill neutral">Pas encore</span>' : b('dep-set', 'Remis au salarié', 'data-k="docsGiven"'))}`);
+      html += sec('Documents de fin de contrat', `${docs.filter(Boolean).map((doc) => row(esc(doc.title), '', rh ? docBtn(doc) : '', doc.kind === 'solde' ? 'Peut être dénoncé par le salarié dans les 6 mois suivant sa signature' : doc.kind === 'france-travail' ? 'Établie à partir du signalement DSN de fin de contrat ; copie remise au salarié' : 'Remis à la fin du contrat')).join('') || row('Documents non préparés', 'À générer à l’étape « Préparation du départ »', b('dep-docs', 'Préparer'))}
+        ${x.reason === 'Fin de stage' ? '' : row('Signalement DSN de fin de contrat', d.dsnFin ? '' : 'Date d’envoi à saisir', d.dsnFin ? ok(d.dsnFin, 'Signalé') : rh ? `<input type="date" class="input" data-change="dep-dsn" data-id="${e.id}" ${x.lastDay ? `min="${x.lastDay}"` : ''} aria-label="Signalement DSN envoyé le">` : '<span class="pill warn">À faire</span>', 'À faire sur net-entreprises.fr après la fin du contrat (délai à vérifier) : il produit l’attestation employeur France Travail. Teamora n’envoie pas la DSN (simulé dans la démonstration).')}
+        ${row('Remise au salarié', early ? `Le ${fmtDateY(x.lastDay)}, pas avant` : '', d.docsGiven ? ok(d.docsGiven, 'Remis') : early ? '<span class="pill neutral">Pas encore</span>' : b('dep-set', 'Remis au salarié', 'data-k="docsGiven"'), 'Les documents sont remis à la fin du contrat (art. L1234-19).')}`);
       if (rh) html += sec('Courriers de sortie', exitLetterRows(e));
     }
     if (i === 15) {
       const purgeOn = addYears(out, 5), alumniEnd = addYears(out, 1);
-      html += sec('Archivage', row('Dossier du salarié', d.archivedAt ? `Accès restreint aux gestionnaires des RH : le manager ne voit plus la fiche. L’ancien salarié garde ses bulletins et documents jusqu’au ${fmtDateY(alumniEnd)}.` : 'Après archivage, seuls les gestionnaires des RH accèdent au dossier ; le manager ne le voit plus', d.archivedAt ? ok(d.archivedAt, 'Archivé') : b('dep-set', 'Archiver le dossier', 'data-k="archivedAt"', 'primary')));
-      html += sec('Durées de conservation', [['Contrat, avenants, dossier du personnel', 5, 'prescription des actions liées au contrat'], ['Copie des bulletins de paie', 5, 'art. L3243-4'], ['Registre unique du personnel (mentions)', 5, 'art. R1221-26'], ['Déclarations d’accident du travail', 10, 'conservées après la purge']].map(([l, y, ref]) => row(l, `${y} ans après le départ · ${ref}`, `<span class="pill neutral">Jusqu’au ${fmtDateY(addYears(out, y))}</span>`)).join('')
-        + row('Application des durées', d.purgedAt ? `Données personnelles et documents supprimés le ${fmtDateY(d.purgedAt)} ; les mentions du registre et les accidents du travail sont gardés.` : d.retentionOk ? `Suppression automatique le ${fmtDateY(purgeOn)} : coordonnées, contact d’urgence, IBAN, absences et documents ; accidents du travail gardés 10 ans.` : 'Programmez la suppression automatique à l’échéance de 5 ans. Le registre des traitements RGPD se tient hors de Teamora (non géré par la démo).',
-          d.purgedAt ? ok(d.purgedAt, 'Supprimé') : d.retentionOk ? ok(d.retentionOk, 'Programmé') : b('dep-set', 'Programmer', 'data-k="retentionOk"')));
+      html += sec('Archivage', row('Dossier du salarié', d.archivedAt ? `Bulletins et documents accessibles à l’ancien salarié jusqu’au ${fmtDateY(alumniEnd)}` : '', d.archivedAt ? ok(d.archivedAt, 'Archivé') : b('dep-set', 'Archiver le dossier', 'data-k="archivedAt"', 'primary'), 'Après archivage, seuls les gestionnaires des RH accèdent au dossier ; le manager ne voit plus la fiche.'));
+      html += sec('Durées de conservation', [['Contrat, avenants, dossier du personnel', 5, 'prescription des actions liées au contrat'], ['Copie des bulletins de paie', 5, 'art. L3243-4'], ['Registre unique du personnel (mentions)', 5, 'art. R1221-26'], ['Déclarations d’accident du travail', 10, 'conservées après la purge']].map(([l, y, ref]) => row(l, '', `<span class="pill neutral">Jusqu’au ${fmtDateY(addYears(out, y))}</span>`, `${y} ans après le départ · ${ref}`)).join('')
+        + row('Application des durées', d.purgedAt ? `Données personnelles et documents supprimés le ${fmtDateY(d.purgedAt)}` : d.retentionOk ? `Suppression automatique le ${fmtDateY(purgeOn)}` : 'Suppression automatique à programmer (échéance de 5 ans)',
+          d.purgedAt ? ok(d.purgedAt, 'Supprimé') : d.retentionOk ? ok(d.retentionOk, 'Programmé') : b('dep-set', 'Programmer', 'data-k="retentionOk"'),
+          d.purgedAt ? 'Les mentions du registre et les accidents du travail sont gardés.' : 'Sont supprimés : coordonnées, contact d’urgence, IBAN, absences et documents ; les accidents du travail sont gardés 10 ans. Le registre des traitements RGPD se tient hors de Teamora (non géré par la démo).'));
       html += sec('Demandes après le départ', d.requests.length ? d.requests.map((r) => row(esc(r.label), `Reçue le ${fmtDateY(r.date)}${r.note ? ` · ${esc(r.note)}` : ''}`, r.status === 'Traitée' ? ok(r.doneAt, 'Envoyée') : r.kind === 'autre' ? b('dep-request-done', 'Marquer traitée', `data-r="${r.id}"`) : b('dep-request', 'Générer et envoyer', `data-r="${r.id}"`, 'primary'))).join('') : `<p class="muted" style="margin:0">Aucune demande. L’ancien salarié peut en faire depuis son espace jusqu’au ${fmtDateY(alumniEnd)}.</p>`);
-      if (x.reason === 'Licenciement économique') html += sec('Priorité de réembauche', row(`Jusqu’au ${fmtDateY(addYears(out, 1))}`, 'Si l’ancien salarié l’a demandée, tout poste compatible avec sa qualification doit lui être proposé (art. L1233-45). Les gestionnaires des RH sont prévenus à l’ouverture d’une offre.', d.prioriteAsked ? ok(d.prioriteAsked, 'Demandée') : b('dep-set', 'Demandée par le salarié', 'data-k="prioriteAsked"')));
+      if (x.reason === 'Licenciement économique') html += sec('Priorité de réembauche', row(`Jusqu’au ${fmtDateY(addYears(out, 1))}`, '', d.prioriteAsked ? ok(d.prioriteAsked, 'Demandée') : b('dep-set', 'Demandée par le salarié', 'data-k="prioriteAsked"'), 'Si l’ancien salarié l’a demandée, tout poste compatible avec sa qualification doit lui être proposé (art. L1233-45). Les gestionnaires des RH sont prévenus à l’ouverture d’une offre.'));
       const xi = d.exitInterview;
-      html += sec('Lien avec l’ancien collaborateur', row('Réembauche possible', `${xi ? `Prêt·e à revenir : ${esc(xi.back)} · ` : ''}Les « salariés boomerang » connaissent déjà la culture de l’entreprise.`, rh ? `<select class="select" data-change="dep-rehire" data-id="${e.id}" aria-label="Réembauche"><option value="">À décider</option>${['Oui', 'Non'].map((y) => `<option ${d.rehire === y ? 'selected' : ''}>${y}</option>`).join('')}</select>` : '')
-        + (d.rehire === 'Oui' && rh ? row('Proposer une offre ouverte', 'Avec son accord seulement : il est ajouté aux candidats (source « Ancien salarié ») avec l’e-mail personnel qu’il vous a donné', `<select class="select" data-change="boomerang" data-id="${e.id}" aria-label="Offre"><option value="">Choisir une offre…</option>${db.jobs.filter((j) => j.status === 'Ouverte').map((j) => `<option value="${j.id}">${esc(j.title)}</option>`).join('')}</select>`) : ''));
+      html += sec('Lien avec l’ancien collaborateur', row('Réembauche possible', xi ? `Prêt·e à revenir : ${esc(xi.back)}` : '', rh ? `<select class="select" data-change="dep-rehire" data-id="${e.id}" aria-label="Réembauche"><option value="">À décider</option>${['Oui', 'Non'].map((y) => `<option ${d.rehire === y ? 'selected' : ''}>${y}</option>`).join('')}</select>` : '')
+        + (d.rehire === 'Oui' && rh ? row('Proposer une offre ouverte', 'Avec son accord seulement', `<select class="select" data-change="boomerang" data-id="${e.id}" aria-label="Offre"><option value="">Choisir une offre…</option>${db.jobs.filter((j) => j.status === 'Ouverte').map((j) => `<option value="${j.id}">${esc(j.title)}</option>`).join('')}</select>`) : ''));
     }
     return html;
   }
   // Courriers de sortie : un brouillon par courrier, à relire puis remettre ou envoyer.
   function exitLetterRows(e) {
     return exitLetters(e).map((k) => { const doc = db.documents.filter((x) => x.empId === e.id && x.kind === k).slice(-1)[0];
-      return `<div class="todo"><div class="t"><b>${esc(DOC_LABEL[k])}</b><small>${esc(DEFAULT_TPL[k].hint || '')}</small></div>${doc ? docBtn(doc) : `<button type="button" class="btn ghost sm" data-act="dep-letter" data-id="${e.id}" data-k="${k}">${ic('plus')}Préparer</button>`}</div>`; }).join('');
+      return `<div class="todo"><div class="t"><b>${esc(DOC_LABEL[k])}</b><small class="help">${esc(DEFAULT_TPL[k].hint || '')}</small></div>${doc ? docBtn(doc) : `<button type="button" class="btn ghost sm" data-act="dep-letter" data-id="${e.id}" data-k="${k}">${ic('plus')}Préparer</button>`}</div>`; }).join('');
   }
   // Espace du salarié pendant et après son départ (tutoiement) : dates, ce qui l'attend, questionnaire de départ, demandes d'ancien salarié.
   function myDeparture(e, i) {
@@ -6562,9 +6572,9 @@
         <div class="field"><label for="xq-n">Recommanderais-tu ${esc(COMPANY.nom)} ? (0 à 10)</label><input id="xq-n" name="enps" type="number" min="0" max="10" class="input num" value="7"></div>
         <div class="field"><label for="xq-g">Ce qui a bien fonctionné</label><input id="xq-g" name="good" class="input" maxlength="300"></div><div class="field"><label for="xq-i">Ce qui serait à améliorer</label><input id="xq-i" name="improve" class="input" maxlength="300"></div>
         <div class="field"><label for="xq-b">Prêt·e à revenir un jour ?</label><select id="xq-b" name="back" class="select"><option>Oui</option><option>Peut-être</option><option>Non</option></select></div></div>
-        <div class="toolbar" style="margin-top:10px"><span class="hint">Facultatif. Seuls les gestionnaires des RH lisent tes réponses, pas ton manager.</span><button class="btn primary sm" style="margin-left:auto">Envoyer</button></div></form>`;
+        <div class="toolbar" style="margin-top:10px"><span class="hint">Facultatif<span class="help"> · seuls les gestionnaires des RH lisent tes réponses, pas ton manager</span></span><button class="btn primary sm" style="margin-left:auto">Envoyer</button></div></form>`;
     return card('Ton départ', '', `<div class="card-b">${facts}<h4 class="sub" style="margin-top:16px">Ce qui t’attend</h4><div class="steps">${steps}</div>
-      <p class="hint" style="margin:12px 0 0">Une question ? Ton contact RH : ${esc(fullName(rh))} · ${esc(rh.email)}${docs.length ? '' : ''}.</p></div>`) + card('Questionnaire de départ', '', `<div class="card-b">${quiz}</div>`);
+      <p class="hint keep" style="margin:12px 0 0">Une question ? Ton contact RH : ${esc(fullName(rh))} · ${esc(rh.email)}${docs.length ? '' : ''}.</p></div>`) + card('Questionnaire de départ', '', `<div class="card-b">${quiz}</div>`);
   }
   // Priorité de réembauche (licenciement économique) : anciens salariés à prévenir quand une offre s'ouvre (art. L1233-45).
   function rehirePriority() { return db.employees.filter((x) => x.exit && x.exit.reason === 'Licenciement économique' && x.exit.lastDay && addYears(x.exit.lastDay, 1) >= TODAY && (x.stage >= 15 || x.exit.lastDay <= TODAY) && db.offboarding && db.offboarding[x.id] && db.offboarding[x.id].prioriteAsked); }
@@ -6617,9 +6627,9 @@
     const reasons = EXIT_GROUPS.map(([g, l]) => [g, l.filter((r) => exitReasonOk(e, r))]).filter(([, l]) => l.length);
     return formShell(`Départ de ${esc(fullName(e))}`, 'exit', `<p class="muted" style="margin:0">Le départ est lancé : préavis, documents de sortie et restitution du matériel.${m.caseId ? ' Les dates de la procédure disciplinaire sont reprises.' : ''}</p><div class="form-grid">
         ${f('x-reason', 'Motif', `<select id="x-reason" name="reason" class="select" data-live="exit">${reasons.map(([g, l]) => `<optgroup label="${g}">${l.map((r) => `<option ${r === r0 ? 'selected' : ''}>${r}</option>`).join('')}</optgroup>`).join('')}</select>`)}
-        ${f('x-notif', 'Date de notification', `<input id="x-notif" name="notifiedAt" type="date" class="input" value="${TODAY}" data-live="exit"><small class="hint" style="display:block;margin-top:4px">Réception de la démission, présentation de la lettre de licenciement… Le préavis court à partir de cette date.</small>`)}
+        ${f('x-notif', 'Date de notification', `<input id="x-notif" name="notifiedAt" type="date" class="input" value="${TODAY}" data-live="exit"><small class="hint help" style="display:block;margin-top:4px">Réception de la démission, présentation de la lettre de licenciement… Le préavis court à partir de cette date.</small>`)}
         ${f('x-disp', 'Dispense de préavis', `<select id="x-disp" name="dispense" class="select" data-live="exit">${opt(DISPENSE, '')}</select>`)}
-        ${f('x-day', 'Fin du contrat (dernier jour du contrat)', `<input id="x-day" name="lastDay" type="date" class="input" value="${day}" data-live="exit-day"><small class="hint" style="display:block;margin-top:4px">Proposée : fin du préavis ou terme du contrat.</small>`)}
+        ${f('x-day', 'Fin du contrat (dernier jour du contrat)', `<input id="x-day" name="lastDay" type="date" class="input" value="${day}" data-live="exit-day"><small class="hint help" style="display:block;margin-top:4px">Proposée : fin du préavis ou terme du contrat.</small>`)}
         ${f('x-worked', 'Dernier jour travaillé (si dispense)', '<input id="x-worked" name="workedUntil" type="date" class="input" data-live="exit">')}
         ${cdd ? f('x-cdd', 'Indemnité de fin de CDD', `<select id="x-cdd" name="cddExclusion" class="select" data-live="exit">${opt(CDD_EXCL, '')}</select>`) : ''}
         ${f('x-comment', 'Commentaire (facultatif)', '<input id="x-comment" name="comment" class="input" maxlength="140">', true)}</div><p class="hint" id="x-info" style="margin:10px 0 0">${esc(exitHint(e, r0, { lastDay: day, notifiedAt: TODAY }))}</p>`, 'Démarrer le départ');
@@ -6830,7 +6840,7 @@
     const offersCard = card('Offres d’emploi', `<span class="muted" style="font-size:13px">${plural(openJobs.length, 'offre ouverte', 'offres ouvertes')}</span>`, `<div class="table-wrap"><table><thead><tr><th>Référence</th><th>Offre</th><th class="r">En ligne · délai</th><th class="r">Candidatures</th><th class="r">Passage en entretien</th><th>Meilleure source</th></tr></thead><tbody>
         ${offers.map(([j, x]) => `<tr><td class="num">${jobRef(j)}</td><td><b>${esc(j.title)}</b><br><small class="muted">${esc(j.dept)} · ${j.status === 'Ouverte' ? 'ouverte' : j.status.toLowerCase()}</small></td><td class="r num">${x.days ? plural(x.days, 'jour', 'jours') : 'moins d’un jour'}${x.hired ? '<br><small class="muted">pourvue</small>' : ''}</td><td class="r num">${x.n}<br><small class="muted">${x.active} en cours</small></td><td class="r num">${Math.round(x.toIv * 100)} %</td><td>${x.best ? `${esc(x.best.src)} <small class="muted num">${x.best.avg.toFixed(1).replace('.', ',')}/5</small>` : '—'}</td></tr>`).join('')}</tbody></table></div>
       <div class="card-b"><h4 class="sub">Entonnoir des offres publiées depuis 12 mois</h4>${hBars(fun)}${dataTable(['Étape atteinte', 'Candidats'], fun)}
-        <p class="hint" style="margin:10px 0 0">Embauches sur 12 mois : ${hiresFH.filter((s) => s === 'F').length} femme(s), ${hiresFH.filter((s) => s === 'H').length} homme(s)${hiresFH.filter((s) => s !== 'F' && s !== 'H').length ? `, ${hiresFH.filter((s) => s !== 'F' && s !== 'H').length} non renseigné(s)` : ''}. Le sexe des candidats n’est pas collecté : la répartition des candidatures n’est pas suivie.</p></div>`);
+        <p class="hint keep" style="margin:10px 0 0">Embauches sur 12 mois : ${hiresFH.filter((s) => s === 'F').length} femme(s), ${hiresFH.filter((s) => s === 'H').length} homme(s)${hiresFH.filter((s) => s !== 'F' && s !== 'H').length ? `, ${hiresFH.filter((s) => s !== 'F' && s !== 'H').length} non renseigné(s)` : ''}<span class="help">. Le sexe des candidats n’est pas collecté : la répartition des candidatures n’est pas suivie.</span></p></div>`);
     return `${today}<div class="kpis six">${kpi('Effectif', n, `${plural(exitsPlanned.length, 'départ prévu', 'départs prévus')} · ${plural(db.employees.filter((e) => e.stage === 2 && e.startDate > TODAY).length, 'arrivée prévue', 'arrivées prévues')}`)}
         ${kpi('Entrées sur 12 mois', entries.length, `taux d’entrée ${pct1(entries.length / Math.max(1, n))}`)}${kpi('Turnover sur 12 mois', pct1(exitsDone.length / Math.max(1, n)), `${plural(exitsDone.length, 'sortie', 'sorties')} réalisée${exitsDone.length > 1 ? 's' : ''}`, 'Sorties des 12 derniers mois rapportées à l’effectif')}
         ${kpi('Absentéisme maladie', pct1(absRate), `${plural(sickDays, 'jour ouvré', 'jours ouvrés')} sur 12 mois`, 'Jours d’arrêt maladie rapportés à 218 jours travaillés par salarié')}
@@ -7203,7 +7213,7 @@
     // Signature de l'avenant par le salarié (simulée : case « lu et approuvé », pas une signature électronique qualifiée).
     'avenant-sign'(d) { const doc = db.documents.find((x) => x.id === d.id), e = emp(doc.empId);
       confirmAct({ title: `Signer : ${esc(doc.title)}`, act: 'avenant-sign', empId: e.id, trace: `${doc.title} signé par le salarié`, confirm: 'Signer l’avenant',
-        text: `<article class="letter locked" style="max-height:340px;overflow:auto">${docBody(doc)}</article><p class="hint">Signature simulée dans la démonstration (case « lu et approuvé »).</p>`,
+        text: `<article class="letter locked" style="max-height:340px;overflow:auto">${docBody(doc)}</article><p class="hint keep">Signature simulée dans la démonstration (case « lu et approuvé »).</p>`,
         fields: [{ name: 'ok', label: 'Lu et approuvé : j’accepte les termes de cet avenant', type: 'check', required: true }] },
       () => { signAvenant(doc, 'en ligne'); toast('Avenant signé · le changement s’appliquera à sa date d’effet'); commit(); }); },
     'avenant-paper'(d) { const doc = db.documents.find((x) => x.id === d.id), e = emp(doc.empId);
@@ -7502,6 +7512,7 @@
     ov += modalHTML();
     if (ui.mobMore) ov += mobMoreSheet();
     document.getElementById('overlay').innerHTML = ov;
+    tidyHelp();
     if (drawerAnim) { drawerAnim = false; requestAnimationFrame(() => requestAnimationFrame(() => document.querySelectorAll('.scrim, .drawer').forEach((el) => el.classList.add('on')))); }
     window.scrollTo(0, scrollY);
     const top = document.querySelector('.top'); if (top) document.documentElement.style.setProperty('--top-h', `${top.offsetHeight}px`);
@@ -7523,6 +7534,66 @@
     r.classList.toggle('more-down', down); r.classList.toggle('more-up', up);
   }
   document.addEventListener('scroll', (ev) => { if (ev.target && ev.target.classList && ev.target.classList.contains('rail-in')) railFade(); }, true);
+
+  // ---------------------------------------------------------------- Aides repliées (bouton « i »)
+  // Les explications et les règles de droit ne s'affichent plus d'office : chaque paragraphe .hint (sauf .keep) et chaque
+  // élément .help est caché, et un bouton « i » placé après le titre le plus proche (ligne, intertitre, carte, fenêtre ou
+  // page) les affiche sur demande. Ce qui a été ouvert le reste d'un rendu à l'autre, le temps de la session.
+  const HELP_OPEN = new Set();
+  let helpSeq = 0;
+  const HELP_BOX = '.card, .modal-box, .drawer, .mob-sheet, .da-card';
+  const helpOk = (a, el) => a && a !== el && !el.contains(a) && !a.closest('button, a, label, summary, select, .help, p.hint');
+  const helpHead = (s) => (s.matches('h2, h3, h4') ? s : s.matches('.card-h, .modal-h, .recap-h, .drawer-h') ? s.querySelector('h2, h3, h4') : null);
+  // Titre auquel rattacher une aide : celui de sa ligne, sinon l'intertitre qui la précède, sinon le titre de sa carte ou de
+  // sa fenêtre ; une aide posée à même la page va au titre de la page. Sans titre possible, le bouton prend la place de l'aide.
+  function helpAnchor(el) {
+    const row = el.closest('.todo');
+    if (row) { const b = row.querySelector('.t > b') || row.querySelector('b'); if (helpOk(b, el)) return b; }
+    // Bloc « titre en gras + précisions » hors liste : le titre qui précède l'aide dans le même bloc.
+    const pb = el.parentElement && [...el.parentElement.children].find((c) => c.tagName === 'B' && c.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
+    if (helpOk(pb, el)) return pb;
+    const box = el.closest(HELP_BOX), stop = box || el.closest('#view, .view');
+    for (let n = el; n && n !== stop && n !== document.body; n = n.parentElement) {
+      for (let s = n.previousElementSibling; s; s = s.previousElementSibling) { const h = helpHead(s); if (h) return helpOk(h, el) ? h : null; }
+    }
+    if (box) { const h = box.querySelector('.card-h h3, .modal-h h2, .drawer-h h2'); return helpOk(h, el) ? h : null; }
+    const h1 = el.closest('#view') && document.querySelector('.top h1, .mob-top h1');
+    return helpOk(h1, el) ? h1 : null;
+  }
+  function helpSet(btn, open) {
+    btn.setAttribute('aria-expanded', String(open));
+    btn.setAttribute('aria-label', open ? 'Masquer l’explication' : 'Afficher l’explication');
+    btn.title = open ? 'Masquer l’explication' : 'Explication';
+    (btn.getAttribute('aria-controls') || '').split(' ').forEach((id) => { const x = id && document.getElementById(id); if (x) x.classList.toggle('help-off', !open); });
+  }
+  function tidyHelp() {
+    document.querySelectorAll('.help:not([data-hk]), p.hint:not(.keep):not(.lock):not(.mob-desk):not(.rgpd):not([id]):not([data-hk])').forEach((el) => {
+      if (!el.textContent.trim()) { el.dataset.hk = ''; return; }
+      if (!el.id) el.id = `hp-${++helpSeq}`;
+      const a = helpAnchor(el);
+      let btn = a && [...a.children].find((x) => x.classList.contains('info-b'));
+      if (!btn) {
+        btn = document.createElement('button'); btn.type = 'button'; btn.className = a ? 'info-b' : 'info-b solo'; btn.innerHTML = ic('info');
+        btn.dataset.hk = (a ? a.textContent : el.textContent).trim().slice(0, 90);
+        if (a) a.appendChild(btn); else el.before(btn);
+      }
+      el.dataset.hk = btn.dataset.hk;
+      btn.setAttribute('aria-controls', `${btn.getAttribute('aria-controls') || ''} ${el.id}`.trim());
+      helpSet(btn, HELP_OPEN.has(btn.dataset.hk));
+    });
+  }
+  // Clic sur « i » : on montre ou on cache sans redessiner l'écran (et sans déclencher l'action de la ligne qui le contient).
+  document.addEventListener('click', (ev) => {
+    const b = ev.target.closest && ev.target.closest('.info-b'); if (!b) return;
+    ev.stopPropagation(); ev.preventDefault();
+    const open = b.getAttribute('aria-expanded') !== 'true';
+    if (open) HELP_OPEN.add(b.dataset.hk); else HELP_OPEN.delete(b.dataset.hk);
+    helpSet(b, open);
+    if (open) (b.getAttribute('aria-controls') || '').split(' ').forEach((id) => { const x = id && document.getElementById(id); if (x) x.classList.add('help-in'); });
+  }, true);
+  // Les mises à jour partielles (aperçus, listes filtrées, panneaux) passent aussi par là.
+  const helpObs = new MutationObserver(() => tidyHelp());
+  ['app', 'overlay'].forEach((id) => { const el = document.getElementById(id); if (el) helpObs.observe(el, { childList: true, subtree: true }); });
   window.addEventListener('resize', railFade);
   const commit = () => { syncArrivals(); arrivalReminders(); needReminders(); complianceSync(); save(); render(); };
   // Keep (view, stage) consistent with what the profile is allowed to open.

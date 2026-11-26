@@ -207,6 +207,19 @@ textarea.input { height: auto; min-height: 90px; padding: 10px 12px; resize: ver
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
 .form-grid .full { grid-column: 1 / -1; }
 .hint { font-size: 12.5px; color: var(--faint); }
+.help-off { display: none !important; }
+/* Bouton « i » : affiche l'explication rattachée au titre qui le porte (ligne, intertitre, carte, fenêtre, page). */
+.info-b { display: inline-grid; place-items: center; width: 24px; height: 24px; margin: -6px 0 -6px 2px; padding: 0; border: 0; border-radius: 99px; background: none; color: var(--muted); vertical-align: middle; cursor: pointer; transition: color .12s, background-color .12s; }
+.info-b svg { width: 16px; height: 16px; }
+.info-b:hover, .info-b[aria-expanded="true"] { color: var(--accent); background: var(--accent-soft); }
+.info-b:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.info-b.solo { margin: 0 0 4px; }
+h4.sub .info-b { margin-top: -8px; margin-bottom: -6px; }
+.modal-h h2 .info-b, .top h1 .info-b, .mob-top h1 .info-b { margin-left: 4px; }
+.help-in { animation: help-in .16s ease-out; }
+/* Explication ouverte : lue à la demande, donc dans un gris lisible (contraste AA) plutôt que le gris pâle des aides. */
+[data-hk]:not(.info-b) { color: var(--muted) !important; }
+@keyframes help-in { from { opacity: 0; transform: translateY(-3px); } }
 .err { font-size: 13px; color: var(--bad); font-weight: 600; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
 .tabs button { border: 0; background: none; padding: 10px 14px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }

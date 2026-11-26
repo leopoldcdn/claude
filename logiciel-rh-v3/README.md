@@ -115,6 +115,27 @@
     sur chaque jour d'une année, pour les cinq tailles.
   - Une « nouvelle entreprise » créée depuis la version de travail vit, elle aussi, à la date réelle.
 
+## Moins de texte gris : les explications derrière un bouton « i » (novembre 2026)
+
+Les écrans n'affichent d'office que l'essentiel : titres, dates, échéances, montants, états. Les explications et les
+règles de droit (délai de prévenance de la période d'essai, conditions de la DPAE, règles des seuils d'effectif…) sont
+repliées derrière un petit bouton « i » placé après le titre auquel elles se rapportent : la ligne (« 2 mois · fin le
+30 oct. 2026 »), l'intertitre de la section, le titre de la carte ou de la fenêtre, ou celui de la page. Un clic (ou
+Entrée au clavier) les affiche sous ce titre, dans un gris plus lisible ; un second clic les replie. Ce qui a été ouvert le
+reste quand l'écran se redessine, jusqu'au rechargement de la page.
+
+- **Dans le code** : tout paragraphe `p.hint` est replié, sauf s'il porte `keep` (ou `lock`, `mob-desk`, `rgpd`, ou un
+  `id` : aperçus calculés et messages en direct) ; tout élément `.help` l'est aussi. `tidyHelp()` place les boutons après
+  chaque rendu, et un `MutationObserver` couvre les mises à jour partielles. Dans les dossiers d'arrivée et de départ, les
+  lignes passent par `dRow(titre, l'essentiel, état, règle)` : le 4e argument va derrière « i ». Les lignes d'obligations
+  montrent leur état, leur description et leur « Règle » sont repliées.
+- **Règle d'écriture** : un nouveau texte gris explicatif n'a rien de particulier à faire (il sera replié) ; une information
+  qu'on doit voir sans cliquer (date, montant, compteur, consigne indispensable, mention de démonstration) prend `keep`.
+- Quelques redites ont été retirées : le pied de dossier « La pré-embauche et l'embauche avancent en parallèle » (les
+  onglets montrent l'avancement), la date de suppression de chaque dossier du vivier (affichée seulement à moins de 90 jours).
+- Sur Obligations, le texte gris visible passe d'environ 5 700 à 550 caractères ; sur l'ensemble des écrans du
+  gestionnaire des RH, d'environ 26 500 à 15 500 (le reste, ce sont des données : postes, dates, montants).
+
 ## Tests
 
 Les tests sont dans `tests/` et se lancent avec Node et Playwright : `node tests/parcours.js` (chaque profil ouvre l'accueil,

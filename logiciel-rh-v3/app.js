@@ -692,7 +692,7 @@
     return `<header class="top"><button type="button" class="brand" data-act="go" data-v="accueil" aria-label="Teamora · retour à l’accueil" title="Teamora · retour à l’accueil"><span class="brand-mark">${LOGO}</span></button>
       <div class="top-title"><div class="crumb">${crumb}</div><h1>${title}</h1></div>
       <div class="top-right">${TENANT === 'new' ? '' : `<div class="persona" role="group" aria-label="Voir l’application en tant que">${Object.entries(PROFILES).filter(([k]) => profileOk(k)).map(([k, p]) => { const e = profileEmp(k);
-        return `<button type="button" data-act="persona" data-p="${k}" aria-pressed="${persona() === k}" title="${esc(fullName(e))} · ${p.label}">${avatar(e)}<span class="p-l"><span class="who-name">${esc(e.firstName)} ·</span> ${p.short || p.label}</span></button>`; }).join('')}</div>`}
+        return `<button type="button" data-act="persona" data-p="${k}" aria-pressed="${persona() === k}" title="${esc(fullName(e))} · ${p.label}">${avatar(e)}<span class="p-l">${p.short || p.label}</span></button>`; }).join('')}</div>`}
       ${ui.profile === 'salarie' && !ui.selfOf ? asEmpSelect() : ''}${persona() === 'manager' ? asMgrSelect() : ''}${spaceSwitch()}
       ${todoBtn()}
       <button type="button" class="icon-btn" data-act="notif" aria-label="Notifications (${unread} non lues)" aria-expanded="${ui.notif}">${ic('bell')}${unread ? `<span class="dot num">${unread}</span>` : ''}</button></div>
@@ -8199,7 +8199,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
       const items = opts.filter((o) => o.value).map((o) => { const t = o.textContent.trim();
         if (!isEmp) { const g = o.dataset.sub || (o.parentElement.tagName === 'OPTGROUP' ? o.parentElement.label : ''); return { v: o.value, t, sub: g, key: pickNorm(`${t} ${g}`), names: pickNorm(t).split(/[\s-]+/) }; }
         const e = emp(o.value); return { v: o.value, t, sub: [e.title, e.dept].filter((x) => x && !t.includes(x)).join(' · '), key: pickNorm(`${t} ${e.title} ${e.dept} ${e.email}`), names: pickNorm(`${e.firstName} ${e.lastName}`).split(/[\s-]+/) }; });
-      const wrap = document.createElement('span'); wrap.className = 'emp-pick' + (sel.classList.contains('as-emp') ? ' top' : '') + (sel.classList.contains('sm') ? ' sm' : '');
+      const wrap = document.createElement('span'); wrap.className = 'emp-pick' + (sel.classList.contains('as-emp') ? ' in-top' : '') + (sel.classList.contains('sm') ? ' sm' : '');
       const q = document.createElement('input'); q.type = 'search'; q.className = 'input' + (sel.classList.contains('sm') ? ' sm' : ''); q.placeholder = placeholder; q.autocomplete = 'off'; q.disabled = sel.disabled;
       q.setAttribute('role', 'combobox'); q.setAttribute('aria-autocomplete', 'list'); q.setAttribute('aria-expanded', 'false');
       const lab = sel.id && document.querySelector(`label[for="${sel.id}"]`); q.id = `${sel.id || 'pick'}-q${Math.random().toString(36).slice(2, 6)}`;

@@ -162,6 +162,10 @@ reste quand l'écran se redessine, jusqu'au rechargement de la page.
   fond de page ; il était de 3,1:1) et `#7a81a4` en sombre (4,5:1 sur les cartes). Un compromis demandé : le niveau AA
   partout aurait demandé `#686e91`, presque le gris moyen (`--muted`).
 - **Visite guidée proposée, plus imposée**, et bouton « Recommencer la démo (taille, rôle) » (voir plus haut).
+- **Sélecteur de profil** : « GRH · Manager · Salarié » dans tous les profils, sans prénom (il reste dans l'infobulle ; le
+  nom de la personne vue est dans le fil d'Ariane et le champ de choix). Les prénoms n'étaient masqués que sous 1600 px et
+  quand le bandeau avait le sélecteur « Mon équipe / Mon espace », d'où un écart d'un profil à l'autre. Le champ de choix de
+  la personne portait la classe `top`, celle du bandeau : il en prenait le fond, la marge et le trait du bas (renommée `in-top`).
 
 ## Tests
 

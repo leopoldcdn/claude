@@ -986,7 +986,6 @@ details.more summary::-webkit-details-marker { display: none; }
 /* Barre du haut : l'interrupteur d'espace s'ajoute au sélecteur de profil */
 .persona button, .top .crumb { white-space: nowrap; }
 .top .crumb { overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 1600px) { .top:has(.space-sw) .persona .who-name { display: none; } }
 @media (max-width: 1280px) { .top:has(.space-sw) .persona button { padding: 6px 8px; } .top:has(.space-sw) .rep-btn { font-size: 0; gap: 0; padding: 8px 10px; } .top:has(.space-sw) .rep-btn svg { width: 16px; height: 16px; } .space-sw button { padding: 6px 9px; } }
 /* Organigramme en plein écran */
 .org-card-wrap.full { position: fixed; inset: 0; z-index: 35; margin: 0; border-radius: 0; border: 0; display: flex; flex-direction: column; }
@@ -1190,7 +1189,7 @@ body:has(.help-panel) .toasts { right: 440px; }
 .succ-pick { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; } .succ-pick .input { width: 280px; }
 
 /* Recherche de salarié (remplace les listes déroulantes) */
-.emp-pick { position: relative; display: block; min-width: 0; } .emp-pick.top { display: inline-block; width: 220px; } .emp-pick .input { width: 100%; }
+.emp-pick { position: relative; display: block; min-width: 0; } .emp-pick.in-top { display: inline-block; width: 220px; } .emp-pick .input { width: 100%; }
 .pick-list { position: absolute; z-index: 60; left: 0; right: 0; top: calc(100% + 4px); min-width: 240px; max-height: 280px; overflow: auto; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: 0 12px 32px rgba(15, 18, 40, .18); padding: 4px; }
 .pick-o { padding: 7px 10px; border-radius: 7px; cursor: pointer; font-size: 14px; } .pick-o b { font-weight: 600; display: block; } .pick-o small { display: block; color: var(--muted); font-size: 12px; }
 .pick-o.hi { background: var(--accent-soft); } .pick-o.cur b::after { content: ' ✓'; color: var(--accent); } .pick-o.none b { color: var(--muted); font-style: italic; font-weight: 500; }

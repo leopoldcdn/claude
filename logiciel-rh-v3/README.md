@@ -167,6 +167,30 @@ reste quand l'écran se redessine, jusqu'au rechargement de la page.
   quand le bandeau avait le sélecteur « Mon équipe / Mon espace », d'où un écart d'un profil à l'autre. Le champ de choix de
   la personne portait la classe `top`, celle du bandeau : il en prenait le fond, la marge et le trait du bas (renommée `in-top`).
 
+## Teamo agit dans la démo (novembre 2026)
+
+Dans la démo publiée sur claude.ai (capacité « sample », sur le compte Claude du visiteur), Teamo n'est plus seulement un
+guide : il répond à partir des données et prépare des actions. Les données de Nova Studio sont fictives, donc Teamo reçoit
+les noms. Sur le site hébergé (pas de Claude), il n'apparaît pas et le bas de page garde « pas disponible dans cette démo ».
+Sur téléphone, il reste masqué.
+
+- **Ce que Teamo voit** (`teamoData()`) : ce que le profil a le droit de voir, avec les identifiants. Pour le gestionnaire
+  des RH, tous les salariés ; pour un manager, son équipe ; pour un salarié, lui seul. S'y ajoutent les demandes d'absence
+  que la personne peut traiter, ses propres demandes, les soldes de congés et de RTT, et l'état des variables de paie
+  (quels managers ont validé).
+- **Ce qu'il peut proposer** : valider ou refuser une demande d'absence, relancer la personne qui doit la valider (gestionnaire
+  des RH), valider les variables de paie de son équipe (manager), relancer un manager pour les variables (gestionnaire des
+  RH), ouvrir la fiche d'un salarié, préparer une demande d'absence pour soi.
+- **Comment** : sa réponse se termine par une balise `[[action:TYPE|…]]`, jamais affichée. `teamoCheck()` vérifie l'action
+  avec les droits du profil (pas sur la seule parole du modèle) et l'affiche dans une carte « Confirmer / Annuler ».
+  Seul « Confirmer » l'exécute, par le même code que le bouton de l'écran (`leave-ok`, `leave-remind`, `pay-mgr-ok`,
+  `pay-remind`, `open-emp`) : mêmes règles, même journal. Un refus ouvre la fenêtre de refus avec le motif proposé, à
+  relire. « Pose-moi une RTT vendredi » préremplit le formulaire de « Mes absences » (l'espace personnel pour un
+  gestionnaire des RH ou un manager), que la personne envoie elle-même.
+- **Hors démo**, Teamo reste un guide sans aucune donnée individuelle : `TEAMO_ACT` ne vaut que pour la démo.
+- Test : un Claude simulé (`window.claude.use('sample')` remplacé dans le navigateur) répond avec des balises d'action, ce
+  qui permet de vérifier tout le circuit sans appel réel.
+
 ## Tests
 
 Les tests sont dans `tests/` et se lancent avec Node et Playwright : `node tests/parcours.js` (chaque profil ouvre l'accueil,

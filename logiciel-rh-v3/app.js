@@ -731,7 +731,7 @@
     return `<button type="button" class="btn ${all.length ? 'primary' : 'ghost'} sm todo-btn" data-act="todo-open" aria-label="À traiter : ${late} en retard, ${week} cette semaine, ${all.length - late - week} plus tard">${ic('check')}<span class="todo-l">À traiter</span>${late ? `<span class="todo-n u-late num" title="${plural(late, 'action en retard', 'actions en retard')}">${late}</span>` : all.length ? `<span class="todo-n num">${all.length}</span>` : ''}</button>`; }
   // Démo hébergée sur le site de Teamora : un lien ramène au formulaire « Être recontacté » (TEAMORA_RETOUR, défini par site/build.py).
   const RETOUR = typeof window.TEAMORA_RETOUR === 'string' ? window.TEAMORA_RETOUR : '';
-  const footer = () => (DEMO ? `<footer class="foot"><p class="demo-note">Démo de Teamora${DEMO_SC && db.demo ? ` (Nova Studio, ${fmtN(db.demo.effectif)} salariés)` : ''} : toutes les données sont fictives et restent dans ton navigateur. N’y saisis aucune donnée réelle. Teamo, le futur assistant IA, n’est pas disponible dans cette démo.</p>${DEMO_SC ? `<button type="button" class="btn ghost sm" data-act="demo-ask">${ic('refresh')}${db.demo ? 'Recommencer la démo (taille, rôle)' : 'Choisir la taille et le rôle'}</button>` : ''}${RETOUR ? `<a class="btn primary sm" href="${esc(RETOUR)}">Envie d’en parler ? Être recontacté</a>` : ''}</footer>` : footerWork());
+  const footer = () => (DEMO ? `<footer class="foot"><p class="demo-note">Démo de Teamora${DEMO_SC && db.demo ? ` (Nova Studio, ${fmtN(db.demo.effectif)} salariés)` : ''} : toutes les données sont fictives et restent dans ton navigateur. N’y saisis aucune donnée réelle. ${helpState.sample && !isMob() ? 'Teamo, l’assistant IA (en bas à droite), répond et prépare des actions, sur ton compte Claude.' : 'Teamo, le futur assistant IA, n’est pas disponible dans cette démo.'}</p>${DEMO_SC ? `<button type="button" class="btn ghost sm" data-act="demo-ask">${ic('refresh')}${db.demo ? 'Recommencer la démo (taille, rôle)' : 'Choisir la taille et le rôle'}</button>` : ''}${RETOUR ? `<a class="btn primary sm" href="${esc(RETOUR)}">Envie d’en parler ? Être recontacté</a>` : ''}</footer>` : footerWork());
   const footerWork = () => `<footer class="foot">${TENANT === 'new' ? `<button type="button" class="btn ghost sm" data-act="tenant-nova">${ic('left')}Revenir à la démo Nova Studio</button><button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Recommencer l’installation</button>`
       : `<button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Réinitialiser la démo</button><button type="button" class="btn ghost sm" data-act="tenant-new">${ic('plus')}Tester l’installation (nouvelle entreprise)</button>`}<button type="button" class="btn ghost sm" data-act="v3-news">${ic('star')}Nouveautés de la V3</button>
     <p class="demo-note">Aperçu de démonstration : toutes les données sont fictives et enregistrées uniquement dans ce navigateur.</p></footer>`;
@@ -1611,7 +1611,8 @@
       { sel: '#view .tabs', title: 'Les onglets', text: 'Chaque module est organisé en onglets : clique sur un onglet pour passer des demandes à valider au planning ou aux compteurs.' },
       tourProfile === 'rh' && { sel: '.rail [data-v="obligations"]', title: 'Les obligations selon l’effectif', text: 'Le cœur de Teamora : l’effectif est calculé automatiquement et les obligations légales apparaissent à chaque seuil (11, 20, 50, 250 salariés), avec des alertes avant.' },
       { sel: '.avis-fab', title: 'Ton avis compte', text: 'Après ton essai, dis-nous ce qui t’aide, ce qui manque ou ce qui bloque : deux minutes, sans ton nom.' },
-      { title: 'Bientôt : Teamo, ton assistant IA', text: 'Dans la version complète, je répondrai à tes questions en langage courant : comment poser une absence, quel préavis appliquer, ce qui change en passant 50 salariés. Je t’emmènerai vers le bon écran, je t’aiderai à rédiger une offre ou un message et je te rappellerai les échéances, sans jamais recevoir les données personnelles de tes salariés. Je ne suis pas encore disponible dans cette démo.' },
+      helpState.sample ? { sel: '.help-fab', title: 'Teamo, ton assistant IA', text: 'Pose-moi une question ou demande-moi une action en langage courant : « valide la demande de congés de Hugo », « relance les managers pour la paie », « pose-moi une RTT vendredi ». Je te montre ce que je vais faire, et rien ne se fait sans ta confirmation.' }
+        : { title: 'Bientôt : Teamo, ton assistant IA', text: 'Dans la version complète, je répondrai à tes questions en langage courant : comment poser une absence, quel préavis appliquer, ce qui change en passant 50 salariés. Je t’emmènerai vers le bon écran, je t’aiderai à rédiger une offre ou un message et je te rappellerai les échéances, sans jamais recevoir les données personnelles de tes salariés. Je ne suis pas encore disponible dans cette démo.' },
       { sel: '.tour-fab', title: 'À toi de jouer', text: 'Explore librement : toutes les données sont fictives. Tu peux relancer cette visite à tout moment avec ce bouton.', go: tourGo(landing) }].filter(Boolean);
   }
   // Avant la visite, on note l'écran et le profil : quitter la visite en cours de route y ramène (un comptable retrouve la Paie).
@@ -8042,7 +8043,7 @@ RUBRIQUES ET ACTIONS
 - Nouvelle entreprise : en bas de page, « Tester l'installation (nouvelle entreprise) » ouvre une entreprise vierge avec l'assistant de démarrage (Bienvenue et compte administrateur, Entreprise, Convention, Sites, Services, Collaborateurs, Paie, Récapitulatif) ; chaque étape peut être passée et complétée plus tard dans Paramètres. « Revenir à la démo Nova Studio » en bas de page.
 - Espace salarié : Mon profil (informations, demander une modification avec justificatif, documents, organigramme), Mes absences, Mes bulletins, Mes entretiens, Formations, Mobilité, Santé. Une recrue qui n'est pas encore arrivée ne voit que « Mon arrivée » (pièces à déposer) et « Contrat de travail » (signature).
 
-DONNÉES. Démonstration : les données sont fictives et restent dans le navigateur ; « Réinitialiser la démo » en bas de page remet l'état initial.`;
+DONNÉES. Démonstration : les données sont fictives et restent dans le navigateur ; « Recommencer la démo (taille, rôle) » en bas de page repart d'une démo neuve.`;
   const HELP_RULES = `Tu t'appelles Teamo : tu es l'assistant d'aide à la prise en main intégré au logiciel RH Teamora. Ton ton est chaleureux et simple, sans familiarité excessive ni émoji. Réponds en français, en tutoyant, de façon brève et concrète (3 à 6 phrases ou une courte liste d'étapes numérotées), en t'appuyant UNIQUEMENT sur le guide ci-dessous, sur le contexte de l'écran et, pour les gestionnaires des RH, sur la section « Obligations selon l'effectif » (effectif réel de l'entreprise, obligations, échéances, alertes : sers-t'en pour répondre précisément, rappelle que les calculs sont indicatifs, et propose le lien obligations). N'invente aucune fonction : si le guide ne couvre pas la question, dis-le simplement et propose de contacter le support. Ne réponds pas aux questions sans rapport avec Teamora ; pour une question de droit du travail, donne au plus l'orientation générale que le logiciel applique et rappelle que seul un professionnel peut valider. Adapte la réponse au profil actuel (un salarié ne voit ni la paie ni les arrivées des autres). Quand c'est utile, ajoute UN lien d'accès vers une rubrique, sous la forme exacte [[aller:CLE|Texte du bouton]], où CLE est une des clés autorisées listées dans le contexte. Mise en forme permise : **gras** et listes avec « - » ou « 1. ». Pas de titres.
 
 ${HELP_GUIDE}`;
@@ -8097,12 +8098,137 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
     const S = { arrivees: ['Comment envoyer le contrat pour signature ?', 'Comment clôturer une intégration ?'], departs: ['Comment se déroule un départ ?', 'Où voir les indemnités de sortie ?'], absences: p === 'salarie' ? ['Comment poser des congés ?', 'Comment déclarer un arrêt maladie ?'] : ['Comment valider une demande ?', 'Qui valide quand je suis absent ?'],
       paie: ['Comment préparer la paie du mois ?', 'Que faire d’un point de contrôle ?'], collaborateurs: ['Comment changer le manager d’un salarié ?', 'Comment passer quelqu’un à temps partiel ?'], recrutement: ['Comment faire avancer un candidat ?', 'Que signifient les termes en orange ?'],
       modeles: ['Comment ajouter un logo dans un modèle ?', 'Comment revenir à une version précédente ?'], besoins: ['Comment créer une demande de recrutement ?'], profil: ['Comment modifier mon adresse ?', 'Où est l’organigramme ?'], bulletins: ['Comment recevoir mes bulletins en papier ?'] };
+    if (TEAMO_ACT) {
+      const l = pendingForMe()[0], e = l && emp(l.empId);
+      const A = p === 'rh' && !ui.selfOf ? [e && `Valide la demande d’absence de ${fullName(e)}`, 'Quels managers n’ont pas validé leurs variables de paie ?', 'Quelles demandes d’absence attendent ?']
+        : p === 'manager' && !ui.selfOf ? [e && `Valide la demande d’absence de ${fullName(e)}`, 'Valide les variables de paie de mon équipe', 'Qui est absent dans mon équipe ?']
+        : ['Combien de jours de congés me reste-t-il ?', 'Pose-moi une RTT vendredi prochain'];
+      return A.filter(Boolean).concat(S[v] || []).slice(0, 4);
+    }
     return (S[v] || []).concat(['Par où commencer ?', 'Qu’est-ce qui m’attend ?']).slice(0, 4);
   }
+  // ---------------------------------------------------------------- Teamo agit (démo)
+  // Dans la démo, les données sont fictives : Teamo reçoit ce que le profil a le droit de voir (salariés de son périmètre,
+  // demandes d'absence à traiter, soldes, état des variables de paie) et peut PROPOSER une action. Il ne l'exécute jamais
+  // lui-même : sa réponse se termine par une balise [[action:TYPE|…]], Teamora vérifie qu'elle est possible pour ce profil,
+  // l'affiche dans une carte « Confirmer / Annuler », et c'est la personne qui décide. L'action passe ensuite par le même
+  // code que le bouton de l'écran (mêmes règles, même journal). Hors démo, Teamo reste un guide sans donnée individuelle.
+  const TEAMO_ACT = DEMO;
+  const TEAMO_TYPES = () => LEAVE_TYPES.filter(leaveTypeOn);
+  const TEAMO_RULES = `
+
+ACTIONS (démo, données fictives). Tu peux aussi agir dans Teamora quand l'utilisateur te le demande explicitement (« valide… », « refuse… », « relance… », « ouvre la fiche… », « pose un congé… »). Tu n'exécutes rien toi-même : tu proposes UNE action, Teamora l'affiche avec un bouton « Confirmer », et c'est l'utilisateur qui décide. Pour proposer une action, écris une phrase courte qui dit ce que tu prépares, puis termine ta réponse par exactement une balise, seule sur sa ligne :
+[[action:conge-valider|ID_DEMANDE]] : valider une demande d'absence en attente ;
+[[action:conge-refuser|ID_DEMANDE|motif court]] : préparer le refus d'une demande (le motif est facultatif, l'utilisateur le relit) ;
+[[action:conge-relancer|ID_DEMANDE]] : relancer la personne qui doit valider la demande (gestionnaire des RH seulement) ;
+[[action:variables-valider]] : valider les variables de paie de son équipe (manager) ;
+[[action:variables-relancer|ID_MANAGER]] : relancer un manager qui n'a pas validé les variables de paie de son équipe (gestionnaire des RH) ;
+[[action:fiche|ID_SALARIE]] : ouvrir la fiche d'un salarié ;
+[[action:conge-poser|TYPE|AAAA-MM-JJ|AAAA-MM-JJ]] : préparer une demande d'absence pour l'utilisateur lui-même, du premier au dernier jour (TYPE exactement parmi : ${TEAMO_TYPES().join(', ')}).
+Règles : n'utilise que des identifiants présents entre crochets dans les DONNÉES ; une seule action par réponse ; si plusieurs personnes correspondent ou s'il manque une information (dates, type d'absence…), pose une question au lieu de proposer une action ; si l'action n'est pas possible pour ce profil ou n'est pas dans la liste, dis-le simplement et propose l'écran où la faire ; ne dis jamais qu'une action est faite : elle ne l'est qu'après confirmation. Pour les questions sur les données (soldes, demandes en attente, qui n'a pas validé…), réponds à partir des DONNÉES, sans inventer.`;
+  // Données de la démo visibles par le profil, avec leurs identifiants (fictives : noms compris).
+  function teamoData() {
+    if (!TEAMO_ACT) return '';
+    const sal = ui.profile === 'salarie', people = sal ? [me()] : scopeEmployees().filter((e) => !(e.stage >= 15 && e.exit && e.exit.lastDay < TODAY));
+    const who = (e) => `[${e.id}] ${fullName(e)} · ${e.title} · ${e.dept}${e.managerId && emp(e.managerId) ? ` · manager : ${fullName(emp(e.managerId))}` : ''} · solde CP ${e.cp} j · RTT ${e.rtt} j`;
+    const lv = (l) => { const e = emp(l.empId); return `[${l.id}] ${fullName(e)} (${e.id}) · ${l.type} · du ${l.start} au ${l.end} · ${l.days} j · statut : ${l.status}${l.status === 'En attente' ? ` · à valider par ${fullName(approverOf(e))}${l.start < TODAY ? ' · période déjà commencée' : ''}` : ''}`; };
+    const todo = pendingForMe(), mine = db.leaves.filter((l) => l.empId === me().id && l.end >= TODAY);
+    const m = payCurrent(), st = payStatus(m), pr = payrollOf(m), cutoff = pr.cutoff || `${m}-${String(PAY_CUTOFF).padStart(2, '0')}`;
+    const pay = sal ? '' : ui.profile === 'rh'
+      ? `Paie de ${monthLabel(m).toLowerCase()} : ${st} · clôture des variables le ${cutoff}${st === 'Préparation' ? ` · managers : ${payManagers(m).map((g) => `[${g.id}] ${fullName(g)} ${(pr.mgrOk || {})[g.id] ? `validé le ${(pr.mgrOk || {})[g.id]}` : 'pas encore validé'}`).join(' ; ') || 'aucun'}` : ''}`
+      : teamOf(me(), m).length ? `Paie de ${monthLabel(m).toLowerCase()} : ${st} · variables de ton équipe ${(pr.mgrOk || {})[me().id] ? `validées le ${(pr.mgrOk || {})[me().id]}` : st === 'Préparation' ? `à valider avant le ${cutoff}` : 'non modifiables'}` : '';
+    return `
+
+DONNÉES DE LA DÉMO (fictives) visibles par ce profil — aujourd'hui : ${TODAY}
+Utilisateur : [${me().id}] ${fullName(me())} · ${me().title} · profil ${PROFILES[persona()].label}${ui.selfOf ? ' (dans son espace personnel)' : ''}
+Demandes d'absence que l'utilisateur peut traiter (${todo.length}) :
+${todo.map((l) => `- ${lv(l)}`).join('\n') || '- aucune'}
+Ses propres demandes en cours ou à venir :
+${mine.map((l) => `- ${lv(l)}`).join('\n') || '- aucune'}
+${pay ? `${pay}
+` : ''}${sal ? 'Salarié (lui-même)' : `Salariés de son périmètre (${people.length})`} :
+${people.map((e) => `- ${who(e)}`).join('\n')}`;
+  }
+  // Lit la balise d'action à la fin d'une réponse (et la retire du texte affiché).
+  function teamoParse(text) {
+    const m = /\[\[action:([^\]\n]+)\]\]/.exec(text || ''); if (!m) return { text, action: null };
+    const [type, ...args] = m[1].split('|').map((x) => x.trim());
+    return { text: text.replace(m[0], '').trim(), action: { type, args, state: 'pending' } };
+  }
+  // Ce que l'action ferait, vérifié ici avec les droits du profil (jamais sur la seule parole du modèle).
+  function teamoCheck(a) {
+    const no = (why) => ({ ok: false, why });
+    const iso = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '') && !Number.isNaN(Date.parse(d));
+    if (['conge-valider', 'conge-refuser', 'conge-relancer'].includes(a.type)) {
+      const l = db.leaves.find((x) => x.id === a.args[0]); if (!l) return no('Cette demande n’existe pas.');
+      if (l.status !== 'En attente') return no(`Cette demande est déjà ${l.status.toLowerCase()}.`);
+      if (!pendingForMe().includes(l)) return no('Ce profil ne peut pas traiter cette demande.');
+      const e = emp(l.empId), k = balanceKey(l.type), what = `${l.type} · du ${fmtShort(l.start)} au ${fmtDate(l.end)} · ${plural(l.days, 'jour', 'jours')}${k ? ` · solde ${k === 'rtt' ? 'RTT' : 'CP'} : ${e[k]} j` : ''}`;
+      if (a.type === 'conge-valider') return { ok: true, label: `Valider la demande de ${fullName(e)}`, detail: what, run: () => journaled('leave-ok', { id: l.id }, () => ACT['leave-ok']({ id: l.id })) };
+      if (a.type === 'conge-refuser') return { ok: true, label: `Refuser la demande de ${fullName(e)}`, detail: `${what}${a.args[1] ? ` · motif proposé : « ${a.args[1]} »` : ''}`, button: 'Préparer le refus', close: true, run: () => { ui.modal = { type: 'refuse', id: l.id, why: a.args[1] || '' }; render(); } };
+      const ap = approverOf(e);
+      if (ui.profile !== 'rh' || ui.selfOf || ap.id === me().id) return no('Seuls les gestionnaires des RH relancent la personne qui doit valider.');
+      return { ok: true, label: `Relancer ${fullName(ap)}`, detail: `Demande de ${fullName(e)} · ${what}`, run: () => ACT['leave-remind']({ id: l.id }) };
+    }
+    if (a.type === 'variables-valider' || a.type === 'variables-relancer') {
+      const m = payCurrent(), pr = payrollOf(m), mois = monthLabel(m).toLowerCase();
+      if (payStatus(m) !== 'Préparation') return no(`Les variables de ${mois} ne sont plus modifiables.`);
+      if (a.type === 'variables-valider') {
+        if (persona() !== 'manager' || ui.selfOf || !teamOf(me(), m).length) return no('Seul un manager valide les variables de son équipe.');
+        if ((pr.mgrOk || {})[me().id]) return no(`Tu as déjà validé les variables de ${mois}.`);
+        return { ok: true, label: `Valider les variables de paie de ton équipe`, detail: `${mois} · ${plural(teamOf(me(), m).length, 'collaborateur', 'collaborateurs')} · avant le ${fmtShort(pr.cutoff || `${m}-${String(PAY_CUTOFF).padStart(2, '0')}`)}`, run: () => journaled('pay-mgr-ok', {}, () => ACT['pay-mgr-ok']()) };
+      }
+      const g = payManagers(m).find((x) => x.id === a.args[0]);
+      if (ui.profile !== 'rh' || ui.selfOf) return no('Seuls les gestionnaires des RH relancent les managers.');
+      if (!g) return no('Ce manager n’a pas de variables à valider ce mois-ci.');
+      if ((pr.mgrOk || {})[g.id]) return no(`${fullName(g)} a déjà validé ses variables.`);
+      return { ok: true, label: `Relancer ${fullName(g)}`, detail: `Variables de paie de son équipe · ${mois}`, run: () => { const pm = ui.payMonth; ui.payMonth = m; ACT['pay-remind']({ id: g.id }); ui.payMonth = pm; } };
+    }
+    if (a.type === 'fiche') {
+      const e = emp(a.args[0]); if (!e) return no('Ce salarié n’existe pas.');
+      if (ui.profile === 'salarie' ? e.id !== me().id : !scopeEmployees().includes(e)) return no('Ce profil n’a pas accès à cette fiche.');
+      return { ok: true, label: `Ouvrir la fiche de ${fullName(e)}`, detail: `${e.title} · ${e.dept}`, button: 'Ouvrir', close: true, run: () => ACT['open-emp']({ id: e.id }) };
+    }
+    if (a.type === 'conge-poser') {
+      const [type, start, end] = a.args;
+      if (!TEAMO_TYPES().includes(type)) return no('Ce type d’absence n’existe pas dans Teamora.');
+      if (!iso(start) || !iso(end) || end < start) return no('Les dates ne sont pas valides.');
+      const i = inSpace('salarie', persona() === 'salarie' ? null : persona(), () => visibleStages().find((x) => stageView(x) === 'absences'));
+      if (i === undefined) return no('Les absences ne sont pas accessibles pour ce profil.');
+      return { ok: true, label: `Préparer ta demande : ${type}`, detail: `du ${fmtDate(start)} au ${fmtDate(end)} · tu la relis et l’envoies depuis « Mes absences »`, button: 'Préparer', close: true, run: () => teamoLeaveForm(type, start, end, i) };
+    }
+    return no('Je ne sais pas encore faire cette action.');
+  }
+  // « Pose un congé » : ouvre « Mes absences » (l'espace personnel pour un gestionnaire des RH ou un manager) et préremplit le formulaire.
+  function teamoLeaveForm(type, start, end, i) {
+    if (persona() !== 'salarie' && !ui.selfOf) ACT.space({ s: 'perso' });
+    Object.assign(ui, { view: stageView(i), stage: i, drawer: null, modal: null }); window.scrollTo(0, 0); render();
+    const f = document.querySelector('form[data-form="leave"]'); if (!f) return;
+    const set = (id, v) => { const x = f.querySelector(`#${id}`); if (x) { x.value = v; x.dispatchEvent(new Event('change', { bubbles: true })); } };
+    set('lv-type', type); set('lv-start', start); set('lv-end', end);
+    f.scrollIntoView({ block: 'center' }); const b = f.querySelector('button.primary, button[type="submit"], button:not([type])'); if (b) b.focus({ preventScroll: true });
+    toast('Demande préparée par Teamo : relis-la, puis envoie-la', 'info');
+  }
+  function teamoConfirm(n, yes) {
+    const t = helpState.turns[n]; if (!t || !t.action || t.action.state !== 'pending') return;
+    if (!yes) { t.action.state = 'cancelled'; helpRender(); return; }
+    const c = teamoCheck(t.action); if (!c.ok) { t.action.state = 'invalid'; t.action.why = c.why; helpRender(); return; }
+    t.action.state = 'done'; t.action.label = c.label;
+    if (c.close) helpState.open = false;
+    c.run(); helpRender();
+  }
+  const teamoCard = (t, n) => {
+    const a = t.action; if (!a) return '';
+    if (a.state === 'done') return `<div class="help-act done">${ic('check')}<span>${esc(a.label || 'Action faite')} : c’est fait.</span></div>`;
+    if (a.state === 'cancelled') return '<div class="help-act off"><span>Action annulée.</span></div>';
+    const c = teamoCheck(a);
+    if (!c.ok || a.state === 'invalid') return `<div class="help-act off"><span>Action impossible : ${esc(a.why || c.why)}</span></div>`;
+    return `<div class="help-act"><b>${esc(c.label)}</b><small>${esc(c.detail)}</small><div class="help-act-b"><button type="button" class="btn ghost sm" data-help="act-no" data-n="${n}">Annuler</button><button type="button" class="btn primary sm" data-help="act-ok" data-n="${n}">${ic('check')}${esc(c.button || 'Confirmer')}</button></div></div>`;
+  };
   // Rendu sûr : texte échappé, puis gras, listes, sauts de ligne et boutons de navigation.
   function helpFormat(text) {
     const allowed = new Set(visibleStages().map((i) => stageView(i)).concat(['accueil'], ui.profile === 'rh' ? ['reporting', 'modeles', 'parametres', 'obligations'] : []));
-    return esc(text).split(/\n{2,}/).map((block) => {
+    return esc(String(text).replace(/\[\[action:[^\]]*\]\]/g, '').replace(/\[\[a?c?t?i?o?n?:?[^\]]*$/, '').trim()).split(/\n{2,}/).map((block) => {
       const lines = block.split('\n'), list = lines.every((l) => /^\s*(-|\d+\.)\s+/.test(l));
       const fmt = (s) => s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\[\[aller:([a-z]+)\|([^\]]{1,60})\]\]/g, (m, k, l) => (allowed.has(k) ? `<button type="button" class="btn ghost sm help-go" data-go="${k}">${l}${ic('arrow')}</button>` : l));
       if (list) { const ordered = /^\s*\d+\./.test(lines[0]); return `<${ordered ? 'ol' : 'ul'}>${lines.map((l) => `<li>${fmt(l.replace(/^\s*(-|\d+\.)\s+/, ''))}</li>`).join('')}</${ordered ? 'ol' : 'ul'}>`; }
@@ -8116,13 +8242,13 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
     box.innerHTML = !s.sample ? '' : `<button type="button" class="help-fab ${s.open ? 'on' : ''}" data-help="toggle" aria-expanded="${s.open}" aria-controls="help-panel" aria-label="${s.open ? 'Fermer Teamo' : 'Demander à Teamo'}">${s.open ? ic('x') : `${teamoSVG('fab-av')}<span>Teamo</span>`}</button>
       ${s.open ? `<section class="help-panel" id="help-panel" role="dialog" aria-label="Teamo, assistant Teamora">
         <header><span class="help-av">${teamoSVG(think ? 'think' : '')}</span><div><b>Teamo</b><small><i class="help-on"></i>${think ? 'réfléchit…' : 'Ton assistant Teamora'}</small></div>${s.turns.length ? `<button type="button" class="icon-btn" data-help="reset" title="Nouvelle conversation" aria-label="Nouvelle conversation">${ic('refresh')}</button>` : ''}<button type="button" class="icon-btn" data-help="toggle" title="Fermer" aria-label="Fermer Teamo">${ic('x')}</button></header>
-        <div class="help-log" id="help-log" aria-live="polite">${s.turns.length ? s.turns.map((t) => (t.role === 'user' ? `<div class="help-row me"><div class="help-msg user">${esc(t.content)}</div></div>`
-            : t.content ? bot(helpFormat(t.content), t.error ? 'err' : '') : bot('<span class="help-typing" aria-label="Teamo réfléchit"><i></i><i></i><i></i></span>', 'typing'))).join('')
-          : `<div class="help-hello">${teamoSVG('hello')}<b>Salut ${esc(me().firstName)}, moi c’est Teamo !</b><p>Je t’aide à prendre Teamora en main. Je sais sur quel écran tu es et je peux t’emmener à la bonne rubrique.</p></div>`}</div>
+        <div class="help-log" id="help-log" aria-live="polite" tabindex="0" aria-label="Conversation avec Teamo">${s.turns.length ? s.turns.map((t, i) => (t.role === 'user' ? `<div class="help-row me"><div class="help-msg user">${esc(t.content)}</div></div>`
+            : t.content ? bot(helpFormat(t.content) + teamoCard(t, i), t.error ? 'err' : '') : bot('<span class="help-typing" aria-label="Teamo réfléchit"><i></i><i></i><i></i></span>', 'typing'))).join('')
+          : `<div class="help-hello">${teamoSVG('hello')}<b>Salut ${esc(me().firstName)}, moi c’est Teamo !</b><p>${TEAMO_ACT ? 'Pose-moi une question ou demande-moi une action (valider un congé, relancer un manager, préparer une absence…) : je te la montre, et tu confirmes.' : 'Je t’aide à prendre Teamora en main. Je sais sur quel écran tu es et je peux t’emmener à la bonne rubrique.'}</p></div>`}</div>
         ${s.turns.length ? '' : `<div class="help-sugg"><small>Pour commencer</small>${helpSuggestions().map((q) => `<button type="button" class="help-chip" data-help="ask" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`}
         <form class="help-form" data-help-form novalidate><label class="sr" for="help-q">Ta question à Teamo</label><textarea id="help-q" class="input" rows="1" maxlength="600" placeholder="Écris ta question à Teamo…" ${s.busy ? 'disabled' : ''}></textarea>
           ${s.busy ? `<button type="button" class="icon-btn help-send stop" data-help="stop" title="Arrêter" aria-label="Arrêter la réponse"><span class="sq"></span></button>` : `<button class="icon-btn help-send" title="Envoyer" aria-label="Envoyer">${ic('arrow')}</button>`}</form>
-        <p class="help-note">Teamo s’appuie sur Claude : ses réponses peuvent contenir des erreurs. Démo sur ton compte Claude.${ui.profile === 'rh' && !ui.selfOf ? ' Teamo voit l’écran ouvert, l’effectif et l’état des obligations, sans aucune donnée individuelle.' : ' Aucune donnée de salarié n’est envoyée.'}</p></section>` : ''}`;
+        <p class="help-note">Teamo s’appuie sur Claude : ses réponses peuvent contenir des erreurs. Démo sur ton compte Claude.${TEAMO_ACT ? ' Données fictives : Teamo voit ce que ton profil peut voir, et rien ne se fait sans ta confirmation.' : ui.profile === 'rh' && !ui.selfOf ? ' Teamo voit l’écran ouvert, l’effectif et l’état des obligations, sans aucune donnée individuelle.' : ' Aucune donnée de salarié n’est envoyée.'}</p></section>` : ''}`;
     const log = document.getElementById('help-log'); if (log) log.scrollTop = log.scrollHeight;
   }
   async function helpAsk(q) {
@@ -8130,11 +8256,13 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
     s.turns.push({ role: 'user', content: q }); const reply = { role: 'assistant', content: '' }; s.turns.push(reply); s.busy = true; helpRender();
     const ctl = new AbortController(); s.ctl = ctl;
     // Consignes et guide dans un premier tour « user » toujours conservé ; contexte de l'écran au moment de la question ; 6 derniers échanges.
-    const history = s.turns.slice(0, -2).filter((t) => t.content && !t.error).slice(-12).map((t) => ({ role: t.role, content: t.content }));
-    const input = [{ role: 'user', content: HELP_RULES }, ...history, { role: 'user', content: `${helpContext()}\n\nQUESTION : ${q}` }];
+    const done = { pending: 'proposée, en attente de confirmation', done: 'confirmée et faite', cancelled: 'annulée par l’utilisateur', invalid: 'impossible' };
+    const history = s.turns.slice(0, -2).filter((t) => t.content && !t.error).slice(-12).map((t) => ({ role: t.role, content: t.content + (t.action ? `\n(Action ${t.action.type} ${done[t.action.state]}.)` : '') }));
+    const input = [{ role: 'user', content: HELP_RULES + (TEAMO_ACT ? TEAMO_RULES : '') }, ...history, { role: 'user', content: `${helpContext()}${teamoData()}\n\nQUESTION : ${q}` }];
     try {
       const { text, truncated } = await s.sample(input, { cache: false, modelTier: 'quick', signal: ctl.signal, onText: ({ text: t }) => { reply.content = t; const row = document.querySelector('#help-log .help-row.bot:last-child'); if (row) { row.classList.remove('typing'); row.querySelector('.help-msg').innerHTML = helpFormat(t); const hv = document.querySelector('.help-panel header .teamo'); if (hv) hv.classList.remove('think'); const st = document.querySelector('.help-panel header small'); if (st) st.innerHTML = '<i class="help-on"></i>écrit…'; } const lg = document.getElementById('help-log'); if (lg) lg.scrollTop = lg.scrollHeight; } });
       reply.content = text + (truncated ? '\n\n(Réponse coupée : pose une question plus précise.)' : '');
+      if (TEAMO_ACT) { const r = teamoParse(reply.content); reply.content = r.text || (r.action ? 'Voici ce que je te propose :' : r.text); reply.action = r.action; }
     } catch (e) {
       const code = e && e.code;
       if (code === 'not_granted' || code === 'sampling_disabled' || code === 'not_declared' || code === 'capability_disabled' || code === 'capability_removed') { reply.content = 'L’assistant n’est pas autorisé dans cette vue. Tu peux l’autoriser depuis le menu Permissions de la page.'; reply.error = true; }
@@ -8146,13 +8274,13 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
     } finally { s.busy = false; s.ctl = null; helpRender(); const ta = document.getElementById('help-q'); if (ta && s.open) ta.focus(); }
   }
   function helpInit() {
-    if (DEMO) return; // en démo, Teamo guide la visite (tour) au lieu de répondre aux questions
     let box = document.getElementById('help'); if (!box) { box = document.createElement('div'); box.id = 'help'; document.body.appendChild(box); }
     box.addEventListener('click', (ev) => {
       const t = ev.target.closest('[data-help], .help-go'); if (!t) return;
       const a = t.dataset.help;
       if (a === 'toggle') { helpState.open = !helpState.open; helpRender(); if (helpState.open) { const ta = document.getElementById('help-q'); if (ta) ta.focus(); } }
       else if (a === 'ask') helpAsk(t.dataset.q);
+      else if (a === 'act-ok' || a === 'act-no') teamoConfirm(Number(t.dataset.n), a === 'act-ok');
       else if (a === 'stop') { if (helpState.ctl) helpState.ctl.abort(); }
       else if (a === 'reset') { helpState.turns = []; helpRender(); }
       else if (t.classList.contains('help-go')) { const k = t.dataset.go; Object.assign(ui, { modal: null, drawer: null, notif: false });
@@ -8164,7 +8292,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
     // L'assistant n'apparaît que si la page peut interroger Claude (page publiée sur claude.ai, capacité déclarée).
     const C = window.claude;
     if (!C || typeof C.use !== 'function') { helpState.sample = null; helpRender(); return; }
-    C.use('sample').then((fn) => { helpState.sample = fn || null; helpRender(); }).catch(() => { helpState.sample = null; helpRender(); });
+    C.use('sample').then((fn) => { helpState.sample = fn || null; helpRender(); if (fn && DEMO) render(); }).catch(() => { helpState.sample = null; helpRender(); });
   }
   function switchTenant(t, fresh) {
     save(); saveUI(); TENANT = t; try { localStorage.setItem('teamora-v3-tenant', t); } catch (e) { /* ignore */ } setStores();

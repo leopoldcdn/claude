@@ -731,7 +731,7 @@
     return `<button type="button" class="btn ${all.length ? 'primary' : 'ghost'} sm todo-btn" data-act="todo-open" aria-label="À traiter : ${late} en retard, ${week} cette semaine, ${all.length - late - week} plus tard">${ic('check')}<span class="todo-l">À traiter</span>${late ? `<span class="todo-n u-late num" title="${plural(late, 'action en retard', 'actions en retard')}">${late}</span>` : all.length ? `<span class="todo-n num">${all.length}</span>` : ''}</button>`; }
   // Démo hébergée sur le site de Teamora : un lien ramène au formulaire « Être recontacté » (TEAMORA_RETOUR, défini par site/build.py).
   const RETOUR = typeof window.TEAMORA_RETOUR === 'string' ? window.TEAMORA_RETOUR : '';
-  const footer = () => (DEMO ? `<footer class="foot"><p class="demo-note">Démo de Teamora : toutes les données sont fictives et restent dans ton navigateur. N’y saisis aucune donnée réelle. Teamo, le futur assistant IA, n’est pas disponible dans cette démo.</p>${DEMO_SC ? `<button type="button" class="btn ghost sm" data-act="demo-ask">${ic('refresh')}${db.demo ? `Nova Studio à ${fmtN(db.demo.effectif)} salariés · changer la taille ou le poste` : 'Choisir la taille et le poste'}</button>` : ''}${RETOUR ? `<a class="btn primary sm" href="${esc(RETOUR)}">Envie d’en parler ? Être recontacté</a>` : ''}</footer>` : footerWork());
+  const footer = () => (DEMO ? `<footer class="foot"><p class="demo-note">Démo de Teamora${DEMO_SC && db.demo ? ` (Nova Studio, ${fmtN(db.demo.effectif)} salariés)` : ''} : toutes les données sont fictives et restent dans ton navigateur. N’y saisis aucune donnée réelle. Teamo, le futur assistant IA, n’est pas disponible dans cette démo.</p>${DEMO_SC ? `<button type="button" class="btn ghost sm" data-act="demo-ask">${ic('refresh')}${db.demo ? 'Recommencer la démo (taille, rôle)' : 'Choisir la taille et le rôle'}</button>` : ''}${RETOUR ? `<a class="btn primary sm" href="${esc(RETOUR)}">Envie d’en parler ? Être recontacté</a>` : ''}</footer>` : footerWork());
   const footerWork = () => `<footer class="foot">${TENANT === 'new' ? `<button type="button" class="btn ghost sm" data-act="tenant-nova">${ic('left')}Revenir à la démo Nova Studio</button><button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Recommencer l’installation</button>`
       : `<button type="button" class="btn ghost sm" data-act="reset">${ic('refresh')}Réinitialiser la démo</button><button type="button" class="btn ghost sm" data-act="tenant-new">${ic('plus')}Tester l’installation (nouvelle entreprise)</button>`}<button type="button" class="btn ghost sm" data-act="v3-news">${ic('star')}Nouveautés de la V3</button>
     <p class="demo-note">Aperçu de démonstration : toutes les données sont fictives et enregistrées uniquement dans ce navigateur.</p></footer>`;
@@ -782,7 +782,7 @@
     const { rest } = mobSplit();
     return `<div class="scrim on" data-act="mob-more"></div><div class="mob-sheet" role="dialog" aria-modal="true" aria-label="Plus de rubriques"><div class="mob-grab"></div>
       ${rest.length ? `<h4 class="sub">Autres rubriques</h4>${rest.map((x) => `<button type="button" class="mob-row" data-act="stage" data-i="${x.i}"><span class="mob-ic" style="--c:${STAGE_COLORS[x.i]}">${ic(x.icon)}</span><span class="t"><b>${esc(x.name)}</b></span>${x.n ? `<i class="badge todo num">${x.n}</i>` : ''}${ic('right')}</button>`).join('')}` : ''}
-      ${DEMO_SC ? `<button type="button" class="mob-row" data-act="demo-ask"><span class="mob-ic">${ic('refresh')}</span><span class="t"><b>Changer la taille de l’entreprise</b><small>${db.demo ? `Nova Studio à ${fmtN(db.demo.effectif)} salariés` : 'Choisir la taille et le poste'}</small></span>${ic('right')}</button>` : ''}
+      ${DEMO_SC ? `<button type="button" class="mob-row" data-act="demo-ask"><span class="mob-ic">${ic('refresh')}</span><span class="t"><b>Recommencer la démo</b><small>${db.demo ? `Taille et rôle · Nova Studio à ${fmtN(db.demo.effectif)} salariés` : 'Choisir la taille et le rôle'}</small></span>${ic('right')}</button>` : ''}
       ${DEMO ? `<button type="button" class="mob-row" data-act="tour-start"><span class="mob-ic">${ic('star')}</span><span class="t"><b>Revoir la visite guidée</b><small>Teamo te montre l’essentiel</small></span>${ic('right')}</button>` : ''}
       <button type="button" class="mob-row" data-act="avis-open"><span class="mob-ic">${ic('chat')}</span><span class="t"><b>Donner mon avis</b><small>Ce qui t’aide, ce qui manque, ce qui bloque</small></span>${ic('right')}</button>
       <h4 class="sub">Démo : voir l’application en tant que</h4>
@@ -1658,7 +1658,30 @@
   });
   document.addEventListener('keydown', (ev) => { if (tour && ev.key === 'Escape') { ev.stopPropagation(); tourEnd(); } }, true);
   window.addEventListener('resize', () => { if (tour) tourPlace(); });
-  Object.assign(MOD_ACT, { 'tour-start'() { ui.mobMore = false; tourStart(); } });
+  // Première visite : au lieu de lancer la visite d'office, Teamo la propose (« Faire la visite » ou « Explorer seul »).
+  // Sur téléphone, l'invitation rappelle que les espaces du gestionnaire des RH et du manager s'utilisent sur ordinateur.
+  // Une action dans l'application vaut « Explorer seul » : l'invitation disparaît, la visite reste au bouton « Visite guidée ».
+  function tourInviteClose(seen = true) {
+    const el = document.getElementById('tour-invite'); if (el) el.remove();
+    document.removeEventListener('click', tourInviteAway, true);
+    if (seen) try { localStorage.setItem(TOUR_KEY, '1'); } catch (e) { /* ignore */ }
+  }
+  function tourInviteAway(ev) { if (!ev.target.closest('#tour-invite') && ev.target.closest('[data-act]')) tourInviteClose(); }
+  function tourInvite() {
+    if (tour || document.getElementById('tour-invite')) return;
+    const mob = isMob(), box = document.createElement('div');
+    const who = mob ? 'Sur téléphone, tu découvres l’espace salarié ; les espaces du gestionnaire des RH et du manager s’utilisent sur ordinateur.'
+      : DEMO_SC && db.demo ? demoWho() : 'Tu es dans la peau d’Olivia, gestionnaire des RH de Nova Studio, une entreprise fictive.';
+    box.id = 'tour-invite'; box.className = 'tour-tip tour-invite'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-labelledby', 'tour-inv-t'); box.setAttribute('aria-describedby', 'tour-inv-p');
+    box.innerHTML = `<div class="tour-h">${teamoSVG('tour-av')}<div><small>Visite guidée · ${mob ? '1 minute' : '2 minutes'}</small><b id="tour-inv-t">Bonjour, je suis Teamo</b></div></div>
+      <p id="tour-inv-p">${esc(who)} Je te fais visiter Teamora ?</p><div class="tour-f"><button type="button" class="tour-skip" data-inv="non">Explorer seul</button><span class="grow"></span><button type="button" class="btn primary sm" data-inv="oui">Faire la visite</button></div>`;
+    document.body.appendChild(box);
+    box.addEventListener('click', (ev) => { const b = ev.target.closest('[data-inv]'); if (!b) return; tourInviteClose(b.dataset.inv === 'non'); if (b.dataset.inv === 'oui') tourStart(); });
+    box.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); tourInviteClose(); } });
+    document.addEventListener('click', tourInviteAway, true);
+    box.querySelector('[data-inv="oui"]').focus({ preventScroll: true });
+  }
+  Object.assign(MOD_ACT, { 'tour-start'() { ui.mobMore = false; tourInviteClose(false); tourStart(); } });
 
   // ---------------------------------------------------------------- Démo · taille de l'entreprise et poste du visiteur
   // Le questionnaire du site transmet ses réponses dans l'adresse (demo/?effectif=20&poste=rh) ; sans elles, la démo pose
@@ -1703,11 +1726,11 @@
     const cur = db.demo, first = !cur, box = document.createElement('div');
     const opts = (name, list, v) => list.map(([k, l]) => `<label class="da-opt"><input type="radio" name="${name}" value="${k}" ${k === v ? 'checked' : ''}><span>${l}</span></label>`).join('');
     box.className = 'demo-ask';
-    box.innerHTML = `<form class="da-card" role="dialog" aria-modal="true" aria-labelledby="da-t" novalidate><div class="da-h">${teamoSVG('tour-av')}<div><small>Démo de Teamora</small><h2 id="da-t">Préparons ta démo</h2></div></div>
+    box.innerHTML = `<form class="da-card" role="dialog" aria-modal="true" aria-labelledby="da-t" novalidate><div class="da-h">${teamoSVG('tour-av')}<div><small>Démo de Teamora</small><h2 id="da-t">${first ? 'Préparons ta démo' : 'Recommencer la démo'}</h2></div></div>
       <p class="da-intro">Teamora s’adapte à la taille de l’entreprise : deux questions pour te montrer ce qui te concerne. Nova Studio, l’entreprise de la démo, est fictive.</p>
       <fieldset><legend>Combien de salariés compte ton entreprise ?</legend><div class="da-grid">${opts('effectif', DEMO_TAILLES, cur && demoTaille(cur.effectif))}</div></fieldset>
-      <fieldset><legend>Quel est ton poste ?</legend><div class="da-grid deux">${opts('poste', DEMO_POSTES, cur && cur.poste)}</div></fieldset>
-      <div class="da-f">${first ? '' : '<button type="button" class="btn ghost" data-da="close">Annuler</button>'}<span class="grow"></span><button class="btn primary" data-da="ok">${first ? 'Ouvrir la démo' : 'Préparer la démo'}${ic('arrow')}</button></div>
+      <fieldset><legend>Quel est ton rôle ?</legend><div class="da-grid deux">${opts('poste', DEMO_POSTES, cur && cur.poste)}</div></fieldset>
+      <div class="da-f">${first ? '' : '<button type="button" class="btn ghost" data-da="close">Annuler</button>'}<span class="grow"></span><button class="btn primary" data-da="ok">${first ? 'Ouvrir la démo' : 'Recommencer'}${ic('arrow')}</button></div>
       ${first ? '' : '<p class="da-note">Les données de la démo repartent de zéro.</p>'}</form>`;
     document.body.appendChild(box);
     const form = box.querySelector('form'), ok = box.querySelector('[data-da="ok"]'), before = document.activeElement;
@@ -8229,7 +8252,7 @@ Clés de liens autorisées : ${targets.map(([k, l]) => `${k} = ${l}`).join(' ; '
     simulate: (day, sc) => { TODAY = day; WEEK_END = addDays(TODAY, 7); YEAR = Number(day.slice(0, 4)); CAMPAIGN = Number(day.slice(0, 4)); demoPrepare(sc); return db.demo; } });
   if (window.TEAMORA_TEST === true) Object.assign(window.__teamoraTest, { rcCalendar, exitIndemnities, cpExit, refSalary, noticeInfo, noticeEndOf, exitChecks, exitBlockers, licInterviewMin, licLetterMin });
   if (DEMO) { let seen = false; try { seen = !!localStorage.getItem(TOUR_KEY); } catch (e) { /* ignore */ }
-    // Sans réponses dans l'adresse ni démo déjà préparée : les deux questions d'abord, puis la visite guidée.
-    if (demoAskFirst) setTimeout(() => demoAsk((sc) => { demoApply(sc); if (!seen) setTimeout(tourStart, 300); }), 300);
-    else if (!seen) setTimeout(tourStart, 500); }
+    // Sans réponses dans l'adresse ni démo déjà préparée : les deux questions d'abord, puis l'invitation à la visite guidée.
+    if (demoAskFirst) setTimeout(() => demoAsk((sc) => { demoApply(sc); if (!seen) setTimeout(tourInvite, 300); }), 300);
+    else if (!seen) setTimeout(tourInvite, 500); }
 })();

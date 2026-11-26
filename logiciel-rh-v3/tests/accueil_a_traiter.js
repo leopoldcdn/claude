@@ -94,6 +94,9 @@ const { chromium, ouvrir, compteur } = require('./outils');
 
   // 8. Visite guidée : elle présente « Aujourd'hui ».
   p = await ouvrir(b, { page: 'demo.html?effectif=20&poste=rh', visite: true }); await p.waitForTimeout(900);
+  // Première ouverture : Teamo propose la visite (« Faire la visite » ou « Explorer seul ») au lieu de la lancer d'office.
+  t.ok(await p.locator('#tour-invite').count() === 1 && await p.locator('#tour').count() === 0, 'démo : la visite est proposée, pas imposée');
+  await p.click('#tour-invite [data-inv="oui"]'); await p.waitForTimeout(400);
   let vu = false; for (let k = 0; k < 14 && !vu; k++) { vu = /Aujourd’hui/.test(await p.locator('#tour').innerText()); if (!vu) { await p.click('#tour [data-tour="next"], #tour .btn.primary'); await p.waitForTimeout(250); } }
   t.ok(vu && !p.erreurs.length, 'démo : la visite guidée présente « Aujourd’hui »');
   await p.click('#tour [data-tour="next"]'); await p.waitForTimeout(900);

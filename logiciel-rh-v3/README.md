@@ -25,7 +25,9 @@
   Ses options propres (réinitialiser, installer une « nouvelle entreprise », fenêtre des nouveautés, Teamo assistant IA)
   ne sont plus accessibles ; leur code reste dans `app.js`, inactif hors de ce mode.
 - `demo.html` règle `window.TEAMORA_MODE = "demo"` : bas de page réduit à la mention « données fictives », pas d'assistant IA ;
-  Teamo y sert de guide : une **visite guidée** se lance à la première ouverture (13 étapes sur ordinateur : bloc « Aujourd'hui », roue, points de
+  Teamo y sert de guide : à la première ouverture, une bulle propose la **visite guidée** (« Faire la visite » ou
+  « Explorer seul » ; Échap ou une première action dans l'application valent « Explorer seul ») ; sur téléphone, elle
+  rappelle que les espaces du gestionnaire des RH et du manager s'utilisent sur ordinateur. La visite compte 13 étapes sur ordinateur : bloc « Aujourd'hui », roue, points de
   vue, gestion ou espace personnel, à traiter, notifications, barre des rubriques, onglets, obligations selon l'effectif,
   avis, puis « Bientôt : Teamo, ton assistant IA », qui présente ce que fera l'assistant et précise qu'il n'est pas
   disponible dans la démo ; 8 étapes sur téléphone), avec Précédent, Suivant, Passer et Échap, puis se relance avec le bouton « Visite guidée »
@@ -36,8 +38,9 @@
 - **Démo à la taille de l'entreprise du visiteur** (`demo-scenario.js`, chargé par `demo.html` seulement) : Nova Studio
   compte 9, 18, 46, 120 ou 250 salariés selon la tranche choisie (moins de 11, 11 à 19, 20 à 49, 50 à 249, 250 et plus).
   Les réponses arrivent du questionnaire du site (`demo/?effectif=20&poste=rh`) ; sans elles, la démo pose les deux
-  questions à la première ouverture, puis lance la visite guidée. Un bouton en bas de page (« Changer la taille ou le
-  poste ») et le menu « Plus » sur téléphone permettent de recommencer. Vue selon le poste : dirigeant → vue RH sous les
+  questions à la première ouverture, puis propose la visite guidée. Le bas de page rappelle la taille (« Démo de Teamora
+  (Nova Studio, 46 salariés) ») ; son bouton « Recommencer la démo (taille, rôle) », comme « Recommencer la démo » dans le
+  menu « Plus » sur téléphone, repose les deux questions et prévient que les données repartent de zéro. Vue selon le poste : dirigeant → vue RH sous les
   traits de Claire Durand, la dirigeante (elle prend la place du compte RH) ; RH → Olivia ; manager → Thomas ;
   expert-comptable → vue RH ouverte sur la paie.
   La base compte 250 salariés fictifs : les 22 de Nova Studio puis 232 générés de façon fixe (mêmes noms à chaque
@@ -155,6 +158,10 @@ reste quand l'écran se redessine, jusqu'au rechargement de la page.
   avait sauté), « la gestion RH et manager » reformulé, accord « La direction demande » ; les messages de changement de
   profil tutoient, comme le reste de la démo.
 - **Sans JavaScript** : `demo.html` affiche un message au lieu de « Chargement… ».
+- **Gris des textes secondaires** (`--faint`) : `#6f7496` en clair (contraste 4,5:1 sur les cartes blanches, 4,2:1 sur le
+  fond de page ; il était de 3,1:1) et `#7a81a4` en sombre (4,5:1 sur les cartes). Un compromis demandé : le niveau AA
+  partout aurait demandé `#686e91`, presque le gris moyen (`--muted`).
+- **Visite guidée proposée, plus imposée**, et bouton « Recommencer la démo (taille, rôle) » (voir plus haut).
 
 ## Tests
 

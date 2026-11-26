@@ -40,15 +40,16 @@
     enCours();
   }
 
-  // 0 bis. Questionnaire de l'accroche : trois questions (effectif, rôle, e-mail), un clic sur une réponse passe à la
-  // suivante ; au clavier, les flèches changent la réponse et Entrée ou Espace la valident. Le champ e-mail sert au rendu :
-  // rien n'est envoyé. La démo s'ouvre à la taille de l'entreprise et sur la vue du rôle (demo/?effectif=20&poste=rh).
+  // 0 bis. Questionnaire de l'accroche : deux questions (effectif, rôle). Un clic sur une réponse passe à la suivante ; au
+  // clavier, les flèches changent la réponse et Entrée ou Espace la valident. Le choix du rôle ouvre aussitôt la démo, à la
+  // taille de l'entreprise et sur la vue du rôle (demo/?effectif=20&poste=rh) ; la question l'annonce. Sans JavaScript, les
+  // deux questions s'affichent l'une sous l'autre et le bouton « Ouvrir ma démo » envoie les mêmes réponses (formulaire GET).
   var quiz = $('#quiz');
   if (quiz) {
+    quiz.noValidate = true;
     var etapes = $$('.etape', quiz), barres = $$('.progres i', quiz), retour = $('.retour', quiz);
-    var fin = $('#quiz-fin'), ouvrir = $('#quiz-ouvrir'), baseDemo = ouvrir.getAttribute('href');
-    // Effectif de Nova Studio dans la démo selon la tranche choisie (le même tableau que demo-scenario.js).
-    var NOMS = ['taille', 'role'], TAILLES = { 0: 9, 11: 18, 20: 46, 50: 120, 250: 250 }, DERNIERE = 2;
+    var ouvrir = $('#quiz-ouvrir'), baseDemo = ouvrir.getAttribute('href');
+    var NOMS = ['effectif', 'poste'], DERNIERE = 1;
     var n = 0, verrou = false, pointeur = 0;
     var valeur = function (nom) { var x = $('input[name="' + nom + '"]:checked', quiz); return x ? x.value : null; };
     var montrer = function (i, sens) {
@@ -60,34 +61,32 @@
         if (vu && avant !== i && !reduce) { void e.offsetWidth; e.classList.add('entre'); if (sens < 0) e.classList.add('recule'); }
       });
       barres.forEach(function (b, k) { b.classList.toggle('fait', k <= i); });
-      $('#compteur').textContent = 'Question ' + (i + 1) + ' sur 3';
-      $('#compteur-court').textContent = (i + 1) + '/3';
+      $('#compteur').textContent = 'Question ' + (i + 1) + ' sur 2';
+      $('#compteur-court').textContent = (i + 1) + '/2';
       retour.classList.toggle('cache', i === 0); retour.tabIndex = i === 0 ? -1 : 0;
-      if (avant !== i) $(i === DERNIERE && sens > 0 ? '#quiz-email' : '#q' + (i + 1)).focus({ preventScroll: true });
+      if (avant !== i) $('#q' + (i + 1)).focus({ preventScroll: true });
+    };
+    // La démo hébergée (demo/) reçoit les réponses ; sur l'aperçu publié sur claude.ai, le lien ne les transmet pas et la
+    // démo pose elle-même les deux questions.
+    var ouvrirDemo = function () {
+      var t = valeur('effectif') || '20', r = valeur('poste') || 'rh';
+      ouvrir.href = baseDemo === 'demo/' ? baseDemo + '?effectif=' + t + '&poste=' + r : baseDemo;
+      ouvrir.click();
     };
     var avancer = function () {
-      if (verrou || n >= DERNIERE || !valeur(NOMS[n])) return;
+      if (verrou || !valeur(NOMS[n])) return;
       verrou = true;
+      if (n === DERNIERE) { ouvrirDemo(); setTimeout(function () { verrou = false; }, 1500); return; }
       setTimeout(function () { verrou = false; montrer(n + 1, 1); }, reduce ? 0 : 260);
     };
     quiz.addEventListener('pointerdown', function (e) { pointeur = e.target.closest('.opt') ? Date.now() : 0; });
     quiz.addEventListener('click', function (e) { if (e.target.matches('input[type="radio"]') && Date.now() - pointeur < 1000) { pointeur = 0; avancer(); } });
     quiz.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.matches('input[type="radio"]')) { e.preventDefault(); avancer(); } });
     quiz.addEventListener('keyup', function (e) { if (e.key === ' ' && e.target.matches('input[type="radio"]')) setTimeout(avancer, 0); });
+    quiz.addEventListener('submit', function (e) { e.preventDefault(); if (valeur('poste')) ouvrirDemo(); });
     retour.addEventListener('click', function () { if (n > 0) montrer(n - 1, -1); });
-    quiz.addEventListener('submit', function (e) {
-      e.preventDefault();
-      if (n !== DERNIERE) return;
-      // La démo hébergée (demo/) reçoit les réponses ; sur claude.ai, le lien ne les transmet pas et la démo pose elle-même les deux questions.
-      var t = valeur('taille') || '20', r = valeur('role') || 'rh', heberge = baseDemo === 'demo/';
-      ouvrir.href = heberge ? baseDemo + '?effectif=' + t + '&poste=' + r : baseDemo;
-      $('#quiz-resume').textContent = 'Découvrez Teamora sur Nova Studio, une entreprise fictive ' + (heberge ? 'de ' + TAILLES[t] + ' salariés.' : 'à la taille de la vôtre.');
-      fin.style.minHeight = quiz.offsetHeight + 'px';
-      quiz.hidden = true; fin.hidden = false;
-      fin.classList.remove('joue'); if (!reduce) { void fin.offsetWidth; fin.classList.add('joue'); }
-      $('#quiz-pret').focus({ preventScroll: true });
-    });
-    $('#quiz-modifier').addEventListener('click', function () { fin.hidden = true; quiz.hidden = false; montrer(0, -1); });
+    // Retour depuis la démo (page gardée en mémoire par le navigateur) : le questionnaire reste utilisable.
+    window.addEventListener('pageshow', function () { verrou = false; });
     montrer(0, 0);
   }
 

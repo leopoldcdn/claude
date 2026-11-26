@@ -6,7 +6,7 @@
   --line: #e0e3ef; --line-strong: #c3c8de;
   --fg: #151935;
   --muted: #5f6589;
-  --faint: #8d92b0;
+  --faint: #6f7496; /* gris des textes secondaires : contraste 4,5:1 sur les cartes blanches (4,2:1 sur le fond de page) */
   --accent: #4f46e5;
   --accent-ink: #ffffff;
   --accent-soft: #ebeafd;
@@ -27,7 +27,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --blob-o: .32;
-    --bg: #0c0f1e; --surface: #151a2e; --surface-2: #1c2240; --line: #2a3154; --line-strong: #414a78; --fg: #eceefb; --muted: #a1a7c8; --faint: #747b9f;
+    --bg: #0c0f1e; --surface: #151a2e; --surface-2: #1c2240; --line: #2a3154; --line-strong: #414a78; --fg: #eceefb; --muted: #a1a7c8; --faint: #7a81a4;
     --accent: #8f88ff; --accent-ink: #12142a; --accent-soft: #29285a; --accent-2: #3cc5e2;
     --ok: #3ed39c; --ok-soft: #123a2d; --warn: #f2a65a; --warn-soft: #3d2b14; --bad: #ff7b8f; --bad-soft: #43202a; --info: #7fb0ff; --info-soft: #1b2b4d;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25); --shadow-lg: 0 24px 60px rgba(0, 0, 0, .5);
@@ -38,7 +38,7 @@
 }
 :root[data-theme="dark"] {
   --blob-o: .32;
-  --bg: #0c0f1e; --surface: #151a2e; --surface-2: #1c2240; --line: #2a3154; --line-strong: #414a78; --fg: #eceefb; --muted: #a1a7c8; --faint: #747b9f;
+  --bg: #0c0f1e; --surface: #151a2e; --surface-2: #1c2240; --line: #2a3154; --line-strong: #414a78; --fg: #eceefb; --muted: #a1a7c8; --faint: #7a81a4;
   --accent: #8f88ff; --accent-ink: #12142a; --accent-soft: #29285a; --accent-2: #3cc5e2;
   --ok: #3ed39c; --ok-soft: #123a2d; --warn: #f2a65a; --warn-soft: #3d2b14; --bad: #ff7b8f; --bad-soft: #43202a; --info: #7fb0ff; --info-soft: #1b2b4d;
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25); --shadow-lg: 0 24px 60px rgba(0, 0, 0, .5);
@@ -740,7 +740,7 @@ a.btn { text-decoration: none; }
 .paper header { border-bottom: 2px solid #1d2140; padding-bottom: 12px; margin-bottom: 18px; }
 .paper h2 { font-size: 24px; color: #1d2140; } .paper header p { margin: 2px 0; font-weight: 600; color: #4f46e5; } .paper header small { color: #5f6589; }
 .paper h3 { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #4f46e5; margin: 18px 0 8px; }
-.paper .cv-x { margin-bottom: 10px; } .paper .cv-x small { display: block; color: #8d92b0; font-size: 12px; } .paper .cv-x p { margin: 2px 0 0; }
+.paper .cv-x { margin-bottom: 10px; } .paper .cv-x small { display: block; color: #6f7496; font-size: 12px; } .paper .cv-x p { margin: 2px 0 0; }
 .paper .pill.neutral { background: #eef0f8; color: #5f6589; }
 .paper .lm-h { display: flex; flex-direction: column; border: 0; } .paper .lm-h span { align-self: flex-end; color: #5f6589; margin-top: 10px; }
 .paper.empty, .paper.file-ph { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; color: #5f6589; min-height: 360px; }
@@ -1398,6 +1398,10 @@ body:has(.help-panel) .avis-fab { display: none; }
 @media (prefers-reduced-motion: reduce) { .tour-hole { transition: none; } }
 @media (max-width: 760px) { .tour-tip { padding: 14px 16px; } .tour-tip p { font-size: 15px; } .tour-f .btn { min-height: 44px; } }
 .tour-skip { border: 0; background: none; padding: 10px 4px; min-height: 44px; color: var(--muted); font: inherit; font-weight: 700; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+/* Invitation à la visite guidée (première ouverture) : une bulle au-dessus du bouton « Visite guidée », sans voile. */
+.tour-invite { right: 24px; bottom: 92px; width: min(360px, calc(100vw - 32px)); z-index: 60; animation: inv-in .24s cubic-bezier(.2, 0, 0, 1); }
+@keyframes inv-in { from { opacity: 0; transform: translateY(8px); } }
+@media (max-width: 760px) { .tour-invite { right: 16px; left: 16px; width: auto; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); } }
 .tour-f { flex-wrap: nowrap; } .tour-f .btn { min-height: 44px; white-space: nowrap; }
 /* Socle · modale de confirmation des actions irréversibles */
 .confirm-text p { margin: 0 0 8px; line-height: 1.5; } .confirm-text p:last-child { margin-bottom: 0; }

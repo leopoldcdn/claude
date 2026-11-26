@@ -60,7 +60,7 @@ confidentialité (et, selon l'outil, ajoute un bandeau de consentement).
 
 | Fichier | Rôle |
 |---|---|
-| `index.html`, `styles.css`, `site.js` | La page d'accueil, sur le fond coloré de l'accueil du logiciel : une barre de navigation flottante (rubriques centrées), un bouton « Tester la démo » avec Teamo, la mascotte du logiciel, fixé en bas à droite de l’écran (aussi sur les pages légales), l'accroche (« Toute votre GRH, dans les règles », avec à droite un questionnaire en quatre questions qui prépare la démo), le carrousel des douze rubriques (illustrations au trait, teinte de chaque rubrique), « Aidez-nous à améliorer Teamora » (un avis sans nom), l'entrée experts-comptables, les questions, « Nous connaître » (section à remplir), puis « Être recontacté » |
+| `index.html`, `styles.css`, `site.js` | La page d'accueil, sur le fond coloré de l'accueil du logiciel : une barre de navigation flottante (rubriques centrées), un bouton « Tester la démo » avec Teamo, la mascotte du logiciel, fixé en bas à droite de l’écran (aussi sur les pages légales), l'accroche (« Toute votre GRH, dans les règles », avec à droite un questionnaire en deux questions qui ouvre la démo), le carrousel des douze rubriques (illustrations au trait, teinte de chaque rubrique), « Aidez-nous à améliorer Teamora » (un avis sans nom), l'entrée experts-comptables, les questions, « Nous connaître » (section à remplir), puis « Être recontacté » |
 | `teamo.js` | Teamo, l'assistant du site : une barre « Posez-nous vos questions sur Teamora » fixée en bas de l'écran (bandeau dégradé autour d'un champ blanc), la conversation s'ouvre au-dessus. Teamo ne connaît que le texte de la page (rubriques, questions, formulaires), lu au chargement, et propose un lien vers la démo, un formulaire ou une rubrique du carrousel. Il n'apparaît que s'il peut répondre : aujourd'hui dans l'aperçu publié sur claude.ai (capacité « sample », sur le compte Claude du visiteur). Sur le site en ligne, la barre reste cachée tant qu'un script serveur appelant l'API Claude n'est pas branché (clé gardée sur le serveur, mention à ajouter dans `confidentialite.html`). Sur tablette et téléphone, « Tester la démo » se réduit à son rond à droite de la barre |
 | `mentions-legales.html`, `confidentialite.html` | Pages légales, avec les passages à compléter surlignés |
 | `contact.php`, `avis.php`, `envoi.php`, `config.php` | Envoi par e-mail des messages et des avis (formulaire du site et bouton de la démo) ; `config.php` est le seul fichier à modifier |
@@ -89,13 +89,16 @@ Au survol (ou au focus clavier du « + »), une « goutte d'encre » de la teint
 la carte, puis se résorbe au départ du pointeur (`.rcarte-a::before` dans `styles.css`). Elle est désactivée si le visiteur a
 demandé à réduire les animations.
 
-Le questionnaire de l'accroche pose trois questions (effectif, rôle, adresse e-mail), puis affiche « Votre démo est
-prête » et le bouton « Tester Teamora ». Un clic sur une réponse passe à la question suivante. Le lien vers la démo
-hébergée porte les réponses (`demo/?effectif=20&poste=rh`) : la démo s'ouvre sur Nova Studio à la taille correspondante
-(9, 18, 46, 120 ou 250 salariés) et sur la vue du rôle (voir `logiciel-rh-v3/README.md`). Sur claude.ai, le lien ne
-transmet pas les réponses : la démo pose alors elle-même les deux questions. **Le champ e-mail sert au rendu : rien n'est
-envoyé ni enregistré.** Avant de le brancher, ajoute près du champ une mention d'information (finalité, durée de
-conservation, droits) et complète la politique de confidentialité.
+Le questionnaire de l'accroche pose deux questions (effectif, rôle). Un clic sur une réponse passe à la question
+suivante ; le choix du rôle ouvre aussitôt la démo, ce que la question annonce (« La démo s'ouvre dès votre choix »). Sur
+téléphone (760 px de large ou moins, comme dans la démo), elle ajoute : « vous découvrirez l'espace salarié : les espaces
+du gestionnaire des RH et du manager s'utilisent sur ordinateur ». Le lien vers la démo hébergée porte les réponses
+(`demo/?effectif=20&poste=rh`) : la démo s'ouvre sur Nova Studio à la taille correspondante (9, 18, 46, 120 ou 250
+salariés) et sur la vue du rôle (voir `logiciel-rh-v3/README.md`). Sur claude.ai, le lien ne transmet pas les réponses :
+la démo pose alors elle-même les deux questions. Sans JavaScript, les deux questions s'affichent l'une sous l'autre et le
+bouton « Ouvrir ma démo » envoie les mêmes réponses. La question de l'adresse e-mail et l'écran « Votre démo est prête »
+ont été retirés : on ne demande pas une adresse dont on ne fait rien. Pour recueillir des contacts, c'est « Être
+recontacté ».
 
 « Aidez-nous à améliorer Teamora » reprend les questions du bouton « Donner mon avis » de la démo (avis en un mot, utilité
 de 1 à 5, message, entreprise et taille facultatives) et passe par le même `avis.php` : l'avis part par e-mail, sans nom,

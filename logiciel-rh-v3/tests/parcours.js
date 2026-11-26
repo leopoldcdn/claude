@@ -28,10 +28,10 @@ const { chromium, ouvrir, compteur } = require('./outils');
   // Téléphone : l'espace salarié garde sa propre navigation.
   const m = await ouvrir(b, { ui: { profile: 'salarie' }, largeur: 390, hauteur: 844, mobile: true });
   t.ok(await m.locator('.mob-nav').count() === 1 && await m.locator('.rail').count() === 0 && !m.erreurs.length, 'téléphone : accueil salarié, sans menu latéral, sans erreur');
-  // Version démo : sans réponses du site, elle pose d'abord les deux questions ; avec, la visite guidée démarre.
+  // Version démo : sans réponses du site, elle pose d'abord les deux questions ; avec, Teamo propose la visite guidée.
   const q = await ouvrir(b, { page: 'demo.html', visite: true }); await q.waitForTimeout(900);
   t.ok(await q.locator('.demo-ask').count() === 1 && await q.locator('#tour').count() === 0 && !q.erreurs.length, `démo sans réponses : les deux questions d’abord ${q.erreurs.join(' | ')}`);
   const d = await ouvrir(b, { page: 'demo.html?effectif=20&poste=rh', visite: true }); await d.waitForTimeout(900);
-  t.ok(await d.locator('#tour').count() === 1 && !d.erreurs.length, `démo : visite guidée lancée, sans erreur ${d.erreurs.join(' | ')}`);
+  t.ok(await d.locator('#tour-invite').count() === 1 && await d.locator('#tour').count() === 0 && !d.erreurs.length, `démo : visite guidée proposée, sans erreur ${d.erreurs.join(' | ')}`);
   await b.close(); t.fin();
 })();

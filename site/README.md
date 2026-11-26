@@ -44,6 +44,18 @@ des hébergeurs français), plus un nom de domaine. Si l'hébergeur bloque `mail
 Si tu ajoutes un jour un outil de mesure d'audience ou une vidéo hébergée ailleurs, mets à jour la politique de
 confidentialité (et, selon l'outil, ajoute un bandeau de consentement).
 
+## Corrections après l'audit externe (novembre 2026)
+
+- **Formulaires sans JavaScript** : `novalidate` est posé par le script (et non plus dans le HTML), si bien qu'un visiteur
+  sans JavaScript voit le navigateur signaler un champ manquant au lieu de perdre son message ; avec JavaScript, les
+  messages du script restent.
+- **`avis.php`** : le type d'avis est vérifié avant d'être lu, et la longueur du message se compte en caractères.
+- **`.htaccess`** : compression des pages, styles et scripts (`mod_deflate`) ; pas de cache long pour les scripts, pour
+  qu'une mise à jour de la démo arrive tout de suite.
+- **Confidentialité** : « les avis, envoyés sans nom » au lieu de « les avis anonymes » (un texte libre peut identifier
+  quelqu'un).
+- `og:url` et l'adresse canonique sont ajoutés par `build.py` dès que `ADRESSE_DU_SITE` est renseignée.
+
 ## Contenu
 
 | Fichier | Rôle |

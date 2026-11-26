@@ -737,7 +737,7 @@
     <p class="demo-note">Aperçu de démonstration : toutes les données sont fictives et enregistrées uniquement dans ce navigateur.</p></footer>`;
 
   // ---------------------------------------------------------------- V3 · Vue mobile de l'espace salarié
-  // Sur téléphone : barre du haut compacte, onglets en bas, accueil en cartes. La gestion RH et manager reste sur ordinateur.
+  // Sur téléphone : barre du haut compacte, onglets en bas, accueil en cartes. La gestion des RH et le management restent sur ordinateur.
   const MOB_Q = window.matchMedia ? window.matchMedia('(max-width: 760px)') : { matches: false };
   const isMob = () => !!MOB_Q.matches;
   // Tri validé : sur téléphone, le salarié garde les actions rapides ; la mobilité, l'aménagement de poste, le détail de la paie,
@@ -788,7 +788,7 @@
       <h4 class="sub">Démo : voir l’application en tant que</h4>
       ${TENANT === 'new' ? '' : `<div class="mob-persona">${Object.entries(PROFILES).filter(([k]) => profileOk(k)).map(([k, pr]) => { const e = profileEmp(k); return `<button type="button" class="btn ${persona() === k ? 'primary' : 'ghost'} sm" data-act="persona" data-p="${k}">${avatar(e)}${esc(e.firstName)} · ${pr.short || pr.label}</button>`; }).join('')}</div>`}
       ${!ui.selfOf ? `<div class="field" style="margin-top:10px">${asEmpSelect().replace('class="sr"', 'class="lbl"')}</div>` : `<button type="button" class="btn ghost sm" data-act="space" data-s="gestion" style="margin-top:10px">${ic('left')}Revenir à la gestion (ordinateur)</button>`}
-      <p class="hint keep" style="margin:12px 0 0">Sur téléphone, Teamora affiche l’espace salarié. La gestion RH et manager s’utilise sur ordinateur.</p></div>`;
+      <p class="hint keep" style="margin:12px 0 0">Sur téléphone, Teamora affiche l’espace salarié. La gestion des RH et le management se font sur ordinateur.</p></div>`;
   }
   // Gestionnaires des RH et management sur téléphone : la gestion demande un écran d'ordinateur ; leur espace personnel reste accessible.
   function mobGate() {
@@ -1312,7 +1312,7 @@
           <tfoot><tr><td>Total</td><td class="r num">${eur(T.gross)}</td><td class="r num">${eur(T.salTot)}</td><td class="r num">${eur(T.empTot)}</td><td class="r num">${eur(T.netImposable)}</td><td class="r num">${eur(T.tax)}</td><td class="r num">${eur(T.net)}</td><td class="r num">${eur(T.cost)}</td><td></td></tr></tfoot></table></div></div>`;
       }
     }
-    return `${head}${body}<p class="hint">Simulation : taux et plafonds de démonstration (plafond mensuel de la Sécurité sociale ${eur0(PSS)}, SMIC ${eur(SMIC_M)}). Le calcul officiel est réalisé par le prestataire de paie.</p>`;
+    return `${head}${body}<p class="hint keep">Simulation : taux et plafonds de démonstration (plafond mensuel de la Sécurité sociale ${eur0(PSS)}, SMIC ${eur(SMIC_M)}). Le calcul officiel est réalisé par le prestataire de paie.</p>`;
   }
   const BONUS_KINDS = ['Prime exceptionnelle', 'Prime sur objectifs', 'Prime de vacances', 'Prime de cooptation', 'Prime d’ancienneté'];
   // Absences du mois en clair. Secret médical : sans le droit « motif des arrêts », le manager ne voit qu'un total de jours d'absence (art. L1110-4 CSP).
@@ -1596,7 +1596,7 @@
       { sel: '.mob-nav [data-act="mob-more"]', title: 'Plus', text: 'Les autres rubriques (profil, santé, entretiens, formations) et le changement de profil de la démo : gestionnaire des RH, manager ou salarié.' },
       { sel: '.mob-avis', title: 'Ton avis compte', text: 'Après ton essai, dis-nous ce qui t’aide, ce qui manque ou ce qui bloque : deux minutes, sans ton nom.' },
       { title: 'Bientôt : Teamo, ton assistant IA', text: 'Dans la version complète, je répondrai à tes questions en langage courant (« combien de congés me reste-t-il ? », « comment déclarer un arrêt ? ») et je t’emmènerai vers le bon écran. Je ne suis pas encore disponible dans cette démo.' },
-      { title: 'À toi de jouer', text: 'La gestion RH et manager se découvre sur ordinateur. Tu peux revoir cette visite depuis le menu « Plus ».' }];
+      { title: 'À toi de jouer', text: 'La gestion des RH et le management se découvrent sur ordinateur. Tu peux revoir cette visite depuis le menu « Plus ».' }];
     // Démo préparée : la visite suit le profil du visiteur (gestionnaire des RH ou manager) et se termine sur son écran d'arrivée.
     const tourProfile = DEMO_SC && db.demo && db.demo.poste === 'manager' ? 'manager' : 'rh', landing = DEMO_SC && db.demo ? demoLanding(db.demo) : { view: 'accueil', stage: null };
     return [
@@ -1604,18 +1604,19 @@
       { sel: '.today', title: 'Aujourd’hui', text: 'En arrivant, tu vois les cinq actions les plus urgentes, avec leur date. Un clic ouvre l’écran où faire l’action.' },
       { sel: '.home-wheel', wheel: true, title: 'La roue du collaborateur', text: 'Survole la roue : elle se déploie. Chaque rubrique est un moment de la vie du collaborateur, du besoin de recrutement au départ. Clique sur une rubrique pour l’ouvrir ; une pastille rouge signale des actions en retard.' },
       { sel: '.persona', title: 'Change de point de vue', text: 'Teamora s’adapte à chaque rôle. Passe du gestionnaire des RH au manager ou au salarié pour voir ce que chacun voit et fait.' },
-      { sel: '.space-sw', title: 'Gestion ou espace personnel', text: 'La RH et le management ont aussi leur propre espace salarié : leurs absences, leurs bulletins, leurs entretiens.' },
+      { sel: '.space-sw', title: 'Gestion ou espace personnel', text: 'Les gestionnaires des RH et le management ont aussi leur propre espace salarié : leurs absences, leurs bulletins, leurs entretiens.' },
       { sel: '.todo-btn', title: 'À traiter', text: 'Toutes les actions qui t’attendent, classées par urgence : en retard, cette semaine, plus tard. Une ligne et un bouton par action.' },
       { sel: '[data-act="notif"]', title: 'Les notifications', text: 'Les nouvelles du jour : une demande d’absence, un document déposé, une obligation qui approche.' },
-      { sel: '.rail-in', rail: true, title: 'Passer d’une rubrique à l’autre', text: 'Dans une rubrique, ce menu donne accès à toutes les autres, regroupées en quatre familles : recruter, gérer, développer, départ. Replié, il n’affiche que les icônes ; au survol, il s’élargit et donne le nom de chaque rubrique. « Accueil » ramène à la roue. Ici, nous sommes dans les absences.', go: tourGo({ profile: 'rh', view: 'absences', stage: 6 }) },
+      { sel: '.rail-in', rail: true, title: 'Passer d’une rubrique à l’autre', text: 'Dans une rubrique, ce menu donne accès à toutes les autres, regroupées en quatre familles : recruter, gérer, développer, départ. Replié, il n’affiche que les icônes ; au survol, il s’élargit et donne le nom de chaque rubrique. « Accueil » ramène à la roue. Ici, nous sommes dans les absences.', go: tourGo({ profile: tourProfile, view: 'absences', stage: 6 }) },
       { sel: '#view .tabs', title: 'Les onglets', text: 'Chaque module est organisé en onglets : clique sur un onglet pour passer des demandes à valider au planning ou aux compteurs.' },
       tourProfile === 'rh' && { sel: '.rail [data-v="obligations"]', title: 'Les obligations selon l’effectif', text: 'Le cœur de Teamora : l’effectif est calculé automatiquement et les obligations légales apparaissent à chaque seuil (11, 20, 50, 250 salariés), avec des alertes avant.' },
       { sel: '.avis-fab', title: 'Ton avis compte', text: 'Après ton essai, dis-nous ce qui t’aide, ce qui manque ou ce qui bloque : deux minutes, sans ton nom.' },
       { title: 'Bientôt : Teamo, ton assistant IA', text: 'Dans la version complète, je répondrai à tes questions en langage courant : comment poser une absence, quel préavis appliquer, ce qui change en passant 50 salariés. Je t’emmènerai vers le bon écran, je t’aiderai à rédiger une offre ou un message et je te rappellerai les échéances, sans jamais recevoir les données personnelles de tes salariés. Je ne suis pas encore disponible dans cette démo.' },
       { sel: '.tour-fab', title: 'À toi de jouer', text: 'Explore librement : toutes les données sont fictives. Tu peux relancer cette visite à tout moment avec ce bouton.', go: tourGo(landing) }].filter(Boolean);
   }
-  function tourStart() { tour = { i: 0, steps: tourSteps() }; tourShow(); }
-  function tourEnd() { tour = null; try { localStorage.setItem(TOUR_KEY, '1'); } catch (e) { /* ignore */ } const el = document.getElementById('tour'); if (el) el.remove(); }
+  // Avant la visite, on note l'écran et le profil : quitter la visite en cours de route y ramène (un comptable retrouve la Paie).
+  function tourStart() { tour = { i: 0, steps: tourSteps(), back: { profile: ui.profile, view: ui.view, stage: ui.stage, selfOf: ui.selfOf } }; tourShow(); }
+  function tourEnd() { const t = tour; tour = null; if (t && t.back && t.i < t.steps.length - 1) { tourGo(t.back)(); render(); } try { localStorage.setItem(TOUR_KEY, '1'); } catch (e) { /* ignore */ } const el = document.getElementById('tour'); if (el) el.remove(); }
   function tourShow() {
     const st = tour.steps[tour.i]; if (st.go) st.go();
     // La visite bloque la souris : à l'étape de la roue, elle la déploie elle-même ; ailleurs, la roue reste repliée.
@@ -2942,7 +2943,7 @@
       commit(); },
     'pay-bonus-kind'(v, d) { const pr = payrollOf(ui.payMonth); pr.bonusKind = Object.assign({}, pr.bonusKind, { [d.id]: v || undefined }); commit(); },
 
-    'paper-slip'(v, d, t) { const e = me(); e.paperSlip = t.checked; notify('e1', `${fullName(e)} ${t.checked ? 'demande des bulletins papier' : 'accepte les bulletins électroniques'}.`); toast(t.checked ? 'Les RH t’enverront tes bulletins en version papier' : 'Bulletins électroniques'); commit(); },
+    'paper-slip'(v, d, t) { const e = me(); e.paperSlip = t.checked; notify('e1', `${fullName(e)} ${t.checked ? 'demande des bulletins papier' : 'accepte les bulletins électroniques'}.`); toast(t.checked ? 'Les gestionnaires des RH t’enverront tes bulletins en version papier' : 'Bulletins électroniques'); commit(); },
   });
   const tabsBar = (key, list) => `<div class="tabs" role="tablist">${list.map(([k, l, n]) => `<button type="button" role="tab" aria-selected="${ui[key] === k}" data-act="tab" data-k="${key}" data-t="${k}">${l}${n ? `<span class="count num">${n}</span>` : ''}</button>`).join('')}</div>`;
   const pickTab = (key, list) => { if (!list.some((t) => t[0] === ui[key])) ui[key] = list[0][0]; };
@@ -3940,12 +3941,12 @@
     j.approvals.push(Object.assign({ step, by, decision, date: TODAY, comment: reason ? `${reason}${comment ? ` · ${comment}` : ''}` : comment }, entered ? { enteredBy: entered } : {}));
     if (entered) { logTo(j, `Décision de ${fullName(emp(by))} (${decision.toLowerCase()}) saisie par ${fullName(me())}`); notify(by, `${fullName(me())} a enregistré en votre nom la décision « ${decision} » sur le besoin « ${j.title} » (${jobRef(j)}) : merci de vérifier qu’elle est conforme.`); }
     comment = reason ? `${reason}${comment ? ` (${comment})` : ''}` : comment;
-    const who = step === 'direction' ? 'La direction' : 'Les RH';
+    const who = step === 'direction' ? 'La direction' : 'Les gestionnaires des RH', pl = step !== 'direction';
     if (decision === 'Validée') {
       if (step === 'rh' && needsDirection(j)) { j.pending = 'direction'; notify(j.requestedBy, `Votre besoin « ${j.title} » est validé par les gestionnaires des RH et transmis à la direction.`); }
       else { j.pending = null; j.status = 'Validée'; notify(j.requestedBy, `Votre besoin « ${j.title} » est validé : rédigez l’offre avec les gestionnaires des RH, qui la valideront et la publieront.`); }
-    } else if (decision === 'À modifier') { j.pending = null; j.status = 'À modifier'; notify(j.requestedBy, `${who} demandent une modification de votre besoin « ${j.title} » : ${comment}`); }
-    else { j.pending = null; j.status = 'Refusée'; j.refusedAt = step; notify(j.requestedBy, `${who} ont refusé votre besoin « ${j.title} » : ${comment}`); }
+    } else if (decision === 'À modifier') { j.pending = null; j.status = 'À modifier'; notify(j.requestedBy, `${who} ${pl ? 'demandent' : 'demande'} une modification de votre besoin « ${j.title} » : ${comment}`); }
+    else { j.pending = null; j.status = 'Refusée'; j.refusedAt = step; notify(j.requestedBy, `${who} ${pl ? 'ont' : 'a'} refusé votre besoin « ${j.title} » : ${comment}`); }
   }
 
   function needStepState(j, k, steps) {
@@ -5615,7 +5616,7 @@
     'arr-upload'(v, d, t) {
       const file = t.files && t.files[0]; if (!file) return;
       const e = me(), x = dossier(e), label = ARR_DOCS.find(([k]) => k === d.k)[1], again = x.files[d.k] && !x.files[d.k].refused;
-      const done = (data) => { x.files[d.k] = { name: file.name, date: TODAY, type: file.type, data }; notify('e1', `${fullName(e)} a ${again ? 'remplacé' : 'déposé'} une pièce à vérifier : ${label}.`); toast(again ? 'Pièce remplacée · les gestionnaires des RH vont la vérifier' : 'Pièce déposée · les gestionnaires des RH vont la vérifier'); commit(); };
+      const done = (data) => { x.files[d.k] = { name: file.name, date: TODAY, type: file.type, data }; notify('e1', `${fullName(e)} a ${again ? 'remplacé' : 'déposé'} une pièce à vérifier : ${label}.`); toast(`${again ? 'Pièce remplacée' : 'Pièce déposée'} · les gestionnaires des RH vont la vérifier${data ? '' : ' (dans la démo, seul le nom est gardé : aperçu limité aux PDF et images de 700 Ko)'}`, data ? 'ok' : 'info'); commit(); };
       if (file.size <= 700 * 1024 && /^(image\/|application\/pdf)/.test(file.type)) { const r = new FileReader(); r.onload = () => done(r.result); r.onerror = () => done(null); r.readAsDataURL(file); } else done(null);
     },
     'plan-edit'(v, d) {
@@ -5625,7 +5626,7 @@
       db.onboardingPlan.sort((a, b) => a.day - b.day); toast('Programme mis à jour'); commit();
     },
     'as-mgr'(v) { ui = Object.assign({ profile: ui.selfOf ? 'salarie' : 'manager', selfOf: ui.selfOf, view: 'accueil', stage: null, asEmp: ui.asEmp, asMgr: v }, freshUI()); render(); toast(`Tu vois l’application en tant que ${fullName(emp(v))}${emp(v).managerId ? '' : ' (Direction)'}.`); },
-    'as-emp'(v) { ui = Object.assign({ profile: 'salarie', view: 'accueil', stage: null, asEmp: v }, freshUI()); render(); toast(`Vous voyez l’espace de ${fullName(me())}.`); },
+    'as-emp'(v) { ui = Object.assign({ profile: 'salarie', view: 'accueil', stage: null, asEmp: v }, freshUI()); render(); toast(`Tu vois l’espace de ${fullName(me())}.`); },
   });
   Object.assign(MOD_FORMS, {
     'plan-add'(v) {
@@ -7438,7 +7439,7 @@
   // ---------------------------------------------------------------- Modals
   function modalHTML() {
     const m = ui.modal; if (!m) return '';
-    const shell = (title, body, foot, wide) => `<div class="modal" data-act="modal-bg"><div class="modal-box ${wide === 'xl' ? 'wide xl' : wide ? 'wide' : ''}" data-act="noop" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-h"><h2>${title}</h2><button type="button" class="icon-btn" data-act="modal-close" aria-label="Fermer">${ic('x')}</button></div>${body}${foot || ''}</div></div>`;
+    const shell = (title, body, foot, wide) => `<div class="modal" data-act="modal-bg"><div class="modal-box ${wide === 'xl' ? 'wide xl' : wide ? 'wide' : ''}" data-act="noop" tabindex="-1" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-h"><h2>${title}</h2><button type="button" class="icon-btn" data-act="modal-close" aria-label="Fermer">${ic('x')}</button></div>${body}${foot || ''}</div></div>`;
     const formShell = (title, form, fields, submit, wide) => shell(title, `<form data-form="${form}" novalidate><div class="modal-b">${fields}<p class="err" id="m-err" aria-live="polite"></p></div><div class="modal-f"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button class="btn primary">${submit}</button></div></form>`, '', wide);
     const opt = (list, v) => list.map((x) => (Array.isArray(x) ? `<option value="${esc(x[0])}" ${x[0] === v ? 'selected' : ''}>${esc(x[1])}</option>` : `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`)).join('');
     const f = (id, label, input, full) => `<div class="field ${full ? 'full' : ''}"><label for="${id}">${label}</label>${input}</div>`;
@@ -7460,7 +7461,7 @@
 
     }
     // Bulletin : impression ou enregistrement en PDF par la boîte d'impression du navigateur (seul le bulletin est imprimé).
-    if (m.type === 'payslip') return shell(`Bulletin de paie · ${monthLabel(m.m)}`, `<div class="modal-b">${payslipHTML(emp(m.id), m.m)}</div>`, `<div class="modal-f"><button type="button" class="btn ghost" data-act="slip-print">${ic('file')}Imprimer ou enregistrer en PDF</button><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>`, 'xl');
+    if (m.type === 'payslip') return shell(`Bulletin de paie · ${monthLabel(m.m)}`, `<div class="modal-b"><p class="hint keep" style="margin:0 0 10px">Exemple fictif : dans la réalité, le bulletin est établi par le prestataire de paie ; Teamora le diffuse aux salariés.</p>${payslipHTML(emp(m.id), m.m)}</div>`, `<div class="modal-f"><button type="button" class="btn ghost" data-act="slip-print">${ic('file')}Imprimer ou enregistrer en PDF</button><button type="button" class="btn primary" data-act="modal-close">Fermer</button></div>`, 'xl');
     if (m.type === 'cand') {
       return formShell('Ajouter un candidat', 'cand', `<div class="form-grid">${f('k-name', 'Prénom et nom', '<input id="k-name" name="name" class="input" required>', true)}
         ${f('k-email', 'E-mail *', '<input id="k-email" name="email" type="email" class="input" maxlength="80" required>')}${f('k-phone', 'Téléphone', '<input id="k-phone" name="phone" class="input">')}
@@ -7493,6 +7494,7 @@
     route(); TASKS.clear();
     if (ui.orgPreview && !orgDrag && !(ui.modal && ui.modal.type === 'org-move')) ui.orgPreview = null;
     const scrollY = window.scrollY, railWas = document.querySelector('.rail-in'), railTop = railWas ? railWas.scrollTop : 0;
+    const depthWas = layerDepth(), focusWas = focusKey(document.activeElement) || (Date.now() - lastPress.t < 1500 ? lastPress.k : null);
     const mob = isMob(); if (!mob || ui.profile !== 'salarie') ui.mobMore = false;
     document.getElementById('app').innerHTML = mob && (ui.view === 'setup' || ui.profile !== 'salarie') ? mobGate()
       : mob ? `<div class="app mob">${mobTop()}<main class="view" id="view">${ui.view === 'accueil' || MOB_OFF.includes(ui.view) ? mobHome() : VIEWS[ui.view]()}</main>${footer()}${mobNav()}</div>`
@@ -7502,13 +7504,13 @@
       const dt = ui.drawer.type, cs = dt === 'case' && db.cases.find((c) => c.id === ui.drawer.id);
       const nj = dt === 'need' && db.jobs.find((x) => x.id === ui.drawer.id);
       const content = dt === 'emp' ? (emp(ui.drawer.id) && empDrawer(emp(ui.drawer.id))) : dt === 'case' ? (cs && DRAWERS.case(cs)) : dt === 'need' ? (nj && DRAWERS.need(nj)) : (db.candidates.find((c) => c.id === ui.drawer.id) && candDrawer(db.candidates.find((c) => c.id === ui.drawer.id)));
-      if (content) ov += `<div class="scrim ${drawerAnim ? '' : 'on'}" data-act="close-drawer"></div><aside class="drawer ${dt === 'cand' ? 'wide' : dt === 'need' ? 'mid' : ''} ${drawerAnim ? '' : 'on'}" aria-label="Fiche">${content}</aside>`;
+      if (content) ov += `<div class="scrim ${drawerAnim ? '' : 'on'}" data-act="close-drawer"></div><aside class="drawer ${dt === 'cand' ? 'wide' : dt === 'need' ? 'mid' : ''} ${drawerAnim ? '' : 'on'}" tabindex="-1" aria-label="Fiche">${content}</aside>`;
       else ui.drawer = null;
     }
     ov += modalHTML();
     if (ui.mobMore) ov += mobMoreSheet();
     document.getElementById('overlay').innerHTML = ov;
-    tidyHelp();
+    tidyHelp(); focusAfterRender(depthWas, focusWas);
     if (drawerAnim) { drawerAnim = false; requestAnimationFrame(() => requestAnimationFrame(() => document.querySelectorAll('.scrim, .drawer').forEach((el) => el.classList.add('on')))); }
     window.scrollTo(0, scrollY);
     const top = document.querySelector('.top'); if (top) document.documentElement.style.setProperty('--top-h', `${top.offsetHeight}px`);
@@ -7530,6 +7532,38 @@
     r.classList.toggle('more-down', down); r.classList.toggle('more-up', up);
   }
   document.addEventListener('scroll', (ev) => { if (ev.target && ev.target.classList && ev.target.classList.contains('rail-in')) railFade(); }, true);
+
+  // ---------------------------------------------------------------- Focus au clavier entre deux rendus
+  // Chaque rendu reconstruit la page : sans précaution, le focus retombe au début. On retrouve donc l'élément qui l'avait.
+  // Une fenêtre (ou un panneau latéral) qui s'ouvre reçoit le focus et rend le reste de la page inerte (Tab y reste) ;
+  // à sa fermeture, le focus revient au bouton qui l'avait ouverte.
+  let lastPress = { k: null, t: 0 };
+  const layerStack = [];
+  const FOCUS_DATA = ['act', 'id', 'k', 'i', 'v', 't', 'p', 'm', 'r', 's', 'f', 'change'];
+  function focusKey(el) {
+    if (!el || el === document.body || !el.closest || !el.closest('#app, #overlay')) return null;
+    if (el.id) return `#${CSS.escape(el.id)}`;
+    const d = FOCUS_DATA.filter((k) => el.dataset && el.dataset[k] !== undefined).map((k) => `[data-${k}="${CSS.escape(el.dataset[k])}"]`);
+    return d.length ? el.tagName.toLowerCase() + d.join('') : null;
+  }
+  document.addEventListener('pointerdown', (ev) => { const el = ev.target.closest && ev.target.closest('button, a[href], input, select, textarea'); lastPress = { k: focusKey(el), t: Date.now() }; }, true);
+  const layerDepth = () => document.querySelectorAll('#overlay .drawer, #overlay .modal-box').length;
+  const findKey = (k, root) => { try { return k ? root.querySelector(k) : null; } catch (e) { return null; } };
+  function focusAfterRender(depthWas, key) {
+    const modal = document.querySelector('#overlay .modal-box'), drawer = document.querySelector('#overlay .drawer'), top = modal || drawer, depth = layerDepth();
+    const app = document.getElementById('app'); if (app) app.inert = !!top;
+    if (drawer) drawer.inert = !!modal;
+    const go = (el) => { if (el && el !== document.activeElement) el.focus({ preventScroll: true }); };
+    if (depth > depthWas) {
+      for (let n = depthWas; n < depth; n++) layerStack.push(key);
+      // Sur téléphone, on évite d'ouvrir le clavier : le focus va à la fenêtre elle-même.
+      const first = !isMob() && [...top.querySelectorAll('input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href]')]
+        .find((x) => x.offsetParent !== null && !x.closest('.modal-h, .drawer-h') && !x.matches('[data-act="modal-close"], [data-act="close-drawer"]'));
+      go(first || top); return;
+    }
+    if (depth < depthWas) { let back = null; for (let n = depth; n < depthWas; n++) back = layerStack.pop(); go(findKey(back, top || document) || top); return; }
+    const el = findKey(key, top || document); if (el) go(el); else if (top && !top.contains(document.activeElement)) go(top);
+  }
 
   // ---------------------------------------------------------------- Aides repliées (bouton « i »)
   // Les explications et les règles de droit ne s'affichent plus d'office : chaque paragraphe .hint (sauf .keep) et chaque
@@ -7664,7 +7698,7 @@
     persona(d) {
       if (persona() === d.p && !ui.selfOf) return;
       ui = Object.assign({ profile: d.p, view: 'accueil', stage: null, asEmp: ui.asEmp, asMgr: ui.asMgr }, freshUI());
-      render(); toast(`Vous voyez maintenant l’application en tant que ${fullName(me())} (${PROFILES[d.p].label}).`);
+      render(); toast(`Tu vois maintenant l’application en tant que ${fullName(me())} (${PROFILES[d.p].label}).`);
     },
     space(d) {
       const perso = d.s === 'perso'; if (perso === !!ui.selfOf) return;

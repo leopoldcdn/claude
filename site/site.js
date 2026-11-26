@@ -169,6 +169,7 @@
   // 2. « Aidez-nous à améliorer Teamora » : un avis sans nom, envoyé à avis.php comme « Donner mon avis » dans la démo.
   var avis = $('#form-avis');
   if (avis) {
+    avis.noValidate = true; // sans JavaScript, le navigateur vérifie les champs ; ici, le script affiche ses propres messages
     var avisDebut = Date.now(), avisStatut = $('#a-statut'), avisBouton = $('#a-envoyer'), avisMsg = $('#a-message');
     var dire = function (texte, genre) { avisStatut.textContent = texte; avisStatut.className = 'status ' + (genre || ''); };
     var champ = function (nom) { var x = avis.elements[nom]; return x ? x.value : ''; };
@@ -195,6 +196,7 @@
   // 3. « Être recontacté » : envoi sans recharger la page (contact.php répond en JSON).
   var form = $('#form-contact');
   if (!form) return;
+  form.noValidate = true;
   // « Parlons partenariat » : le formulaire s'ouvre avec la fonction déjà choisie.
   $$('[data-fonction]').forEach(function (a) { a.addEventListener('click', function () { var f = $('#f-fonction'); if (f) f.value = a.dataset.fonction; }); });
   var started = Date.now(), status = $('#f-statut'), button = $('#f-envoyer');

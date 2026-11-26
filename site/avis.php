@@ -18,9 +18,9 @@ if (($a['duree'] ?? '') !== '' && (int) $a['duree'] < 3000) avis_repondre(true);
 if (!teamora_configure()) avis_repondre(false, 'Envoi des avis non configuré.', 503);
 
 $types = ['aide' => 'Ça m’aide', 'manque' => 'Il manque quelque chose', 'confus' => 'Ce n’est pas clair', 'bug' => 'Quelque chose ne marche pas'];
-$type = $types[$a['type'] ?? ''] ?? 'Avis';
+$type = is_string($a['type'] ?? null) ? ($types[$a['type']] ?? 'Avis') : 'Avis';
 $message = teamora_texte($a['message'] ?? '', 4000);
-if (strlen($message) < 3) avis_repondre(false, 'Avis trop court.', 422);
+if ((function_exists('mb_strlen') ? mb_strlen($message, 'UTF-8') : strlen($message)) < 3) avis_repondre(false, 'Avis trop court.', 422);
 $note = max(0, min(5, (int) ($a['note'] ?? 0)));
 
 $lignes = ['Avis sur Teamora', '', 'Type : ' . $type . ($note ? " · utilité $note/5" : '')];

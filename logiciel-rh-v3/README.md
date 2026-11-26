@@ -139,6 +139,23 @@ reste quand l'écran se redessine, jusqu'au rechargement de la page.
 - Sur Obligations, le texte gris visible passe d'environ 5 700 à 550 caractères ; sur l'ensemble des écrans du
   gestionnaire des RH, d'environ 26 500 à 15 500 (le reste, ce sont des données : postes, dates, montants).
 
+## Corrections après l'audit externe (novembre 2026)
+
+- **Clavier** : chaque rendu reconstruit la page ; `focusAfterRender()` retrouve l'élément qui avait le focus (par son `id`
+  ou ses attributs `data-*`). Une fenêtre ou un panneau latéral qui s'ouvre reçoit le focus (premier champ sur ordinateur, la
+  fenêtre elle-même sur téléphone pour ne pas ouvrir le clavier), le reste de la page devient inerte (`inert`, Tab reste
+  dedans), et la fermeture rend le focus au bouton qui l'avait ouverte.
+- **Visite guidée** : l'étape du menu garde le profil du visiteur (un manager reste manager) ; quitter la visite en cours de
+  route ramène à l'écran et au profil d'avant (un expert-comptable retrouve la Paie).
+- **Dépôt de pièce** : au-delà de 700 Ko (ou pour un format autre que PDF ou image), la démo ne garde que le nom du fichier ;
+  le message de dépôt le dit tout de suite au salarié.
+- **Bulletin de paie** : « Exemple fictif : dans la réalité, le bulletin est établi par le prestataire de paie ; Teamora le
+  diffuse aux salariés », pour rester cohérent avec le site (Teamora prépare les variables, il ne calcule pas la paie).
+- **Vocabulaire** : trois « la RH / les RH » restants corrigés (ils suivaient un guillemet, que le remplacement automatique
+  avait sauté), « la gestion RH et manager » reformulé, accord « La direction demande » ; les messages de changement de
+  profil tutoient, comme le reste de la démo.
+- **Sans JavaScript** : `demo.html` affiche un message au lieu de « Chargement… ».
+
 ## Tests
 
 Les tests sont dans `tests/` et se lancent avec Node et Playwright : `node tests/parcours.js` (chaque profil ouvre l'accueil,
